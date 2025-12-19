@@ -1,7 +1,7 @@
 #!/bin/bash
 # Constitutional Compliance Checker for SDD Framework
 # Validates adherence to Constitutional Principles
-# Authority: Constitution v1.5.0
+# Authority: Constitution v1.6.0
 
 # Don't exit on error - we want to run all checks
 set +e
@@ -21,7 +21,7 @@ echo -e "${BLUE}  Constitutional Compliance Check${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 echo "Repository: $REPO_ROOT"
-echo "Constitution: v1.5.0"
+echo "Constitution: v1.6.0"
 echo ""
 
 PASS_COUNT=0
@@ -49,7 +49,7 @@ record_warn() {
 # Principle I: Library-First Architecture
 # ============================================
 #
-echo -e "${BLUE}[1/14] Principle I: Library-First Architecture${NC}"
+echo -e "${BLUE}[1/15] Principle I: Library-First Architecture${NC}"
 echo "Checking for library structure..."
 
 # Check if project has a libs or packages directory
@@ -67,7 +67,7 @@ echo ""
 # Principle II: Test-First Development
 # ============================================
 #
-echo -e "${BLUE}[2/14] Principle II: Test-First Development (TDD)${NC}"
+echo -e "${BLUE}[2/15] Principle II: Test-First Development (TDD)${NC}"
 echo "Checking for test infrastructure..."
 
 # Check for test directories or files
@@ -95,7 +95,7 @@ echo ""
 # Principle III: Contract-First Design
 # ============================================
 #
-echo -e "${BLUE}[3/14] Principle III: Contract-First Design${NC}"
+echo -e "${BLUE}[3/15] Principle III: Contract-First Design${NC}"
 echo "Checking for contract definitions..."
 
 # Check for contracts directory in specs
@@ -125,7 +125,7 @@ echo ""
 # Principle IV: Idempotent Operations
 # ============================================
 #
-echo -e "${BLUE}[4/14] Principle IV: Idempotent Operations${NC}"
+echo -e "${BLUE}[4/15] Principle IV: Idempotent Operations${NC}"
 echo "Checking scripts for idempotency patterns..."
 
 # Check if scripts handle "already exists" scenarios
@@ -154,7 +154,7 @@ echo ""
 # Principle V: Progressive Enhancement
 # ============================================
 #
-echo -e "${BLUE}[5/14] Principle V: Progressive Enhancement${NC}"
+echo -e "${BLUE}[5/15] Principle V: Progressive Enhancement${NC}"
 echo "Checking for feature flags or gradual rollout..."
 
 # Look for feature flag patterns
@@ -177,7 +177,7 @@ echo ""
 # Principle VI: Git Operation Approval
 # ============================================
 #
-echo -e "${BLUE}[6/14] Principle VI: Git Operation Approval (CRITICAL)${NC}"
+echo -e "${BLUE}[6/15] Principle VI: Git Operation Approval (CRITICAL)${NC}"
 echo "Checking for git approval mechanisms..."
 
 # Check if scripts have git approval
@@ -212,7 +212,7 @@ echo ""
 # Principle VII: Observability & Logging
 # ============================================
 #
-echo -e "${BLUE}[7/14] Principle VII: Observability & Structured Logging${NC}"
+echo -e "${BLUE}[7/15] Principle VII: Observability & Structured Logging${NC}"
 echo "Checking for logging infrastructure..."
 
 # Check for logging patterns
@@ -235,7 +235,7 @@ echo ""
 # Principle VIII: Documentation Synchronization
 # ============================================
 #
-echo -e "${BLUE}[8/14] Principle VIII: Documentation Synchronization${NC}"
+echo -e "${BLUE}[8/15] Principle VIII: Documentation Synchronization${NC}"
 echo "Checking documentation structure..."
 
 # Check for key documentation files
@@ -259,7 +259,7 @@ echo ""
 # Principle IX: Dependency Management
 # ============================================
 #
-echo -e "${BLUE}[9/14] Principle IX: Dependency Management${NC}"
+echo -e "${BLUE}[9/15] Principle IX: Dependency Management${NC}"
 echo "Checking for dependency declarations..."
 
 # Check for package/dependency files
@@ -282,7 +282,7 @@ echo ""
 # Principle X: Agent Delegation Protocol
 # ============================================
 #
-echo -e "${BLUE}[10/14] Principle X: Agent Delegation Protocol (CRITICAL)${NC}"
+echo -e "${BLUE}[10/15] Principle X: Agent Delegation Protocol (CRITICAL)${NC}"
 echo "Checking for agent infrastructure..."
 
 # Check for agent context files
@@ -317,7 +317,7 @@ echo ""
 # Principle XI: Input Validation & Output Sanitization
 # ============================================
 #
-echo -e "${BLUE}[11/14] Principle XI: Input Validation & Output Sanitization${NC}"
+echo -e "${BLUE}[11/15] Principle XI: Input Validation & Output Sanitization${NC}"
 echo "Checking for validation patterns..."
 
 # Check for validation patterns in code
@@ -354,7 +354,7 @@ echo ""
 # Principle XII: Design System Compliance
 # ============================================
 #
-echo -e "${BLUE}[12/14] Principle XII: Design System Compliance${NC}"
+echo -e "${BLUE}[12/15] Principle XII: Design System Compliance${NC}"
 echo "Checking for design system..."
 
 # Check for design system files
@@ -377,7 +377,7 @@ echo ""
 # Principle XIII: Feature Access Control
 # ============================================
 #
-echo -e "${BLUE}[13/14] Principle XIII: Feature Access Control${NC}"
+echo -e "${BLUE}[13/15] Principle XIII: Feature Access Control${NC}"
 echo "Checking for access control patterns..."
 
 # Check for access control patterns
@@ -400,7 +400,7 @@ echo ""
 # Principle XIV: AI Model Selection Protocol
 # ============================================
 #
-echo -e "${BLUE}[14/14] Principle XIV: AI Model Selection Protocol${NC}"
+echo -e "${BLUE}[14/15] Principle XIV: AI Model Selection Protocol${NC}"
 echo "Checking for AI model configuration..."
 
 # Check for model selection documentation or configuration
@@ -420,6 +420,57 @@ echo ""
 
 #
 # ============================================
+# Principle XV: File and Folder Organization
+# ============================================
+#
+echo -e "${BLUE}[15/15] Principle XV: File and Folder Organization${NC}"
+echo "Checking for proper file organization..."
+
+# Check spec directory naming convention (###-feature-name)
+SPEC_NAMING=true
+if [ -d "$REPO_ROOT/specs" ]; then
+    for spec_dir in "$REPO_ROOT/specs"/*; do
+        [ -d "$spec_dir" ] || continue
+        dirname=$(basename "$spec_dir")
+        if [[ ! "$dirname" =~ ^[0-9]{3}-[a-z0-9-]+$ ]]; then
+            SPEC_NAMING=false
+            record_warn "Spec directory '$dirname' doesn't follow ###-feature-name convention"
+        fi
+    done
+fi
+
+# Check agent files in department subdirectories
+AGENT_ORG=true
+if [ -d "$REPO_ROOT/.claude/agents" ]; then
+    # Check if agents are organized in subdirectories
+    if find "$REPO_ROOT/.claude/agents" -maxdepth 1 -name "*.md" -type f 2>/dev/null | grep -q .; then
+        AGENT_ORG=false
+        record_warn "Agent files should be in department subdirectories, not in .claude/agents/ root"
+    fi
+fi
+
+# Check skills in category/skill-name structure
+SKILL_ORG=true
+if [ -d "$REPO_ROOT/.claude/skills" ]; then
+    # Check if skills follow category/skill-name structure
+    if find "$REPO_ROOT/.claude/skills" -maxdepth 1 -name "*.md" -type f 2>/dev/null | grep -q .; then
+        SKILL_ORG=false
+        record_warn "Skill files should be in category/skill-name/ structure, not in .claude/skills/ root"
+    fi
+fi
+
+# Overall file organization check
+if [ "$SPEC_NAMING" = true ] && [ "$AGENT_ORG" = true ] && [ "$SKILL_ORG" = true ]; then
+    echo -e "   ${GREEN}✅ PASS${NC}: File organization follows conventions"
+    ((PASS_COUNT++))
+else
+    echo -e "   ${YELLOW}⚠${NC}  WARNING: Some file organization issues found"
+    # Already recorded specific warnings above
+fi
+echo ""
+
+#
+# ============================================
 # Results Summary
 # ============================================
 #
@@ -427,8 +478,8 @@ echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}  Compliance Results${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
-echo -e "${GREEN}✅ Passed:${NC} $PASS_COUNT/14"
-echo -e "${RED}❌ Failed:${NC} $FAIL_COUNT/14"
+echo -e "${GREEN}✅ Passed:${NC} $PASS_COUNT/15"
+echo -e "${RED}❌ Failed:${NC} $FAIL_COUNT/15"
 echo -e "${YELLOW}⚠  Warnings:${NC} $WARN_COUNT"
 echo ""
 
