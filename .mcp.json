@@ -3,6 +3,18 @@
     "docker": {
       "command": "docker",
       "args": ["mcp", "gateway", "run"]
+    },
+    "browsermcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["browsermcp@latest"],
+      "description": "Browser automation via Browser MCP extension"
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["chrome-devtools-mcp@latest"],
+      "description": "Chrome DevTools debugging via MCP"
     }
   }
 }
