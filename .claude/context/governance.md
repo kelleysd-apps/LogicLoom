@@ -1,0 +1,524 @@
+# Governance Context Module
+<!-- Auto-generated from CLAUDE.md - Sprint 3 Task T024 -->
+<!-- Module: Constitutional principles, git operations, compliance, dangerous commands -->
+
+## Constitutional Foundation
+
+**The constitution at `.specify/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
+
+The constitution (v1.5.0) contains **14 enforceable principles**:
+- **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
+- **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
+- **5 Workflow & Delegation Principles** (X-XIV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection
+
+The constitution governs:
+- Core development principles and rules
+- Workflow requirements and gates
+- Quality standards and constraints
+- All architectural decisions
+- Agent delegation protocol
+
+---
+
+## Critical Principles (Memorize These)
+
+| Principle | Name | Key Rule |
+|-----------|------|----------|
+| **II** | Test-First | Write tests BEFORE implementation |
+| **VI** | Git Approval | NEVER auto-commit, ALWAYS ask user |
+| **X** | Agent Delegation | Specialized work → specialized agents |
+
+---
+
+## All 14 Constitutional Principles
+
+### I. Library-First Architecture
+
+**Rule**: Every feature must begin as a standalone library
+
+**Rationale**: Ensures modularity, testability, and reusability
+
+**Enforcement**:
+- All features implemented as libraries in `src/lib/` or `lib/`
+- Libraries must be framework-agnostic when possible
+- Integration code in separate adapters/wrappers
+
+**Exceptions**: None (immutable principle)
+
+**Validation**: Check feature structure in plan.md and implementation
+
+---
+
+### II. Test-First Development (TDD)
+
+**Rule**: Write tests → Get approval → Tests fail → Implement → Refactor
+
+**Rationale**: Ensures quality, prevents regressions, validates requirements
+
+**Workflow**:
+1. Write tests based on contracts and acceptance criteria
+2. Get user approval for test strategy
+3. Verify tests fail (red)
+4. Implement feature to pass tests (green)
+5. Refactor for quality (refactor)
+
+**Quality Gates**:
+- Test coverage ≥80% (from refinement.conf)
+- All tests pass before merge
+- Contract tests for all API endpoints
+- Integration tests for user stories
+
+**Enforcement**: `/finalize` command validates test coverage
+
+**Exceptions**: Must be documented with justification
+
+---
+
+### III. Contract-First Design
+
+**Rule**: Define contracts before implementation
+
+**Rationale**: Establishes clear interfaces, enables parallel development, supports API versioning
+
+**Workflow**:
+1. Design API contracts in `contracts/` (OpenAPI/GraphQL schemas)
+2. Generate contract tests from schemas
+3. Implement to satisfy contracts
+4. Validate with contract tests
+
+**Enforcement**: `/plan` command generates contracts before tasks
+
+**Exceptions**: Internal-only functions (must be documented)
+
+---
+
+### IV. Idempotent Operations
+
+**Rule**: All operations must be safely repeatable
+
+**Rationale**: Enables retries, reduces failure impact, supports automation
+
+**Requirements**:
+- Database migrations can run multiple times safely
+- API endpoints handle duplicate requests
+- Scripts check state before modifying
+- File operations verify before overwriting
+
+**Example**:
+```bash
+# Good: Checks before creating
+if [ ! -d "$DIR" ]; then
+  mkdir -p "$DIR"
+fi
+
+# Bad: Fails if already exists
+mkdir "$DIR"
+```
+
+**Enforcement**: Code review, integration testing
+
+---
+
+### V. Progressive Enhancement
+
+**Rule**: Start simple, add complexity only when proven necessary
+
+**Rationale**: Prevents over-engineering, maintains velocity, reduces technical debt
+
+**Requirements**:
+- Start with simplest solution
+- Document justification for added complexity
+- Prefer established patterns over novel solutions
+- Refactor when complexity proven necessary
+
+**Enforcement**: Code review, architecture review
+
+---
+
+### VI. Git Operation Approval (CRITICAL)
+
+**Rule**: NEVER automatic Git operations without user approval
+
+**Scope**: All git commands including:
+- Branch creation, switching, or deletion
+- Commits and commit messages
+- Pushes, pulls, and merges
+- Any modifications to Git history (rebase, reset, amend)
+
+**Workflow**:
+1. Always ask the user for explicit approval first
+2. For branch creation, ask how they want it formatted/named
+3. Never assume permission for Git operations
+4. SDD functions and scripts must not perform Git operations autonomously
+
+**DS-STAR Enhancement**: The `/finalize` command validates compliance but NEVER executes git commands. It provides a report and suggests commands for manual execution.
+
+**Script Compliance**: All bash scripts use `request_git_approval()` function from `common.sh`
+
+**Violations**: Immediate stop, violation acknowledgment, correction required
+
+**Enforcement**: Pre-command hook at `.claude/hooks/guard-dangerous-commands.sh`
+
+---
+
+### VII. Observability
+
+**Rule**: Structured logging and metrics required for all operations
+
+**Rationale**: Enables debugging, monitoring, performance optimization
+
+**Requirements**:
+- Structured logging (JSON format preferred)
+- Log levels: DEBUG, INFO, WARN, ERROR
+- Request tracing for API calls
+- Performance metrics collection
+- Error tracking and alerting
+
+**Enforcement**: Code review, logging validation
+
+---
+
+### VIII. Documentation Synchronization
+
+**Rule**: Documentation must stay synchronized with code
+
+**Rationale**: Prevents documentation drift, maintains knowledge accuracy
+
+**Requirements**:
+- Update CLAUDE.md when adding commands/workflows
+- Update README.md when changing setup/deployment
+- Update specs/ when requirements change
+- Update API docs when contracts change
+- Update agent context when capabilities change
+
+**Files to Sync**:
+- CLAUDE.md
+- README.md
+- specs/###/spec.md, plan.md, tasks.md
+- API documentation
+- Agent context files
+
+**Enforcement**: `/finalize` command validates documentation sync
+
+**Update Checklist**: `.specify/memory/constitution_update_checklist.md`
+
+---
+
+### IX. Dependency Management
+
+**Rule**: All dependencies explicitly declared and version-pinned
+
+**Rationale**: Ensures reproducibility, prevents version conflicts
+
+**Requirements**:
+- Use package.json (Node.js) or requirements.txt (Python)
+- Pin versions for production dependencies
+- Document reason for each dependency
+- Audit dependencies for security vulnerabilities
+- Remove unused dependencies
+
+**Enforcement**: Dependency audit, code review
+
+---
+
+### X. Agent Delegation Protocol
+
+**Rule**: Specialized work delegated to specialized agents
+
+**Rationale**: Ensures expert execution, maintains quality, enables parallel work
+
+**Workflow** (4-step pre-flight check):
+1. **READ CONSTITUTION** - First action, no exceptions
+2. **ANALYZE TASK DOMAIN** - Identify trigger keywords
+3. **DELEGATION DECISION** - Delegate if specialized work
+4. **EXECUTION** - Execute directly or via specialized agent
+
+**Enforcement**: `message-preflight` skill (mandatory on every message)
+
+**Reference**: `.specify/memory/agent-collaboration-triggers.md`
+
+**Skill**: `.claude/skills/validation/message-preflight/SKILL.md`
+
+---
+
+### XI. Input Validation & Output Sanitization
+
+**Rule**: All inputs validated, outputs sanitized
+
+**Rationale**: Prevents security vulnerabilities, ensures data integrity
+
+**Requirements**:
+- Validate all user inputs (type, format, range, length)
+- Sanitize outputs to prevent XSS
+- Use parameterized queries to prevent SQL injection
+- Validate file uploads (type, size, content)
+- Escape data in templates
+
+**Enforcement**: Security review, automated testing
+
+---
+
+### XII. Design System Compliance
+
+**Rule**: UI components comply with project design system
+
+**Rationale**: Ensures visual consistency, improves UX, reduces design debt
+
+**Requirements**:
+- Use design system components from `docs/design-system/`
+- Follow color palette, typography, spacing guidelines
+- Maintain accessibility standards (WCAG 2.1 AA)
+- Consistent component behavior and interactions
+
+**Reference**: `docs/design-system/design-system.md`
+
+**Enforcement**: Design review, UI testing
+
+---
+
+### XIII. Feature Access Control
+
+**Rule**: Dual-layer enforcement (backend + frontend)
+
+**Rationale**: Security defense-in-depth, prevents unauthorized access
+
+**Requirements**:
+- Backend: Enforce authorization on all API endpoints
+- Frontend: Hide UI elements based on permissions
+- Row-level security (RLS) in database where applicable
+- Role-based access control (RBAC) implementation
+- Session management and token validation
+
+**Enforcement**: Security review, penetration testing
+
+---
+
+### XIV. AI Model Selection
+
+**Rule**: Use Sonnet 4.5 by default, escalate to Opus for safety-critical
+
+**Rationale**: Balances performance, cost, and quality
+
+**Guidelines**:
+- **Sonnet 4.5** (default): General development, refactoring, documentation
+- **Opus 4.5** (escalation): Security-critical code, financial transactions, data integrity
+- **Haiku** (cost-sensitive): Simple transformations, batch processing
+
+**Enforcement**: Agent configuration, model selection documentation
+
+---
+
+## Git Operations (CRITICAL)
+
+### Prohibited Automatic Operations
+
+**NO automatic Git operations without user approval.** This includes:
+- Branch creation, switching, or deletion
+- Commits and commit messages
+- Pushes, pulls, and merges
+- Any modifications to Git history
+
+### Required Approval Workflow
+
+When Git operations are needed:
+1. Always ask the user for explicit approval first
+2. For branch creation, ask how they want it formatted/named
+3. Never assume permission for Git operations
+4. SDD functions and scripts must not perform Git operations autonomously
+
+### Manual Git Command Execution
+
+After `/finalize` validation passes, user manually executes:
+
+```bash
+# Add files to staging
+git add <files>
+
+# Commit with message
+git commit -m "$(cat <<'EOF'
+Feature description here
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+
+# Push to remote
+git push origin <branch-name>
+```
+
+### Git Commit Best Practices
+
+When user requests commit:
+
+1. **Run git commands in parallel** (if independent):
+   ```bash
+   git status    # See untracked files
+   git diff      # See changes
+   git log -5    # See recent commits
+   ```
+
+2. **Analyze changes** and draft commit message:
+   - Summarize nature of changes (feature, fix, refactor, etc.)
+   - Don't commit secrets (.env, credentials)
+   - Use concise 1-2 sentence message focusing on "why"
+
+3. **Execute git commands**:
+   - Add relevant untracked files
+   - Create commit with Co-Authored-By line
+   - Run git status to verify success
+
+4. **If commit fails** (pre-commit hook):
+   - Fix the issue
+   - Create a NEW commit (don't amend unless explicit user request)
+
+### Git Safety Protocol
+
+- **NEVER** update git config
+- **NEVER** run destructive commands (push --force, hard reset) unless explicitly requested
+- **NEVER** skip hooks (--no-verify, --no-gpg-sign) unless explicitly requested
+- **NEVER** force push to main/master (warn user if requested)
+- **Avoid** git commit --amend (only use if ALL conditions met):
+  1. User explicitly requested amend, OR commit succeeded but hook auto-modified files
+  2. HEAD commit created by you in this conversation
+  3. Commit has NOT been pushed to remote
+- **If commit failed/rejected**: NEVER amend, fix and create NEW commit
+
+### HEREDOC Format for Commits
+
+Always use HEREDOC for commit messages to ensure good formatting:
+
+```bash
+git commit -m "$(cat <<'EOF'
+Commit message here.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+## Dangerous Commands (CRITICAL)
+
+### Forbidden Commands (Kills VS Code Remote)
+
+**NEVER run commands that kill all Node.js processes.** This will crash VS Code Remote:
+
+| FORBIDDEN | WHY |
+|-----------|-----|
+| `pkill -f "node"` | Kills VS Code Server |
+| `pkill node` | Kills VS Code Server |
+| `killall node` | Kills VS Code Server |
+| `kill -9 $(pgrep node)` | Kills VS Code Server |
+
+### Safe Alternatives
+
+```bash
+# Kill by specific port (e.g., Vite on 5173)
+lsof -ti:5173 | xargs kill -9 2>/dev/null || true
+
+# Kill specific process by name
+pkill -f "vite" 2>/dev/null || true
+
+# Kill by exact process pattern
+pkill -f "npm run dev" 2>/dev/null || true
+```
+
+### Enforcement
+
+Pre-command hook at `.claude/hooks/guard-dangerous-commands.sh` blocks dangerous commands with guidance on safe alternatives.
+
+---
+
+## Compliance Validation
+
+### Automated Compliance Check
+
+Run before commits and releases:
+
+```bash
+./.specify/scripts/bash/constitutional-check.sh
+```
+
+Validates:
+- All 14 constitutional principles
+- Documentation synchronization
+- Test coverage
+- Code style compliance
+- No secrets in code
+- Dependency declarations
+
+### Manual Validation
+
+Use `/finalize` command for comprehensive pre-commit validation:
+
+```bash
+# Run finalize command
+./.specify/scripts/bash/finalize-feature.sh
+
+# Review compliance report
+# If all checks pass, manually execute suggested git commands
+```
+
+### Constitutional Update Process
+
+When updating the constitution:
+
+**MUST follow** `.specify/memory/constitution_update_checklist.md`
+
+Ensures all dependent documents updated:
+- CLAUDE.md
+- Agent context files
+- Skill documentation
+- Workflow scripts
+- Validation scripts
+
+---
+
+## Compliance Summary Format
+
+After completing pre-flight check, provide:
+
+```
+Constitutional Compliance Check:
+- Domain(s): [none | single: <domain> | multi: <domains>]
+- Delegation: [direct execution | <agent-name>]
+- Git operations: [none planned | will request approval]
+- Proceeding with: [action description]
+```
+
+---
+
+## Violation Self-Correction
+
+If constitutional violation occurs:
+
+1. **STOP** immediately
+2. **ACKNOWLEDGE** the violation explicitly
+3. **CORRECT** by running protocol now
+4. **PROCEED** only after correction
+
+---
+
+## Governance Loading
+
+Load governance context when needed:
+
+```bash
+# Load governance module
+./.specify/scripts/bash/load-context.sh load governance
+
+# Load based on request analysis
+./.specify/scripts/bash/load-context.sh analyze "commit these changes"
+```
+
+---
+
+**Module Version**: 1.0.0
+**Created**: 2026-01-09 (Sprint 3 Task T024)
+**Constitutional Authority**: All 14 Principles (I-XIV)
+**Source Documents**:
+- `.specify/memory/constitution.md` (v1.5.0)
+- `.specify/memory/constitution_update_checklist.md`
+- CLAUDE.md "Constitutional Foundation" and "Git Operations" sections
+- `.specify/scripts/bash/common.sh` (git approval functions)

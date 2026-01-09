@@ -1,0 +1,127 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-01-09T19:04:30Z",
+  "skills": [
+  {
+    "name": "governance-preflight",
+    "description": "Constitutional compliance and governance enforcement",
+    "triggers": "",
+    "category": "governance",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/governance/governance-preflight/SKILL.md"
+  }
+,
+  {
+    "name": "framework-updater",
+    "description": "|",
+    "triggers": "",
+    "category": "integration",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/integration/framework-updater/SKILL.md"
+  }
+,
+  {
+    "name": "mcp-server-setup",
+    "description": "|",
+    "triggers": "",
+    "category": "integration",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/integration/mcp-server-setup/SKILL.md"
+  }
+,
+  {
+    "name": "project-initialization",
+    "description": "|",
+    "triggers": "",
+    "category": "skills",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/project-initialization/SKILL.md"
+  }
+,
+  {
+    "name": "planning-agent",
+    "description": "|",
+    "triggers": "",
+    "category": "sdd-workflow",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/sdd-workflow/planning-agent/SKILL.md"
+  }
+,
+  {
+    "name": "sdd-planning",
+    "description": "|",
+    "triggers": "",
+    "category": "sdd-workflow",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/sdd-workflow/sdd-planning/SKILL.md"
+  }
+,
+  {
+    "name": "sdd-specification",
+    "description": "|",
+    "triggers": "",
+    "category": "sdd-workflow",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/sdd-workflow/sdd-specification/SKILL.md"
+  }
+,
+  {
+    "name": "sdd-tasks",
+    "description": "|",
+    "triggers": "",
+    "category": "sdd-workflow",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/sdd-workflow/sdd-tasks/SKILL.md"
+  }
+,
+  {
+    "name": "constitutional-compliance",
+    "description": "|",
+    "triggers": "",
+    "category": "validation",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/validation/constitutional-compliance/SKILL.md"
+  }
+,
+  {
+    "name": "domain-detection",
+    "description": "|",
+    "triggers": "",
+    "category": "validation",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/validation/domain-detection/SKILL.md"
+  }
+,
+  {
+    "name": "file-organization",
+    "description": "|",
+    "triggers": "",
+    "category": "validation",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/validation/file-organization/SKILL.md"
+  }
+,
+  {
+    "name": "message-preflight",
+    "description": "|",
+    "triggers": "",
+    "category": "validation",
+    "version": "1.0.0",
+    "requires_approval": false,
+    "path": ".claude/skills/validation/message-preflight/SKILL.md"
+  }
+
+  ],
+  "total": 12
+}
