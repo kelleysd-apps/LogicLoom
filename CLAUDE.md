@@ -152,6 +152,7 @@ This is a specification-driven development framework that uses structured templa
 | `/specify` | Create feature specification (Phase 1) | specification-agent |
 | `/plan` | Generate implementation plan (Phase 2) | planning-agent |
 | `/tasks` | Generate task list (Phase 3) | tasks-agent |
+| `/debug` | Debug deployment/runtime issues (10-step workflow) | - |
 | `/finalize` | Pre-commit compliance validation | - |
 | `/create-agent` | Create specialized subagent | subagent-architect |
 
@@ -422,7 +423,7 @@ For comprehensive documentation, load the appropriate context modules:
 
 ---
 
-**Framework**: sdd-agentic-framework v3.1.0
+**Framework**: sdd-agentic-framework v3.1.1
 **Constitution**: v1.6.0 (15 Principles)
 **Context System**: Modular (v2.0)
-**Last Updated**: 2026-01-09
+**Last Updated**: 2026-01-10
