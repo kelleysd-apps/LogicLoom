@@ -1,0 +1,269 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-01-13T00:00:00Z",
+  "domain_agents": [
+    {
+      "name": "implementation-specialist",
+      "path": "agents/consolidated/implementation-specialist.md",
+      "department": "engineering",
+      "purpose": "Build UI components and full-stack integrations",
+      "skill-portfolio": [
+        "domain/frontend-operations",
+        "domain/backend-operations",
+        "orchestration/full-stack-feature"
+      ],
+      "merged-from": [
+        "frontend-specialist",
+        "full-stack-developer"
+      ],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "operations-specialist",
+      "path": "agents/consolidated/operations-specialist.md",
+      "department": "operations",
+      "purpose": "Manage runtime infrastructure and performance optimization",
+      "skill-portfolio": [
+        "domain/devops-operations",
+        "domain/performance-operations",
+        "domain/monitoring"
+      ],
+      "merged-from": [
+        "devops-engineer",
+        "performance-engineer"
+      ],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "specification-orchestrator",
+      "path": "agents/consolidated/specification-orchestrator.md",
+      "department": "product",
+      "purpose": "Orchestrate product workflow from PRD through tasks",
+      "skill-portfolio": [
+        "sdd-workflow/sdd-specification",
+        "sdd-workflow/sdd-planning",
+        "sdd-workflow/sdd-tasks",
+        "creation/prd-creation"
+      ],
+      "merged-from": [
+        "specification-agent",
+        "planning-agent",
+        "tasks-agent",
+        "prd-specialist"
+      ],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "quality-specialist",
+      "path": "agents/consolidated/quality-specialist.md",
+      "department": "quality",
+      "purpose": "Ensure quality through testing and security review",
+      "skill-portfolio": [
+        "domain/testing-operations",
+        "domain/security-operations",
+        "validation/qa-validation"
+      ],
+      "merged-from": [
+        "testing-specialist",
+        "security-specialist"
+      ],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "backend-architect",
+      "path": "agents/consolidated/backend-architect.md",
+      "department": "architecture",
+      "purpose": "Design APIs and backend services",
+      "skill-portfolio": [
+        "domain/api-design",
+        "domain/service-architecture"
+      ],
+      "merged-from": [],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "system-architect",
+      "path": "agents/consolidated/system-architect.md",
+      "department": "architecture",
+      "purpose": "Design system architecture and agent structures",
+      "skill-portfolio": [
+        "creation/create-agent",
+        "domain/system-design"
+      ],
+      "merged-from": [
+        "subagent-architect"
+      ],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "database-specialist",
+      "path": "agents/consolidated/database-specialist.md",
+      "department": "data",
+      "purpose": "Manage database schemas, queries, and data operations",
+      "skill-portfolio": [
+        "domain/database-operations",
+        "domain/schema-design"
+      ],
+      "merged-from": [],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    },
+    {
+      "name": "workflow-coordinator",
+      "path": "agents/consolidated/workflow-coordinator.md",
+      "department": "product",
+      "purpose": "Coordinate multi-skill workflows and migrations",
+      "skill-portfolio": [
+        "orchestration/multi-skill-workflow",
+        "orchestration/migration-workflow"
+      ],
+      "merged-from": [
+        "task-orchestrator"
+      ],
+      "rl_performance": {
+        "invocation_count": 0,
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "skill_success_rates": {}
+      }
+    }
+  ],
+  "ds_star_agents": [
+    {
+      "name": "router-agent",
+      "path": "agents/ds-star/router-agent.md",
+      "department": "architecture",
+      "ds-star-role": "router",
+      "purpose": "Domain analysis and RL-enhanced skill routing",
+      "performance-targets": {
+        "task_completion_accuracy": 3.5,
+        "routing_latency_ms": 100
+      }
+    },
+    {
+      "name": "verifier-agent",
+      "path": "agents/ds-star/verifier-agent.md",
+      "department": "quality",
+      "ds-star-role": "verifier",
+      "purpose": "Binary quality gates and output validation",
+      "performance-targets": {
+        "decision_accuracy": 0.95,
+        "false_positive_rate": 0.05
+      }
+    },
+    {
+      "name": "auto-debug-agent",
+      "path": "agents/ds-star/auto-debug-agent.md",
+      "department": "engineering",
+      "ds-star-role": "debug",
+      "purpose": "Self-healing error resolution",
+      "performance-targets": {
+        "auto_fix_rate": 0.70,
+        "resolution_time_ms": 30000
+      }
+    },
+    {
+      "name": "finalizer-agent",
+      "path": "agents/ds-star/finalizer-agent.md",
+      "department": "quality",
+      "ds-star-role": "finalizer",
+      "purpose": "Pre-commit compliance and skills-first validation",
+      "performance-targets": {
+        "false_pass_rate": 0.0,
+        "validation_latency_ms": 500
+      }
+    },
+    {
+      "name": "context-analyzer",
+      "path": "agents/ds-star/context-analyzer.md",
+      "department": "architecture",
+      "ds-star-role": "context",
+      "purpose": "Codebase context provider for skills",
+      "performance-targets": {
+        "retrieval_latency_ms": 2000,
+        "relevance_score": 0.90
+      }
+    }
+  ],
+  "consolidation_map": {
+    "implementation-specialist": [
+      "frontend-specialist",
+      "full-stack-developer"
+    ],
+    "operations-specialist": [
+      "devops-engineer",
+      "performance-engineer"
+    ],
+    "specification-orchestrator": [
+      "specification-agent",
+      "planning-agent",
+      "tasks-agent",
+      "prd-specialist"
+    ],
+    "quality-specialist": [
+      "testing-specialist",
+      "security-specialist"
+    ],
+    "backend-architect": [
+      "backend-architect"
+    ],
+    "system-architect": [
+      "subagent-architect"
+    ],
+    "database-specialist": [
+      "database-specialist"
+    ],
+    "workflow-coordinator": [
+      "task-orchestrator"
+    ]
+  },
+  "statistics": {
+    "total_domain_agents": 8,
+    "total_ds_star_agents": 5,
+    "total_agents": 13,
+    "consolidation_ratio": 0.53,
+    "original_agent_count": 15,
+    "agents_by_department": {
+      "architecture": 3,
+      "data": 1,
+      "engineering": 2,
+      "operations": 1,
+      "product": 2,
+      "quality": 2
+    }
+  }
+}

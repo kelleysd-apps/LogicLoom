@@ -1,0 +1,404 @@
+# Skill Invocation Contract v2 (with RL Performance)
+# Version: 2.0.0
+# Purpose: Defines how skills invoke agents with minimal context and RL tracking
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "skill-invocation-contract-v2"
+title: "Skill Invocation Contract Schema v2"
+description: "Defines the contract between skills and consolidated agents with RL performance tracking"
+
+type: object
+required:
+  - skill-id
+  - agent-id
+  - context
+  - expected-output
+
+properties:
+  skill-id:
+    type: string
+    pattern: "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"
+    description: "Invoking skill path (category/skill-name)"
+    examples:
+      - "sdd-workflow/sdd-planning"
+      - "domain/database-operations"
+
+  agent-id:
+    type: string
+    pattern: "^[a-z][a-z0-9-]*$"
+    description: "Invoked agent name (consolidated agent)"
+    examples:
+      - "database-specialist"
+      - "implementation-specialist"
+      - "specification-orchestrator"
+
+  context:
+    $ref: "#/definitions/InvocationContext"
+    description: "Context passed to agent"
+
+  expected-output:
+    $ref: "#/definitions/OutputExpectation"
+    description: "Expected result format and structure"
+
+  options:
+    $ref: "#/definitions/InvocationOptions"
+    description: "Invocation options (timeout, retry, etc.)"
+
+  # NEW in v2: RL Performance Tracking
+  rl_performance:
+    $ref: "#/definitions/InvocationRLMetrics"
+    description: "Per-invocation RL performance metrics"
+
+definitions:
+  InvocationContext:
+    type: object
+    required:
+      - task-description
+      - context-data
+    properties:
+      task-description:
+        type: string
+        minLength: 20
+        maxLength: 500
+        description: "Clear description of what agent should do"
+
+      context-data:
+        type: object
+        additionalProperties: true
+        description: "Key-value pairs of context subset (minimal required)"
+        examples:
+          - data-model: "User entity with email, name, created_at"
+            constraints: "email must be unique, case-insensitive"
+            schema-requirements: "PostgreSQL with RLS"
+
+      constraints:
+        type: array
+        items:
+          type: string
+        description: "Specific constraints for this invocation"
+
+      references:
+        type: array
+        items:
+          type: string
+        description: "File paths to reference during execution"
+
+      prior-results:
+        type: object
+        additionalProperties: true
+        description: "Results from previous agent invocations in workflow"
+
+  OutputExpectation:
+    type: object
+    required:
+      - format
+    properties:
+      format:
+        type: string
+        enum:
+          - markdown
+          - json
+          - yaml
+          - sql
+          - typescript
+          - python
+          - bash
+          - text
+        description: "Expected output format"
+
+      sections:
+        type: array
+        items:
+          type: string
+        description: "Required sections in output (for markdown)"
+        examples:
+          - ["schema", "relationships", "indexes"]
+          - ["endpoints", "request-schemas", "response-schemas"]
+
+      schema:
+        type: object
+        additionalProperties: true
+        description: "JSON schema for structured output (for json/yaml)"
+
+      files:
+        type: array
+        items:
+          type: object
+          properties:
+            path:
+              type: string
+            content-type:
+              type: string
+        description: "Expected output files"
+
+  InvocationOptions:
+    type: object
+    properties:
+      timeout:
+        type: string
+        pattern: "^\\d+[smh]$"
+        default: "5m"
+        description: "Maximum execution time"
+
+      retry:
+        type: object
+        properties:
+          max-attempts:
+            type: integer
+            minimum: 1
+            maximum: 5
+            default: 1
+          delay:
+            type: string
+            pattern: "^\\d+[smh]$"
+            default: "10s"
+          on-failure:
+            type: string
+            enum:
+              - retry
+              - fallback
+              - fail
+              - debug
+            default: "fail"
+
+      fallback-agent:
+        type: string
+        description: "Alternative agent if primary fails"
+
+      ds-star-integration:
+        type: object
+        description: "DS-STAR agent integration options"
+        properties:
+          verifier-enabled:
+            type: boolean
+            default: true
+            description: "Enable Verifier Agent validation"
+          debug-on-error:
+            type: boolean
+            default: true
+            description: "Invoke Auto-Debug Agent on errors"
+          context-analyzer:
+            type: boolean
+            default: false
+            description: "Request codebase context from Context Analyzer"
+
+      logging:
+        type: object
+        properties:
+          level:
+            type: string
+            enum:
+              - debug
+              - info
+              - warn
+              - error
+            default: "info"
+          include-context:
+            type: boolean
+            default: false
+          include-output:
+            type: boolean
+            default: true
+
+  # NEW in v2: RL Performance Tracking
+  InvocationRLMetrics:
+    type: object
+    properties:
+      invocation_count:
+        type: integer
+        minimum: 0
+        default: 0
+        description: "Times this specific contract executed"
+
+      success_rate:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        default: 0.5
+        description: "Success rate for this skill-agent pair"
+
+      avg_tokens:
+        type: integer
+        minimum: 0
+        default: 0
+        description: "Average tokens for this contract"
+
+      avg_duration_ms:
+        type: integer
+        minimum: 0
+        default: 0
+        description: "Average duration for this contract"
+
+      last_invocation:
+        type: string
+        format: "date-time"
+        description: "When last executed"
+
+      last_outcome:
+        type: string
+        enum:
+          - success
+          - failure
+          - partial
+        description: "Outcome of last invocation"
+
+      weight_contribution:
+        type: number
+        description: "How much this contract contributed to skill weight"
+
+# Invocation flow with DS-STAR
+invocation-flow:
+  sequence:
+    - step: 1
+      action: "fr-707-compliance-check"
+      description: "Message-preflight skill validates compliance FIRST"
+
+    - step: 2
+      action: "router-agent-routes"
+      description: "Router Agent routes to skill (not agent) using RL"
+
+    - step: 3
+      action: "skill-prepares-context"
+      description: "Skill extracts minimal context subset"
+
+    - step: 4
+      action: "context-analyzer-optional"
+      description: "Context Analyzer provides codebase context if needed"
+
+    - step: 5
+      action: "validate-context"
+      description: "Verify context matches agent's required-context"
+
+    - step: 6
+      action: "invoke-agent"
+      description: "Pass task-description and context-data to consolidated agent"
+
+    - step: 7
+      action: "agent-executes"
+      description: "Agent performs task using provided context only"
+
+    - step: 8
+      action: "verifier-validates"
+      description: "Verifier Agent makes binary quality decision"
+
+    - step: 9
+      action: "refinement-if-insufficient"
+      description: "Refinement loop (max 20 rounds) if quality insufficient"
+
+    - step: 10
+      action: "auto-debug-if-error"
+      description: "Auto-Debug Agent handles errors via debug skill"
+
+    - step: 11
+      action: "return-to-skill"
+      description: "Result returns to skill for aggregation"
+
+    - step: 12
+      action: "rl-update"
+      description: "Update skill selection_weight based on outcome"
+
+    - step: 13
+      action: "finalizer-validates"
+      description: "Finalizer Agent validates skills-first pattern"
+
+# Validation rules
+validation-rules:
+  context-coverage:
+    description: "Context must cover agent's required-context fields"
+    error: "Missing required context field: {field}"
+
+  context-minimality:
+    description: "Context should not include unnecessary fields"
+    warning: "Unnecessary context field: {field}"
+    max-context-fields: 10
+
+  output-format-match:
+    description: "Output format must match agent's output-format capability"
+    error: "Agent cannot produce {format} output"
+
+  timeout-bounds:
+    description: "Timeout must be between 30s and 30m"
+    error: "Timeout {value} out of bounds"
+
+  agent-consolidation:
+    description: "Agent must be one of 8 consolidated domain agents"
+    valid-agents:
+      - "implementation-specialist"
+      - "operations-specialist"
+      - "specification-orchestrator"
+      - "quality-specialist"
+      - "backend-architect"
+      - "system-architect"
+      - "database-specialist"
+      - "workflow-coordinator"
+
+# Example invocation v2
+examples:
+  - skill-id: "sdd-workflow/sdd-planning"
+    agent-id: "database-specialist"
+    context:
+      task-description: |
+        Design the database schema for User entity based on the data model.
+        Include table definition, constraints, indexes, and RLS policies.
+      context-data:
+        data-model: |
+          ## User Entity
+          - id: UUID (primary key)
+          - email: String (unique, indexed)
+          - name: String (required)
+          - created_at: Timestamp (default now)
+        constraints:
+          - "email must be unique (case-insensitive)"
+          - "name is required, 2-100 characters"
+        schema-requirements:
+          - "PostgreSQL 15+"
+          - "RLS enabled for multi-tenancy"
+          - "Audit columns (created_at, updated_at)"
+      constraints:
+        - "No personal data in logs"
+        - "Use parameterized queries"
+      references:
+        - "specs/002-skills-first-architecture/data-model.md"
+    expected-output:
+      format: "sql"
+      sections:
+        - "table-definition"
+        - "constraints"
+        - "indexes"
+        - "rls-policies"
+    options:
+      timeout: "10m"
+      retry:
+        max-attempts: 2
+        delay: "30s"
+        on-failure: "debug"
+      ds-star-integration:
+        verifier-enabled: true
+        debug-on-error: true
+        context-analyzer: false
+      logging:
+        level: "info"
+        include-output: true
+    rl_performance:
+      invocation_count: 50
+      success_rate: 0.94
+      avg_tokens: 1000
+      avg_duration_ms: 30000
+      last_invocation: "2026-01-13T09:30:00Z"
+      last_outcome: "success"
+      weight_contribution: 0.02
+
+# Migration from v1 to v2
+migration:
+  from-v1:
+    description: "Upgrade from skill-invocation v1 to v2"
+    steps:
+      - "Add rl_performance field for metrics tracking"
+      - "Update agent-id to use consolidated agent name"
+      - "Add ds-star-integration to options"
+      - "Add refinement/debug options"
+      - "Update invocation-flow to include DS-STAR steps"
+
+  agent-mapping:
+    description: "Map old agent names to consolidated"
+    note: "Use agent-definition.yaml consolidation-map for reference"

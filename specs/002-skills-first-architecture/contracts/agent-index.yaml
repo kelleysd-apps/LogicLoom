@@ -1,0 +1,491 @@
+# Agent Index Contract
+# Version: 1.0.0
+# Purpose: Schema for agent-index.json - consolidated agent registry for skills-first architecture
+
+$schema: "http://json-schema.org/draft-07/schema#"
+$id: "agent-index-v1"
+title: "Agent Index Schema"
+description: "Defines the structure of agent-index.json for 8 consolidated domain agents + 5 DS-STAR agents"
+
+type: object
+required:
+  - version
+  - generated
+  - domain_agents
+  - ds_star_agents
+  - consolidation_map
+  - statistics
+
+properties:
+  version:
+    type: string
+    const: "1.0.0"
+    description: "Index schema version"
+
+  generated:
+    type: string
+    format: "date-time"
+    description: "Index generation timestamp (ISO 8601)"
+
+  domain_agents:
+    type: array
+    items:
+      $ref: "#/definitions/AgentEntry"
+    minItems: 8
+    maxItems: 8
+    description: "8 consolidated domain agents"
+
+  ds_star_agents:
+    type: array
+    items:
+      $ref: "#/definitions/DSStarEntry"
+    minItems: 5
+    maxItems: 5
+    description: "5 DS-STAR orchestration agents"
+
+  consolidation_map:
+    type: object
+    additionalProperties:
+      type: array
+      items:
+        type: string
+    description: "New agent -> original agents mapping"
+
+  statistics:
+    $ref: "#/definitions/AgentStatistics"
+    description: "Agent registry statistics"
+
+definitions:
+  AgentEntry:
+    type: object
+    required:
+      - name
+      - path
+      - department
+      - purpose
+      - skill-portfolio
+    properties:
+      name:
+        type: string
+        pattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
+        description: "Agent identifier in kebab-case"
+        examples:
+          - "implementation-specialist"
+          - "operations-specialist"
+          - "specification-orchestrator"
+
+      path:
+        type: string
+        description: "Path to agent.md relative to .claude/"
+        examples:
+          - "agents/engineering/implementation-specialist.md"
+
+      department:
+        type: string
+        enum:
+          - architecture
+          - data
+          - engineering
+          - operations
+          - product
+          - quality
+        description: "Organizational department"
+
+      purpose:
+        type: string
+        minLength: 20
+        maxLength: 256
+        description: "Single sentence describing execution role"
+        examples:
+          - "Build UI components and full-stack integrations"
+          - "Manage runtime infrastructure and performance"
+
+      skill-portfolio:
+        type: array
+        items:
+          type: string
+          pattern: "^[a-z][a-z0-9-]*/[a-z][a-z0-9-]*$"
+        minItems: 1
+        description: "Skills this agent can execute (category/skill-name format)"
+        examples:
+          - ["domain/frontend-operations", "domain/backend-operations", "orchestration/full-stack-feature"]
+
+      merged-from:
+        type: array
+        items:
+          type: string
+        description: "Original agents merged into this (for consolidation tracking)"
+        examples:
+          - ["frontend-specialist", "full-stack-developer"]
+
+      rl_performance:
+        $ref: "#/definitions/AgentRLMetrics"
+        description: "Per-agent RL performance metrics"
+
+  DSStarEntry:
+    type: object
+    required:
+      - name
+      - path
+      - department
+      - ds-star-role
+      - purpose
+      - performance-targets
+    properties:
+      name:
+        type: string
+        pattern: "^[a-z][a-z0-9-]*[a-z0-9]$"
+        description: "DS-STAR agent identifier"
+        examples:
+          - "router-agent"
+          - "verifier-agent"
+          - "auto-debug-agent"
+
+      path:
+        type: string
+        description: "Path to agent.md relative to .claude/"
+        examples:
+          - "ds-star/router-agent.md"
+
+      department:
+        type: string
+        enum:
+          - architecture
+          - engineering
+          - quality
+        description: "Organizational department"
+
+      ds-star-role:
+        type: string
+        enum:
+          - router
+          - verifier
+          - debug
+          - finalizer
+          - context
+        description: "DS-STAR function type"
+
+      purpose:
+        type: string
+        minLength: 20
+        maxLength: 256
+        description: "Orchestration function description"
+
+      invoked-by:
+        type: string
+        enum:
+          - skill
+          - system
+        default: "system"
+        description: "How this agent is triggered"
+
+      invokes:
+        type: string
+        enum:
+          - skills
+          - agents
+          - both
+        default: "skills"
+        description: "What this agent calls"
+
+      performance-targets:
+        type: object
+        additionalProperties:
+          type: number
+        description: "DS-STAR performance requirements (FR-708)"
+        examples:
+          - task_completion_improvement: 3.5
+            accuracy: 0.95
+            auto_fix_rate: 0.70
+            retrieval_latency_sec: 2.0
+
+  AgentRLMetrics:
+    type: object
+    properties:
+      invocation_count:
+        type: integer
+        minimum: 0
+        default: 0
+        description: "Total invocations across all skills"
+
+      success_rate:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        default: 0.5
+        description: "Overall success rate"
+
+      avg_tokens:
+        type: integer
+        minimum: 0
+        default: 0
+        description: "Average tokens per invocation"
+
+      skill_success_rates:
+        type: object
+        additionalProperties:
+          type: number
+        description: "Success rate per invoking skill"
+
+  AgentStatistics:
+    type: object
+    required:
+      - total_domain_agents
+      - total_ds_star_agents
+      - total_agents
+      - consolidation_ratio
+    properties:
+      total_domain_agents:
+        type: integer
+        const: 8
+        description: "Number of consolidated domain agents"
+
+      total_ds_star_agents:
+        type: integer
+        const: 5
+        description: "Number of DS-STAR agents"
+
+      total_agents:
+        type: integer
+        const: 13
+        description: "Total agents (8 domain + 5 DS-STAR)"
+
+      consolidation_ratio:
+        type: number
+        description: "Ratio of new to original (8/15 = 0.53)"
+
+      original_agent_count:
+        type: integer
+        default: 15
+        description: "Original number of domain agents"
+
+      reduction_percentage:
+        type: number
+        description: "Percentage reduction (47%)"
+
+# Example agent index
+examples:
+  - version: "1.0.0"
+    generated: "2026-01-13T10:00:00Z"
+
+    domain_agents:
+      - name: "implementation-specialist"
+        path: "agents/engineering/implementation-specialist.md"
+        department: "engineering"
+        purpose: "Build UI components and full-stack integrations"
+        skill-portfolio:
+          - "domain/frontend-operations"
+          - "domain/backend-operations"
+          - "orchestration/full-stack-feature"
+        merged-from:
+          - "frontend-specialist"
+          - "full-stack-developer"
+        rl_performance:
+          invocation_count: 200
+          success_rate: 0.88
+          avg_tokens: 1500
+
+      - name: "operations-specialist"
+        path: "agents/operations/operations-specialist.md"
+        department: "operations"
+        purpose: "Manage runtime infrastructure and performance optimization"
+        skill-portfolio:
+          - "domain/deployment"
+          - "domain/ci-cd"
+          - "domain/monitoring"
+          - "domain/performance-optimization"
+        merged-from:
+          - "devops-engineer"
+          - "performance-engineer"
+        rl_performance:
+          invocation_count: 100
+          success_rate: 0.92
+          avg_tokens: 1200
+
+      - name: "specification-orchestrator"
+        path: "agents/product/specification-orchestrator.md"
+        department: "product"
+        purpose: "Orchestrate product workflow from PRD through tasks"
+        skill-portfolio:
+          - "sdd-workflow/sdd-specification"
+          - "sdd-workflow/sdd-planning"
+          - "sdd-workflow/sdd-tasks"
+          - "creation/prd-creation"
+        merged-from:
+          - "specification-agent"
+          - "planning-agent"
+          - "tasks-agent"
+          - "prd-specialist"
+        rl_performance:
+          invocation_count: 350
+          success_rate: 0.90
+          avg_tokens: 2000
+
+      - name: "quality-specialist"
+        path: "agents/quality/quality-specialist.md"
+        department: "quality"
+        purpose: "Ensure quality through testing and security review"
+        skill-portfolio:
+          - "domain/test-strategy"
+          - "domain/security-review"
+          - "validation/qa-validation"
+        merged-from:
+          - "testing-specialist"
+          - "security-specialist"
+        rl_performance:
+          invocation_count: 180
+          success_rate: 0.91
+          avg_tokens: 1100
+
+      - name: "backend-architect"
+        path: "agents/architecture/backend-architect.md"
+        department: "architecture"
+        purpose: "Design APIs and backend services"
+        skill-portfolio:
+          - "domain/api-design"
+          - "domain/service-architecture"
+        merged-from: []
+        rl_performance:
+          invocation_count: 120
+          success_rate: 0.93
+          avg_tokens: 1800
+
+      - name: "system-architect"
+        path: "agents/architecture/system-architect.md"
+        department: "architecture"
+        purpose: "Design system architecture and agent structures"
+        skill-portfolio:
+          - "creation/create-agent"
+          - "domain/system-design"
+        merged-from:
+          - "subagent-architect"
+        rl_performance:
+          invocation_count: 80
+          success_rate: 0.89
+          avg_tokens: 2200
+
+      - name: "database-specialist"
+        path: "agents/data/database-specialist.md"
+        department: "data"
+        purpose: "Manage database schemas, queries, and data operations"
+        skill-portfolio:
+          - "domain/database-operations"
+          - "domain/schema-design"
+        merged-from: []
+        rl_performance:
+          invocation_count: 150
+          success_rate: 0.94
+          avg_tokens: 1000
+
+      - name: "workflow-coordinator"
+        path: "agents/product/workflow-coordinator.md"
+        department: "product"
+        purpose: "Coordinate multi-skill workflows and migrations"
+        skill-portfolio:
+          - "orchestration/multi-skill-workflow"
+          - "orchestration/migration-workflow"
+        merged-from:
+          - "task-orchestrator"
+        rl_performance:
+          invocation_count: 60
+          success_rate: 0.85
+          avg_tokens: 2500
+
+    ds_star_agents:
+      - name: "router-agent"
+        path: "ds-star/router-agent.md"
+        department: "architecture"
+        ds-star-role: "router"
+        purpose: "Analyze domains and route to skills using RL-enhanced selection"
+        invoked-by: "system"
+        invokes: "skills"
+        performance-targets:
+          task_completion_improvement: 3.5
+
+      - name: "verifier-agent"
+        path: "ds-star/verifier-agent.md"
+        department: "quality"
+        ds-star-role: "verifier"
+        purpose: "Make binary quality decisions on skill and agent outputs"
+        invoked-by: "system"
+        invokes: "both"
+        performance-targets:
+          accuracy: 0.95
+
+      - name: "auto-debug-agent"
+        path: "ds-star/auto-debug-agent.md"
+        department: "engineering"
+        ds-star-role: "debug"
+        purpose: "Automatically detect and repair execution errors"
+        invoked-by: "skill"
+        invokes: "agents"
+        performance-targets:
+          auto_fix_rate: 0.70
+
+      - name: "finalizer-agent"
+        path: "ds-star/finalizer-agent.md"
+        department: "quality"
+        ds-star-role: "finalizer"
+        purpose: "Validate compliance and skills-first patterns before commits"
+        invoked-by: "system"
+        invokes: "both"
+        performance-targets:
+          false_passes: 0
+
+      - name: "context-analyzer"
+        path: "ds-star/context-analyzer.md"
+        department: "architecture"
+        ds-star-role: "context"
+        purpose: "Provide codebase context and semantic search to skills"
+        invoked-by: "system"
+        invokes: "skills"
+        performance-targets:
+          retrieval_latency_sec: 2.0
+
+    consolidation_map:
+      implementation-specialist:
+        - "frontend-specialist"
+        - "full-stack-developer"
+      operations-specialist:
+        - "devops-engineer"
+        - "performance-engineer"
+      specification-orchestrator:
+        - "specification-agent"
+        - "planning-agent"
+        - "tasks-agent"
+        - "prd-specialist"
+      quality-specialist:
+        - "testing-specialist"
+        - "security-specialist"
+      backend-architect: []
+      system-architect:
+        - "subagent-architect"
+      database-specialist: []
+      workflow-coordinator:
+        - "task-orchestrator"
+
+    statistics:
+      total_domain_agents: 8
+      total_ds_star_agents: 5
+      total_agents: 13
+      consolidation_ratio: 0.53
+      original_agent_count: 15
+      reduction_percentage: 0.47
+
+# Validation rules
+validation:
+  agent-coverage:
+    description: "All original 15 agent capabilities must be covered by 8 consolidated"
+    rule: "Union of all skill-portfolio arrays must cover all original capabilities"
+
+  ds-star-separation:
+    description: "DS-STAR agents must remain separate from domain agents"
+    rule: "No ds_star_agent name may appear in consolidation_map"
+
+  portfolio-validity:
+    description: "All skills in portfolios must exist in skill-index.json"
+    rule: "Cross-reference with skill-index-v3.yaml"
+
+  fr-709-compliance:
+    description: "Exactly 5 DS-STAR agents must be present"
+    rule: "ds_star_agents.length === 5"
