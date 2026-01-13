@@ -1,6 +1,7 @@
 ---
 name: quality-specialist
 version: 2.0.0
+description: Ensure quality through testing strategy, test implementation, and security review
 purpose: Ensure quality through testing strategy, test implementation, and security review
 department: quality
 required-context:

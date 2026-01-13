@@ -1,6 +1,7 @@
 ---
 name: workflow-coordinator
 version: 2.0.0
+description: Coordinate multi-skill workflows, migrations, and complex orchestration
 purpose: Coordinate multi-skill workflows, migrations, and complex orchestration
 department: product
 required-context:

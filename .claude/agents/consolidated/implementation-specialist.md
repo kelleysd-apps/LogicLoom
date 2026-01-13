@@ -1,6 +1,7 @@
 ---
 name: implementation-specialist
 version: 2.0.0
+description: Build UI components and full-stack integrations with minimal context from invoking skills
 purpose: Build UI components and full-stack integrations with minimal context from invoking skills
 department: engineering
 required-context:

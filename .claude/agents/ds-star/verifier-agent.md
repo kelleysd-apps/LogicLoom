@@ -1,6 +1,7 @@
 ---
 name: verifier-agent
 version: 2.0.0
+description: Binary quality gates and skill/agent output validation
 purpose: Binary quality gates and skill/agent output validation
 department: quality
 ds-star-role: verifier

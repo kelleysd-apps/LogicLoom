@@ -1,6 +1,7 @@
 ---
 name: system-architect
 version: 2.0.0
+description: Design system architecture and create specialized agents
 purpose: Design system architecture and create specialized agents
 department: architecture
 required-context:

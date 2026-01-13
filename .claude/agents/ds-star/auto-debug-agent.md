@@ -1,6 +1,7 @@
 ---
 name: auto-debug-agent
 version: 2.0.0
+description: Self-healing error resolution invoked BY debug skill
 purpose: Self-healing error resolution invoked BY debug skill
 department: engineering
 ds-star-role: debug

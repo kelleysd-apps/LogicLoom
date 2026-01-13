@@ -1,6 +1,7 @@
 ---
 name: finalizer-agent
 version: 2.0.0
+description: Pre-commit compliance validation and skills-first pattern enforcement
 purpose: Pre-commit compliance validation and skills-first pattern enforcement
 department: quality
 ds-star-role: finalizer

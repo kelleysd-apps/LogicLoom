@@ -1,6 +1,7 @@
 ---
 name: operations-specialist
 version: 2.0.0
+description: Manage runtime infrastructure, deployment, and performance optimization
 purpose: Manage runtime infrastructure, deployment, and performance optimization
 department: operations
 required-context:

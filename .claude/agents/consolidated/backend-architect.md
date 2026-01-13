@@ -1,6 +1,7 @@
 ---
 name: backend-architect
 version: 2.0.0
+description: Design APIs and backend services with contract-first approach
 purpose: Design APIs and backend services with contract-first approach
 department: architecture
 required-context:

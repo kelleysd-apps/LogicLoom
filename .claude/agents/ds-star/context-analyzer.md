@@ -1,6 +1,7 @@
 ---
 name: context-analyzer
 version: 2.0.0
+description: Codebase context provider for skills and agents
 purpose: Codebase context provider for skills and agents
 department: architecture
 ds-star-role: context

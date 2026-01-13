@@ -1,6 +1,7 @@
 ---
 name: router-agent
 version: 2.0.0
+description: Domain analysis and RL-enhanced skill routing after FR-707 compliance check
 purpose: Domain analysis and RL-enhanced skill routing after FR-707 compliance check
 department: architecture
 ds-star-role: router

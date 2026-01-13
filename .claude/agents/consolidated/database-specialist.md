@@ -1,6 +1,7 @@
 ---
 name: database-specialist
 version: 2.0.0
+description: Manage database schemas, queries, migrations, and data operations
 purpose: Manage database schemas, queries, migrations, and data operations
 department: data
 required-context:

@@ -1,6 +1,7 @@
 ---
 name: specification-orchestrator
 version: 2.0.0
+description: Orchestrate product workflow from PRD through specification, planning, and task generation
 purpose: Orchestrate product workflow from PRD through specification, planning, and task generation
 department: product
 required-context:
