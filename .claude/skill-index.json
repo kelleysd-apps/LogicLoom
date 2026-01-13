@@ -1,7 +1,7 @@
 {
   "version": "3.0.0",
   "generated": "2026-01-13T00:00:00Z",
-  "architecture-mode": "hybrid",
+  "architecture-mode": "skills-first",
   "categories": [
     {
       "name": "sdd-workflow",

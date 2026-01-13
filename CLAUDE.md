@@ -25,10 +25,10 @@ STEP 4: EXECUTION → Proceed via skill → agent pathway
 
 **ALWAYS read [.specify/memory/constitution.md](.specify/memory/constitution.md) BEFORE starting work.**
 
-Constitution v1.6.0 (v2.0.0 draft available):
+Constitution v2.0.0 (ratified 2026-01-13):
 - **3 Immutable**: Library-First, Test-First, Contract-First
 - **6 Quality & Safety**: Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **6 Workflow & Delegation**: Skills-First Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization
+- **6 Workflow & Delegation**: **Skills-First Delegation** (Principle X rewritten), Input Validation, Design System, Access Control, AI Model Selection, File Organization
 
 ---
 
@@ -309,5 +309,6 @@ See [AGENTS.md](AGENTS.md) for complete agent registry including:
 ---
 
 *Framework Version: 3.0.0 (Skills-First Architecture with RL and DS-STAR)*
-*Constitution: v1.6.0 (v2.0.0 draft in .specify/memory/constitution-v2.0.0-draft.md)*
+*Constitution: v2.0.0 (ratified 2026-01-13, Principle X rewritten for skills-first)*
+*Architecture Mode: skills-first (Phase 4 - legacy patterns blocked)*
 *Last Updated: 2026-01-13*
