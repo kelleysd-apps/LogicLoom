@@ -789,7 +789,7 @@
     "learning_rate": 0.1,
     "temperature": 1.0,
     "reward_weights": {
-      "success": 0.5,
+      "success_rate": 0.5,
       "token_efficiency": 0.3,
       "user_satisfaction": 0.2
     },
