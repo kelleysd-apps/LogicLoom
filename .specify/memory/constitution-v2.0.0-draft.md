@@ -1,9 +1,9 @@
-# SDD Framework Constitution v2.0.0
+# SDD Framework Constitution v2.0.0 (DRAFT)
 
-**Status**: RATIFIED
+**Status**: DRAFT - Phase 3 Preparation
 **Feature**: 002-skills-first-architecture
-**Ratified**: 2026-01-13
-**Effective Date**: 2026-01-13
+**Task**: T041-T045
+**Effective Date**: TBD (Phase 4 Ratification)
 
 ---
 

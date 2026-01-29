@@ -1,0 +1,157 @@
+{
+  "version": "1.0.0",
+  "last_updated": "2026-01-13T00:00:00Z",
+  "total_invocations": 0,
+  "skills": {
+    "sdd-workflow/sdd-specification": {
+      "skill_name": "sdd-specification",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "sdd-workflow/sdd-planning": {
+      "skill_name": "sdd-planning",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "sdd-workflow/sdd-tasks": {
+      "skill_name": "sdd-tasks",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "sdd-workflow/sdd-debug": {
+      "skill_name": "sdd-debug",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "validation/message-preflight": {
+      "skill_name": "message-preflight",
+      "current_weight": 1.0,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "validation/domain-detection": {
+      "skill_name": "domain-detection",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "validation/constitutional-compliance": {
+      "skill_name": "constitutional-compliance",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "governance/finalize": {
+      "skill_name": "finalize",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "creation/create-agent": {
+      "skill_name": "create-agent",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "creation/create-skill": {
+      "skill_name": "create-skill",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "project-initialization/prd-creation": {
+      "skill_name": "prd-creation",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    },
+    "integration/mcp-server-setup": {
+      "skill_name": "mcp-server-setup",
+      "current_weight": 0.5,
+      "invocation_count": 0,
+      "success_count": 0,
+      "failure_count": 0,
+      "partial_count": 0,
+      "total_tokens": 0,
+      "total_duration_ms": 0,
+      "learning_history": []
+    }
+  },
+  "global_metrics": {
+    "avg_selection_accuracy": 0.5,
+    "improvement_over_baseline": 0.0,
+    "total_reward": 0.0,
+    "evaluation_window_days": 30
+  },
+  "evaluation_config": {
+    "algorithm": "ema",
+    "learning_rate": 0.1,
+    "reward_weights": {
+      "success": 0.5,
+      "token_efficiency": 0.3,
+      "user_satisfaction": 0.2
+    },
+    "min_weight": 0.1,
+    "max_weight": 1.0,
+    "selection_temperature": 1.0
+  }
+}
