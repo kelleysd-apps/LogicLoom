@@ -1,0 +1,9 @@
+v3.1.2 Release Notes
+
+- Framework-updater skill now includes canonical upstream URL
+- Consumer projects can run: git remote add upstream https://github.com/kelleysd-apps/sdd-agentic-framework.git
+- Enables /update-framework command to properly sync framework updates
+
+Setup for consumer projects:
+  git remote add upstream https://github.com/kelleysd-apps/sdd-agentic-framework.git
+  git fetch upstream
