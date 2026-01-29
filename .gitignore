@@ -47,3 +47,12 @@ coverage/
 # Local development
 .local/
 *.local
+
+# Structured Logging (ignore log files, keep structure)
+.specify/logs/operations/*.log
+.specify/logs/git-checkpoints/*.json
+.specify/logs/parallel-sessions/*
+!.specify/logs/README.md
+
+# Context System Cache
+.claude/context/.cache/*

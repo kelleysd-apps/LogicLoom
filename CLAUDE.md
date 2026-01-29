@@ -1,333 +1,429 @@
 # CLAUDE.md
 
-This file provides essential guidance to Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## MANDATORY: Message Pre-Flight Compliance Check (FR-707)
+---
 
-**EVERY user message MUST trigger the 4-step compliance protocol BEFORE any work begins.**
+## Context System (v2.0 - Token Efficient)
 
-See [.claude/skills/validation/message-preflight/SKILL.md](.claude/skills/validation/message-preflight/SKILL.md) for complete protocol.
+This framework uses **modular context loading** for 37% token efficiency improvement.
 
-### Quick Protocol
+**This file contains**: Essential instructions (always loaded)
+**Additional context**: Load as needed via `.claude/context/` modules
+
+### Available Modules
+
+| Module | Content | When to Load |
+|--------|---------|--------------|
+| **core.md** | Pre-flight protocol, MCP toolkit, constitution reference | Every session (redundant with this file) |
+| **agents.md** | Agent registry, delegation protocol, multi-agent workflows | Multi-agent tasks, delegation |
+| **skills.md** | Skill documentation, slash commands, workflows | Using /specify, /plan, /tasks |
+| **workflows.md** | SDD workflows, feature development lifecycle | Feature work |
+| **governance.md** | Constitutional principles, git operations, compliance | Git operations, quality gates |
+
+### Load Context Modules
+
+```bash
+# Load specific module
+./.specify/scripts/bash/load-context.sh load agents
+
+# Intelligent analysis (auto-loads relevant modules)
+./.specify/scripts/bash/load-context.sh analyze "your task description"
+
+# List available modules
+./.specify/scripts/bash/load-context.sh list
+```
+
+---
+
+## MANDATORY: Message Pre-Flight Compliance Check
+
+**EVERY user message MUST trigger this 4-step protocol BEFORE any work begins.**
 
 ```
-STEP 1: CONSTITUTION ACKNOWLEDGMENT → Confirm 15 principles (I-XV)
-STEP 2: DOMAIN ANALYSIS → Scan for domain keywords
-STEP 3: ROUTING DECISION → Skills-first routing via skill-index.json
-STEP 4: EXECUTION → Proceed via skill → agent pathway
+STEP 1: CONSTITUTION ACKNOWLEDGMENT
+       - Confirm awareness of 15 principles (I-XV)
+       - Key: II (Test-First), VI (Git Approval), X (Agent Delegation)
+
+STEP 2: DOMAIN ANALYSIS
+       - Scan message for domain trigger keywords
+       - Identify: frontend, backend, database, testing, security, etc.
+
+STEP 3: DELEGATION DECISION
+       - 0 domains: may execute directly
+       - 1 domain: MUST delegate to specialist agent
+       - 2+ domains: MUST delegate to task-orchestrator
+
+STEP 4: EXECUTION AUTHORIZATION
+       - Confirm all steps complete
+       - Output compliance summary
+       - Proceed with action
 ```
 
-**Critical Principles**: II (Test-First >80%), VI (Git Approval), X (Skills-First Delegation)
+### Compliance Summary Format
+
+```
+Constitutional Compliance Check:
+- Domain(s): [none | single: <domain> | multi: <domains>]
+- Delegation: [direct execution | <agent-name>]
+- Git operations: [none planned | will request approval]
+- Proceeding with: [action description]
+```
+
+### Quick Reference: Domain - Agent Mapping
+
+| Domain | Trigger Keywords | Delegate To |
+|--------|------------------|-------------|
+| Frontend | UI, component, React, CSS, form | frontend-specialist |
+| Backend | API, endpoint, server, auth, service | backend-architect |
+| Database | schema, migration, query, RLS, SQL | database-specialist |
+| Testing | test, TDD, E2E, coverage, QA | testing-specialist |
+| Security | encryption, XSS, secrets, vulnerability | security-specialist |
+| Performance | optimize, cache, benchmark, latency | performance-engineer |
+| DevOps | deploy, CI/CD, Docker, pipeline | devops-engineer |
+| Specification | spec, requirements, user story | specification-agent |
+| Planning | /plan, research, contract design | planning-agent |
+| Tasks | /tasks, task list, dependencies | tasks-agent |
+| Multi-Domain | 2+ domains detected | task-orchestrator |
+
+### Violation Self-Correction
+
+If you start work without completing the pre-flight check:
+1. **STOP** immediately
+2. **ACKNOWLEDGE** the violation
+3. **CORRECT** by running the 4-step protocol
+4. **PROCEED** only after completing all steps
 
 ---
 
 ## CRITICAL: Read Constitution First
 
-**ALWAYS read [.specify/memory/constitution.md](.specify/memory/constitution.md) BEFORE starting work.**
+**ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
 
-Constitution v2.0.0 (ratified 2026-01-13):
-- **3 Immutable**: Library-First, Test-First, Contract-First
-- **6 Quality & Safety**: Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **6 Workflow & Delegation**: **Skills-First Delegation** (Principle X rewritten), Input Validation, Design System, Access Control, AI Model Selection, File Organization
+The constitution (v1.6.0) contains **15 enforceable principles**:
+- **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
+- **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
+- **6 Workflow & Delegation Principles** (X-XV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization
 
----
+### Critical Principles Quick Reference
 
-## CRITICAL: Windows Compatibility (File Writing)
+| Principle | Requirement | Consequence |
+|-----------|-------------|-------------|
+| **II (Test-First)** | TDD mandatory, >80% coverage | IMMUTABLE - blocks merge |
+| **VI (Git Approval)** | NO autonomous git operations | CRITICAL - always ask user |
+| **X (Agent Delegation)** | Specialized work -> specialists | CRITICAL - delegate or violate |
 
-**NEVER use Bash heredocs to write files.** Git Bash on Windows has parsing issues.
-
-### Required Approach
-
-| Action | Tool | AVOID |
-|--------|------|-------|
-| New files | Write tool | `cat << EOF` |
-| Modifications | Edit tool | `cat << 'EOF'` |
-| Complex content | Write/Edit | Any heredoc |
-
-### Platform Notes
-
-- **Shell**: Git Bash (MINGW64) - heredocs with quotes fail
-- **Python**: Use `python` or `py` (NOT `python3` - Windows alias issue)
-
----
-
-## Architecture: Skills-First (v3.0.0)
-
-**New in v3.0.0**: Skills invoke agents (not agents invoking skills).
-
-### Workflow
-
-```
-User Message → Compliance Check → Router Agent → Skill → Agent(s) → Verifier → Output
+For complete constitutional reference, load the governance module:
+```bash
+./.specify/scripts/bash/load-context.sh load governance
 ```
 
-### Core Registries
+---
 
-- **Skills**: [.claude/skill-index.json](.claude/skill-index.json) - 28 skills with RL metrics
-- **Agents**: [.claude/agent-index.json](.claude/agent-index.json) - 13 agents (8 domain + 5 DS-STAR)
-- **Triggers**: [.specify/memory/skill-activation-triggers.md](.specify/memory/skill-activation-triggers.md)
+## Git Operations (CRITICAL - Principle VI)
 
-### Key Skills
+**NO automatic Git operations without user approval.** This includes:
+- Branch creation, switching, or deletion
+- Commits and commit messages
+- Pushes, pulls, and merges
+- Any modifications to Git history
 
-| Skill | Triggers | Agent |
-|-------|----------|-------|
-| message-preflight | __system_preflight__ | (none - direct) |
-| sdd-specification | /specify, spec | specification-orchestrator |
-| sdd-planning | /plan, research | specification-orchestrator |
-| sdd-tasks | /tasks | specification-orchestrator |
-| domain/* | keywords | domain agents |
+**Always ask the user for explicit approval first.**
+
+The `/finalize` command validates compliance but NEVER executes git commands. It provides a report and suggests commands for manual execution.
+
+For complete git safety documentation, load the governance module:
+```bash
+./.specify/scripts/bash/load-context.sh load governance
+```
 
 ---
 
-## Commands
+## Project Overview
 
-### Workflow Commands
+This is a specification-driven development framework that uses structured templates and workflows to generate and implement features. The project uses a TDD approach with contract-first design patterns as defined in the constitution.
 
-- `/create-prd` - Create Product Requirements Document
-- `/initialize-project` - Customize framework after PRD completion
-- `/specify` - Create feature specification (asks about branch creation)
-- `/plan` - Generate implementation plan with research
-- `/tasks` - Generate dependency-ordered task list
-- `/finalize` - Pre-commit compliance validation (NO auto-git)
+### Quick Command Reference
 
-### Agent/Skill Management
+| Command | Purpose | Agent |
+|---------|---------|-------|
+| `/create-prd` | Create Product Requirements Document (Phase 0) | prd-specialist |
+| `/initialize-project` | Customize framework post-PRD | prd-specialist |
+| `/specify` | Create feature specification (Phase 1) | specification-agent |
+| `/plan` | Generate implementation plan (Phase 2) | planning-agent |
+| `/tasks` | Generate task list (Phase 3) | tasks-agent |
+| `/debug` | Debug deployment/runtime issues (10-step workflow) | - |
+| `/finalize` | Pre-commit compliance validation | - |
+| `/create-agent` | Create specialized subagent | subagent-architect |
 
-- `/create-agent` - Create specialized subagent
-- `/create-skill` - Create new skill with procedural guidance
+For detailed workflow documentation, load the workflows module:
+```bash
+./.specify/scripts/bash/load-context.sh load workflows
+```
 
-### Details
+---
 
-See [Command Reference](#commands-reference) section below for complete details.
+## MCP Server Configuration
+
+The framework uses **Docker MCP Toolkit** as the primary MCP orchestration method, providing access to 310+ containerized MCP servers.
+
+**Docker MCP Toolkit** (Pre-installed during setup):
+- Dynamic discovery of 310+ servers via `mcp-find` tool
+- Runtime installation via `mcp-add` tool
+- Containerized execution (no local dependencies)
+- Unified gateway for all MCP servers
+
+**Docker MCP Toolkit Tools**:
+
+| Tool | Purpose |
+|------|---------|
+| `mcp-find` | Search 310+ servers in Docker catalog |
+| `mcp-add` | Add server to current session dynamically |
+| `mcp-config-set` | Configure server credentials |
+| `mcp-exec` | Execute tools from any enabled server |
+| `code-mode` | Combine multiple MCP tools in JavaScript |
+
+**Ask Claude for help with MCPs**:
+- "Find MCP servers for database operations" (uses `mcp-find`)
+- "Add the supabase MCP server" (uses `mcp-add`)
+- "Configure my AWS credentials" (uses `mcp-config-set`)
+
+**Security Notes**:
+- Store all MCP credentials in `.env` (never commit!)
+- Use `env:VAR_NAME` syntax in MCP configuration
+- Docker Toolkit provides container isolation (1 CPU, 2GB RAM limits)
+
+**Skill Reference**: `.claude/skills/integration/mcp-server-setup/SKILL.md`
+
+---
+
+## Agent Delegation Protocol
+
+**Constitutional Principle X** requires specialized work be delegated to specialized agents.
+
+**See `AGENTS.md`** for complete agent registry including:
+- All 14 agents by department
+- Agent capabilities and tools
+- Domain -> agent mapping (detailed)
+- Slash command -> agent mapping
+- Agent collaboration workflows
+
+**Note**: CLAUDE.md and AGENTS.md are **tandem files** - they must be updated together.
+
+For complete agent documentation, load the agents module:
+```bash
+./.specify/scripts/bash/load-context.sh load agents
+```
+
+### constitutional-governance-agent (Primary Entry Point)
+
+**Purpose**: Primary orchestration agent that serves as the main thread entry point for all Claude Code sessions. Enforces the 4-step pre-flight compliance protocol on every user message, routes specialized work to domain agents per Principle X, gates all git operations per Principle VI, and maintains constitutional governance across the session.
+
+**Model**: opus (required for maximum governance capability)
+
+**Tools**: Full access (Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TodoWrite)
+
+**Usage**: Configure as default agent in settings.json:
+```json
+{
+  "agent": "constitutional-governance-agent",
+  "model": "claude-opus-4-5-20251101"
+}
+```
+
+**Key Responsibilities**:
+- Enforce 4-step pre-flight compliance on every message
+- Route specialized work to domain agents (Principle X)
+- Gate ALL git operations (Principle VI - CRITICAL)
+- Maintain constitutional governance across session
 
 ---
 
 ## Key Architecture
 
 ### Directory Structure
-
 ```
-.claude/
-├── skill-index.json          # 28 skills with RL
-├── agent-index.json          # 13 agents
-├── skills/                   # 8 categories
-└── agents/                   # consolidated/ + ds-star/
-
 .specify/
-├── memory/constitution.md    # v1.6.0 principles
-├── scripts/bash/rl/          # RL infrastructure
-└── templates/                # Skill/agent templates
+  memory/
+    constitution.md                    # Core principles (v1.6.0 - 15 principles)
+    constitution_update_checklist.md   # Mandatory change management
+    agent-collaboration-triggers.md    # Agent delegation reference
+  scripts/bash/                        # Workflow automation scripts
+  templates/                           # Document templates
+  config/                              # Configuration files
 
-specs/###-feature/            # Per-feature docs
-└── [spec|plan|tasks|contracts|research|data-model|quickstart].md
+.claude/
+  context/                             # Context modules (NEW - v2.0)
+    core.md, agents.md, skills.md, workflows.md, governance.md
+  agents/                              # Agent definitions by department
+  skills/                              # Skill definitions by category
+
+specs/###-feature-name/                # Per-feature documentation
+  spec.md, plan.md, research.md, data-model.md, contracts/, quickstart.md, tasks.md
 ```
 
-### Agents (13 Total)
+### Workflow Scripts
 
-**8 Domain Agents** (consolidated from 15):
-- implementation-specialist (frontend + full-stack)
-- operations-specialist (devops + performance)
-- specification-orchestrator (spec + planning + tasks + PRD)
-- quality-specialist (testing + security)
-- backend-architect, database-specialist, system-architect, workflow-coordinator
+| Script | Purpose |
+|--------|---------|
+| `common.sh` | Shared functions + git approval |
+| `constitutional-check.sh` | 15-principle compliance validator |
+| `create-new-feature.sh` | Feature initialization + refinement |
+| `setup-plan.sh` | Planning workflow + verification |
+| `check-task-prerequisites.sh` | Task generation validator |
+| `finalize-feature.sh` | Pre-commit compliance validation |
+| `load-context.sh` | Modular context loading (NEW) |
 
-**5 DS-STAR Agents**:
-- router-agent (RL-enhanced routing)
-- verifier-agent (quality gates)
-- auto-debug-agent (automatic fixes)
-- finalizer-agent (pre-commit validation)
-- context-analyzer (codebase intelligence)
-
-See [AGENTS.md](AGENTS.md) for complete agent details.
-
----
-
-## Development Principles
-
-ALL principles defined in [.specify/memory/constitution.md](.specify/memory/constitution.md).
-
-**Never proceed without verifying constitutional compliance.**
-
-### Constitution Update Process
-
-When updating constitution: [.specify/memory/constitution_update_checklist.md](.specify/memory/constitution_update_checklist.md) MUST be followed.
-
----
-
-## Git Operations (CRITICAL - Principle VI)
-
-**NO automatic Git operations without user approval.**
-
-Always ask first for:
-- Branch creation/switching/deletion
-- Commits, pushes, pulls, merges
-- Any Git history modifications
-
-**Note**: `/specify` asks about branch creation. `/finalize` suggests commands but NEVER executes them.
+Run before commits:
+```bash
+./.specify/scripts/bash/constitutional-check.sh
+./.specify/scripts/bash/sanitization-audit.sh
+```
 
 ---
 
 ## File Creation Rules (Principle XV)
 
-**ALWAYS verify before creating files.**
+**ALWAYS verify before creating files or folders.**
 
-### Pre-Creation Checklist
+### Core Rules
 
-```
-[ ] Is this file necessary? (Can existing file be modified?)
-[ ] Does parent directory exist?
-[ ] Does file already exist?
-[ ] Follows naming conventions?
-[ ] Using absolute paths from repo root?
-```
+1. **Verify Before Create**: Check parent directory exists with `ls` before creating files
+2. **Edit Over Create**: Prefer modifying existing files over creating new ones
+3. **Templates First**: Use templates from `.specify/templates/` when available
+4. **Absolute Paths**: Always use absolute paths from repository root
+5. **No Proactive Docs**: Never create README.md or documentation files unless explicitly requested
 
-See [.docs/policies/file-structure-policy.md](.docs/policies/file-structure-policy.md) for complete rules.
+### Naming Conventions
 
----
+| Type | Pattern | Example |
+|------|---------|---------|
+| Agent | `[role]-[function].md` | `backend-architect.md` |
+| Skill folder | `[skill-name]/` | `domain-detection/` |
+| Feature dir | `###-[name]/` | `001-user-auth/` |
 
-## Task Management
-
-**Three-Level SSOT Architecture**:
-1. **Project**: `specs/###-feature/tasks.md` (persists in git)
-2. **Session**: TodoWrite tool (active tracking)
-3. **Agent**: `.docs/agents/*/decisions/tasks/` (cross-session)
-
-See [.docs/policies/todo-architecture-policy.md](.docs/policies/todo-architecture-policy.md) for details.
+**Policy**: See `.docs/policies/file-structure-policy.md`
 
 ---
 
-## MCP Server Configuration
+## Task Management (SSOT Architecture)
 
-**Primary Method**: Docker MCP Toolkit (310+ servers)
+### Three-Level Task Hierarchy
 
-Use `mcp-find` and `mcp-add` tools for dynamic server discovery/installation.
+| Level | Location | Purpose |
+|-------|----------|---------|
+| **Project** | `specs/###-feature/tasks.md` | Full implementation checklist |
+| **Session** | TodoWrite tool | Active work tracking |
+| **Agent** | `.docs/agents/*/decisions/tasks/` | Completion history |
 
-See [MCP Server Setup Skill](.claude/skills/integration/mcp-server-setup/SKILL.md) for details.
+### TodoWrite Rules (CRITICAL)
 
----
+1. **ONE task `in_progress`** at any time - never multiple
+2. **Mark `completed` IMMEDIATELY** - don't batch completions
+3. **Use for 3+ step tasks** - skip for trivial single-step work
+4. **Keep focused** - 3-10 items max
+5. **Derive from tasks.md** - session tasks come from project tasks
 
-## Testing Approach
-
-- **TDD Required**: Principle II mandates >80% coverage
-- **Contract-First**: Write contracts before implementation
-- Test framework: Jest (configured)
-- Run: `npm test` or `npm run test:contracts`
-
-Check `specs/###-feature/quickstart.md` for feature-specific test scenarios.
-
----
-
-## Commands Reference
-
-### Product Requirements (Phase 0)
-
-**`/create-prd`**
-- **Agent**: prd-specialist
-- **Purpose**: Create Product Requirements Document (SSOT)
-- **Output**: `.docs/prd/prd.md`
-- **Usage**: Start of new project, before any features
-
-**`/initialize-project`**
-- **Agent**: prd-specialist
-- **Purpose**: Customize framework based on PRD
-- **Prerequisite**: PRD must exist
-- **Output**: Updated constitution, custom agents, configured MCPs
-
-### Feature Specification Workflow
-
-**`/specify`**
-- **Agent**: specification-orchestrator
-- **Asks**: Branch creation approval
-- **Output**: `specs/###-feature/spec.md`
-- **DS-STAR**: Auto-refines until quality ≥0.90
-
-**`/plan`**
-- **Agent**: specification-orchestrator
-- **Output**: plan.md, research.md, data-model.md, contracts/, quickstart.md
-- **DS-STAR**: Verifies plan quality before proceeding
-
-**`/tasks`**
-- **Agent**: specification-orchestrator
-- **Output**: tasks.md (dependency-ordered)
-- **Format**: Marks parallel tasks with [P]
-
-**`/finalize`** (NEW - DS-STAR)
-- **Agent**: finalizer-agent
-- **Purpose**: Pre-commit compliance validation
-- **Output**: Compliance report + suggested git commands
-- **CRITICAL**: NEVER executes git operations (Principle VI)
-
-### Agent Management
-
-**`/create-agent`**
-- **Agent**: system-architect
-- **Output**: New agent in `.claude/agents/`
-- **Auto-determines**: Department, tools, memory structure
-
-**`/create-skill`**
-- **Agent**: system-architect
-- **Output**: New skill in `.claude/skills/`
+**Policy**: See `.docs/policies/todo-architecture-policy.md`
 
 ---
 
-## Validation Scripts
+## DS-STAR Multi-Agent Enhancements (Feature 001)
 
-Run before commits:
+The framework includes proven multi-agent patterns from Google's DS-STAR system:
+
+### Quality Gates
+- **Automatic Verification**: Specs and plans automatically verified for quality
+- **Iterative Refinement**: Specs refined up to 20 rounds until quality thresholds met
+- **Blocking Gates**: Insufficient plans block progression to tasks phase
+- **Actionable Feedback**: Clear guidance provided for improvements
+
+### Configuration
+Quality thresholds configured in `.specify/config/refinement.conf`:
+- `MAX_REFINEMENT_ROUNDS=20`
+- `SPEC_COMPLETENESS_THRESHOLD=0.90`
+- `PLAN_QUALITY_THRESHOLD=0.85`
+- `TEST_COVERAGE_THRESHOLD=0.80` (matches Principle II)
+
+### Performance Targets
+- Context retrieval: <2 seconds
+- Debug iteration cycle: <30 seconds
+- 3.5x improvement in task completion accuracy (target)
+
+---
+
+## Framework v2.0 Enhancements (Feature 003)
+
+The framework now includes 6 production-ready enhancements integrated in Phases 1-4:
+
+### Integrated Enhancements
+
+| Enhancement | Purpose | Constitutional Principle |
+|-------------|---------|-------------------------|
+| **Structured Logging** | Observability via `.specify/lib/logging.sh` | VII (Observability) |
+| **Enhanced Git Safety** | Rollback checkpoints, commit suggestions | VI (Git Approval) |
+| **Tool Restriction Policies** | Granular command validation | XI, XIII (Input Validation) |
+| **Parallel Agent Execution** | 2-3x speedup for 3+ agents | IV, X (Idempotency, Delegation) |
+| **Skill Auto-Discovery** | Auto-generated `.claude/skill-index.json` | VIII (Documentation Sync) |
+| **Modular Context Loading** | 37% token efficiency improvement | V, VIII, IX |
+
+### Performance Improvements
+
+| Metric | Improvement |
+|--------|-------------|
+| Token Efficiency | 37% reduction |
+| Parallel Execution | 2-3x speedup |
+| Context Loading | <2s with TTL caching |
+
+For detailed enhancement documentation, see `.docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_PLAN.md`
+
+---
+
+## AI Model Selection (Principle XIV)
+
+**Default**: All specialized agents use **Opus 4.5** for maximum capability.
+
+| Model | Use Case | When to Use |
+|-------|----------|-------------|
+| **Opus 4.5** | Default for all agents | Specialized work, architecture, security, complex reasoning |
+| **Sonnet 4.5** | Fallback | Cost optimization, high-volume tasks, quota limits |
+| **Haiku** | Quick tasks | Simple lookups, formatting, file operations |
+
+**Model IDs**:
+- Opus: `claude-opus-4-5-20251101`
+- Sonnet: `claude-sonnet-4-5-20250929`
+- Haiku: `claude-haiku` (latest)
+
+---
+
+## Additional Documentation
+
+For comprehensive documentation, load the appropriate context modules:
+
 ```bash
-./.specify/scripts/bash/constitutional-check.sh  # All 15 principles
-./.specify/scripts/bash/sanitization-audit.sh    # Framework cleanliness
+# Agent delegation and registry
+./.specify/scripts/bash/load-context.sh load agents
+
+# Skill documentation
+./.specify/scripts/bash/load-context.sh load skills
+
+# SDD workflow details
+./.specify/scripts/bash/load-context.sh load workflows
+
+# Constitutional principles and compliance
+./.specify/scripts/bash/load-context.sh load governance
 ```
 
----
-
-## Available Agents
-
-See [AGENTS.md](AGENTS.md) for complete agent registry including:
-- All 13 agents by department
-- Agent capabilities and tools
-- Domain → skill → agent mapping
-- Slash command routing
-- Agent collaboration workflows
-
-**Note**: CLAUDE.md and AGENTS.md are **tandem files** - must update together per [.docs/policies/instruction-files-policy.md](.docs/policies/instruction-files-policy.md).
+**See Also**:
+- `.specify/memory/constitution.md` - Constitutional principles (v1.6.0)
+- `.claude/agents/` - Agent definitions
+- `.claude/skills/` - Skill documentation
+- `.docs/policies/` - Framework policies
+- `.docs/reports/` - Framework documentation
 
 ---
 
-## Performance Metrics (v3.0.0)
-
-| Metric | Target | Status |
-|--------|--------|--------|
-| Token Efficiency | 40-50% reduction | ✅ 50% achieved |
-| Agent Count | 15 → 13 | ✅ 53% reduction |
-| RL Improvement | +15-25% accuracy | 🔧 Infrastructure ready |
-| DS-STAR Accuracy | 3.5x baseline | 🔧 Infrastructure ready |
-
----
-
-## Model Selection (Principle XIV)
-
-**Default**: Opus 4.5 for all specialized agents (maximum capability)
-
-| Model | Use Case |
-|-------|----------|
-| Opus 4.5 | Default - specialized work, architecture, security |
-| Sonnet 4.5 | Fallback - cost optimization, high-volume tasks |
-| Haiku | Quick tasks - simple lookups, formatting |
-
----
-
-## Resources
-
-- **Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
-- **Skills Registry**: [.claude/skill-index.json](.claude/skill-index.json)
-- **Agents Registry**: [.claude/agent-index.json](.claude/agent-index.json)
-- **Agent Details**: [AGENTS.md](AGENTS.md)
-- **Skill Triggers**: [.specify/memory/skill-activation-triggers.md](.specify/memory/skill-activation-triggers.md)
-- **Migration Report**: [.docs/reports/migration-completion-report.md](.docs/reports/migration-completion-report.md)
-- **Policies**: `.docs/policies/` directory
-
----
-
-*Framework Version: 3.0.0 (Skills-First Architecture with RL and DS-STAR)*
-*Constitution: v2.0.0 (ratified 2026-01-13, Principle X rewritten for skills-first)*
-*Architecture Mode: skills-first (Phase 4 - legacy patterns blocked)*
-*Last Updated: 2026-01-13*
+**Framework**: sdd-agentic-framework v3.1.1
+**Constitution**: v1.6.0 (15 Principles)
+**Context System**: Modular (v2.0)
+**Last Updated**: 2026-01-10

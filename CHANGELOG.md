@@ -5,6 +5,76 @@ All notable changes to the SDD Agent Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2026-01-10
+
+### Added - Debug Skill
+
+**New `/debug` Command** - Systematic deployment troubleshooting workflow
+
+This patch release adds a comprehensive debugging skill with a 10-step systematic workflow for diagnosing and resolving production issues, deployment failures, and runtime errors.
+
+#### New Skill: `/debug`
+
+- **Location**: `.claude/skills/technical/debug/SKILL.md` (668 lines)
+- **Command**: `.claude/commands/debug.md` (75 lines)
+
+**10-Step Workflow**:
+1. **Issue Identification** - Gather context, understand symptom type
+2. **Local Verification** - Isolate platform vs code issues (TypeScript, client build, Vercel build)
+3. **Vercel-Specific Diagnostics** - Function limits, config, env vars, platform dependencies
+4. **API Endpoint Diagnosis** - Debug 404/500 errors, routing patterns
+5. **TypeScript Error Resolution** - exactOptionalPropertyTypes, index signatures
+6. **Fix Implementation** - Apply targeted fixes with type safety
+7. **Verification Process** - Clean build, test, deploy
+8. **Regression Check** - Ensure no new issues introduced
+9. **Completion Report** - Document root cause and verification results
+10. **Iteration Handling** - Max 5 cycles before user escalation
+
+**Specialized Diagnostics**:
+- Vercel deployment failures (build errors, function count limits, 404 endpoints)
+- TypeScript compilation errors (`exactOptionalPropertyTypes`, index signatures)
+- Platform-specific dependency issues (`package-lock.json`, native modules)
+- API endpoint errors (500 errors, timeouts, missing routes)
+- Production runtime issues (environment variables, database connections)
+
+**Automatic Delegation**:
+- `backend-architect` - API architecture issues, system design
+- `database-specialist` - Query optimization, schema issues
+- `security-specialist` - Auth/authorization, vulnerabilities
+- `devops-engineer` - CI/CD failures, infrastructure
+
+**Trigger Keywords**: debug, fix, broken, not working, failing, deployment failed, build error, 404, 500 error, investigate, troubleshoot, diagnose
+
+**Constitutional Compliance**:
+- **Principle II**: Verify/add tests for bug fixes
+- **Principle VI**: NO automatic git operations
+- **Principle VIII**: Update docs when patterns discovered
+- **Principle X**: Delegates to specialists when appropriate
+
+#### New Skill Category: `technical/`
+
+Introduces domain-specific technical procedures category, enabling future skills:
+- `technical/api-contract-design/`
+- `technical/test-first-development/`
+- `technical/performance-optimization/`
+
+#### Documentation Updates
+
+- **CLAUDE.md**: Added `/debug` to Quick Command Reference table
+- **Version**: v3.1.0 → v3.1.1
+- **.claude/context/skills.md**: Debug skill entry with workflow steps and delegation points
+
+#### Real-World Validation
+
+Battle-tested patterns from production debugging:
+- Vercel function count limit issues (consolidating endpoints)
+- TypeScript `exactOptionalPropertyTypes` errors (conditional object building)
+- Platform-specific dependencies (Windows vs Linux lockfiles)
+
+**Total Lines Added**: 743 lines (668 SKILL.md + 75 debug.md)
+
+---
+
 ## [2.0.0] - 2025-11-11
 
 ### Major Feature: DS-STAR Multi-Agent Enhancement (Feature 001)
