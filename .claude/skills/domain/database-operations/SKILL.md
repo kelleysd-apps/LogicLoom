@@ -1,66 +1,14 @@
 ---
 name: database-operations
 version: 3.0.0
-description: |
-  Domain skill for database operations including schema design, migrations, queries,
-  RLS policies, and data modeling. Routes to database-specialist agent for execution.
-  Part of the skills-first architecture (FR-614).
 category: domain
-triggers:
-  - "database"
-  - "schema"
-  - "migration"
-  - "query"
-  - "SQL"
-  - "RLS"
-  - "data model"
-  - "table"
-  - "index"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - MultiEdit
-  - Bash
-  - Grep
-  - Glob
-agent-invocations:
-  - agent: database-specialist
-    context-subset:
-      - data-model
-      - constraints
-      - schema-requirements
-      - rls-policies
-    when: "database schema design or query work is needed"
-    timeout: 10m
-composes:
-  - skill: validation/message-preflight
-    phase: pre-execution
-  - skill: validation/domain-detection
-    phase: analysis
-progressive-disclosure:
-  layer1:
-    - name
-    - description
-    - triggers
-    - category
-    - version
-    - rl_metrics
-  layer2:
-    - instructions
-    - agent-invocations
-    - composes
-    - allowed-tools
-  layer3:
-    - examples
-    - references
+description: Database schemas, migrations, and queries. Routes to database-specialist.
+triggers: ["database", "schema", "migration", "query", "SQL", "RLS"]
 rl_metrics:
   success_rate: 0.5
-  avg_tokens: 0
-  avg_duration_ms: 0
-  user_satisfaction: 0.5
   selection_weight: 0.5
   invocation_count: 0
+  avg_tokens: 0
 ---
 
 # Database Operations Skill
@@ -81,6 +29,24 @@ Activate this skill when the user request involves:
 - RLS policy implementation
 - Index creation
 - Data modeling
+
+## Configuration
+
+### Allowed Tools
+
+- Read, Write, Edit, MultiEdit, Bash, Grep, Glob
+
+### Agent Invocations
+
+**database-specialist**:
+- Context: data-model, constraints, schema-requirements, rls-policies
+- When: Database schema design or query work is needed
+- Timeout: 10m
+
+### Composes
+
+- validation/message-preflight (pre-execution)
+- validation/domain-detection (analysis)
 
 ## Instructions
 

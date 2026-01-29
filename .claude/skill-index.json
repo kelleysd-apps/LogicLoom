@@ -13,7 +13,7 @@
       "name": "validation",
       "description": "Quality gates and compliance skills for constitutional enforcement",
       "governance-level": "high",
-      "skill-count": 3
+      "skill-count": 4
     },
     {
       "name": "governance",
@@ -25,13 +25,13 @@
       "name": "orchestration",
       "description": "Multi-skill coordination and workflow management skills",
       "governance-level": "high",
-      "skill-count": 2
+      "skill-count": 3
     },
     {
       "name": "domain",
       "description": "Domain-specific procedural knowledge skills",
       "governance-level": "medium",
-      "skill-count": 11
+      "skill-count": 12
     },
     {
       "name": "creation",
@@ -192,6 +192,29 @@
       }
     },
     {
+      "name": "qa-validation",
+      "path": "skills/validation/qa-validation/SKILL.md",
+      "category": "validation",
+      "triggers": ["QA validation", "quality assurance", "test coverage", "acceptance criteria", "quality gate"],
+      "token-budget": {
+        "layer1": 80,
+        "layer2": 400,
+        "layer3": 600,
+        "total": 1080
+      },
+      "agents": ["quality-specialist"],
+      "composes": ["validation/message-preflight", "domain/testing-operations"],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-01-13T00:00:00Z"
+      }
+    },
+    {
       "name": "constitutional-compliance",
       "path": "skills/validation/constitutional-compliance/SKILL.md",
       "category": "validation",
@@ -273,6 +296,29 @@
       },
       "agents": ["workflow-coordinator"],
       "composes": [],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-01-13T00:00:00Z"
+      }
+    },
+    {
+      "name": "full-stack-feature",
+      "path": "skills/orchestration/full-stack-feature/SKILL.md",
+      "category": "orchestration",
+      "triggers": ["full-stack", "frontend and backend", "end-to-end feature", "UI with API", "cross-domain"],
+      "token-budget": {
+        "layer1": 85,
+        "layer2": 450,
+        "layer3": 700,
+        "total": 1235
+      },
+      "agents": ["workflow-coordinator", "database-specialist", "backend-architect", "implementation-specialist"],
+      "composes": ["validation/message-preflight", "domain/database-operations", "domain/backend-operations", "domain/frontend-operations"],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -434,6 +480,29 @@
       },
       "agents": ["operations-specialist"],
       "composes": ["validation/message-preflight"],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-01-13T00:00:00Z"
+      }
+    },
+    {
+      "name": "monitoring",
+      "path": "skills/domain/monitoring/SKILL.md",
+      "category": "domain",
+      "triggers": ["monitoring", "observability", "metrics", "logging", "health check", "alerting"],
+      "token-budget": {
+        "layer1": 80,
+        "layer2": 400,
+        "layer3": 600,
+        "total": 1080
+      },
+      "agents": ["operations-specialist", "system-architect"],
+      "composes": ["validation/message-preflight", "domain/devops-operations"],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -799,19 +868,19 @@
     "evaluation_window_days": 30
   },
   "statistics": {
-    "total-skills": 28,
+    "total-skills": 31,
     "skills-by-category": {
       "sdd-workflow": 4,
-      "validation": 3,
+      "validation": 4,
       "governance": 1,
-      "orchestration": 2,
-      "domain": 11,
+      "orchestration": 3,
+      "domain": 12,
       "creation": 4,
       "project-initialization": 2,
       "integration": 1
     },
     "skills-by-status": {
-      "active": 28,
+      "active": 31,
       "deprecated": 0,
       "draft": 0
     },

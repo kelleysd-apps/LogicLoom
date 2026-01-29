@@ -325,7 +325,7 @@ describe('Skills-First Architecture Integration Tests', () => {
     });
   });
 
-  describe('Hybrid Mode Backward Compatibility', () => {
+  describe('Skills-First Mode Configuration (Phase 4)', () => {
 
     let config;
     let skillIndex;
@@ -335,22 +335,31 @@ describe('Skills-First Architecture Integration Tests', () => {
       skillIndex = loadJson(SKILL_INDEX_PATH);
     });
 
-    test('Architecture mode is hybrid for Phase 1-2', () => {
-      expect(config.ARCHITECTURE_MODE).toBe('hybrid');
-      expect(skillIndex['architecture-mode']).toBe('hybrid');
+    test('Architecture mode is skills-first for Phase 4', () => {
+      expect(config.ARCHITECTURE_MODE).toBe('skills-first');
+      expect(skillIndex['architecture-mode']).toBe('skills-first');
     });
 
-    test('RL algorithm is EMA for Phase 1-2', () => {
+    test('RL algorithm is EMA', () => {
       expect(config.RL_ALGORITHM).toBe('ema');
       expect(skillIndex.rl_config.algorithm).toBe('ema');
     });
 
-    test('domain-routes provide backward compatibility', () => {
+    test('domain-routes provide skill-to-agent mappings', () => {
       const domainRoutes = skillIndex.routing['domain-routes'];
 
       expect(domainRoutes.database).toBeDefined();
       expect(domainRoutes.database['primary-skill']).toBe('domain/database-operations');
       expect(domainRoutes.database['primary-agent']).toBe('database-specialist');
+    });
+
+    test('Legacy pattern blocking is enabled in Phase 4', () => {
+      expect(config.DEPRECATION_LEVEL).toBe('block');
+      expect(config.DEPRECATION_GRACE_PERIOD_DAYS).toBe('0');
+    });
+
+    test('Current phase is 4', () => {
+      expect(config.CURRENT_PHASE).toBe('4');
     });
   });
 });

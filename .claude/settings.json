@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "./.claude/hooks/user-prompt-submit/governance-preflight.sh",
+            "command": "node .claude/hooks/user-prompt-submit/governance-preflight.js",
             "timeout": 5000
           }
         ]

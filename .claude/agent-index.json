@@ -9,8 +9,7 @@
       "purpose": "Build UI components and full-stack integrations",
       "skill-portfolio": [
         "domain/frontend-operations",
-        "domain/backend-operations",
-        "orchestration/full-stack-feature"
+        "domain/backend-operations"
       ],
       "merged-from": [
         "frontend-specialist",
@@ -149,7 +148,8 @@
       "purpose": "Coordinate multi-skill workflows and migrations",
       "skill-portfolio": [
         "orchestration/multi-skill-workflow",
-        "orchestration/migration-workflow"
+        "orchestration/migration-workflow",
+        "orchestration/full-stack-feature"
       ],
       "merged-from": [
         "task-orchestrator"

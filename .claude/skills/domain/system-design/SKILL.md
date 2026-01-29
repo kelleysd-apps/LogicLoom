@@ -2,38 +2,13 @@
 name: system-design
 version: 3.0.0
 category: domain
-description: Designs system architecture, infrastructure, and scalability patterns
-triggers:
-  - system design
-  - architecture design
-  - infrastructure
-  - scalability
-  - high availability
-  - system architecture
+description: System architecture and scalability patterns. Routes to system-architect.
+triggers: ["system design", "architecture design", "infrastructure", "scalability", "high availability"]
 rl_metrics:
-  success_rate: 0.0
+  success_rate: 0.5
   selection_weight: 0.5
   invocation_count: 0
   avg_tokens: 0
-progressive-disclosure:
-  layer-1-metadata:
-    description: "Handles system architecture and infrastructure design"
-    triggers: [system design, architecture, infrastructure, scalability]
-    primary-agent: system-architect
-  layer-2-instructions: true
-  layer-3-examples: true
-agent-invocations:
-  - agent: system-architect
-    context-subset:
-      - requirements
-      - scale_requirements
-      - availability_targets
-      - constraints
-    expected-output: system_design
-ds-star:
-  pre-execution: validation/message-preflight
-  post-verification: true
-  auto-debug: conditional
 ---
 
 # System Design Skill
@@ -43,6 +18,34 @@ ds-star:
 Designs system architecture including infrastructure, scalability patterns,
 high availability strategies, and deployment architectures. Covers both
 greenfield designs and architecture evolution.
+
+## When to Use
+
+Activate this skill when the user request involves:
+- System architecture design
+- Infrastructure planning
+- Scalability strategies
+- High availability requirements
+- Deployment architecture
+
+## Configuration
+
+### Allowed Tools
+
+- Read, Write, Edit, Grep, Glob, Bash
+
+### Agent Invocations
+
+**system-architect**:
+- Context: requirements, scale_requirements, availability_targets, constraints
+- When: System design or infrastructure planning is needed
+- Expected output: system_design
+
+### DS-STAR Integration
+
+- Pre-execution: validation/message-preflight
+- Post-verification: true
+- Auto-debug: conditional
 
 ## Constitutional Compliance
 
@@ -157,42 +160,30 @@ expected:
 **Output**:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        CDN (CloudFront)                      │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Load Balancer (ALB)                       │
-└─────────────────────────────────────────────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│  Web Server   │     │  Web Server   │     │  Web Server   │
-│   (Next.js)   │     │   (Next.js)   │     │   (Next.js)   │
-└───────────────┘     └───────────────┘     └───────────────┘
-        │                     │                     │
-        └─────────────────────┼─────────────────────┘
-                              │
-        ┌─────────────────────┼─────────────────────┐
-        ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│  API Server   │     │  API Server   │     │  API Server   │
-│   (Node.js)   │     │   (Node.js)   │     │   (Node.js)   │
-└───────────────┘     └───────────────┘     └───────────────┘
-        │                     │                     │
-        ▼                     ▼                     ▼
-┌───────────────┐     ┌───────────────┐     ┌───────────────┐
-│    Redis      │     │  PostgreSQL   │     │ Message Queue │
-│   (Cache)     │     │  (Primary)    │     │   (SQS)       │
-└───────────────┘     └───────────────┘     └───────────────┘
-                              │
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-            ┌───────────────┐   ┌───────────────┐
-            │  Read Replica │   │  Read Replica │
-            └───────────────┘   └───────────────┘
+                         CDN (CloudFront)
+                              |
+                              v
+                    Load Balancer (ALB)
+                              |
+        +---------------------+---------------------+
+        v                     v                     v
+   Web Server            Web Server            Web Server
+   (Next.js)             (Next.js)             (Next.js)
+        |                     |                     |
+        +---------------------+---------------------+
+                              |
+        +---------------------+---------------------+
+        v                     v                     v
+   API Server            API Server            API Server
+   (Node.js)             (Node.js)             (Node.js)
+        |                     |                     |
+        v                     v                     v
+     Redis              PostgreSQL           Message Queue
+    (Cache)              (Primary)              (SQS)
+                              |
+                    +---------+---------+
+                    v                   v
+              Read Replica        Read Replica
 ```
 
 **Specifications**:
@@ -237,17 +228,16 @@ estimated_cost: $2,500/month
 | Single points of failure | Analysis | Add redundancy |
 | Cost overrun | Budget check | Optimize resource sizing |
 
-## RL Metrics
+## Quality Checks
 
-- **Success Criteria**: Design meets NFRs
-- **Token Efficiency**: < 1500 tokens per design
+Before completing:
+- [ ] Design meets NFRs
+- [ ] No single points of failure
+- [ ] Cost within budget
+- [ ] Scalability path clear
 
 ## Related Skills
 
 - **domain/service-architecture**: Service layer
 - **domain/devops-operations**: Deployment
 - **domain/performance-operations**: Optimization
-
----
-
-*Domain skill version: 3.0.0*

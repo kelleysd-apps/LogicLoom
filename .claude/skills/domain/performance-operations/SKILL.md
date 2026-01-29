@@ -1,63 +1,14 @@
 ---
 name: performance-operations
 version: 3.0.0
-description: |
-  Domain skill for performance operations including optimization, caching strategies,
-  benchmarking, and latency reduction. Routes to operations-specialist agent for execution.
-  Part of the skills-first architecture.
 category: domain
-triggers:
-  - "performance"
-  - "optimize"
-  - "cache"
-  - "benchmark"
-  - "latency"
-  - "speed"
-  - "profiling"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Grep
-  - Glob
-agent-invocations:
-  - agent: operations-specialist
-    context-subset:
-      - performance-requirements
-      - bottleneck-analysis
-      - caching-needs
-      - benchmark-targets
-    when: "performance optimization work is needed"
-    timeout: 10m
-composes:
-  - skill: validation/message-preflight
-    phase: pre-execution
-  - skill: validation/domain-detection
-    phase: analysis
-progressive-disclosure:
-  layer1:
-    - name
-    - description
-    - triggers
-    - category
-    - version
-    - rl_metrics
-  layer2:
-    - instructions
-    - agent-invocations
-    - composes
-    - allowed-tools
-  layer3:
-    - examples
-    - references
+description: Performance optimization and caching. Routes to operations-specialist.
+triggers: ["performance", "optimize", "cache", "benchmark", "latency", "profiling"]
 rl_metrics:
   success_rate: 0.5
-  avg_tokens: 0
-  avg_duration_ms: 0
-  user_satisfaction: 0.5
   selection_weight: 0.5
   invocation_count: 0
+  avg_tokens: 0
 ---
 
 # Performance Operations Skill
@@ -78,6 +29,24 @@ Activate this skill when the user request involves:
 - Query optimization
 - Load testing
 - Profiling
+
+## Configuration
+
+### Allowed Tools
+
+- Read, Write, Edit, Bash, Grep, Glob
+
+### Agent Invocations
+
+**operations-specialist**:
+- Context: performance-requirements, bottleneck-analysis, caching-needs, benchmark-targets
+- When: Performance optimization work is needed
+- Timeout: 10m
+
+### Composes
+
+- validation/message-preflight (pre-execution)
+- validation/domain-detection (analysis)
 
 ## Instructions
 

@@ -32,6 +32,25 @@ Constitution v2.0.0 (ratified 2026-01-13):
 
 ---
 
+## CRITICAL: Windows Compatibility (File Writing)
+
+**NEVER use Bash heredocs to write files.** Git Bash on Windows has parsing issues.
+
+### Required Approach
+
+| Action | Tool | AVOID |
+|--------|------|-------|
+| New files | Write tool | `cat << EOF` |
+| Modifications | Edit tool | `cat << 'EOF'` |
+| Complex content | Write/Edit | Any heredoc |
+
+### Platform Notes
+
+- **Shell**: Git Bash (MINGW64) - heredocs with quotes fail
+- **Python**: Use `python` or `py` (NOT `python3` - Windows alias issue)
+
+---
+
 ## Architecture: Skills-First (v3.0.0)
 
 **New in v3.0.0**: Skills invoke agents (not agents invoking skills).

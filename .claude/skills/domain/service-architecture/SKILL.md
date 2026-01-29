@@ -2,38 +2,13 @@
 name: service-architecture
 version: 3.0.0
 category: domain
-description: Designs service architecture, microservices, and API contracts
-triggers:
-  - service architecture
-  - microservice
-  - service design
-  - API design
-  - service layer
-  - domain service
+description: Microservices and service boundary design. Routes to backend-architect.
+triggers: ["service architecture", "microservice", "service design", "domain service", "bounded context"]
 rl_metrics:
-  success_rate: 0.0
+  success_rate: 0.5
   selection_weight: 0.5
   invocation_count: 0
   avg_tokens: 0
-progressive-disclosure:
-  layer-1-metadata:
-    description: "Handles service architecture design and microservices"
-    triggers: [service, microservice, service design]
-    primary-agent: backend-architect
-  layer-2-instructions: true
-  layer-3-examples: true
-agent-invocations:
-  - agent: backend-architect
-    context-subset:
-      - service_name
-      - service_boundaries
-      - dependencies
-      - contracts
-    expected-output: architecture_design
-ds-star:
-  pre-execution: validation/message-preflight
-  post-verification: true
-  auto-debug: conditional
 ---
 
 # Service Architecture Skill
@@ -43,6 +18,34 @@ ds-star:
 Designs service architecture including microservices, service boundaries,
 API contracts, and inter-service communication patterns. Follows domain-driven
 design principles.
+
+## When to Use
+
+Activate this skill when the user request involves:
+- Service boundary definition
+- Microservice design
+- Domain-driven design
+- Service communication patterns
+- Event-driven architecture
+
+## Configuration
+
+### Allowed Tools
+
+- Read, Write, Edit, Grep, Glob
+
+### Agent Invocations
+
+**backend-architect**:
+- Context: service_name, service_boundaries, dependencies, contracts
+- When: Service architecture design is needed
+- Expected output: architecture_design
+
+### DS-STAR Integration
+
+- Pre-execution: validation/message-preflight
+- Post-verification: true
+- Auto-debug: conditional
 
 ## Constitutional Compliance
 
@@ -136,17 +139,16 @@ endpoints:
 | Missing dependencies | Validation | Identify required services |
 | Contract conflicts | Review | Resolve with versioning |
 
-## RL Metrics
+## Quality Checks
 
-- **Success Criteria**: Architecture validated and documented
-- **Token Efficiency**: < 1000 tokens per service
+Before completing:
+- [ ] Service boundaries clearly defined
+- [ ] Contracts documented
+- [ ] Events catalogued
+- [ ] Dependencies mapped
 
 ## Related Skills
 
 - **domain/backend-operations**: Implementation
 - **domain/api-design**: Detailed API contracts
 - **domain/database-operations**: Data layer
-
----
-
-*Domain skill version: 3.0.0*

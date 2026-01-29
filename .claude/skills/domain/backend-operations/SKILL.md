@@ -1,71 +1,14 @@
 ---
 name: backend-operations
 version: 3.0.0
-description: |
-  Domain skill for backend development operations including API endpoints, server logic,
-  middleware, authentication, and service layer implementation. Routes to backend-architect
-  or implementation-specialist agents for execution. Part of the skills-first architecture.
 category: domain
-triggers:
-  - "backend"
-  - "API endpoint"
-  - "server"
-  - "middleware"
-  - "service layer"
-  - "authentication"
-  - "authorization"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - MultiEdit
-  - Bash
-  - Grep
-  - Glob
-agent-invocations:
-  - agent: backend-architect
-    context-subset:
-      - api-contracts
-      - service-requirements
-      - authentication-needs
-      - data-flow
-    when: "API design or service architecture work is needed"
-    timeout: 10m
-  - agent: implementation-specialist
-    context-subset:
-      - api-specifications
-      - endpoint-requirements
-      - middleware-config
-    when: "backend implementation work is needed"
-    timeout: 10m
-composes:
-  - skill: validation/message-preflight
-    phase: pre-execution
-  - skill: validation/domain-detection
-    phase: analysis
-progressive-disclosure:
-  layer1:
-    - name
-    - description
-    - triggers
-    - category
-    - version
-    - rl_metrics
-  layer2:
-    - instructions
-    - agent-invocations
-    - composes
-    - allowed-tools
-  layer3:
-    - examples
-    - references
+description: Backend development and API endpoints. Routes to backend-architect.
+triggers: ["backend", "API endpoint", "server", "middleware", "service layer", "authentication"]
 rl_metrics:
   success_rate: 0.5
-  avg_tokens: 0
-  avg_duration_ms: 0
-  user_satisfaction: 0.5
   selection_weight: 0.5
   invocation_count: 0
+  avg_tokens: 0
 ---
 
 # Backend Operations Skill
@@ -86,6 +29,29 @@ Activate this skill when the user request involves:
 - Service layer architecture
 - Request/response handling
 - Server-side validation
+
+## Configuration
+
+### Allowed Tools
+
+- Read, Write, Edit, MultiEdit, Bash, Grep, Glob
+
+### Agent Invocations
+
+**backend-architect**:
+- Context: api-contracts, service-requirements, authentication-needs, data-flow
+- When: API design or service architecture work is needed
+- Timeout: 10m
+
+**implementation-specialist**:
+- Context: api-specifications, endpoint-requirements, middleware-config
+- When: Backend implementation work is needed
+- Timeout: 10m
+
+### Composes
+
+- validation/message-preflight (pre-execution)
+- validation/domain-detection (analysis)
 
 ## Instructions
 

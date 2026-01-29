@@ -78,15 +78,16 @@ function emaUpdate(currentWeight, reward, alpha = 0.1) {
 // Test Suite
 describe('RL Skill Selection Integration Tests', () => {
 
+  // Declare at outer scope so all nested describe blocks can access
+  let skillIndex;
+  let skillPerformance;
+
+  beforeAll(() => {
+    skillIndex = loadJson(SKILL_INDEX_PATH);
+    skillPerformance = loadJson(SKILL_PERFORMANCE_PATH);
+  });
+
   describe('T052-INT1: Weight-Based Skill Selection', () => {
-
-    let skillIndex;
-    let skillPerformance;
-
-    beforeAll(() => {
-      skillIndex = loadJson(SKILL_INDEX_PATH);
-      skillPerformance = loadJson(SKILL_PERFORMANCE_PATH);
-    });
 
     test('Higher-weight skill is selected when multiple match', () => {
       // Simulate two skills matching the same trigger
@@ -336,7 +337,7 @@ describe('RL Skill Selection Integration Tests', () => {
 
     test('Reward weights sum to 1.0', () => {
       const weights = skillIndex.rl_config.reward_weights;
-      const sum = weights.success + weights.token_efficiency + weights.user_satisfaction;
+      const sum = weights.success_rate + weights.token_efficiency + weights.user_satisfaction;
       expect(sum).toBeCloseTo(1.0, 2);
     });
 

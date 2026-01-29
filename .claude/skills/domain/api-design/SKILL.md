@@ -1,62 +1,14 @@
 ---
 name: api-design
 version: 3.0.0
-description: |
-  Domain skill for API design including REST, GraphQL, OpenAPI specifications,
-  endpoint design, and contract definition. Routes to backend-architect agent for
-  execution. Critical for Principle III (Contract-First Design).
 category: domain
-triggers:
-  - "API design"
-  - "REST"
-  - "GraphQL"
-  - "endpoint design"
-  - "contract"
-  - "OpenAPI"
-  - "Swagger"
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Grep
-  - Glob
-agent-invocations:
-  - agent: backend-architect
-    context-subset:
-      - api-requirements
-      - data-contracts
-      - authentication-model
-      - versioning-strategy
-    when: "API design or contract work is needed"
-    timeout: 10m
-composes:
-  - skill: validation/message-preflight
-    phase: pre-execution
-  - skill: validation/domain-detection
-    phase: analysis
-progressive-disclosure:
-  layer1:
-    - name
-    - description
-    - triggers
-    - category
-    - version
-    - rl_metrics
-  layer2:
-    - instructions
-    - agent-invocations
-    - composes
-    - allowed-tools
-  layer3:
-    - examples
-    - references
+description: REST, GraphQL, and OpenAPI contract design. Routes to backend-architect.
+triggers: ["API design", "REST", "GraphQL", "OpenAPI", "Swagger", "contract"]
 rl_metrics:
   success_rate: 0.5
-  avg_tokens: 0
-  avg_duration_ms: 0
-  user_satisfaction: 0.5
   selection_weight: 0.5
   invocation_count: 0
+  avg_tokens: 0
 ---
 
 # API Design Skill
@@ -77,6 +29,24 @@ Activate this skill when the user request involves:
 - API versioning
 - Request/response contracts
 - Error response standardization
+
+## Configuration
+
+### Allowed Tools
+
+- Read, Write, Edit, Grep, Glob
+
+### Agent Invocations
+
+**backend-architect**:
+- Context: api-requirements, data-contracts, authentication-model, versioning-strategy
+- When: API design or contract work is needed
+- Timeout: 10m
+
+### Composes
+
+- validation/message-preflight (pre-execution)
+- validation/domain-detection (analysis)
 
 ## Instructions
 
