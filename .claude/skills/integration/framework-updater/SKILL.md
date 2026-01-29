@@ -75,7 +75,7 @@ Use `/update-framework` when:
 1. Check if upstream remote exists:
    ```bash
    git remote -v | grep -q 'sdd-agentic-framework' || \
-     git remote add upstream https://github.com/yourusername/sdd-agentic-framework.git
+     git remote add upstream https://github.com/kelleysd-apps/sdd-agentic-framework.git
    ```
 
 2. Fetch upstream changes:
