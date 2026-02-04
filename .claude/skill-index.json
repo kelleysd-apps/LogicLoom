@@ -1,6 +1,6 @@
 {
   "version": "3.0.0",
-  "generated": "2026-01-13T00:00:00Z",
+  "generated": "2026-02-05T00:00:00Z",
   "architecture-mode": "skills-first",
   "categories": [
     {
@@ -50,6 +50,12 @@
       "description": "External system integration skills",
       "governance-level": "medium",
       "skill-count": 1
+    },
+    {
+      "name": "git",
+      "description": "Git workflow and version control skills",
+      "governance-level": "critical",
+      "skill-count": 1
     }
   ],
   "skills": [
@@ -57,15 +63,26 @@
       "name": "sdd-specification",
       "path": "skills/sdd-workflow/sdd-specification/SKILL.md",
       "category": "sdd-workflow",
-      "triggers": ["/specify", "specification", "requirements", "feature spec", "create spec"],
+      "triggers": [
+        "/specify",
+        "specification",
+        "requirements",
+        "feature spec",
+        "create spec"
+      ],
       "token-budget": {
         "layer1": 95,
         "layer2": 480,
         "layer3": 850,
         "total": 1425
       },
-      "agents": ["specification-orchestrator"],
-      "composes": ["validation/message-preflight", "validation/domain-detection"],
+      "agents": [
+        "specification-orchestrator"
+      ],
+      "composes": [
+        "validation/message-preflight",
+        "validation/domain-detection"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -80,15 +97,26 @@
       "name": "sdd-planning",
       "path": "skills/sdd-workflow/sdd-planning/SKILL.md",
       "category": "sdd-workflow",
-      "triggers": ["/plan", "implementation plan", "technical research", "planning phase"],
+      "triggers": [
+        "/plan",
+        "implementation plan",
+        "technical research",
+        "planning phase"
+      ],
       "token-budget": {
         "layer1": 90,
         "layer2": 520,
         "layer3": 900,
         "total": 1510
       },
-      "agents": ["specification-orchestrator", "backend-architect", "database-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "specification-orchestrator",
+        "backend-architect",
+        "database-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -103,15 +131,24 @@
       "name": "sdd-tasks",
       "path": "skills/sdd-workflow/sdd-tasks/SKILL.md",
       "category": "sdd-workflow",
-      "triggers": ["/tasks", "task list", "task generation", "breakdown tasks"],
+      "triggers": [
+        "/tasks",
+        "task list",
+        "task generation",
+        "breakdown tasks"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 600,
         "total": 1135
       },
-      "agents": ["specification-orchestrator"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "specification-orchestrator"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -126,15 +163,25 @@
       "name": "sdd-debug",
       "path": "skills/sdd-workflow/sdd-debug/SKILL.md",
       "category": "sdd-workflow",
-      "triggers": ["/debug", "debug issue", "troubleshoot", "deployment error"],
+      "triggers": [
+        "/debug",
+        "debug issue",
+        "troubleshoot",
+        "deployment error"
+      ],
       "token-budget": {
         "layer1": 90,
         "layer2": 600,
         "layer3": 1200,
         "total": 1890
       },
-      "agents": ["auto-debug-agent", "operations-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "auto-debug-agent",
+        "operations-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -149,7 +196,11 @@
       "name": "message-preflight",
       "path": "skills/validation/message-preflight/SKILL.md",
       "category": "validation",
-      "triggers": ["__system_preflight__", "compliance check", "constitutional compliance"],
+      "triggers": [
+        "__system_preflight__",
+        "compliance check",
+        "constitutional compliance"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 350,
@@ -172,7 +223,11 @@
       "name": "domain-detection",
       "path": "skills/validation/domain-detection/SKILL.md",
       "category": "validation",
-      "triggers": ["detect domain", "domain analysis", "keyword scan"],
+      "triggers": [
+        "detect domain",
+        "domain analysis",
+        "keyword scan"
+      ],
       "token-budget": {
         "layer1": 75,
         "layer2": 300,
@@ -195,15 +250,26 @@
       "name": "qa-validation",
       "path": "skills/validation/qa-validation/SKILL.md",
       "category": "validation",
-      "triggers": ["QA validation", "quality assurance", "test coverage", "acceptance criteria", "quality gate"],
+      "triggers": [
+        "QA validation",
+        "quality assurance",
+        "test coverage",
+        "acceptance criteria",
+        "quality gate"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["quality-specialist"],
-      "composes": ["validation/message-preflight", "domain/testing-operations"],
+      "agents": [
+        "quality-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight",
+        "domain/testing-operations"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -218,14 +284,21 @@
       "name": "constitutional-compliance",
       "path": "skills/validation/constitutional-compliance/SKILL.md",
       "category": "validation",
-      "triggers": ["validate compliance", "constitutional check", "principle validation"],
+      "triggers": [
+        "validate compliance",
+        "constitutional check",
+        "principle validation"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 400,
         "layer3": 600,
         "total": 1085
       },
-      "agents": ["verifier-agent", "finalizer-agent"],
+      "agents": [
+        "verifier-agent",
+        "finalizer-agent"
+      ],
       "composes": [],
       "status": "active",
       "rl_metrics": {
@@ -241,15 +314,23 @@
       "name": "finalize",
       "path": "skills/governance/finalize/SKILL.md",
       "category": "governance",
-      "triggers": ["/finalize", "pre-commit check", "finalize feature"],
+      "triggers": [
+        "/finalize",
+        "pre-commit check",
+        "finalize feature"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 450,
         "layer3": 700,
         "total": 1230
       },
-      "agents": ["finalizer-agent"],
-      "composes": ["validation/constitutional-compliance"],
+      "agents": [
+        "finalizer-agent"
+      ],
+      "composes": [
+        "validation/constitutional-compliance"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -264,15 +345,23 @@
       "name": "multi-skill-workflow",
       "path": "skills/orchestration/multi-skill-workflow/SKILL.md",
       "category": "orchestration",
-      "triggers": ["orchestrate workflow", "multi-domain", "coordinate skills"],
+      "triggers": [
+        "orchestrate workflow",
+        "multi-domain",
+        "coordinate skills"
+      ],
       "token-budget": {
         "layer1": 90,
         "layer2": 500,
         "layer3": 800,
         "total": 1390
       },
-      "agents": ["workflow-coordinator"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "workflow-coordinator"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -287,14 +376,20 @@
       "name": "migration-workflow",
       "path": "skills/orchestration/migration-workflow/SKILL.md",
       "category": "orchestration",
-      "triggers": ["migration", "migrate patterns", "upgrade workflow"],
+      "triggers": [
+        "migration",
+        "migrate patterns",
+        "upgrade workflow"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 700,
         "total": 1235
       },
-      "agents": ["workflow-coordinator"],
+      "agents": [
+        "workflow-coordinator"
+      ],
       "composes": [],
       "status": "active",
       "rl_metrics": {
@@ -310,15 +405,31 @@
       "name": "full-stack-feature",
       "path": "skills/orchestration/full-stack-feature/SKILL.md",
       "category": "orchestration",
-      "triggers": ["full-stack", "frontend and backend", "end-to-end feature", "UI with API", "cross-domain"],
+      "triggers": [
+        "full-stack",
+        "frontend and backend",
+        "end-to-end feature",
+        "UI with API",
+        "cross-domain"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 700,
         "total": 1235
       },
-      "agents": ["workflow-coordinator", "database-specialist", "backend-architect", "implementation-specialist"],
-      "composes": ["validation/message-preflight", "domain/database-operations", "domain/backend-operations", "domain/frontend-operations"],
+      "agents": [
+        "workflow-coordinator",
+        "database-specialist",
+        "backend-architect",
+        "implementation-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight",
+        "domain/database-operations",
+        "domain/backend-operations",
+        "domain/frontend-operations"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -333,15 +444,26 @@
       "name": "frontend-operations",
       "path": "skills/domain/frontend-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["frontend", "UI component", "React", "CSS", "form", "responsive"],
+      "triggers": [
+        "frontend",
+        "UI component",
+        "React",
+        "CSS",
+        "form",
+        "responsive"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["implementation-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "implementation-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -356,15 +478,26 @@
       "name": "backend-operations",
       "path": "skills/domain/backend-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["backend", "API endpoint", "server", "middleware", "service layer"],
+      "triggers": [
+        "backend",
+        "API endpoint",
+        "server",
+        "middleware",
+        "service layer"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 420,
         "layer3": 650,
         "total": 1155
       },
-      "agents": ["backend-architect", "implementation-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "backend-architect",
+        "implementation-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -379,15 +512,27 @@
       "name": "database-operations",
       "path": "skills/domain/database-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["database", "schema", "migration", "query", "SQL", "RLS", "data model"],
+      "triggers": [
+        "database",
+        "schema",
+        "migration",
+        "query",
+        "SQL",
+        "RLS",
+        "data model"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 700,
         "total": 1235
       },
-      "agents": ["database-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "database-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -402,15 +547,27 @@
       "name": "testing-operations",
       "path": "skills/domain/testing-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["test", "TDD", "E2E", "coverage", "unit test", "QA", "test plan"],
+      "triggers": [
+        "test",
+        "TDD",
+        "E2E",
+        "coverage",
+        "unit test",
+        "QA",
+        "test plan"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["quality-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "quality-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -425,15 +582,26 @@
       "name": "security-operations",
       "path": "skills/domain/security-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["security", "encryption", "XSS", "secrets", "vulnerability", "auth security"],
+      "triggers": [
+        "security",
+        "encryption",
+        "XSS",
+        "secrets",
+        "vulnerability",
+        "auth security"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 420,
         "layer3": 650,
         "total": 1150
       },
-      "agents": ["quality-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "quality-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -448,15 +616,25 @@
       "name": "performance-operations",
       "path": "skills/domain/performance-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["performance", "optimize", "cache", "benchmark", "latency"],
+      "triggers": [
+        "performance",
+        "optimize",
+        "cache",
+        "benchmark",
+        "latency"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["operations-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "operations-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -471,15 +649,26 @@
       "name": "devops-operations",
       "path": "skills/domain/devops-operations/SKILL.md",
       "category": "domain",
-      "triggers": ["deploy", "CI/CD", "Docker", "pipeline", "infrastructure", "DevOps"],
+      "triggers": [
+        "deploy",
+        "CI/CD",
+        "Docker",
+        "pipeline",
+        "infrastructure",
+        "DevOps"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 700,
         "total": 1235
       },
-      "agents": ["operations-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "operations-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -494,15 +683,28 @@
       "name": "monitoring",
       "path": "skills/domain/monitoring/SKILL.md",
       "category": "domain",
-      "triggers": ["monitoring", "observability", "metrics", "logging", "health check", "alerting"],
+      "triggers": [
+        "monitoring",
+        "observability",
+        "metrics",
+        "logging",
+        "health check",
+        "alerting"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["operations-specialist", "system-architect"],
-      "composes": ["validation/message-preflight", "domain/devops-operations"],
+      "agents": [
+        "operations-specialist",
+        "system-architect"
+      ],
+      "composes": [
+        "validation/message-preflight",
+        "domain/devops-operations"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -517,15 +719,25 @@
       "name": "api-design",
       "path": "skills/domain/api-design/SKILL.md",
       "category": "domain",
-      "triggers": ["API design", "REST", "GraphQL", "endpoint design", "contract"],
+      "triggers": [
+        "API design",
+        "REST",
+        "GraphQL",
+        "endpoint design",
+        "contract"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 420,
         "layer3": 650,
         "total": 1155
       },
-      "agents": ["backend-architect"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "backend-architect"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -540,15 +752,24 @@
       "name": "service-architecture",
       "path": "skills/domain/service-architecture/SKILL.md",
       "category": "domain",
-      "triggers": ["service architecture", "microservice", "service design", "domain service"],
+      "triggers": [
+        "service architecture",
+        "microservice",
+        "service design",
+        "domain service"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 420,
         "layer3": 650,
         "total": 1155
       },
-      "agents": ["backend-architect"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "backend-architect"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -563,15 +784,25 @@
       "name": "schema-design",
       "path": "skills/domain/schema-design/SKILL.md",
       "category": "domain",
-      "triggers": ["schema design", "data model", "entity design", "ERD", "table structure"],
+      "triggers": [
+        "schema design",
+        "data model",
+        "entity design",
+        "ERD",
+        "table structure"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 420,
         "layer3": 650,
         "total": 1155
       },
-      "agents": ["database-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "database-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -586,15 +817,24 @@
       "name": "system-design",
       "path": "skills/domain/system-design/SKILL.md",
       "category": "domain",
-      "triggers": ["system design", "architecture design", "infrastructure", "scalability"],
+      "triggers": [
+        "system design",
+        "architecture design",
+        "infrastructure",
+        "scalability"
+      ],
       "token-budget": {
         "layer1": 90,
         "layer2": 500,
         "layer3": 800,
         "total": 1390
       },
-      "agents": ["system-architect"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "system-architect"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -609,15 +849,23 @@
       "name": "create-agent",
       "path": "skills/creation/create-agent/SKILL.md",
       "category": "creation",
-      "triggers": ["/create-agent", "new agent", "create subagent"],
+      "triggers": [
+        "/create-agent",
+        "new agent",
+        "create subagent"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["system-architect"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "system-architect"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -632,15 +880,23 @@
       "name": "create-skill",
       "path": "skills/creation/create-skill/SKILL.md",
       "category": "creation",
-      "triggers": ["/create-skill", "new skill", "create procedure"],
+      "triggers": [
+        "/create-skill",
+        "new skill",
+        "create procedure"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["system-architect"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "system-architect"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -655,15 +911,23 @@
       "name": "create-template",
       "path": "skills/creation/create-template/SKILL.md",
       "category": "creation",
-      "triggers": ["create template", "new template", "template for"],
+      "triggers": [
+        "create template",
+        "new template",
+        "template for"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["system-architect"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "system-architect"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -678,15 +942,23 @@
       "name": "create-prd",
       "path": "skills/creation/create-prd/SKILL.md",
       "category": "creation",
-      "triggers": ["/create-prd", "product requirements", "PRD"],
+      "triggers": [
+        "/create-prd",
+        "product requirements",
+        "PRD"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 700,
         "total": 1235
       },
-      "agents": ["specification-orchestrator"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "specification-orchestrator"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -701,15 +973,22 @@
       "name": "prd-creation",
       "path": "skills/project-initialization/prd-creation/SKILL.md",
       "category": "project-initialization",
-      "triggers": ["PRD creation", "product requirements document"],
+      "triggers": [
+        "PRD creation",
+        "product requirements document"
+      ],
       "token-budget": {
         "layer1": 85,
         "layer2": 450,
         "layer3": 700,
         "total": 1235
       },
-      "agents": ["specification-orchestrator"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "specification-orchestrator"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -724,15 +1003,23 @@
       "name": "initialize-project",
       "path": "skills/project-initialization/initialize-project/SKILL.md",
       "category": "project-initialization",
-      "triggers": ["/initialize-project", "project setup", "init project"],
+      "triggers": [
+        "/initialize-project",
+        "project setup",
+        "init project"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["specification-orchestrator"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "specification-orchestrator"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -747,15 +1034,23 @@
       "name": "mcp-server-setup",
       "path": "skills/integration/mcp-server-setup/SKILL.md",
       "category": "integration",
-      "triggers": ["MCP server", "mcp-add", "MCP integration"],
+      "triggers": [
+        "MCP server",
+        "mcp-add",
+        "MCP integration"
+      ],
       "token-budget": {
         "layer1": 80,
         "layer2": 400,
         "layer3": 600,
         "total": 1080
       },
-      "agents": ["operations-specialist"],
-      "composes": ["validation/message-preflight"],
+      "agents": [
+        "operations-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
       "status": "active",
       "rl_metrics": {
         "success_rate": 0.5,
@@ -764,6 +1059,72 @@
         "selection_weight": 0.5,
         "invocation_count": 0,
         "last_updated": "2026-01-13T00:00:00Z"
+      }
+    },
+    {
+      "name": "unified-specification",
+      "path": "skills/sdd-workflow/unified-specification/SKILL.md",
+      "category": "sdd-workflow",
+      "triggers": [
+        "/specification",
+        "unified specification",
+        "complete specification",
+        "full spec workflow"
+      ],
+      "token-budget": {
+        "layer1": 100,
+        "layer2": 600,
+        "layer3": 1200,
+        "total": 1900
+      },
+      "agents": [
+        "specification-orchestrator",
+        "workflow-coordinator"
+      ],
+      "composes": [
+        "sdd-workflow/sdd-specification",
+        "sdd-workflow/sdd-planning",
+        "sdd-workflow/sdd-tasks"
+      ],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-02-05T00:00:00Z"
+      }
+    },
+    {
+      "name": "git-push-workflow",
+      "path": "skills/git/git-push-workflow/SKILL.md",
+      "category": "git",
+      "triggers": [
+        "/git-push",
+        "push changes",
+        "create PR",
+        "commit and push",
+        "submit for review"
+      ],
+      "token-budget": {
+        "layer1": 90,
+        "layer2": 550,
+        "layer3": 1000,
+        "total": 1640
+      },
+      "agents": [
+        "workflow-coordinator"
+      ],
+      "composes": [],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-02-05T00:00:00Z"
       }
     }
   ],
@@ -777,33 +1138,101 @@
       "/create-agent": "creation/create-agent",
       "/create-skill": "creation/create-skill",
       "/create-prd": "creation/create-prd",
-      "/initialize-project": "project-initialization/initialize-project"
+      "/initialize-project": "project-initialization/initialize-project",
+      "/specification": "sdd-workflow/unified-specification",
+      "/git-push": "git/git-push-workflow"
     },
     "keyword-routes": {
-      "specification": ["sdd-workflow/sdd-specification"],
-      "requirements": ["sdd-workflow/sdd-specification"],
-      "planning": ["sdd-workflow/sdd-planning"],
-      "research": ["sdd-workflow/sdd-planning"],
-      "tasks": ["sdd-workflow/sdd-tasks"],
-      "debug": ["sdd-workflow/sdd-debug"],
-      "troubleshoot": ["sdd-workflow/sdd-debug"],
-      "database": ["domain/database-operations", "domain/schema-design"],
-      "schema": ["domain/schema-design", "domain/database-operations"],
-      "API": ["domain/api-design", "domain/backend-operations"],
-      "frontend": ["domain/frontend-operations"],
-      "UI": ["domain/frontend-operations"],
-      "component": ["domain/frontend-operations"],
-      "test": ["domain/testing-operations"],
-      "TDD": ["domain/testing-operations"],
-      "security": ["domain/security-operations"],
-      "performance": ["domain/performance-operations"],
-      "deploy": ["domain/devops-operations"],
-      "Docker": ["domain/devops-operations"],
-      "CI/CD": ["domain/devops-operations"],
-      "microservice": ["domain/service-architecture"],
-      "service": ["domain/service-architecture", "domain/backend-operations"],
-      "system design": ["domain/system-design"],
-      "architecture": ["domain/system-design", "domain/service-architecture"]
+      "specification": [
+        "sdd-workflow/sdd-specification",
+        "sdd-workflow/unified-specification"
+      ],
+      "requirements": [
+        "sdd-workflow/sdd-specification"
+      ],
+      "planning": [
+        "sdd-workflow/sdd-planning"
+      ],
+      "research": [
+        "sdd-workflow/sdd-planning"
+      ],
+      "tasks": [
+        "sdd-workflow/sdd-tasks"
+      ],
+      "debug": [
+        "sdd-workflow/sdd-debug"
+      ],
+      "troubleshoot": [
+        "sdd-workflow/sdd-debug"
+      ],
+      "database": [
+        "domain/database-operations",
+        "domain/schema-design"
+      ],
+      "schema": [
+        "domain/schema-design",
+        "domain/database-operations"
+      ],
+      "API": [
+        "domain/api-design",
+        "domain/backend-operations"
+      ],
+      "frontend": [
+        "domain/frontend-operations"
+      ],
+      "UI": [
+        "domain/frontend-operations"
+      ],
+      "component": [
+        "domain/frontend-operations"
+      ],
+      "test": [
+        "domain/testing-operations"
+      ],
+      "TDD": [
+        "domain/testing-operations"
+      ],
+      "security": [
+        "domain/security-operations"
+      ],
+      "performance": [
+        "domain/performance-operations"
+      ],
+      "deploy": [
+        "domain/devops-operations"
+      ],
+      "Docker": [
+        "domain/devops-operations"
+      ],
+      "CI/CD": [
+        "domain/devops-operations"
+      ],
+      "microservice": [
+        "domain/service-architecture"
+      ],
+      "service": [
+        "domain/service-architecture",
+        "domain/backend-operations"
+      ],
+      "system design": [
+        "domain/system-design"
+      ],
+      "architecture": [
+        "domain/system-design",
+        "domain/service-architecture"
+      ],
+      "git push": [
+        "git/git-push-workflow"
+      ],
+      "commit": [
+        "git/git-push-workflow"
+      ],
+      "pull request": [
+        "git/git-push-workflow"
+      ],
+      "PR": [
+        "git/git-push-workflow"
+      ]
     },
     "domain-routes": {
       "frontend": {
@@ -850,6 +1279,11 @@
         "primary-skill": "domain/system-design",
         "fallback-skill": "domain/service-architecture",
         "primary-agent": "system-architect"
+      },
+      "git": {
+        "primary-skill": "git/git-push-workflow",
+        "fallback-skill": null,
+        "primary-agent": "workflow-coordinator"
       }
     }
   },
@@ -868,16 +1302,17 @@
     "evaluation_window_days": 30
   },
   "statistics": {
-    "total-skills": 31,
+    "total-skills": 33,
     "skills-by-category": {
-      "sdd-workflow": 4,
+      "sdd-workflow": 5,
       "validation": 4,
       "governance": 1,
       "orchestration": 3,
       "domain": 12,
       "creation": 4,
       "project-initialization": 2,
-      "integration": 1
+      "integration": 1,
+      "git": 1
     },
     "skills-by-status": {
       "active": 31,

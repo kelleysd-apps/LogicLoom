@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "GitPushWorkflowState",
+  "description": "State schema for git-push workflow",
+  "type": "object",
+  "required": ["version", "branch", "stage", "started_at"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "INIT", "DIFF", "COMMIT_PENDING", "COMMITTED",
+        "PUSH_PENDING", "PUSHED", "PR_TARGET_PENDING",
+        "PR_CREATE_PENDING", "PR_CREATED", "CONFLICT_CHECK",
+        "CONFLICT_DETECTED", "CONFLICT_RESOLVING",
+        "COMPLETE", "ABORTED", "FAILED"
+      ]
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "commit": {
+      "type": ["object", "null"],
+      "properties": {
+        "sha": { "type": "string" },
+        "message": { "type": "string" },
+        "files_changed": { "type": "integer" },
+        "insertions": { "type": "integer" },
+        "deletions": { "type": "integer" }
+      }
+    },
+    "push": {
+      "type": ["object", "null"],
+      "properties": {
+        "success": { "type": "boolean" },
+        "remote": { "type": "string" },
+        "branch": { "type": "string" },
+        "error_type": { "type": ["string", "null"] }
+      }
+    },
+    "pull_request": {
+      "type": ["object", "null"],
+      "properties": {
+        "number": { "type": "integer" },
+        "url": { "type": "string" },
+        "title": { "type": "string" },
+        "base_branch": { "type": "string" },
+        "mergeable": { "type": ["boolean", "null"] },
+        "merge_state_status": { "type": "string" }
+      }
+    },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "file_path": { "type": "string" },
+          "conflict_type": { "type": "string" },
+          "recommendation": { "type": "string" },
+          "resolved": { "type": "boolean" }
+        }
+      }
+    },
+    "aborted": { "type": "boolean" },
+    "abort_reason": { "type": ["string", "null"] }
+  }
+}

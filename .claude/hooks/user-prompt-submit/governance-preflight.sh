@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # UserPromptSubmit Hook: Governance Preflight Check
 # Constitutional Principle X enforcement
-# Version: 1.0.0
+# Version: 1.1.0
 #
 # This hook automatically injects constitutional governance context
 # on every user message to ensure compliance with all 15 principles.
 #
 # Input: JSON via stdin (Claude Code hook contract)
-# Output: JSON with additionalContext injection
+# Output: JSON with hookEventName and additionalContext
 
 set -euo pipefail
 
@@ -137,15 +137,31 @@ create_audit_log "$AGENT_ROLE" "$INPUT_SUMMARY" &
 # Generate governance context
 GOVERNANCE_CONTEXT=$(generate_governance_context "$AGENT_ROLE")
 
-# Output JSON with additionalContext injection
-# Using pure bash JSON generation for compatibility
-cat <<EOF
+# Output JSON with hookEventName and additionalContext (Claude Code hook contract)
+# Using jq for proper JSON escaping, with pure bash fallback
+if command -v jq &> /dev/null; then
+    ESCAPED_CONTEXT=$(echo "$GOVERNANCE_CONTEXT" | jq -Rs '.')
+    cat <<EOF
 {
   "blocked": false,
   "hookSpecificOutput": {
-    "additionalContext": $(echo "$GOVERNANCE_CONTEXT" | jq -Rs '.' 2>/dev/null || echo "\"$GOVERNANCE_CONTEXT\"" | sed 's/"/\\"/g')
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": $ESCAPED_CONTEXT
   }
 }
 EOF
+else
+    # Pure bash fallback - escape for JSON
+    ESCAPED_CONTEXT=$(echo "$GOVERNANCE_CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g' | tr '\n' ' ')
+    cat <<EOF
+{
+  "blocked": false,
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",
+    "additionalContext": "$ESCAPED_CONTEXT"
+  }
+}
+EOF
+fi
 
 exit 0

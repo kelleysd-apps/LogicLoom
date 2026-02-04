@@ -1,6 +1,15 @@
 ---
 description: Execute the implementation planning workflow using the plan template to generate design artifacts.
+deprecated: true
+deprecated-by: /specification
 ---
+
+> ⚠️ **DEPRECATION NOTICE**: This command is deprecated and will be removed in v4.0.0.
+> 
+> **Use instead**: `/specification <feature-description>`
+> 
+> The new `/specification` command provides a unified workflow that generates all SDD artifacts (spec, plan, tasks) in a single execution.
+
 
 **AGENT REQUIREMENT**: This command should be executed by the planning-agent.
 

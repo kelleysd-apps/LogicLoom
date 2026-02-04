@@ -149,9 +149,11 @@ This is a specification-driven development framework that uses structured templa
 |---------|---------|-------|
 | `/create-prd` | Create Product Requirements Document (Phase 0) | prd-specialist |
 | `/initialize-project` | Customize framework post-PRD | prd-specialist |
-| `/specify` | Create feature specification (Phase 1) | specification-agent |
-| `/plan` | Generate implementation plan (Phase 2) | planning-agent |
-| `/tasks` | Generate task list (Phase 3) | tasks-agent |
+| **`/specification`** | **Unified SDD workflow - generates spec, plan, tasks in one command** | **specification-agent** |
+| **`/git-push`** | **Complete git workflow - commit, push, PR with conflict resolution** | **-** |
+| `/specify` | ~~Create feature specification~~ (deprecated - use /specification) | specification-agent |
+| `/plan` | ~~Generate implementation plan~~ (deprecated - use /specification) | planning-agent |
+| `/tasks` | ~~Generate task list~~ (deprecated - use /specification) | tasks-agent |
 | `/debug` | Debug deployment/runtime issues (10-step workflow) | - |
 | `/finalize` | Pre-commit compliance validation | - |
 | `/create-agent` | Create specialized subagent | subagent-architect |
@@ -395,6 +397,55 @@ For detailed enhancement documentation, see `.docs/reports/FRAMEWORK_ENHANCEMENT
 - Haiku: `claude-haiku` (latest)
 
 ---
+
+
+
+---
+
+## RL Feedback System (DS-STAR)
+
+The framework includes an RL (Reinforcement Learning) feedback system that improves skill selection over time.
+
+### Key Components
+
+| Component | Location | Purpose |
+|-----------|----------|---------|
+| Metrics Tracking | `.docs/rl-metrics/skill-performance.json` | Detailed performance history |
+| Skill Index | `.claude/skill-index.json` | RL weights for routing |
+| Feedback Script | `.specify/scripts/bash/rl/collect-feedback.sh` | Record outcomes |
+| Sync Script | `.specify/scripts/bash/rl/sync-metrics.sh` | Update skill index |
+| Dashboard | `.specify/scripts/bash/rl/dashboard.sh` | View metrics |
+
+### RL Flow
+
+```
+Skill Execution → Verifier Validation → Feedback Collection → Metrics Update
+                                              ↓
+                               selection_weight adjusted via EMA
+```
+
+### Commands
+
+```bash
+# Record skill execution result
+.specify/scripts/bash/rl/collect-feedback.sh <skill-name> success|failure [tokens]
+
+# Sync metrics to skill-index.json
+.specify/scripts/bash/rl/sync-metrics.sh
+
+# View dashboard
+.specify/scripts/bash/rl/dashboard.sh
+```
+
+### Algorithm
+
+Uses Exponential Moving Average (EMA) with learning rate 0.1:
+```
+success_rate = 0.9 * old_rate + 0.1 * (1 if success else 0)
+selection_weight = clamp(success_rate, 0.1, 1.0)
+```
+
+**Documentation**: `.docs/architecture/RL-FEEDBACK-ARCHITECTURE.md`
 
 ## Additional Documentation
 

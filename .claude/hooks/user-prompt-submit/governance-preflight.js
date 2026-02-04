@@ -6,9 +6,10 @@
  * It enforces the 4-step compliance protocol from FR-707.
  *
  * Constitutional Reference: .specify/memory/constitution.md
- * Output Contract: { blocked: false, hookSpecificOutput: { additionalContext: string } }
+ * Output Contract: { blocked: false, hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: string } }
  *
  * Audit Trail: Writes session logs to .docs/governance/audit/YYYY-MM-DD/
+ * Version: 1.1.0
  */
 
 const fs = require('fs');
@@ -62,10 +63,11 @@ process.stdin.on('end', async () => {
     // Could optionally log to stderr: console.error('Audit log failed:', err.message);
   }
 
-  // Output per Claude Code hook contract
+  // Output per Claude Code hook contract - MUST include hookEventName
   const output = {
     blocked: false,
     hookSpecificOutput: {
+      hookEventName: "UserPromptSubmit",
       additionalContext: complianceContext
     }
   };
