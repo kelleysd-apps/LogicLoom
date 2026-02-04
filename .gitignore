@@ -56,3 +56,21 @@ coverage/
 
 # Context System Cache
 .claude/context/.cache/*
+# Session-specific audit logs (generated at runtime)
+.docs/governance/audit/
+
+# Backup files from edits
+*.bak
+.claude/skill-index.json.bak
+
+# RL metrics (session-specific, regenerated)
+# Keep the template but ignore session data
+# .docs/rl-metrics/skill-performance.json  # Keep for now as template
+
+# Feature specs (project-specific, created during development)
+specs/*/
+!specs/README.md
+!specs/.gitkeep
+
+# Deprecated items (kept locally for reference, not in template)
+**/.deprecated/

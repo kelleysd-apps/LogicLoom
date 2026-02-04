@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SpecificationWorkflowState",
+  "description": "State schema for unified specification workflow",
+  "type": "object",
+  "required": ["version", "feature_branch", "current_phase", "started_at"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "feature_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "feature_description": {
+      "type": "string"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "completed_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "current_phase": {
+      "type": "string",
+      "enum": ["spec", "plan", "tasks", "complete", "failed"]
+    },
+    "phases": {
+      "type": "object",
+      "properties": {
+        "spec": { "$ref": "#/definitions/PhaseState" },
+        "plan": { "$ref": "#/definitions/PhaseState" },
+        "tasks": { "$ref": "#/definitions/PhaseState" }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/ArtifactState" }
+    },
+    "quality_gates": {
+      "type": "object",
+      "properties": {
+        "spec_completeness": { "type": ["number", "null"] },
+        "plan_quality": { "type": ["number", "null"] },
+        "tasks_coverage": { "type": ["number", "null"] }
+      }
+    }
+  },
+  "definitions": {
+    "PhaseState": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "running", "complete", "failed", "skipped"]
+        },
+        "started_at": { "type": ["string", "null"] },
+        "completed_at": { "type": ["string", "null"] },
+        "error_message": { "type": ["string", "null"] },
+        "retry_count": { "type": "integer", "minimum": 0, "maximum": 3 }
+      }
+    },
+    "ArtifactState": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "exists": { "type": "boolean" },
+        "validated": { "type": "boolean" },
+        "validation_score": { "type": ["number", "null"] },
+        "content_hash": { "type": ["string", "null"] }
+      }
+    }
+  }
+}

@@ -517,3 +517,73 @@ Load workflow context when needed:
 - CLAUDE.md "Commands" and "Key Architecture" sections
 - `.specify/scripts/bash/` workflow scripts
 - `.specify/memory/constitution.md`
+
+## Unified Specification Workflow (NEW)
+
+### Overview
+
+The unified `/specification` command consolidates the entire SDD workflow:
+
+```
+User Request ──→ /specification ──→ 7 Artifacts
+                      │
+                      ├── Phase 1: spec.md
+                      ├── Phase 2: plan.md + research.md + data-model.md + contracts/ + quickstart.md
+                      └── Phase 3: tasks.md
+```
+
+### Quality Gates
+
+| Phase | Artifact | Threshold |
+|-------|----------|-----------|
+| Specification | spec.md | 90% completeness |
+| Planning | plan.md | 85% quality |
+| Tasks | tasks.md | Full coverage |
+
+### Workflow State
+
+State persisted in `specs/<branch>/.workflow-state.json`:
+- Enables resume after interruption
+- Tracks phase progress
+- Records quality gate results
+
+---
+
+## Git Push Workflow (NEW)
+
+### Overview
+
+The `/git-push` command provides a complete git workflow with Principle VI compliance:
+
+```
+/git-push
+    │
+    ├── 📊 DIFF ─────────→ Show changes
+    │         ↓
+    ├── 📝 COMMIT ───────→ 🔒 Approval Required
+    │         ↓
+    ├── 🚀 PUSH ─────────→ 🔒 Approval Required
+    │         ↓
+    ├── 📋 PR_CREATE ────→ 🔒 Approval Required
+    │         ↓
+    ├── 🔍 CONFLICT_CHECK
+    │         ↓
+    │   ┌─ CLEAN ────────→ ✅ COMPLETE
+    │   └─ DIRTY ────────→ CONFLICT_RESOLVE ─┐
+    │                            ↑           │
+    │                            └───────────┘
+    │                            (loop until clean)
+    │
+    └── ✅ COMPLETE
+```
+
+### Principle VI Checkpoints
+
+Every git operation requires explicit approval:
+- `git commit` → "Approve commit? (y/n)"
+- `git push` → "Push to origin? (y/n)"
+- `gh pr create` → "Create this PR? (y/n)"
+- Conflict resolution → "Resolve conflicts? (y/n)"
+
+**The workflow NEVER executes git commands without user approval.**
+

@@ -408,3 +408,66 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 - All SKILL.md files in `.claude/skills/`
 - `.specify/memory/agent-collaboration-triggers.md`
 - CLAUDE.md "Commands" section
+
+## New Commands (v3.1.0)
+
+### /specification - Unified Specification Workflow
+
+**Replaces**: `/specify` → `/plan` → `/tasks`
+
+**Usage**:
+```bash
+/specification "Build user authentication with email and password"
+/specification --resume  # Resume interrupted workflow
+/specification --phase plan  # Start from specific phase
+```
+
+**Generated Artifacts** (all in `specs/<branch>/`):
+- `spec.md` - Feature specification
+- `plan.md` - Implementation plan
+- `research.md` - Technical research
+- `data-model.md` - Entity definitions
+- `contracts/` - API contracts
+- `quickstart.md` - Test scenarios
+- `tasks.md` - Implementation tasks
+
+**Quality Gates**:
+- Spec completeness: ≥90%
+- Plan quality: ≥85%
+
+---
+
+### /git-push - Complete Git Workflow
+
+**Purpose**: Commit → Push → PR → Conflict Resolution
+
+**Usage**:
+```bash
+/git-push              # Full workflow
+/git-push -m "msg"     # Custom commit message
+/git-push --no-pr      # Push only, skip PR
+/git-push -t develop   # Target specific branch
+```
+
+**Stages**:
+1. DIFF - Review changes
+2. COMMIT - Approval required (Principle VI)
+3. PUSH - Approval required (Principle VI)
+4. PR_CREATE - Approval required (Principle VI)
+5. CONFLICT_CHECK - Detect merge conflicts
+6. CONFLICT_RESOLVE - Loop until clean
+
+**⚠️ All git operations require explicit user approval (Principle VI)**
+
+---
+
+## Deprecated Commands
+
+The following commands are deprecated and will be removed in v4.0.0:
+
+| Deprecated | Use Instead |
+|------------|-------------|
+| `/specify` | `/specification` |
+| `/plan` | `/specification` |
+| `/tasks` | `/specification` |
+
