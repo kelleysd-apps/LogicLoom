@@ -1,5 +1,3 @@
-# Debug Skill
-
 ---
 name: debug
 description: |
@@ -19,7 +17,14 @@ description: |
   **Delegates To**: backend-architect, database-specialist, security-specialist, devops-engineer
 
 allowed-tools: Read, Write, Bash, Grep, Glob, Edit, WebFetch
+rl_metrics:
+  invocation_count: 0
+  success_rate: 0.5
+  avg_tokens: 0
+  selection_weight: 0.5
 ---
+
+# Debug Skill
 
 ## Overview
 

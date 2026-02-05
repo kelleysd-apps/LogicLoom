@@ -996,3 +996,47 @@ git push origin feature/your-improvement
 **Last Updated**: 2026-01-09
 **Framework**: sdd-agentic-framework v3.1.0
 **Maintained By**: Framework maintainers
+
+---
+
+## Troubleshooting: Hook Issues After Sync
+
+### ES Module Projects
+
+If your project has `"type": "module"` in `package.json`, the Node.js governance hook may fail.
+
+**Symptoms**:
+- `UserPromptSubmit hook error`
+- No governance context injected
+
+**Fix Options**:
+
+1. **Rename to `.cjs`** (if using Node.js hook):
+   ```bash
+   mv .claude/hooks/user-prompt-submit/governance-preflight.js \
+      .claude/hooks/user-prompt-submit/governance-preflight.cjs
+   ```
+   Then update settings.json to reference `.cjs`
+
+2. **Use bash version** (recommended - universal):
+   ```json
+   {
+     "command": "bash .claude/hooks/user-prompt-submit/governance-preflight.sh"
+   }
+   ```
+
+**Full documentation**: `.docs/troubleshooting/governance-hook-esm-fix.md`
+
+### hookEventName Missing
+
+If you see hook validation errors, ensure the hook output includes:
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "UserPromptSubmit",  // REQUIRED
+    "additionalContext": "..."
+  }
+}
+```
+
+This was fixed in framework v3.1.3.

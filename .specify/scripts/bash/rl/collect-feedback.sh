@@ -104,7 +104,7 @@ skill['success_rate'] = round(new_rate, 4)
 skill['selection_weight'] = round(new_weight, 4)
 skill['invocation_count'] += 1
 skill['avg_tokens'] = round(new_tokens, 2)
-skill['last_feedback'] = datetime.utcnow().isoformat() + 'Z'
+skill['last_feedback'] = datetime.now(datetime.UTC).isoformat() + 'Z'
 
 # Add to history
 skill['history'].append({
@@ -130,7 +130,7 @@ successes = metrics['aggregates']['total_successes']
 metrics['aggregates']['average_success_rate'] = round(successes / total, 4) if total > 0 else 0.5
 
 # Update last_updated
-metrics['last_updated'] = datetime.utcnow().isoformat() + 'Z'
+metrics['last_updated'] = datetime.now(datetime.UTC).isoformat() + 'Z'
 
 # Save metrics file
 with open('$METRICS_FILE', 'w') as f:

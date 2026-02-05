@@ -1,12 +1,17 @@
-# Framework Updater Skill
-
 ---
 name: framework-updater
 description: |
   Monitors and applies updates from Claude Code releases and upstream sdd-agentic-framework repository.
   Ensures your project stays current with latest features, bug fixes, and best practices.
 allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch, WebSearch
+rl_metrics:
+  invocation_count: 0
+  success_rate: 0.5
+  avg_tokens: 0
+  selection_weight: 0.5
 ---
+
+# Framework Updater Skill
 
 ## When to Use
 

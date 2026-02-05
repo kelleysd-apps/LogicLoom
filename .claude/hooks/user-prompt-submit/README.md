@@ -381,3 +381,26 @@ Run monthly:
 ---
 
 *This hook is part of Feature 003: Governance Browser Enhancement*
+
+---
+
+## ES Module Projects Warning
+
+If your project has `"type": "module"` in `package.json`:
+
+**Problem**: The `.js` hook will fail because Node.js expects ES module syntax.
+
+**Solutions**:
+
+1. **Use the bash version** (recommended):
+   ```json
+   "command": "bash .claude/hooks/user-prompt-submit/governance-preflight.sh"
+   ```
+
+2. **Rename JS to CJS**:
+   ```bash
+   mv governance-preflight.js governance-preflight.cjs
+   ```
+   Then update settings.json to reference `.cjs`
+
+**Full documentation**: `.docs/troubleshooting/governance-hook-esm-fix.md`
