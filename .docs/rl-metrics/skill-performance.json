@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "created": "2026-02-05T00:00:00Z",
-  "last_updated": "2026-02-05T00:00:00Z",
+  "last_updated": "2026-02-04T22:53:32.185339Z",
   "config": {
     "algorithm": "ema",
     "learning_rate": 0.1,
@@ -9,13 +9,30 @@
     "max_weight": 1.0,
     "evaluation_window_days": 30
   },
-  "skills": {},
+  "skills": {
+    "test-skill": {
+      "success_rate": 0.55,
+      "selection_weight": 0.55,
+      "invocation_count": 1,
+      "avg_tokens": 10.0,
+      "last_feedback": "2026-02-04T22:53:32.185212Z",
+      "history": [
+        {
+          "timestamp": "2026-02-04T22:53:32.185212Z",
+          "success": true,
+          "tokens": 100,
+          "rate_before": 0.5,
+          "rate_after": 0.55
+        }
+      ]
+    }
+  },
   "sessions": [],
   "aggregates": {
-    "total_invocations": 0,
-    "total_successes": 0,
+    "total_invocations": 1,
+    "total_successes": 1,
     "total_failures": 0,
-    "average_success_rate": 0.5,
+    "average_success_rate": 1.0,
     "average_tokens_per_invocation": 0
   }
 }

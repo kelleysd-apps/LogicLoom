@@ -100,7 +100,7 @@ If you start work without completing the pre-flight check:
 
 **ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v1.6.0) contains **15 enforceable principles**:
+The constitution (v2.0.0) contains **15 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **6 Workflow & Delegation Principles** (X-XV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization
@@ -247,7 +247,7 @@ For complete agent documentation, load the agents module:
 ```
 .specify/
   memory/
-    constitution.md                    # Core principles (v1.6.0 - 15 principles)
+    constitution.md                    # Core principles (v2.0.0 - 15 principles)
     constitution_update_checklist.md   # Mandatory change management
     agent-collaboration-triggers.md    # Agent delegation reference
   scripts/bash/                        # Workflow automation scripts
@@ -466,7 +466,7 @@ For comprehensive documentation, load the appropriate context modules:
 ```
 
 **See Also**:
-- `.specify/memory/constitution.md` - Constitutional principles (v1.6.0)
+- `.specify/memory/constitution.md` - Constitutional principles (v2.0.0)
 - `.claude/agents/` - Agent definitions
 - `.claude/skills/` - Skill documentation
 - `.docs/policies/` - Framework policies
@@ -475,6 +475,6 @@ For comprehensive documentation, load the appropriate context modules:
 ---
 
 **Framework**: sdd-agentic-framework v3.1.1
-**Constitution**: v1.6.0 (15 Principles)
+**Constitution**: v2.0.0 (15 Principles)
 **Context System**: Modular (v2.0)
 **Last Updated**: 2026-01-10
