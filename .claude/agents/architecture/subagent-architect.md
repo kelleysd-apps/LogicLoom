@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-creation/agents/subagent-architect.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: subagent-architect
 description: Use PROACTIVELY for creating SDD-compliant subagents, designing constitutional agent workflows, and managing specification-driven agent teams. Expert in TDD-enforced agent patterns and constitutional compliance.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, TodoWrite

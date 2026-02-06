@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This skill has been migrated to: plugins/sdd-orchestrator/skills/full-stack-feature/
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: full-stack-feature
 version: 3.0.0
 category: orchestration

@@ -8,24 +8,24 @@
 ## Phase 1: Governance Plugin PoC (v3.2.0)
 
 ### 1.1 — Contract Tests for Plugin Lifecycle [P]
-- [ ] **T1.1.1**: Write contract test: plugin install succeeds with valid manifest
-- [ ] **T1.1.2**: Write contract test: plugin enable/disable toggles capability availability
-- [ ] **T1.1.3**: Write contract test: sdd-governance cannot be disabled (GOVERNANCE_PROTECTED)
-- [ ] **T1.1.4**: Write contract test: plugin list returns installed plugins with status
+- [x] **T1.1.1**: Write contract test: plugin install succeeds with valid manifest
+- [x] **T1.1.2**: Write contract test: plugin enable/disable toggles capability availability
+- [x] **T1.1.3**: Write contract test: sdd-governance cannot be disabled (GOVERNANCE_PROTECTED)
+- [x] **T1.1.4**: Write contract test: plugin list returns installed plugins with status
 
 ### 1.2 — Scaffold sdd-governance Plugin
-- [ ] **T1.2.1**: Create plugin directory structure (`sdd-governance/.claude-plugin/`, `hooks/`, `skills/`, `agents/`, `scripts/`)
-- [ ] **T1.2.2**: Create `plugin.json` manifest with name, version, description, rl_metrics
-- [ ] **T1.2.3**: Create `hooks/hooks.json` with UserPromptSubmit and PreToolUse event bindings
+- [x] **T1.2.1**: Create plugin directory structure (`sdd-governance/.claude-plugin/`, `hooks/`, `skills/`, `agents/`, `scripts/`)
+- [x] **T1.2.2**: Create `plugin.json` manifest with name, version, description, rl_metrics
+- [x] **T1.2.3**: Create `hooks/hooks.json` with UserPromptSubmit and PreToolUse event bindings
 
 ### 1.3 — Migrate Governance Components
-- [ ] **T1.3.1**: Copy `governance-preflight.cjs` → `sdd-governance/hooks/scripts/`
-- [ ] **T1.3.2**: Copy `message-preflight/SKILL.md` → `sdd-governance/skills/message-preflight/`
-- [ ] **T1.3.3**: Copy `constitutional-compliance/SKILL.md` → `sdd-governance/skills/constitutional-compliance/`
-- [ ] **T1.3.4**: Copy `domain-detection/SKILL.md` → `sdd-governance/skills/domain-detection/`
-- [ ] **T1.3.5**: Copy `constitutional-governance-agent.md` → `sdd-governance/agents/`
-- [ ] **T1.3.6**: Copy `constitutional-check.sh` → `sdd-governance/scripts/`
-- [ ] **T1.3.7**: Update all internal references to use `${CLAUDE_PLUGIN_ROOT}` portable paths
+- [x] **T1.3.1**: Copy `governance-preflight.cjs` → `sdd-governance/hooks/scripts/`
+- [x] **T1.3.2**: Copy `message-preflight/SKILL.md` → `sdd-governance/skills/message-preflight/`
+- [x] **T1.3.3**: Copy `constitutional-compliance/SKILL.md` → `sdd-governance/skills/constitutional-compliance/`
+- [x] **T1.3.4**: Copy `domain-detection/SKILL.md` → `sdd-governance/skills/domain-detection/`
+- [x] **T1.3.5**: Copy `constitutional-governance-agent.md` → `sdd-governance/agents/`
+- [x] **T1.3.6**: Copy `constitutional-check.sh` → `sdd-governance/scripts/`
+- [x] **T1.3.7**: Update all internal references to use `${CLAUDE_PLUGIN_ROOT}` portable paths
 
 ### 1.4 — Integration Testing
 - [ ] **T1.4.1**: Install sdd-governance plugin locally (`claude plugin install ./sdd-governance`)
@@ -36,54 +36,54 @@
 - [ ] **T1.4.6**: Measure token overhead (must be <10% over monolithic baseline)
 
 ### 1.5 — RL Metrics Integration
-- [ ] **T1.5.1**: Add PostToolUse hook to capture skill success/failure
-- [ ] **T1.5.2**: Update plugin.json rl_metrics on each invocation
-- [ ] **T1.5.3**: Verify rl_metrics persist across sessions
-- [ ] **T1.5.4**: Write validation test: rl_metrics update correctly after success/failure
+- [x] **T1.5.1**: Add PostToolUse hook to capture skill success/failure
+- [x] **T1.5.2**: Update plugin.json rl_metrics on each invocation
+- [x] **T1.5.3**: Verify rl_metrics persist across sessions
+- [x] **T1.5.4**: Write validation test: rl_metrics update correctly after success/failure
 
 ### 1.6 — Documentation
-- [ ] **T1.6.1**: Write sdd-governance README.md with installation and usage
-- [ ] **T1.6.2**: Document plugin conversion patterns for other phases
-- [ ] **T1.6.3**: Update CLAUDE.md to reference plugin architecture
+- [x] **T1.6.1**: Write sdd-governance README.md with installation and usage
+- [x] **T1.6.2**: Document plugin conversion patterns for other phases
+- [x] **T1.6.3**: Update CLAUDE.md to reference plugin architecture
 
 ---
 
 ## Phase 2: Core Plugins (v3.3.0)
 
 ### 2.1 — Contract Tests for Core Plugins [P]
-- [ ] **T2.1.1**: Write contract tests for sdd-specification plugin (4 commands function)
-- [ ] **T2.1.2**: Write contract tests for sdd-git plugin (/git-push, /finalize)
-- [ ] **T2.1.3**: Write contract tests for sdd-debug plugin (/debug workflow)
-- [ ] **T2.1.4**: Write contract tests for sdd-creation plugin (/create-agent, /create-skill, /create-prd)
+- [x] **T2.1.1**: Write contract tests for sdd-specification plugin (4 commands function)
+- [x] **T2.1.2**: Write contract tests for sdd-git plugin (/git-push, /finalize)
+- [x] **T2.1.3**: Write contract tests for sdd-debug plugin (/debug workflow)
+- [x] **T2.1.4**: Write contract tests for sdd-creation plugin (/create-agent, /create-skill, /create-prd)
 
 ### 2.2 — Scaffold and Migrate sdd-specification
-- [ ] **T2.2.1**: Create plugin structure with commands/, skills/, agents/, scripts/
-- [ ] **T2.2.2**: Migrate 4 specification skills (sdd-specification, sdd-planning, sdd-tasks, unified-specification)
-- [ ] **T2.2.3**: Create command .md files for /specification, /specify, /plan, /tasks
-- [ ] **T2.2.4**: Migrate specification-orchestrator and planning-agent
-- [ ] **T2.2.5**: Migrate scaffold scripts (create-new-feature.sh, setup-plan.sh, check-task-prerequisites.sh)
-- [ ] **T2.2.6**: Update all internal references to use `${CLAUDE_PLUGIN_ROOT}`
+- [x] **T2.2.1**: Create plugin structure with commands/, skills/, agents/, scripts/
+- [x] **T2.2.2**: Migrate 4 specification skills (sdd-specification, sdd-planning, sdd-tasks, unified-specification)
+- [x] **T2.2.3**: Create command .md files for /specification, /specify, /plan, /tasks
+- [x] **T2.2.4**: Migrate specification-orchestrator and planning-agent
+- [x] **T2.2.5**: Migrate scaffold scripts (create-new-feature.sh, setup-plan.sh, check-task-prerequisites.sh)
+- [x] **T2.2.6**: Update all internal references to use `${CLAUDE_PLUGIN_ROOT}`
 - [ ] **T2.2.7**: Integration test: full /specification workflow via plugin
 
 ### 2.3 — Scaffold and Migrate sdd-git
-- [ ] **T2.3.1**: Create plugin structure
-- [ ] **T2.3.2**: Migrate git-push-workflow skill and finalize skill
-- [ ] **T2.3.3**: Create command .md files for /git-push and /finalize
-- [ ] **T2.3.4**: Add PreToolUse hook for git safety gate
-- [ ] **T2.3.5**: Migrate finalize-feature.sh and sanitization-audit.sh
+- [x] **T2.3.1**: Create plugin structure
+- [x] **T2.3.2**: Migrate git-push-workflow skill and finalize skill
+- [x] **T2.3.3**: Create command .md files for /git-push and /finalize
+- [x] **T2.3.4**: Add PreToolUse hook for git safety gate
+- [x] **T2.3.5**: Migrate finalize-feature.sh and sanitization-audit.sh
 - [ ] **T2.3.6**: Integration test: /git-push workflow via plugin
 
 ### 2.4 — Scaffold and Migrate sdd-debug [P with 2.3]
-- [ ] **T2.4.1**: Create plugin structure
-- [ ] **T2.4.2**: Migrate sdd-debug skill and auto-debug-agent
-- [ ] **T2.4.3**: Create command .md for /debug
+- [x] **T2.4.1**: Create plugin structure
+- [x] **T2.4.2**: Migrate sdd-debug skill and auto-debug-agent
+- [x] **T2.4.3**: Create command .md for /debug
 - [ ] **T2.4.4**: Integration test: /debug workflow via plugin
 
 ### 2.5 — Scaffold and Migrate sdd-creation [P with 2.3, 2.4]
-- [ ] **T2.5.1**: Create plugin structure
-- [ ] **T2.5.2**: Migrate create-agent, create-skill, create-prd skills
-- [ ] **T2.5.3**: Create command .md files for /create-agent, /create-skill, /create-prd
-- [ ] **T2.5.4**: Migrate subagent-architect agent
+- [x] **T2.5.1**: Create plugin structure
+- [x] **T2.5.2**: Migrate create-agent, create-skill, create-prd skills
+- [x] **T2.5.3**: Create command .md files for /create-agent, /create-skill, /create-prd
+- [x] **T2.5.4**: Migrate subagent-architect agent
 - [ ] **T2.5.5**: Integration test: /create-agent workflow via plugin
 
 ### 2.6 — Cross-Plugin Validation
@@ -97,17 +97,17 @@
 ## Phase 3: Domain Plugins (v3.4.0)
 
 ### 3.1 — Domain Plugin Template
-- [ ] **T3.1.1**: Create reusable template script for domain plugin scaffolding
-- [ ] **T3.1.2**: Write contract tests for domain plugin standard (skill loads, agent available)
+- [x] **T3.1.1**: Create reusable template script for domain plugin scaffolding
+- [x] **T3.1.2**: Write contract tests for domain plugin standard (skill loads, agent available)
 
 ### 3.2 — Create Domain Plugins [P — all 7 can be built in parallel]
-- [ ] **T3.2.1**: Create sdd-domain-frontend (frontend-operations skill, frontend-specialist agent)
-- [ ] **T3.2.2**: Create sdd-domain-backend (backend-operations + api-design + service-architecture skills, backend-architect agent)
-- [ ] **T3.2.3**: Create sdd-domain-database (database-operations + schema-design skills, database-specialist agent)
-- [ ] **T3.2.4**: Create sdd-domain-testing (testing-operations + qa-validation skills, testing-specialist agent)
-- [ ] **T3.2.5**: Create sdd-domain-security (security-operations skill, security-specialist agent)
-- [ ] **T3.2.6**: Create sdd-domain-devops (devops-operations + monitoring skills, devops-engineer agent)
-- [ ] **T3.2.7**: Create sdd-domain-performance (performance-operations skill, performance-engineer agent)
+- [x] **T3.2.1**: Create sdd-domain-frontend (frontend-operations skill, frontend-specialist agent)
+- [x] **T3.2.2**: Create sdd-domain-backend (backend-operations + api-design + service-architecture skills, backend-architect agent)
+- [x] **T3.2.3**: Create sdd-domain-database (database-operations + schema-design skills, database-specialist agent)
+- [x] **T3.2.4**: Create sdd-domain-testing (testing-operations + qa-validation skills, testing-specialist agent)
+- [x] **T3.2.5**: Create sdd-domain-security (security-operations skill, security-specialist agent)
+- [x] **T3.2.6**: Create sdd-domain-devops (devops-operations + monitoring skills, devops-engineer agent)
+- [x] **T3.2.7**: Create sdd-domain-performance (performance-operations skill, performance-engineer agent)
 
 ### 3.3 — Selective Installation Testing
 - [ ] **T3.3.1**: Test: install only backend + database plugins → verify only those domains available
@@ -122,39 +122,39 @@
 ### 3.5 — Eliminate skill-index.json
 - [ ] **T3.5.1**: Verify all command routing works via plugin auto-discovery (no skill-index.json needed)
 - [ ] **T3.5.2**: Verify all keyword triggers work via skill descriptions (no routing table needed)
-- [ ] **T3.5.3**: Deprecate skill-index.json (keep as fallback for monolithic mode)
+- [x] **T3.5.3**: Deprecate skill-index.json (keep as fallback for monolithic mode)
 
 ---
 
 ## Phase 4: Swarm + Marketplace (v4.0.0)
 
 ### 4.1 — Swarm Contract Tests
-- [ ] **T4.1.1**: Write contract tests for swarm lifecycle (create, spawn, status, terminate)
-- [ ] **T4.1.2**: Write contract tests for agent team templates (load template, spawn team)
-- [ ] **T4.1.3**: Write contract tests for budget controls (per-agent limit, team limit, exceed behavior)
+- [x] **T4.1.1**: Write contract tests for swarm lifecycle (create, spawn, status, terminate)
+- [x] **T4.1.2**: Write contract tests for agent team templates (load template, spawn team)
+- [x] **T4.1.3**: Write contract tests for budget controls (per-agent limit, team limit, exceed behavior)
 
 ### 4.2 — Build sdd-orchestrator Plugin
-- [ ] **T4.2.1**: Create plugin structure with commands/, skills/, agents/, hooks/
-- [ ] **T4.2.2**: Create /swarm command (.md) with task analysis and agent spawning
-- [ ] **T4.2.3**: Create swarm-coordinator agent definition
-- [ ] **T4.2.4**: Create team-synthesizer agent for merging parallel outputs
-- [ ] **T4.2.5**: Create launch-swarm.sh script (tmux session management)
-- [ ] **T4.2.6**: Create agent-stop-notification.sh hook script
-- [ ] **T4.2.7**: Create hooks.json with Stop and SubagentStop event bindings
+- [x] **T4.2.1**: Create plugin structure with commands/, skills/, agents/, hooks/
+- [x] **T4.2.2**: Create /swarm command (.md) with task analysis and agent spawning
+- [x] **T4.2.3**: Create swarm-coordinator agent definition
+- [x] **T4.2.4**: Create team-synthesizer agent for merging parallel outputs
+- [x] **T4.2.5**: Create launch-swarm.sh script (tmux session management)
+- [x] **T4.2.6**: Create agent-stop-notification.sh hook script
+- [x] **T4.2.7**: Create hooks.json with Stop and SubagentStop event bindings
 
 ### 4.3 — Agent Team Templates
-- [ ] **T4.3.1**: Create research-team template (3× parallel researchers + synthesizer)
-- [ ] **T4.3.2**: Create build-team template (architect → implementor → reviewer)
-- [ ] **T4.3.3**: Create review-team template (security + quality + performance → synthesizer)
-- [ ] **T4.3.4**: Create full-stack-team template (frontend + backend + database parallel → integration)
-- [ ] **T4.3.5**: Create command .md files for /research-team, /build-team, /review-team, /fullstack-team
+- [x] **T4.3.1**: Create research-team template (3× parallel researchers + synthesizer)
+- [x] **T4.3.2**: Create build-team template (architect → implementor → reviewer)
+- [x] **T4.3.3**: Create review-team template (security + quality + performance → synthesizer)
+- [x] **T4.3.4**: Create full-stack-team template (frontend + backend + database parallel → integration)
+- [x] **T4.3.5**: Create command .md files for /research-team, /build-team, /review-team, /fullstack-team
 
 ### 4.4 — Swarm Cost Controls
-- [ ] **T4.4.1**: Implement team-level budget allocation (divide by agent count or by priority weight)
-- [ ] **T4.4.2**: Implement per-agent budget enforcement via --max-budget-usd
-- [ ] **T4.4.3**: Implement automatic model fallback via --fallback-model
-- [ ] **T4.4.4**: Implement graceful termination on budget exceed (preserve partial work)
-- [ ] **T4.4.5**: Implement budget reporting (per-agent, per-team, per-session)
+- [x] **T4.4.1**: Implement team-level budget allocation (divide by agent count or by priority weight)
+- [x] **T4.4.2**: Implement per-agent budget enforcement via --max-budget-usd
+- [x] **T4.4.3**: Implement automatic model fallback via --fallback-model
+- [x] **T4.4.4**: Implement graceful termination on budget exceed (preserve partial work)
+- [x] **T4.4.5**: Implement budget reporting (per-agent, per-team, per-session)
 
 ### 4.5 — Swarm Integration Testing
 - [ ] **T4.5.1**: E2E test: /swarm "Build user auth" → spawns database, backend, frontend agents
@@ -175,7 +175,7 @@
 ## Phase 5: Advanced Features + Deprecation (v4.1.0)
 
 ### 5.1 — Agent SDK Integration
-- [ ] **T5.1.1**: Research Agent SDK plugin capabilities (Python + TypeScript verifiers)
+- [x] **T5.1.1**: Research Agent SDK plugin capabilities (Python + TypeScript verifiers)
 - [ ] **T5.1.2**: Create sdd-agent-sdk plugin combining constitutional governance with Agent SDK
 - [ ] **T5.1.3**: Create verifier agents for constitutional compliance in SDK apps
 
@@ -185,18 +185,18 @@
 - [ ] **T5.2.3**: Implement user notification: "Plugin X degrading. Update available. Update? (y/n)"
 
 ### 5.3 — Deprecate Monolithic Structure
-- [ ] **T5.3.1**: Mark `.claude/skills/` as deprecated (add deprecation notice)
-- [ ] **T5.3.2**: Mark `.claude/agents/` as deprecated (add deprecation notice)
-- [ ] **T5.3.3**: Create migration script for downstream projects
-- [ ] **T5.3.4**: Update CLAUDE.md for plugin-first architecture
-- [ ] **T5.3.5**: Update AGENTS.md for plugin-first architecture
-- [ ] **T5.3.6**: Update constitution to v3.0.0 with plugin governance principles
+- [x] **T5.3.1**: Mark `.claude/skills/` as deprecated (add deprecation notice)
+- [x] **T5.3.2**: Mark `.claude/agents/` as deprecated (add deprecation notice)
+- [x] **T5.3.3**: Create migration script for downstream projects
+- [x] **T5.3.4**: Update CLAUDE.md for plugin-first architecture
+- [x] **T5.3.5**: Update AGENTS.md for plugin-first architecture
+- [x] **T5.3.6**: Update constitution to v3.0.0 with plugin governance principles
 
 ### 5.4 — Community Contribution Framework
-- [ ] **T5.4.1**: Create plugin contribution guidelines for marketplace
-- [ ] **T5.4.2**: Create plugin template for community contributors
-- [ ] **T5.4.3**: Create PR template for marketplace plugin submissions
-- [ ] **T5.4.4**: Document plugin testing requirements for community plugins
+- [x] **T5.4.1**: Create plugin contribution guidelines for marketplace
+- [x] **T5.4.2**: Create plugin template for community contributors
+- [x] **T5.4.3**: Create PR template for marketplace plugin submissions
+- [x] **T5.4.4**: Document plugin testing requirements for community plugins
 
 ---
 

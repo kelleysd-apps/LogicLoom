@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-specification/agents/tasks-agent.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: tasks-agent
 description: Use PROACTIVELY for breaking down technical plans into actionable tasks, creating task lists, managing task dependencies, and coordinating task execution using Spec-Driven Development methodology.
 tools: Read, Write, Bash, MultiEdit

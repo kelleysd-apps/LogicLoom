@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-orchestrator/agents/task-orchestrator.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: task-orchestrator
 description: Task Orchestration Agent that serves as a central coordination hub for multi-agent workflows in Claude Code environments. Intelligently analyzes complex requests, decomposes them into specialized tasks, and coordinates multiple specialized agents to deliver comprehensive solutions. Enhanced with DS-STAR Router Agent for intelligent domain detection and optimal agent selection.
 tools: Task, Read, Grep, Glob, TodoWrite, Bash

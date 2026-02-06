@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-devops/agents/devops-engineer.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: devops-engineer
 description: Use PROACTIVELY for CI/CD pipeline setup, Docker containerization, cloud deployment, infrastructure as code, and production monitoring systems.
 tools: Read, Write, Bash, MultiEdit

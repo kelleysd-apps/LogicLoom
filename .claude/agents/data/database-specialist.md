@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-database/agents/database-specialist.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: database-specialist
 description: Use PROACTIVELY for database schema design, query optimization, data migrations, performance tuning, and data architecture decisions.
 tools: Read, Write, Bash, MultiEdit

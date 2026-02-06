@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-specification/agents/specification-orchestrator.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: specification-orchestrator
 version: 2.0.0
 description: Orchestrate product workflow from PRD through specification, planning, and task generation

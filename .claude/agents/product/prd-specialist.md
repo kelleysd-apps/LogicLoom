@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-creation/agents/prd-specialist.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: prd-specialist
 description: Use PROACTIVELY for creating comprehensive Product Requirements Documents (PRDs) that serve as Single Source of Truth (SSOT) for project initialization, specification generation, and constitutional customization. Expert in product strategy, user research, requirements gathering, and business-technical alignment.
 tools: Read, Write, Edit, Grep, Glob, AskUserQuestion, TodoWrite

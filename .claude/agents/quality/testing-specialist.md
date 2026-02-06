@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-testing/agents/testing-specialist.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: testing-specialist
 description: Use PROACTIVELY for test planning, test automation, quality assurance, bug analysis, and testing infrastructure setup.
 tools: Read, Write, Bash, MultiEdit

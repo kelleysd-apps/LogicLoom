@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This skill has been migrated to: plugins/sdd-governance/skills/constitutional-compliance/
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: constitutional-compliance
 description: |
   Validate constitutional compliance for specifications, plans, tasks, code, and operations
