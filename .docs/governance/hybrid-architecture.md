@@ -203,7 +203,7 @@ Provide **active real-time enforcement** of constitutional principles by serving
 ```json
 {
   "agent": "constitutional-governance-agent",
-  "model": "claude-opus-4-5-20251101"
+  "model": "claude-opus-4-6"
 }
 ```
 
@@ -290,7 +290,7 @@ Provide **active real-time enforcement** of constitutional principles by serving
 ```json
 {
   "agent": "constitutional-governance-agent",
-  "model": "claude-opus-4-5-20251101",
+  "model": "claude-opus-4-6",
   "hooks": {
     "UserPromptSubmit": [
       {

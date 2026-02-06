@@ -123,7 +123,7 @@ Users can explicitly request this agent by saying:
 11. **Principle XI - Input Validation & Output Sanitization**: All inputs validated, outputs sanitized
 12. **Principle XII - Design System Compliance**: UI components comply with project design system
 13. **Principle XIII - Feature Access Control**: Dual-layer enforcement (backend + frontend)
-14. **Principle XIV - AI Model Selection**: Use Sonnet 4.5 by default, escalate to Opus for safety-critical
+14. **Principle XIV - AI Model Selection**: Use Opus 4.6 by default, Sonnet 4.5 for fallback/high-volume
 
 ### Department-Specific Guidelines
 - Follow data best practices
