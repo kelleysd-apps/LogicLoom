@@ -156,6 +156,8 @@ This is a specification-driven development framework that uses structured templa
 | `/tasks` | ~~Generate task list~~ (deprecated - use /specification) | tasks-agent |
 | `/debug` | Debug deployment/runtime issues (10-step workflow) | - |
 | `/finalize` | Pre-commit compliance validation | - |
+| `/research` | Multi-pass deep research with cross-referencing validation | - |
+| `/update-framework` | Check and apply upstream framework enhancements | - |
 | `/create-agent` | Create specialized subagent | subagent-architect |
 
 For detailed workflow documentation, load the workflows module:
@@ -229,7 +231,7 @@ For complete agent documentation, load the agents module:
 ```json
 {
   "agent": "constitutional-governance-agent",
-  "model": "claude-opus-4-5-20251101"
+  "model": "claude-opus-4-6"
 }
 ```
 
@@ -383,18 +385,18 @@ For detailed enhancement documentation, see `.docs/reports/FRAMEWORK_ENHANCEMENT
 
 ## AI Model Selection (Principle XIV)
 
-**Default**: All specialized agents use **Opus 4.5** for maximum capability.
+**Default**: All specialized agents use **Opus 4.6** for maximum capability.
 
 | Model | Use Case | When to Use |
 |-------|----------|-------------|
-| **Opus 4.5** | Default for all agents | Specialized work, architecture, security, complex reasoning |
+| **Opus 4.6** | Default for all agents | Specialized work, architecture, security, complex reasoning |
 | **Sonnet 4.5** | Fallback | Cost optimization, high-volume tasks, quota limits |
 | **Haiku** | Quick tasks | Simple lookups, formatting, file operations |
 
 **Model IDs**:
-- Opus: `claude-opus-4-5-20251101`
+- Opus: `claude-opus-4-6`
 - Sonnet: `claude-sonnet-4-5-20250929`
-- Haiku: `claude-haiku` (latest)
+- Haiku: `claude-haiku-4-5-20251001`
 
 ---
 

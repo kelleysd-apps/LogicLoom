@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# (Moved to scripts/bash/) Create a new feature with branch, directory structure, and template
+# Create a new feature with branch, directory structure, and template
+# NOTE: DS-STAR verification removed - verification happens in skill AFTER content generation
 set -e
 
 # Source common functions
@@ -59,14 +60,25 @@ TEMPLATE="$REPO_ROOT/.specify/templates/spec-template.md"
 SPEC_FILE="$FEATURE_DIR/spec.md"
 if [ -f "$TEMPLATE" ]; then cp "$TEMPLATE" "$SPEC_FILE"; else touch "$SPEC_FILE"; fi
 
-# NOTE: DS-STAR verification runs in the unified-specification skill AFTER
-# the AI generates actual content. This script only scaffolds the structure.
-# See: .claude/skills/sdd-workflow/unified-specification/SKILL.md
+# NOTE: DS-STAR verification is now handled by the unified-specification skill
+# AFTER the AI generates the actual spec content. This script only scaffolds.
+echo ""
+echo "=========================================="
+echo "Feature scaffolding complete"
+echo "=========================================="
+echo "Branch: $BRANCH_NAME"
+echo "Spec file: $SPEC_FILE (template copied)"
+echo ""
+echo "Next: AI will generate spec content, then DS-STAR verification runs"
+echo "=========================================="
+echo ""
 
 if $JSON_MODE; then
-    printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s"}\n' "$BRANCH_NAME" "$SPEC_FILE" "$FEATURE_NUM"
+    printf '{"BRANCH_NAME":"%s","SPEC_FILE":"%s","FEATURE_NUM":"%s","FEATURE_DIR":"%s"}\n' \
+      "$BRANCH_NAME" "$SPEC_FILE" "$FEATURE_NUM" "$FEATURE_DIR"
 else
     echo "BRANCH_NAME: $BRANCH_NAME"
     echo "SPEC_FILE: $SPEC_FILE"
     echo "FEATURE_NUM: $FEATURE_NUM"
+    echo "FEATURE_DIR: $FEATURE_DIR"
 fi

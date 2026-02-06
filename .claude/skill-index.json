@@ -56,6 +56,12 @@
       "description": "Git workflow and version control skills",
       "governance-level": "critical",
       "skill-count": 1
+    },
+    {
+      "name": "technical",
+      "description": "Technical research and analysis skills",
+      "governance-level": "medium",
+      "skill-count": 1
     }
   ],
   "skills": [
@@ -1126,6 +1132,73 @@
         "invocation_count": 0,
         "last_updated": "2026-02-05T00:00:00Z"
       }
+    },
+    {
+      "name": "deep-research",
+      "path": "skills/technical/research/SKILL.md",
+      "category": "technical",
+      "triggers": [
+        "/research",
+        "deep research",
+        "technology evaluation",
+        "research topic",
+        "investigate",
+        "comparative analysis"
+      ],
+      "token-budget": {
+        "layer1": 90,
+        "layer2": 500,
+        "layer3": 1000,
+        "total": 1590
+      },
+      "agents": [
+        "backend-architect",
+        "database-specialist"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-02-06T00:00:00Z"
+      }
+    },
+    {
+      "name": "framework-updater",
+      "path": "skills/integration/framework-updater/SKILL.md",
+      "category": "integration",
+      "triggers": [
+        "/update-framework",
+        "check for updates",
+        "sync framework",
+        "framework enhancement"
+      ],
+      "token-budget": {
+        "layer1": 90,
+        "layer2": 500,
+        "layer3": 900,
+        "total": 1490
+      },
+      "agents": [
+        "workflow-coordinator"
+      ],
+      "composes": [
+        "validation/message-preflight"
+      ],
+      "status": "active",
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "avg_tokens": 0,
+        "avg_duration_ms": 0,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "last_updated": "2026-02-06T00:00:00Z"
+      }
     }
   ],
   "routing": {
@@ -1140,7 +1213,9 @@
       "/create-prd": "creation/create-prd",
       "/initialize-project": "project-initialization/initialize-project",
       "/specification": "sdd-workflow/unified-specification",
-      "/git-push": "git/git-push-workflow"
+      "/git-push": "git/git-push-workflow",
+      "/research": "technical/deep-research",
+      "/update-framework": "integration/framework-updater"
     },
     "keyword-routes": {
       "specification": [
@@ -1154,6 +1229,7 @@
         "sdd-workflow/sdd-planning"
       ],
       "research": [
+        "technical/deep-research",
         "sdd-workflow/sdd-planning"
       ],
       "tasks": [
@@ -1232,6 +1308,18 @@
       ],
       "PR": [
         "git/git-push-workflow"
+      ],
+      "deep research": [
+        "technical/deep-research"
+      ],
+      "technology evaluation": [
+        "technical/deep-research"
+      ],
+      "investigate": [
+        "technical/deep-research"
+      ],
+      "update framework": [
+        "integration/framework-updater"
       ]
     },
     "domain-routes": {
@@ -1284,6 +1372,11 @@
         "primary-skill": "git/git-push-workflow",
         "fallback-skill": null,
         "primary-agent": "workflow-coordinator"
+      },
+      "research": {
+        "primary-skill": "technical/deep-research",
+        "fallback-skill": "sdd-workflow/sdd-planning",
+        "primary-agent": "backend-architect"
       }
     }
   },
@@ -1302,7 +1395,7 @@
     "evaluation_window_days": 30
   },
   "statistics": {
-    "total-skills": 33,
+    "total-skills": 35,
     "skills-by-category": {
       "sdd-workflow": 5,
       "validation": 4,
@@ -1311,8 +1404,9 @@
       "domain": 12,
       "creation": 4,
       "project-initialization": 2,
-      "integration": 1,
-      "git": 1
+      "integration": 2,
+      "git": 1,
+      "technical": 1
     },
     "skills-by-status": {
       "active": 31,

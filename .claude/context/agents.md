@@ -352,7 +352,7 @@ Load agent context modules as needed:
 ```json
 {
   "agent": "constitutional-governance-agent",
-  "model": "claude-opus-4-5-20251101"
+  "model": "claude-opus-4-6"
 }
 ```
 

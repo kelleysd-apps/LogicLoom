@@ -213,7 +213,7 @@ Dual-layer enforcement (backend + frontend).
 
 **Status**: UNCHANGED
 
-Use Opus by default. All agents use Opus for maximum capability.
+Use Opus 4.6 by default (`claude-opus-4-6`). All agents use Opus for maximum capability.
 
 ### Principle XV: File Organization
 
