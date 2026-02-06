@@ -1,6 +1,6 @@
 # Plugin Marketplace — MCP Middleware Design
 
-**Status**: Phase A Complete — MCP Server Implemented
+**Status**: Phase A+B Complete — MCP Server + GitHub Registry Live
 **Spec**: 004-plugin-first-architecture (T4.6.1-T4.6.6)
 **Priority**: HIGH — User-requested for next milestone
 **Date**: 2026-01-15
