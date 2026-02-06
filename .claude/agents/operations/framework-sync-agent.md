@@ -5,6 +5,11 @@ tools: Bash, Read, Write, Grep, Glob, WebFetch, WebSearch, TodoWrite
 model: inherit
 ---
 
+> ⚠️ **DEPRECATED**: Moved to plugins/sdd-maintenance/agents/framework-sync-agent.md
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # framework sync agent Agent
 
 ## Constitutional Adherence

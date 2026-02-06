@@ -4,6 +4,12 @@
 description: Interactive debugging workflow for Vercel deployment issues, API endpoint failures, and production runtime errors. Systematic diagnosis and verification of fixes.
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-debug/commands/debug.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 ## When to Use
 
 Use the `/debug` command when you encounter:

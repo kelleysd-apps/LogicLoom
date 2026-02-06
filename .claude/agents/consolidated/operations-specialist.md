@@ -32,6 +32,11 @@ rl_performance:
   skill_success_rates: {}
 ---
 
+> ⚠️ **DEPRECATED**: Replaced by sdd-domain-devops and sdd-domain-performance plugins
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # Operations Specialist (Consolidated Agent)
 
 ## Purpose

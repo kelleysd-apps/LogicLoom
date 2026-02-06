@@ -12,6 +12,18 @@ The marketplace is pre-configured in `.mcp.json`. Claude Code automatically conn
 # Claude uses marketplace-list tool automatically
 ```
 
+### First-Time Setup
+
+After cloning or updating the framework, install MCP server dependencies:
+
+```bash
+# Automatic (via setup script):
+./.specify/scripts/setup.sh
+
+# Manual (if needed):
+cd mcp-servers/sdd-marketplace && npm install
+```
+
 ## Available Tools
 
 | Tool | Description |
@@ -68,21 +80,56 @@ User: "Check for plugin updates"
 }
 ```
 
-## Connecting Downstream Projects
+## Authentication (Private Registry)
 
-Any project using the SDD framework connects by:
+The plugin marketplace registry (`kelleysd-apps/sdd-plugins-marketplace`) is a **private** repository.
+Plugin installation uses `git clone` under the hood, which requires GitHub authentication.
 
-1. Copy `mcp-servers/sdd-marketplace/` to your project (or reference via npm)
-2. Add the MCP server entry to your `.mcp.json`
-3. Start a Claude Code session — marketplace tools are automatically available
+### Supported Auth Methods
+
+| Method | Setup | Works? |
+|--------|-------|--------|
+| **GitHub CLI (recommended)** | `gh auth login` | ✅ |
+| **HTTPS + keyring** | `git config credential.helper osxkeychain` (macOS) | ✅ |
+| **SSH keys** | Requires registry URL change to `git@github.com:...` | ⚠️ needs config |
+| **GITHUB_TOKEN env** | `export GITHUB_TOKEN=ghp_...` | ✅ |
+
+### Verify Authentication
 
 ```bash
-# Option A: Copy from framework
-cp -r path/to/sdd-framework/mcp-servers/sdd-marketplace ./mcp-servers/
+# Check GitHub CLI auth
+gh auth status
 
-# Option B: Install via npm (when published)
-npm install @kelleysd-apps/sdd-plugin-marketplace
+# Verify git can access the registry
+git ls-remote https://github.com/kelleysd-apps/sdd-plugins-marketplace.git
 ```
+
+### Downstream Project Setup
+
+When connecting a downstream project to the marketplace:
+
+1. Ensure `gh auth login` is configured on the machine
+2. Copy `mcp-servers/sdd-marketplace/` to your project
+3. Run `cd mcp-servers/sdd-marketplace && npm install`
+4. Add the MCP server entry to your `.mcp.json`
+5. Start a Claude Code session — marketplace tools are automatically available
+
+## Registry
+
+The local registry at `registry/registry.json` contains the official plugin catalog.
+Each plugin entry includes:
+- `name`, `version`, `description`
+- `source`: Object with `repo` (git URL), `path` (subdirectory), `type` (install method)
+- `components`: Count of skills, agents, commands
+- `dependencies`: Required plugins (most depend on `sdd-governance`)
+
+### Source Types
+
+| Type | Description | Install Method |
+|------|-------------|----------------|
+| `github-subdirectory` | Plugin in a subdirectory of a mono-repo | Sparse checkout |
+| `direct` | Standalone plugin repository | Full `git clone` |
+| local path | Local filesystem path | `cp -r` |
 
 ## Development
 
@@ -98,10 +145,6 @@ npm test
 node src/index.js
 ```
 
-## Registry
-
-The local registry at `registry/registry.json` contains the official plugin catalog. It's seeded with all 13 framework plugins and can be extended with community contributions.
-
 ## Architecture
 
 ```
@@ -110,6 +153,8 @@ Claude Code Session
 SDD Marketplace Server
     ↕ filesystem
 plugins/ directory + registry.json
+    ↕ git (sparse checkout)
+sdd-plugins-marketplace (private GitHub repo)
 ```
 
-The server runs as a local stdio process — no network calls needed for local operations (list, validate). Registry searches and installs use the configured registry URL.
+The server runs as a local stdio process — no network calls needed for local operations (list, validate). Registry searches use the local `registry.json`. Plugin installation uses git sparse checkout to fetch individual plugins from the registry repo.

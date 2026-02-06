@@ -1,15 +1,16 @@
 {
-  "name": "sdd-creation",
-  "version": "2.0.0",
-  "description": "Entity creation plugin \u2014 create plugins, agents, PRDs, and templates with constitutional compliance. Plugin-First Architecture v4.0.",
+  "name": "sdd-maintenance",
+  "version": "1.0.0",
+  "description": "Framework maintenance plugin \u2014 update framework, sync upstream, MCP server setup, and project initialization.",
   "author": "kelleysd-apps",
   "license": "MIT",
   "keywords": [
     "sdd",
-    "create",
-    "plugin",
-    "agent",
-    "prd"
+    "maintenance",
+    "update",
+    "framework",
+    "initialization",
+    "mcp"
   ],
   "dependencies": [
     "sdd-governance"

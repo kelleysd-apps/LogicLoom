@@ -2,6 +2,12 @@
 description: Initialize project after PRD completion - customizes constitution, agents, and workflows based on project needs.
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-maintenance/commands/initialize-project.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 **AGENT REQUIREMENT**: This command should be executed by the prd-specialist agent.
 
 **If you are NOT the prd-specialist**, delegate this work immediately:

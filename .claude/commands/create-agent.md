@@ -2,6 +2,12 @@
 description: Create a new specialized subagent with constitutional compliance and proper department classification.
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-creation/commands/create-agent.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 **AGENT REQUIREMENT**: This command should be executed by the subagent-architect.
 
 **If you are NOT the subagent-architect**, delegate this work immediately:

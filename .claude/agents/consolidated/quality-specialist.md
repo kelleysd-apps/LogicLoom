@@ -33,6 +33,11 @@ rl_performance:
   skill_success_rates: {}
 ---
 
+> ⚠️ **DEPRECATED**: Replaced by sdd-domain-testing and sdd-domain-security plugins
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # Quality Specialist (Consolidated Agent)
 
 ## Purpose

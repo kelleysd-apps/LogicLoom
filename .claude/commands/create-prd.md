@@ -1,5 +1,11 @@
 # /create-prd - Create Product Requirements Document
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-creation/commands/create-prd.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 Creates a comprehensive Product Requirements Document (PRD) that can serve as **Single Source of Truth (SSOT)** for various purposes throughout your development lifecycle.
 
 ## Purpose

@@ -2,6 +2,12 @@
 description: Complete git workflow - commit, push, PR creation with merge conflict resolution. All operations require user approval.
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-git/commands/git-push.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 # /git-push Command
 
 **Skill**: `git/git-push-workflow`

@@ -15,9 +15,6 @@ rl_metrics:
   selection_weight: 0.5
 ---
 
-> ⚠️ **DEPRECATED**: This skill has moved to `plugins/sdd-maintenance/`. Use the plugin version instead. Removal target: v5.0
-
-
 # Framework Updater Skill
 
 ## Core Philosophy
@@ -129,7 +126,7 @@ Use `/update-framework` when:
 #### Tier 1: New Files (Pure Additions)
 Files that exist in upstream but NOT in the downstream project.
 - **Action**: Copy from upstream (no conflict possible)
-- **Examples**: New skills, new agents, new scripts
+- **Examples**: New plugins, new skills, new agents, new MCP servers, new scripts
 
 ```bash
 # Identify Tier 1 files
@@ -143,7 +140,7 @@ Files changed in upstream that the downstream project has NOT modified.
 
 ```bash
 # Files modified upstream, check if downstream matches upstream's old version
-git diff --name-only --diff-filter=M HEAD..upstream/main
+git diff --name-only --diff-filter=M HEAD..upstream/main -- .specify/ .claude/ plugins/ mcp-servers/ tests/ CLAUDE.md AGENTS.md
 ```
 
 #### Tier 3: Modified (WITH Downstream Customization)  
@@ -151,7 +148,8 @@ Files changed in upstream that the downstream project HAS customized.
 - **Action**: ADDITIVE MERGE — identify new sections in upstream and propose additions
 - **NEVER overwrite downstream content**
 - **Common files**: constitution.md, CLAUDE.md, AGENTS.md, settings.json,
-  agent-governance.md, agent-collaboration-triggers.md
+  agent-governance.md, agent-collaboration-triggers.md, .mcp.json,
+  plugin manifests (plugins/*/.claude-plugin/plugin.json)
 
 ```
 ADDITIVE MERGE PROCEDURE:
@@ -189,11 +187,14 @@ Files NOT directly changed in upstream, but affected by upstream additions.
 ```
 CASCADE IMPACT ANALYSIS:
 a) Scan new/modified files for entity additions:
+   → New plugins? → Flag CLAUDE.md, marketplace registry
    → New agents? → Flag AGENTS.md
    → New skills? → Flag skill-index.json
    → New commands? → Flag CLAUDE.md command table
    → New hooks? → Flag settings.json
+   → New MCP servers? → Flag .mcp.json, run npm install
    → Constitution version changed? → Flag all governance files
+   → Plugin manifests changed? → Run marketplace-validate
 
 b) Generate Reconciliation Checklist:
    "📋 Cascade Impact Analysis
@@ -343,11 +344,22 @@ these files — present suggestions for user to review and approve individually.
    ./.specify/scripts/bash/constitutional-check.sh
    ```
 
-2. Verify all agent files are valid YAML frontmatter
-3. Verify all SKILL.md files have required fields
-4. Test that hooks execute correctly:
+2. Run full test suite:
    ```bash
-   echo '{}' | ./.claude/hooks/user-prompt-submit/governance-preflight.sh
+   bash tests/run_all_tests.sh
+   ```
+
+3. Verify plugin manifests are valid:
+   ```bash
+   # Via MCP marketplace
+   marketplace-validate --plugin-name sdd-governance
+   ```
+
+4. Install MCP server dependencies (if new servers added):
+   ```bash
+   for mcp_dir in mcp-servers/*/; do
+     [ -f "${mcp_dir}package.json" ] && (cd "$mcp_dir" && npm install --production)
+   done
    ```
 
 **Validation**: All validation scripts pass
@@ -466,7 +478,7 @@ agent against new template and update structure while preserving custom content.
 
 ---
 
-**Skill Location**: `.claude/skills/integration/framework-updater/SKILL.md`
+**Skill Location**: `plugins/sdd-maintenance/skills/framework-updater/SKILL.md`
 **Command**: `/update-framework`
 **Agent**: `framework-sync-agent`
 **Category**: Integration (External framework synchronization)

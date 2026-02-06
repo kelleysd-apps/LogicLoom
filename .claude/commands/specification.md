@@ -2,6 +2,12 @@
 description: Unified specification workflow - generates all SDD artifacts (spec, plan, tasks) in one command.
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-specification/commands/specification.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 # /specification Command
 
 **Skill**: `sdd-workflow/unified-specification`

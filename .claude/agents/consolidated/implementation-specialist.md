@@ -33,6 +33,11 @@ rl_performance:
   skill_success_rates: {}
 ---
 
+> ⚠️ **DEPRECATED**: Responsibilities distributed across domain plugins (sdd-domain-backend, sdd-domain-frontend, sdd-domain-database)
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # Implementation Specialist (Consolidated Agent)
 
 ## Purpose

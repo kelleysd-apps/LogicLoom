@@ -2,6 +2,12 @@
 description: Monitor and apply updates from Claude Code releases and upstream sdd-agentic-framework repository
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-maintenance/commands/update-framework.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 Execute the framework-updater skill to keep your project synchronized with the latest framework improvements.
 
 ## What This Does

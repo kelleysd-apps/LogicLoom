@@ -19,6 +19,11 @@ performance-targets:
   relevance_score: 0.90
 ---
 
+> ⚠️ **DEPRECATED**: DS-STAR capabilities integrated into sdd-governance and sdd-orchestrator plugins
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # Context Analyzer (DS-STAR)
 
 ## Purpose

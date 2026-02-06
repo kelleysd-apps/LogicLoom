@@ -2,18 +2,18 @@
   "name": "sdd-plugins-marketplace",
   "version": "0.1.0",
   "description": "Official SDD Plugin Registry",
-  "last_updated": "2026-01-15T00:00:00Z",
+  "last_updated": "2026-02-08T00:00:00Z",
   "plugins": [
     {
       "name": "sdd-creation",
-      "version": "1.0.0",
-      "description": "Entity creation plugin \u2014 create agents, skills, PRDs, and templates with constitutional compliance.",
+      "version": "2.0.0",
+      "description": "Entity creation plugin \u2014 create plugins, agents, PRDs, and templates with constitutional compliance. Plugin-First Architecture v4.0.",
       "category": "core",
       "keywords": [
         "sdd",
         "create",
+        "plugin",
         "agent",
-        "skill",
         "prd"
       ],
       "dependencies": [
@@ -21,11 +21,15 @@
       ],
       "protected": false,
       "components": {
-        "skills": 4,
+        "skills": 5,
         "agents": 2,
-        "commands": 3
+        "commands": 4
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-creation",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-creation",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -49,7 +53,11 @@
         "agents": 1,
         "commands": 1
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-debug",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-debug",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -72,7 +80,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-backend",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-backend",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -95,7 +107,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-database",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-database",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -118,7 +134,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-devops",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-devops",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -141,7 +161,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-frontend",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-frontend",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -164,7 +188,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-performance",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-performance",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -187,7 +215,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-security",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-security",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -210,7 +242,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-testing",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-domain-testing",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -235,14 +271,18 @@
         "agents": 0,
         "commands": 2
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-git",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-git",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
     {
       "name": "sdd-governance",
       "version": "1.0.0",
-      "description": "Constitutional governance enforcement for the SDD Agentic Framework. Enforces 15 constitutional principles across all plugins via pre-flight compliance checks, git safety gates, and domain detection.",
+      "description": "Constitutional governance enforcement for the SDD Agentic Framework. Enforces 16 constitutional principles across all plugins via pre-flight compliance checks, git safety gates, and domain detection.",
       "category": "governance",
       "keywords": [
         "sdd",
@@ -258,7 +298,11 @@
         "agents": 1,
         "commands": 0
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-governance",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-governance",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -284,7 +328,11 @@
         "agents": 4,
         "commands": 6
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-orchestrator",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-orchestrator",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     },
@@ -309,7 +357,41 @@
         "agents": 4,
         "commands": 4
       },
-      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-specification",
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-specification",
+        "type": "github-subdirectory"
+      },
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-maintenance",
+      "version": "1.0.0",
+      "description": "Framework maintenance plugin \u2014 update framework, sync upstream, MCP server setup, and project initialization.",
+      "category": "core",
+      "keywords": [
+        "sdd",
+        "maintenance",
+        "update",
+        "framework",
+        "initialization",
+        "mcp"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 3,
+        "agents": 1,
+        "commands": 2
+      },
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-maintenance",
+        "type": "github-subdirectory"
+      },
       "downloads": 0,
       "avg_success_rate": 0.5
     }

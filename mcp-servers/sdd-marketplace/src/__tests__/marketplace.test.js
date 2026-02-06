@@ -40,6 +40,20 @@ describe("Registry", () => {
     }
   });
 
+  it("all registry sources have repo and path fields", () => {
+    const data = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+    for (const plugin of data.plugins) {
+      assert.ok(typeof plugin.source === "object", `${plugin.name}: source should be object`);
+      assert.ok(plugin.source.repo, `${plugin.name}: source.repo missing`);
+      assert.ok(plugin.source.path, `${plugin.name}: source.path missing`);
+      assert.ok(plugin.source.type, `${plugin.name}: source.type missing`);
+      assert.ok(
+        plugin.source.path.startsWith("plugins/"),
+        `${plugin.name}: source.path should start with plugins/`
+      );
+    }
+  });
+
   it("governance plugin is marked as protected", () => {
     const data = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
     const gov = data.plugins.find((p) => p.name === "sdd-governance");

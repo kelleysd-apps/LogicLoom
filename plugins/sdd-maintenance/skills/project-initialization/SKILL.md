@@ -14,9 +14,6 @@ rl_metrics:
   last_feedback: null
 ---
 
-> ⚠️ **DEPRECATED**: This skill has moved to `plugins/sdd-maintenance/`. Use the plugin version instead. Removal target: v5.0
-
-
 # Project Initialization Skill
 
 ## Purpose

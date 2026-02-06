@@ -504,7 +504,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           content: [
             {
               type: "text",
-              text: `Plugin "${pluginName}" not found in registry. Provide a source URL with the 'source' parameter.\n\nAvailable plugins:\n${registry.plugins.map((p) => `  - ${p.name}`).join("\n") || "  (registry empty)"}`,
+              text: `Plugin "${pluginName}" not found in registry. Provide a source URL with the 'source' parameter.\n\nAvailable plugins:\n${registry.plugins.map((p) => `  - ${p.name} (${p.source?.type || "unknown"})`).join("\n") || "  (registry empty)"}`,
             },
           ],
         };
@@ -512,9 +512,40 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // Install from source
       try {
-        if (source.startsWith("https://github.com") || source.startsWith("git@")) {
-          // Git-based install
-          execSync(`git clone --depth 1 "${source}" "${destPath}" 2>&1`, {
+        // Determine source type
+        const sourceObj = typeof source === "object" ? source : { repo: source, path: "", type: "direct" };
+        const repoUrl = sourceObj.repo || source;
+        const subPath = sourceObj.path || "";
+        const sourceType = sourceObj.type || "direct";
+
+        if (sourceType === "github-subdirectory" && subPath) {
+          // Sparse checkout to extract a subdirectory from a repo
+          const tmpDir = path.join(PLUGINS_DIR, `.tmp-install-${Date.now()}`);
+          try {
+            execSync(`git clone --filter=blob:none --no-checkout --depth 1 "${repoUrl}.git" "${tmpDir}" 2>&1`, {
+              timeout: 30000,
+            });
+            execSync(`git -C "${tmpDir}" sparse-checkout set "${subPath}" 2>&1`, {
+              timeout: 10000,
+            });
+            execSync(`git -C "${tmpDir}" checkout 2>&1`, { timeout: 10000 });
+
+            // Move the subdirectory to destination
+            const sourcePath = path.join(tmpDir, subPath);
+            if (fs.existsSync(sourcePath)) {
+              execSync(`cp -r "${sourcePath}" "${destPath}" 2>&1`, { timeout: 10000 });
+            } else {
+              throw new Error(`Path ${subPath} not found in repository`);
+            }
+          } finally {
+            // Clean up temp clone
+            if (fs.existsSync(tmpDir)) {
+              fs.rmSync(tmpDir, { recursive: true });
+            }
+          }
+        } else if (typeof repoUrl === "string" && (repoUrl.startsWith("https://github.com") || repoUrl.startsWith("git@"))) {
+          // Full repo clone (for standalone plugin repos)
+          execSync(`git clone --depth 1 "${repoUrl}" "${destPath}" 2>&1`, {
             cwd: PLUGINS_DIR,
             timeout: 30000,
           });
@@ -523,12 +554,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           if (fs.existsSync(gitDir)) {
             fs.rmSync(gitDir, { recursive: true });
           }
-        } else if (fs.existsSync(source)) {
+        } else if (typeof repoUrl === "string" && fs.existsSync(repoUrl)) {
           // Local path install (copy)
-          execSync(`cp -r "${source}" "${destPath}" 2>&1`, { timeout: 10000 });
+          execSync(`cp -r "${repoUrl}" "${destPath}" 2>&1`, { timeout: 10000 });
         } else {
           return {
-            content: [{ type: "text", text: `Cannot resolve source: ${source}` }],
+            content: [{ type: "text", text: `Cannot resolve source: ${JSON.stringify(source)}` }],
             isError: true,
           };
         }
