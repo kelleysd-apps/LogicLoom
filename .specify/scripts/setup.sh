@@ -235,6 +235,19 @@ echo -e "${BLUE}Setting up SDD workflow scripts...${NC}"
 chmod +x .specify/scripts/bash/*.sh 2>/dev/null || true
 echo -e "${GREEN}[OK]${NC} Scripts are executable"
 
+
+# ====================================
+# Plugin Command Bridge
+# ====================================
+echo ""
+echo -e "${BLUE}Syncing plugin commands...${NC}"
+if [ -x ".specify/scripts/bash/sync-plugin-commands.sh" ]; then
+    .specify/scripts/bash/sync-plugin-commands.sh sync 2>/dev/null || true
+    echo -e "${GREEN}[OK]${NC} Plugin commands synced to .claude/commands/"
+else
+    echo -e "${YELLOW}[INFO]${NC} Plugin command bridge not found (optional)"
+fi
+
 # ====================================
 # Docker MCP Toolkit Installation
 # ====================================

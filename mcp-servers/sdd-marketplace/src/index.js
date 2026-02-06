@@ -185,6 +185,22 @@ function searchRegistry(query, category) {
   });
 }
 
+
+function syncPluginCommands() {
+  // Run the plugin command bridge to sync new commands to .claude/commands/
+  try {
+    const bridgeScript = path.resolve(process.cwd(), ".specify", "scripts", "bash", "sync-plugin-commands.sh");
+    if (fs.existsSync(bridgeScript)) {
+      execSync(`bash "${bridgeScript}" sync 2>&1`, { timeout: 10000 });
+      return true;
+    }
+  } catch (e) {
+    // Bridge sync is best-effort — don't fail the install/update
+    console.error("Bridge sync warning:", e.message);
+  }
+  return false;
+}
+
 // ═══════════════════════════════════════════════════
 // MCP Server Setup
 // ═══════════════════════════════════════════════════
@@ -578,6 +594,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           output += `Dependencies: ${(validation.manifest.dependencies || []).join(", ")}\n`;
         }
 
+        // Sync plugin commands to .claude/commands/ via bridge
+        const bridged = syncPluginCommands();
+        if (bridged) output += "\n🔌 Plugin commands synced to .claude/commands/";
+
         return { content: [{ type: "text", text: output }] };
       } catch (e) {
         // Cleanup on failure
@@ -635,6 +655,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       if (dryRun) {
         output += "\nRun with dry_run: false to apply updates.";
+      } else {
+        // Sync plugin commands after update
+        const bridged = syncPluginCommands();
+        if (bridged) output += "\n🔌 Plugin commands synced to .claude/commands/";
       }
 
       return { content: [{ type: "text", text: output }] };

@@ -54,6 +54,7 @@ run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh
 run_suite "RL Metrics" "bash tests/contract/plugins/test_rl_metrics.sh"
 run_suite "Constitution v3.0.0" "bash tests/contract/test_constitution.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
+run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
 
 # MCP Tests (unit)
 run_suite "Marketplace MCP (unit)" "node --test mcp-servers/sdd-marketplace/src/__tests__/marketplace.test.js"
