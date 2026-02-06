@@ -21,15 +21,24 @@ case "$COMMAND" in
     ;;
     
   check)
-    # Check if agent is within budget
+    # Check if agent is within budget; recommend fallback model if near limit
     AGENT_ID="${3:-}"
     SPENT="${4:-0}"
     LIMIT="${5:-0}"
+    FALLBACK_MODEL="${FALLBACK_MODEL:-claude-sonnet-4-5-20250929}"
+    FALLBACK_THRESHOLD="${FALLBACK_THRESHOLD:-0.80}"  # Switch at 80% budget
     
     if python3 -c "exit(0 if $SPENT < $LIMIT else 1)"; then
-      echo "{\"status\":\"ok\",\"remaining\":$(python3 -c "print(round($LIMIT - $SPENT, 2))")}"
+      # Check if nearing budget — recommend fallback model to reduce cost
+      near_limit=$(python3 -c "print('yes' if ($SPENT / max($LIMIT, 0.01)) >= $FALLBACK_THRESHOLD else 'no')")
+      remaining=$(python3 -c "print(round($LIMIT - $SPENT, 2))")
+      if [ "$near_limit" = "yes" ]; then
+        echo "{\"status\":\"warning\",\"remaining\":$remaining,\"recommendation\":\"switch_to_fallback\",\"fallback_model\":\"$FALLBACK_MODEL\"}"
+      else
+        echo "{\"status\":\"ok\",\"remaining\":$remaining}"
+      fi
     else
-      echo "{\"status\":\"exceeded\",\"overage\":$(python3 -c "print(round($SPENT - $LIMIT, 2))")}"
+      echo "{\"status\":\"exceeded\",\"overage\":$(python3 -c "print(round($SPENT - $LIMIT, 2))"),\"action\":\"terminate_or_fallback\",\"fallback_model\":\"$FALLBACK_MODEL\"}"
     fi
     ;;
     
