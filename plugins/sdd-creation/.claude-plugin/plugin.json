@@ -1,0 +1,10 @@
+{
+  "name": "sdd-creation",
+  "version": "1.0.0",
+  "description": "Entity creation plugin — create agents, skills, PRDs, and templates with constitutional compliance.",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "keywords": ["sdd", "create", "agent", "skill", "prd"],
+  "dependencies": ["sdd-governance"],
+  "rl_metrics": { "success_rate": 0.5, "selection_weight": 0.5, "invocation_count": 0, "avg_tokens": 0, "last_updated": "2026-02-06T00:00:00Z" }
+}

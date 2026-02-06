@@ -1,0 +1,16 @@
+{
+  "hooks": [
+    {
+      "event": "Stop",
+      "matcher": {},
+      "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/agent-stop-notification.sh",
+      "description": "Notify swarm coordinator when an agent stops"
+    },
+    {
+      "event": "SubagentStop",
+      "matcher": {},
+      "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/agent-stop-notification.sh",
+      "description": "Notify swarm coordinator when a subagent completes"
+    }
+  ]
+}

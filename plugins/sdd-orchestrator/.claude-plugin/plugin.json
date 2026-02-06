@@ -1,0 +1,10 @@
+{
+  "name": "sdd-orchestrator",
+  "version": "1.0.0",
+  "description": "Multi-agent swarm orchestration plugin — /swarm command, agent team templates, cost controls, and parallel execution coordination.",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "keywords": ["sdd", "orchestrator", "swarm", "multi-agent", "team", "parallel"],
+  "dependencies": ["sdd-governance"],
+  "rl_metrics": { "success_rate": 0.5, "selection_weight": 0.5, "invocation_count": 0, "avg_tokens": 0, "last_updated": "2026-02-06T00:00:00Z" }
+}

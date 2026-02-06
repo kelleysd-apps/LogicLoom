@@ -1,0 +1,10 @@
+{
+  "name": "sdd-domain-CHANGEME",
+  "version": "0.1.0",
+  "description": "SDD domain plugin for CHANGEME development workflows.",
+  "author": "your-name",
+  "license": "MIT",
+  "keywords": ["sdd", "domain", "CHANGEME"],
+  "dependencies": ["sdd-governance"],
+  "rl_metrics": { "success_rate": 0.5, "selection_weight": 0.5, "invocation_count": 0, "avg_tokens": 0, "last_updated": "" }
+}
