@@ -1,0 +1,317 @@
+{
+  "name": "sdd-plugins-marketplace",
+  "version": "0.1.0",
+  "description": "Official SDD Plugin Registry",
+  "last_updated": "2026-01-15T00:00:00Z",
+  "plugins": [
+    {
+      "name": "sdd-creation",
+      "version": "1.0.0",
+      "description": "Entity creation plugin \u2014 create agents, skills, PRDs, and templates with constitutional compliance.",
+      "category": "core",
+      "keywords": [
+        "sdd",
+        "create",
+        "agent",
+        "skill",
+        "prd"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 4,
+        "agents": 2,
+        "commands": 3
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-creation",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-debug",
+      "version": "1.0.0",
+      "description": "Debug and troubleshooting plugin \u2014 10-step debugging workflow with auto-debug agent.",
+      "category": "core",
+      "keywords": [
+        "sdd",
+        "debug",
+        "troubleshoot",
+        "auto-debug"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 1,
+        "commands": 1
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-debug",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-backend",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for backend development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "backend"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 4,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-backend",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-database",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for database development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "database"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 2,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-database",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-devops",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for devops development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "devops"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 2,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-devops",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-frontend",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for frontend development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "frontend"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-frontend",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-performance",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for performance development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "performance"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-performance",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-security",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for security development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "security"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-security",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-domain-testing",
+      "version": "1.0.0",
+      "description": "SDD domain plugin for testing development workflows.",
+      "category": "domain",
+      "keywords": [
+        "sdd",
+        "domain",
+        "testing"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-domain-testing",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-git",
+      "version": "1.0.0",
+      "description": "Git workflow safety plugin \u2014 commit, push, PR with conflict resolution. All operations require user approval (Principle VI).",
+      "category": "core",
+      "keywords": [
+        "sdd",
+        "git",
+        "safety",
+        "PR",
+        "commit"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 2,
+        "agents": 0,
+        "commands": 2
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-git",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-governance",
+      "version": "1.0.0",
+      "description": "Constitutional governance enforcement for the SDD Agentic Framework. Enforces 15 constitutional principles across all plugins via pre-flight compliance checks, git safety gates, and domain detection.",
+      "category": "governance",
+      "keywords": [
+        "sdd",
+        "governance",
+        "constitutional",
+        "compliance",
+        "preflight"
+      ],
+      "dependencies": [],
+      "protected": true,
+      "components": {
+        "skills": 6,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-governance",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-orchestrator",
+      "version": "1.0.0",
+      "description": "Multi-agent swarm orchestration plugin \u2014 /swarm command, agent team templates, cost controls, and parallel execution coordination.",
+      "category": "orchestration",
+      "keywords": [
+        "sdd",
+        "orchestrator",
+        "swarm",
+        "multi-agent",
+        "team",
+        "parallel"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 5,
+        "agents": 4,
+        "commands": 6
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-orchestrator",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-specification",
+      "version": "1.0.0",
+      "description": "SDD specification lifecycle plugin \u2014 unified spec \u2192 plan \u2192 tasks workflow with quality gates and DS-STAR refinement.",
+      "category": "core",
+      "keywords": [
+        "sdd",
+        "specification",
+        "planning",
+        "tasks",
+        "workflow"
+      ],
+      "dependencies": [
+        "sdd-governance"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 5,
+        "agents": 4,
+        "commands": 4
+      },
+      "source": "https://github.com/kelleysd-apps/sdd-plugins-marketplace/tree/main/plugins/sdd-specification",
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    }
+  ]
+}

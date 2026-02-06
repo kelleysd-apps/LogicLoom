@@ -1,6 +1,6 @@
 # Plugin Marketplace — MCP Middleware Design
 
-**Status**: Design Phase
+**Status**: Phase A Complete — MCP Server Implemented
 **Spec**: 004-plugin-first-architecture (T4.6.1-T4.6.6)
 **Priority**: HIGH — User-requested for next milestone
 **Date**: 2026-01-15
@@ -90,13 +90,15 @@ marketplace-install sdd-domain-ai-ml
 
 ## Implementation Plan
 
-### Phase A: MCP Server Scaffold (1-2 days)
+### Phase A: MCP Server Scaffold (1-2 days) ✅ COMPLETE
 
-1. Create `sdd-plugin-marketplace/` npm package
-2. Implement MCP server protocol (stdio transport)
-3. Implement `marketplace-list` (local inventory)
-4. Implement `marketplace-validate` (plugin.json + structure check)
-5. Add to `.mcp.json`
+1. ✅ Created `mcp-servers/sdd-marketplace/` package
+2. ✅ Implemented MCP server protocol (stdio transport, 6 tools)
+3. ✅ Implemented `marketplace-list` (local inventory)
+4. ✅ Implemented `marketplace-validate` (plugin.json + structure check)
+5. ✅ Added to `.mcp.json`
+6. ✅ Created registry.json seeded with 13 plugins
+7. ✅ 18/18 tests passing
 
 ### Phase B: Registry Backend (2-3 days)
 
