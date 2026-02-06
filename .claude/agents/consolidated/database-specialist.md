@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-database/agents/database-specialist.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: database-specialist
 version: 2.0.0
 description: Manage database schemas, queries, migrations, and data operations

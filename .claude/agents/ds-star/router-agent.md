@@ -20,6 +20,11 @@ performance-targets:
   routing_latency_ms: 100
 ---
 
+> ⚠️ **DEPRECATED**: Routing capabilities integrated into sdd-orchestrator/agents/task-orchestrator.md
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # Router Agent (DS-STAR)
 
 ## Purpose

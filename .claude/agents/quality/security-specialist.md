@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-security/agents/security-specialist.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: security-specialist
 description: Security reviews, vulnerability assessment, secure coding practices
 tools: Read, Write, Bash, MultiEdit

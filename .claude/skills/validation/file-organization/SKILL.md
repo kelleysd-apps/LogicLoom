@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This skill has been migrated to: plugins/sdd-governance/skills/file-organization/
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: file-organization
 description: |
   Validates and enforces file creation rules, folder structure, and naming conventions.

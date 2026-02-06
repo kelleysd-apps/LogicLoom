@@ -31,6 +31,11 @@ rl_performance:
   skill_success_rates: {}
 ---
 
+> ⚠️ **DEPRECATED**: Replaced by sdd-domain-backend/agents/backend-architect.md and sdd-orchestrator/agents/task-orchestrator.md
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # System Architect (Renamed Agent)
 
 ## Purpose

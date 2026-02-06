@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This skill has been migrated to: plugins/sdd-specification/skills/planning-agent/
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: planning-agent
 description: |
   Step-by-step procedural guidance for executing the /plan command workflow. Covers Phase 0 (Research), Phase 1 (Design), and Phase 2 (Validation) for implementation planning with constitutional compliance.

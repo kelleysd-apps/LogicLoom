@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-frontend/agents/frontend-specialist.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: frontend-specialist
 description: Use PROACTIVELY for React/Next.js development, UI components, state management, responsive design, and frontend performance optimization.
 tools: Read, Write, Bash, MultiEdit

@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-specification/agents/specification-agent.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: specification-agent
 description: Use PROACTIVELY for creating detailed software specifications, user stories, functional requirements, and acceptance criteria using Spec-Driven Development methodology. Expert in translating business needs into executable specifications.
 tools: Read, Write, Bash, MultiEdit

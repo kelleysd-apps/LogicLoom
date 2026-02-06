@@ -42,7 +42,7 @@ This framework uses **modular context loading** for 37% token efficiency improve
 
 ```
 STEP 1: CONSTITUTION ACKNOWLEDGMENT
-       - Confirm awareness of 15 principles (I-XV)
+       - Confirm awareness of 16 principles (I-XVI)
        - Key: II (Test-First), VI (Git Approval), X (Agent Delegation)
 
 STEP 2: DOMAIN ANALYSIS
@@ -100,7 +100,7 @@ If you start work without completing the pre-flight check:
 
 **ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v2.0.0) contains **15 enforceable principles**:
+The constitution (v2.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **6 Workflow & Delegation Principles** (X-XV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization
@@ -112,6 +112,7 @@ The constitution (v2.0.0) contains **15 enforceable principles**:
 | **II (Test-First)** | TDD mandatory, >80% coverage | IMMUTABLE - blocks merge |
 | **VI (Git Approval)** | NO autonomous git operations | CRITICAL - always ask user |
 | **X (Agent Delegation)** | Specialized work -> specialists | CRITICAL - delegate or violate |
+| **XVI (Plugin-First)** | Capabilities as installable plugins | CRITICAL - all new features as plugins |
 
 For complete constitutional reference, load the governance module:
 ```bash
@@ -271,7 +272,7 @@ specs/###-feature-name/                # Per-feature documentation
 | Script | Purpose |
 |--------|---------|
 | `common.sh` | Shared functions + git approval |
-| `constitutional-check.sh` | 15-principle compliance validator |
+| `constitutional-check.sh` | 16-principle compliance validator |
 | `create-new-feature.sh` | Feature initialization + refinement |
 | `setup-plan.sh` | Planning workflow + verification |
 | `check-task-prerequisites.sh` | Task generation validator |
@@ -477,6 +478,6 @@ For comprehensive documentation, load the appropriate context modules:
 ---
 
 **Framework**: sdd-agentic-framework v3.1.1
-**Constitution**: v2.0.0 (15 Principles)
+**Constitution**: v3.0.0 (16 Principles)
 **Context System**: Modular (v2.0)
 **Last Updated**: 2026-01-10

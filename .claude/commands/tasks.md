@@ -4,6 +4,12 @@ deprecated: true
 deprecated-by: /specification
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-specification/commands/tasks.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 > ⚠️ **DEPRECATION NOTICE**: This command is deprecated and will be removed in v4.0.0.
 > 
 > **Use instead**: `/specification <feature-description>`

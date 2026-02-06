@@ -200,6 +200,22 @@ else
     echo -e "${GREEN}[OK]${NC} Dependencies already installed"
 fi
 
+# Install MCP server dependencies
+echo ""
+echo -e "${BLUE}Setting up MCP servers...${NC}"
+for mcp_dir in mcp-servers/*/; do
+    if [ -f "${mcp_dir}package.json" ]; then
+        mcp_name=$(basename "$mcp_dir")
+        if [ ! -d "${mcp_dir}node_modules" ]; then
+            echo -e "${BLUE}Installing ${mcp_name} dependencies...${NC}"
+            (cd "$mcp_dir" && npm install --production 2>/dev/null)
+            echo -e "${GREEN}[OK]${NC} ${mcp_name} dependencies installed"
+        else
+            echo -e "${GREEN}[OK]${NC} ${mcp_name} dependencies already installed"
+        fi
+    fi
+done
+
 # Create .env file from template if it doesn't exist
 if [ ! -f ".env" ]; then
     if [ -f ".env.example" ]; then
@@ -305,7 +321,7 @@ echo -e "  ${BLUE}In Claude Code, run:${NC} ${GREEN}/create-prd${NC}"
 echo ""
 echo -e "${YELLOW}Step 2: Customize the Constitution${NC}"
 echo -e "  Edit: ${GREEN}.specify/memory/constitution.md${NC}"
-echo -e "  Use your PRD to customize all 14 principles for your project"
+echo -e "  Use your PRD to customize all 16 principles for your project"
 echo ""
 echo -e "${YELLOW}Step 3: Create specialized agents (if needed)${NC}"
 echo -e "  ${BLUE}In Claude Code, run:${NC} ${GREEN}/create-agent${NC}"

@@ -1,0 +1,59 @@
+name: Plugin Contract Tests
+
+on:
+  push:
+    paths:
+      - 'plugins/**'
+      - 'tests/contract/plugins/**'
+  pull_request:
+    paths:
+      - 'plugins/**'
+      - 'tests/contract/plugins/**'
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run Plugin Contract Tests
+        run: bash tests/contract/plugins/test_plugin_lifecycle.sh
+
+      - name: Validate All Manifests
+        run: |
+          python3 -c "
+          import json, os, sys
+          errors = []
+          for name in sorted(os.listdir('plugins')):
+              manifest = os.path.join('plugins', name, '.claude-plugin', 'plugin.json')
+              if not os.path.exists(manifest):
+                  continue
+              try:
+                  with open(manifest) as f:
+                      d = json.load(f)
+                  for field in ['name', 'version', 'dependencies']:
+                      if field not in d:
+                          errors.append(f'{name}: missing {field}')
+                  if 'rl_metrics' not in d:
+                      errors.append(f'{name}: missing rl_metrics')
+              except json.JSONDecodeError as e:
+                  errors.append(f'{name}: invalid JSON - {e}')
+          if errors:
+              for e in errors:
+                  print(f'❌ {e}')
+              sys.exit(1)
+          else:
+              print(f'✅ All plugin manifests valid')
+          "
+
+      - name: Constitutional Compliance Check
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -f .specify/scripts/bash/constitutional-check.sh ]; then
+            bash .specify/scripts/bash/constitutional-check.sh || true
+          fi

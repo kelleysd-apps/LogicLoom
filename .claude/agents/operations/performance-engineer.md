@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-performance/agents/performance-engineer.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: performance-engineer
 description: Use PROACTIVELY for performance analysis, bottleneck identification, scalability optimization, monitoring setup, and load testing.
 tools: Read, Write, Bash, MultiEdit

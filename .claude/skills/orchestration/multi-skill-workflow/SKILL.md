@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This skill has been migrated to: plugins/sdd-orchestrator/skills/multi-skill-workflow/
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: multi-skill-workflow
 version: 3.0.0
 description: |

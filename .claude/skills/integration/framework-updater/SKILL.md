@@ -15,6 +15,9 @@ rl_metrics:
   selection_weight: 0.5
 ---
 
+> ⚠️ **DEPRECATED**: This skill has moved to `plugins/sdd-maintenance/`. Use the plugin version instead. Removal target: v5.0
+
+
 # Framework Updater Skill
 
 ## Core Philosophy
@@ -108,7 +111,7 @@ Use `/update-framework` when:
 
 3. Compare framework files:
    ```bash
-   git diff HEAD..upstream/main -- .specify/ .claude/ CLAUDE.md AGENTS.md
+   git diff HEAD..upstream/main -- .specify/ .claude/ plugins/ mcp-servers/ tests/ CLAUDE.md AGENTS.md
    ```
 
 4. Generate change summary by component type
@@ -274,7 +277,7 @@ Proceed with enhancement? [y/N]
 **Action**: Copy all new files from upstream
 
 ```bash
-for file in $(git diff --name-only --diff-filter=A HEAD..upstream/main -- .specify/ .claude/); do
+for file in $(git diff --name-only --diff-filter=A HEAD..upstream/main -- .specify/ .claude/ plugins/ mcp-servers/ tests/); do
   mkdir -p "$(dirname "$file")"
   git show upstream/main:"$file" > "$file"
   echo "Added: $file"

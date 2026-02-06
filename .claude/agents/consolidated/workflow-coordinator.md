@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-orchestrator/agents/workflow-coordinator.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: workflow-coordinator
 version: 2.0.0
 description: Coordinate multi-skill workflows, migrations, and complex orchestration

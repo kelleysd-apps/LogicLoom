@@ -2,6 +2,12 @@
 description: Create a new agent skill with procedural guidance templates for workflow automation
 ---
 
+> ⚠️ **DEPRECATED**: This command has moved to `plugins/sdd-creation/commands/create-plugin.md`.
+> The plugin version is the canonical source. This monolithic version will be removed in v5.0.
+> 
+> **Plugin-First Architecture (Principle XVI)**: All commands now live within their respective plugins.
+
+
 Create a standalone skill or a skill associated with an existing agent.
 
 ## Usage

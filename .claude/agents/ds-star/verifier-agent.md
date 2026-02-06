@@ -19,6 +19,11 @@ performance-targets:
   false_positive_rate: 0.05
 ---
 
+> ⚠️ **DEPRECATED**: Verification capabilities integrated into sdd-governance/skills/qa-validation/SKILL.md
+> This monolithic agent will be removed in v5.0.
+> **Plugin-First Architecture (Principle XVI)**: All agents now live within their respective plugins.
+
+
 # Verifier Agent (DS-STAR)
 
 ## Purpose

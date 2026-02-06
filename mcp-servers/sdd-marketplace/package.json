@@ -1,0 +1,22 @@
+{
+  "name": "@kelleysd-apps/sdd-plugin-marketplace",
+  "version": "0.1.0",
+  "description": "MCP server for SDD Plugin Marketplace — search, install, update, and validate plugins",
+  "main": "src/index.js",
+  "bin": {
+    "sdd-plugin-marketplace": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test src/__tests__/"
+  },
+  "keywords": ["mcp", "sdd", "plugins", "marketplace", "claude-code"],
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

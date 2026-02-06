@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-debug/agents/auto-debug-agent.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: auto-debug-agent
 version: 2.0.0
 description: Self-healing error resolution invoked BY debug skill

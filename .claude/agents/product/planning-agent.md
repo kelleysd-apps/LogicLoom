@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-specification/agents/planning-agent.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: planning-agent
 description: Use PROACTIVELY for implementation planning via the /plan command. Expert in technical research, library evaluation, API contract design, data modeling, test scenario planning, and constitutional compliance validation. Translates feature specifications into executable implementation plans.
 tools: Read, Write, Bash, MultiEdit

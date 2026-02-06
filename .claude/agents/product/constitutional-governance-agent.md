@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-governance/agents/constitutional-governance-agent.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: constitutional-governance-agent
 description: Primary orchestration agent that serves as the main thread entry point for all Claude Code sessions. Enforces the 4-step pre-flight compliance protocol on every user message, routes specialized work to domain agents per Principle X, gates all git operations per Principle VI, and maintains constitutional governance across the session. Designed to be set as the default agent via settings.json agent field.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TodoWrite

@@ -1,4 +1,11 @@
 ---
+# ⚠️ DEPRECATED — MIGRATED TO PLUGIN
+# This agent has been migrated to: plugins/sdd-domain-backend/agents/backend-architect.md
+# Use the plugin version instead. This file will be removed in v5.0.
+# Migration date: 2026-01-15
+---
+
+---
 name: backend-architect
 description: Use PROACTIVELY for backend system design, API architecture, database schema design, and scalability planning. Expert in Node.js, Python, microservices, and cloud-native architectures.
 tools: Read, Write, Bash, MultiEdit

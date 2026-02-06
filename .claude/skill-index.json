@@ -1422,5 +1422,12 @@
       "avg_success_rate": 0.5,
       "improvement_over_baseline": 0.0
     }
+  },
+  "_metadata": {
+    "deprecated": true,
+    "deprecated_by": "Plugin auto-discovery (Principle XVI)",
+    "deprecated_date": "2026-01-15",
+    "migration_target": "plugins/*/skills/ + plugins/*/.claude-plugin/plugin.json",
+    "removal_version": "v5.0.0"
   }
 }
