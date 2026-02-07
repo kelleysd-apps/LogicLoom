@@ -56,6 +56,11 @@ run_suite "Constitution v3.0.0" "bash tests/contract/test_constitution.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
 run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
 
+# Validation Tests (Framework v2.0 enhancements)
+run_suite "Git Safety" "bash .specify/tests/test-git-safety.sh"
+run_suite "Policy Validation" "bash .specify/tests/test-policy-validation.sh"
+run_suite "Structured Logging" "bash .specify/tests/test_logging.sh"
+
 # MCP Tests (unit)
 run_suite "Marketplace MCP (unit)" "node --test mcp-servers/sdd-marketplace/src/__tests__/marketplace.test.js"
 

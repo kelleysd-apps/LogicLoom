@@ -100,10 +100,10 @@ If you start work without completing the pre-flight check:
 
 **ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v2.0.0) contains **16 enforceable principles**:
+The constitution (v3.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **6 Workflow & Delegation Principles** (X-XV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization
+- **7 Workflow & Delegation Principles** (X-XVI): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
 
 ### Critical Principles Quick Reference
 
@@ -146,20 +146,26 @@ This is a specification-driven development framework that uses structured templa
 
 ### Quick Command Reference
 
-| Command | Purpose | Agent |
-|---------|---------|-------|
-| `/create-prd` | Create Product Requirements Document (Phase 0) | prd-specialist |
-| `/initialize-project` | Customize framework post-PRD | prd-specialist |
-| **`/specification`** | **Unified SDD workflow - generates spec, plan, tasks in one command** | **specification-agent** |
-| **`/git-push`** | **Complete git workflow - commit, push, PR with conflict resolution** | **-** |
-| `/specify` | ~~Create feature specification~~ (deprecated - use /specification) | specification-agent |
-| `/plan` | ~~Generate implementation plan~~ (deprecated - use /specification) | planning-agent |
-| `/tasks` | ~~Generate task list~~ (deprecated - use /specification) | tasks-agent |
-| `/debug` | Debug deployment/runtime issues (10-step workflow) | - |
-| `/finalize` | Pre-commit compliance validation | - |
-| `/research` | Multi-pass deep research with cross-referencing validation | - |
-| `/update-framework` | Check and apply upstream framework enhancements | - |
-| `/create-agent` | Create specialized subagent | subagent-architect |
+| Command | Purpose | Plugin |
+|---------|---------|--------|
+| **`/specification`** | **Unified SDD workflow — spec, plan, tasks in one command** | **sdd-specification** |
+| **`/git-push`** | **Complete git workflow — commit, push, PR** | **sdd-git** |
+| `/create-prd` | Create Product Requirements Document | sdd-creation |
+| `/create-agent` | Create specialized subagent | sdd-creation |
+| `/create-plugin` | Create new SDD plugin | sdd-creation |
+| `/debug` | Debug deployment/runtime issues | sdd-debug |
+| `/finalize` | Pre-commit compliance validation | sdd-git |
+| `/research` | Multi-pass deep research with validation | sdd-orchestrator |
+| `/swarm` | Multi-agent swarm execution | sdd-orchestrator |
+| `/build-team` | Sequential architect→implementor→reviewer | sdd-orchestrator |
+| `/fullstack-team` | Parallel full-stack team | sdd-orchestrator |
+| `/research-team` | Parallel research agents + synthesizer | sdd-orchestrator |
+| `/review-team` | Parallel security+quality+performance review | sdd-orchestrator |
+| `/update-framework` | Check and apply upstream enhancements | sdd-maintenance |
+| `/initialize-project` | Post-PRD project customization | sdd-maintenance |
+| `/specify` | Create feature spec *(deprecated — use /specification)* | sdd-specification |
+| `/plan` | Generate plan *(deprecated — use /specification)* | sdd-specification |
+| `/tasks` | Generate tasks *(deprecated — use /specification)* | sdd-specification |
 
 For detailed workflow documentation, load the workflows module:
 ```bash
@@ -207,7 +213,7 @@ The framework uses **Docker MCP Toolkit** as the primary MCP orchestration metho
 **Constitutional Principle X** requires specialized work be delegated to specialized agents.
 
 **See `AGENTS.md`** for complete agent registry including:
-- All 14 agents by department
+- All 21 agents across 15 plugins
 - Agent capabilities and tools
 - Domain -> agent mapping (detailed)
 - Slash command -> agent mapping
@@ -250,18 +256,30 @@ For complete agent documentation, load the agents module:
 ```
 .specify/
   memory/
-    constitution.md                    # Core principles (v2.0.0 - 15 principles)
+    constitution.md                    # Core principles (v3.0.0 - 16 principles)
     constitution_update_checklist.md   # Mandatory change management
     agent-collaboration-triggers.md    # Agent delegation reference
-  scripts/bash/                        # Workflow automation scripts
+  scripts/bash/                        # Workflow automation + plugin bridge
   templates/                           # Document templates
   config/                              # Configuration files
 
+plugins/                               # Plugin-First Architecture (v4.1)
+  sdd-governance/                      # Protected — constitutional enforcement
+  sdd-specification/                   # /specification, /plan, /tasks
+  sdd-orchestrator/                    # /swarm, /research, team commands
+  sdd-creation/                        # /create-agent, /create-plugin, /create-prd
+  sdd-git/                             # /git-push, /finalize
+  sdd-debug/                           # /debug
+  sdd-maintenance/                     # /update-framework, /initialize-project
+  sdd-domain-*/                        # 7 domain specialist plugins
+
 .claude/
-  context/                             # Context modules (NEW - v2.0)
-    core.md, agents.md, skills.md, workflows.md, governance.md
-  agents/                              # Agent definitions by department
-  skills/                              # Skill definitions by category
+  commands/                            # Slash commands (bridge-generated + static)
+  context/                             # Context modules
+  agents/                              # Deprecated — agents now in plugins/
+  skills/                              # Deprecated — skills now in plugins/
+
+mcp-servers/sdd-marketplace/           # Plugin marketplace MCP server
 
 specs/###-feature-name/                # Per-feature documentation
   spec.md, plan.md, research.md, data-model.md, contracts/, quickstart.md, tasks.md
@@ -401,7 +419,47 @@ For detailed enhancement documentation, see `.docs/reports/FRAMEWORK_ENHANCEMENT
 
 ---
 
+## Plugin-First Architecture (v4.1)
 
+All framework capabilities are organized as **discrete installable plugins** at `plugins/`.
+
+### Plugin Registry
+
+| Plugin | Category | Skills | Agents | Commands |
+|--------|----------|--------|--------|----------|
+| `sdd-governance` | governance | 6 | 1 | 0 |
+| `sdd-specification` | core | 5 | 4 | 4 |
+| `sdd-orchestrator` | orchestration | 5 | 4 | 6 |
+| `sdd-creation` | core | 5 | 2 | 4 |
+| `sdd-git` | core | 2 | 0 | 2 |
+| `sdd-debug` | core | 1 | 1 | 1 |
+| `sdd-maintenance` | core | 3 | 1 | 2 |
+| `sdd-domain-*` | domain | 1-4 | 1 | 0 |
+
+### Plugin Command Bridge
+
+Commands are automatically synced from plugins to `.claude/commands/` via the bridge:
+
+```bash
+# Sync plugin commands (runs automatically on setup and plugin install)
+.specify/scripts/bash/sync-plugin-commands.sh sync
+
+# View command→plugin mapping
+.specify/scripts/bash/sync-plugin-commands.sh list
+```
+
+### SDD Marketplace (MCP Server)
+
+Plugin management via MCP tools:
+
+| Tool | Purpose |
+|------|---------|
+| `marketplace-list` | List installed plugins with RL metrics |
+| `marketplace-search` | Search plugin registry |
+| `marketplace-install` | Install plugin from registry |
+| `marketplace-validate` | Validate plugin governance compliance |
+| `marketplace-update` | Update installed plugins |
+| `marketplace-publish` | Publish plugin to registry (dry-run) |
 
 ---
 
@@ -469,7 +527,7 @@ For comprehensive documentation, load the appropriate context modules:
 ```
 
 **See Also**:
-- `.specify/memory/constitution.md` - Constitutional principles (v2.0.0)
+- `.specify/memory/constitution.md` - Constitutional principles (v3.0.0)
 - `.claude/agents/` - Agent definitions
 - `.claude/skills/` - Skill documentation
 - `.docs/policies/` - Framework policies
@@ -477,7 +535,8 @@ For comprehensive documentation, load the appropriate context modules:
 
 ---
 
-**Framework**: sdd-agentic-framework v3.1.1
+**Framework**: sdd-agentic-framework v4.1.0
 **Constitution**: v3.0.0 (16 Principles)
+**Architecture**: Plugin-First (v4.1) with Command Bridge
 **Context System**: Modular (v2.0)
-**Last Updated**: 2026-01-10
+**Last Updated**: 2026-02-07

@@ -1,5 +1,5 @@
 {
-  "agent": "task-orchestrator",
+  "agent": "constitutional-governance-agent",
   "hooks": {
     "UserPromptSubmit": [
       {

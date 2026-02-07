@@ -1,19 +1,20 @@
-# SDD Agentic Framework v3.0.0
+# SDD Agentic Framework v4.1.0
 
-**Skills-First Architecture with Reinforcement Learning and DS-STAR Integration**
+**Plugin-First Architecture with Multi-Agent Orchestration, Reinforcement Learning, and Constitutional Governance**
 
-A constitutional AI framework for specification-driven development with intelligent skill-based routing, multi-agent orchestration, and continuous learning.
+A constitutional AI framework for specification-driven development with 15 installable plugins, an MCP marketplace, intelligent skill-based routing, and continuous learning.
 
 ## Features
 
-- **Skills-First Architecture**: Skills invoke agents (not vice versa)
-- **Reinforcement Learning**: EMA-based skill selection with 26.9% improvement
-- **Progressive Disclosure**: 50% token reduction through 3-layer loading
-- **DS-STAR Integration**: 5 specialized agents (Router, Verifier, Auto-Debug, Finalizer, Context Analyzer)
-- **Constitutional Governance**: 15 enforceable principles (v2.0.0)
-- **13 Specialized Agents**: 8 domain + 5 DS-STAR
-- **28 Active Skills**: Across 8 categories
-- **Test-First Development**: >80% coverage requirement
+- **Plugin-First Architecture**: 15 discrete plugins with governance compliance (Principle XVI)
+- **SDD Marketplace**: MCP server for plugin discovery, installation, and management
+- **Dynamic Command Bridge**: Auto-syncs plugin commands to Claude Code
+- **Multi-Agent Swarms**: Coordinated parallel agent execution with budget controls
+- **Reinforcement Learning**: EMA-based skill selection with performance metrics
+- **Constitutional Governance**: 16 enforceable principles (v3.0.0)
+- **21 Specialized Agents**: Across governance, orchestration, specification, creation, debug, maintenance, and 7 domains
+- **220 Automated Tests**: Contract, integration, E2E, and marketplace tests
+- **Test-First Development**: >80% coverage requirement (Principle II)
 
 ## Quick Start
 
@@ -30,110 +31,133 @@ A constitutional AI framework for specification-driven development with intellig
 git clone <your-repo-url>
 cd sdd-agentic-framework
 
-# Install dependencies
-npm install
-
-# Run tests
-npm test
+# Run setup (installs all dependencies including MCP servers)
+./.specify/scripts/setup.sh
 ```
 
 ### First Steps
 
 1. **Read the Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
 2. **Review CLAUDE.md**: Framework guidance for Claude Code
-3. **Check AGENTS.md**: Complete agent registry and capabilities
-4. **Explore Skills**: [.claude/skill-index.json](.claude/skill-index.json)
-5. **See TEMPLATE_INIT.md**: Initialization guide for new projects
+3. **Check AGENTS.md**: Complete agent registry (21 agents across 15 plugins)
+4. **Start Claude Code**: `claude` — all commands and marketplace tools available automatically
 
 ## Architecture
 
-### Skills-First Workflow
+### Plugin-First Workflow
 
 ```
-User Message → FR-707 Compliance Check → Router Agent →
-Skill Selection (RL) → Skill Activation (progressive) →
-Agent Invocation (minimal context) → Verifier (DS-STAR) →
-Auto-Debug (if needed) → Output + RL Feedback
+User Message → Governance Preflight Check → Domain Detection →
+Plugin Discovery (marketplace-list) → RL-Weighted Agent Selection →
+Skill Activation → Agent Invocation → Output + RL Feedback
 ```
+
+### Plugin Registry
+
+| Plugin | Category | Purpose |
+|--------|----------|---------|
+| `sdd-governance` | governance | Constitutional enforcement, compliance hooks |
+| `sdd-specification` | core | /specification, /plan, /tasks workflows |
+| `sdd-orchestrator` | orchestration | /swarm, /research, team commands |
+| `sdd-creation` | core | /create-agent, /create-plugin, /create-prd |
+| `sdd-git` | core | /git-push, /finalize |
+| `sdd-debug` | core | /debug workflow |
+| `sdd-maintenance` | core | /update-framework, /initialize-project |
+| `sdd-domain-*` | domain | 7 domain specialists (frontend, backend, database, testing, security, devops, performance) |
 
 ### Core Principles
 
 1. **Test-First Development** (Principle II): TDD mandatory, >80% coverage
 2. **Git Operation Approval** (Principle VI): NO autonomous git operations
-3. **Skills-First Delegation** (Principle X): Skills orchestrate agents
+3. **Agent Delegation** (Principle X): Specialized work → specialized agents
+4. **Plugin-First** (Principle XVI): All capabilities as discrete installable plugins
 
 ## Workflow Commands
 
 ### Feature Development
 
-- `/create-prd` - Create Product Requirements Document
-- `/initialize-project` - Customize framework based on PRD
-- `/specify` - Create feature specification
-- `/plan` - Generate implementation plan
-- `/tasks` - Generate dependency-ordered task list
-- `/finalize` - Pre-commit compliance validation
+| Command | Purpose |
+|---------|---------|
+| `/specification` | Unified SDD workflow (spec + plan + tasks) |
+| `/create-prd` | Create Product Requirements Document |
+| `/debug` | 10-step debugging workflow |
+| `/finalize` | Pre-commit compliance validation |
+| `/git-push` | Complete git workflow with conflict resolution |
 
-### Agent/Skill Management
+### Multi-Agent Teams
 
-- `/create-agent` - Create specialized subagent
-- `/create-skill` - Create new skill
+| Command | Purpose |
+|---------|---------|
+| `/swarm` | Spawn coordinated multi-agent swarm |
+| `/build-team` | Sequential architect → implementor → reviewer |
+| `/fullstack-team` | Parallel full-stack development team |
+| `/research-team` | Parallel research with synthesis |
+| `/review-team` | Parallel security + quality + performance review |
+| `/research` | Multi-pass deep research |
+
+### Plugin & Agent Management
+
+| Command | Purpose |
+|---------|---------|
+| `/create-plugin` | Create new SDD plugin |
+| `/create-agent` | Create specialized subagent |
+| `/update-framework` | Check for upstream enhancements |
+| `/initialize-project` | Post-PRD project customization |
 
 ## Configuration
 
-- **Architecture Mode**: `skills-first` (Phase 4)
-- **Constitution**: v2.0.0 (ratified 2026-01-13)
+- **Constitution**: v3.0.0 (16 principles, ratified 2026-02-06)
+- **Architecture**: Plugin-First (v4.1)
 - **RL Algorithm**: EMA (Exponential Moving Average)
-- **Test Framework**: Jest
-
-See [.specify/config/architecture.conf](.specify/config/architecture.conf) for complete configuration.
+- **Default Agent**: constitutional-governance-agent
 
 ## Documentation
 
 - **Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
 - **Framework Guide**: [CLAUDE.md](CLAUDE.md)
 - **Agent Registry**: [AGENTS.md](AGENTS.md)
-- **Skill Registry**: [.claude/skill-index.json](.claude/skill-index.json)
-- **Template Init Guide**: [TEMPLATE_INIT.md](TEMPLATE_INIT.md)
+- **Marketplace**: [mcp-servers/sdd-marketplace/README.md](mcp-servers/sdd-marketplace/README.md)
+- **Setup Guide**: [START_HERE.md](START_HERE.md)
 - **Policies**: `.docs/policies/` directory
-
-## Performance Metrics
-
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| Token Efficiency | 40-50% ↓ | 50% ✅ |
-| Agent Consolidation | 35% ↓ | 53% ✅ |
-| RL Improvement | 15-25% ↑ | 26.9% ✅ |
-| Test Coverage | >80% | 95.4% ✅ |
 
 ## Testing
 
 ```bash
-# Run all tests
-npm test
+# Run all tests (220 tests across 8 suites)
+bash tests/run_all_tests.sh
 
 # Run specific test suites
 npm run test:contracts
 npm run test:integration
-npm run test:validation
 ```
 
 ## Project Structure
 
 ```
+plugins/                              # Plugin-First Architecture
+├── sdd-governance/                   # Protected — constitutional enforcement
+├── sdd-specification/                # SDD workflow plugins
+├── sdd-orchestrator/                 # Multi-agent orchestration
+├── sdd-creation/                     # Entity creation
+├── sdd-git/                          # Git operations
+├── sdd-debug/                        # Debug workflows
+├── sdd-maintenance/                  # Framework maintenance
+└── sdd-domain-*/                     # 7 domain specialists
+
 .claude/
-├── skill-index.json          # 28 skills with RL
-├── agent-index.json          # 13 agents
-├── skills/                   # 8 categories
-└── agents/                   # consolidated/ + ds-star/
+├── commands/                         # Slash commands (bridge-generated + static)
+├── context/                          # Modular context loading
+└── settings.json                     # Agent and hook configuration
+
+mcp-servers/sdd-marketplace/          # Plugin marketplace MCP server
 
 .specify/
-├── memory/constitution.md    # v2.0.0 principles
-├── scripts/bash/rl/          # RL infrastructure
-├── config/                   # Architecture configuration
-└── templates/                # Skill/agent templates
+├── memory/constitution.md            # v3.0.0 (16 principles)
+├── scripts/bash/                     # Workflow automation + plugin bridge
+└── config/                           # Quality thresholds
 
-specs/                        # Feature specifications (created per project)
-tests/                        # Contract, integration, validation tests
+tests/                                # 220 tests across 8 suites
+specs/                                # Feature specifications
 ```
 
 ## License
@@ -142,6 +166,6 @@ MIT
 
 ## Version
 
-**Framework**: v3.0.0
-**Constitution**: v2.0.0 (ratified 2026-01-13)
-**Architecture Mode**: skills-first (Phase 4)
+**Framework**: v4.1.0
+**Constitution**: v3.0.0 (16 Principles)
+**Architecture**: Plugin-First (v4.1) with Command Bridge

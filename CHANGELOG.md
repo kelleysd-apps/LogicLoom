@@ -5,6 +5,64 @@ All notable changes to the SDD Agent Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-02-07
+
+### Added - Dynamic Plugin Command Bridge
+
+- `sync-plugin-commands.sh`: Automatic bridge between plugin commands and `.claude/commands/`
+- Bridge manifest tracking (`.claude/commands/.bridge-manifest.json`)
+- 8 new commands now discoverable: `/research`, `/create-plugin`, `/finalize`, `/swarm`, `/build-team`, `/fullstack-team`, `/research-team`, `/review-team`
+- Integration with `setup.sh`, `marketplace-install`, `marketplace-update`
+- 21 new contract tests for bridge validation (220 total tests)
+
+### Changed
+
+- AGENTS.md rewritten for Plugin-First Architecture (v3.0.0 — 21 agents across 15 plugins)
+- CLAUDE.md updated: consistent v3.0.0 constitution refs, all 19 commands listed, plugin architecture section
+- settings.json: default agent set to constitutional-governance-agent
+- Deprecation test updated to skip bridge-generated commands
+
+## [4.0.0] - 2026-02-06
+
+### Added - Plugin-First Architecture
+
+**Major architecture change**: All framework capabilities reorganized into 15 discrete installable plugins.
+
+- **15 plugins**: sdd-governance, sdd-specification, sdd-orchestrator, sdd-creation, sdd-git, sdd-debug, sdd-maintenance, 7 domain plugins, sdd-domain-template
+- **SDD Marketplace MCP Server**: 6 tools for plugin management (list, validate, search, install, update, publish)
+- **Private plugin registry**: `kelleysd-apps/sdd-plugins-marketplace` with sparse checkout installation
+- **Constitution v3.0.0**: Principle XVI (Plugin-First Architecture) — all capabilities as discrete plugins
+- **sdd-maintenance plugin**: Migrated framework-updater, mcp-server-setup, project-initialization skills
+- **create-plugin command**: Scaffold new plugins with governance compliance
+- **Multi-agent swarm system**: `/swarm`, `/build-team`, `/fullstack-team`, `/research-team`, `/review-team`
+
+### Changed
+
+- All monolithic agents deprecated (`.claude/agents/` → `plugins/*/agents/`)
+- All monolithic skills deprecated (`.claude/skills/` → `plugins/*/skills/`)
+- All monolithic commands deprecated (`.claude/commands/` → `plugins/*/commands/`)
+- `skill-index.json` deprecated (plugin manifests now source of truth)
+- Registry source URLs restructured to `{repo, path, type}` objects
+- Framework updater updated to diff `plugins/`, `mcp-servers/`, `tests/`
+- `setup.sh` now installs MCP server dependencies automatically
+- Marketplace README with auth documentation for private registry
+
+### Migration
+
+- 196 tests passing (up from 172)
+- All 11 monolithic commands have deprecation headers
+- All 32 migrated skills have deprecation headers
+- All 20 migrated agents have deprecation headers
+
+## [3.2.0] - 2026-02-05
+
+### Fixed - Framework Architecture Review
+
+- Issues #18-#23 resolved
+- Opus 4.6 model references updated
+- `/research` skill added to sdd-orchestrator
+- Unified `/specification` and `/git-push` commands with RL integration
+
 ## [3.1.1] - 2026-01-10
 
 ### Added - Debug Skill
