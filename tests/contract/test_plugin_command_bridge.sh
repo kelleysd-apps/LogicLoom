@@ -118,7 +118,7 @@ done
 
 assert "All commands are bridge-generated (${BRIDGE_VALID}/${BRIDGE_TOTAL}, non-bridge=${NON_BRIDGE})" \
   "[ $NON_BRIDGE -eq 0 ] && [ $BRIDGE_VALID -eq $BRIDGE_TOTAL ]"
-assert "At least 19 bridge commands exist" "[ $BRIDGE_TOTAL -ge 19 ]"
+assert "At least 18 bridge commands exist" "[ $BRIDGE_TOTAL -ge 18 ]"
 
 # ── No Orphaned Bridge Commands ──
 echo ""
@@ -172,7 +172,6 @@ assert "/finalize command exists" "[ -f .claude/commands/finalize.md ]"
 assert "/swarm command exists" "[ -f .claude/commands/swarm.md ]"
 assert "/build-team command exists" "[ -f .claude/commands/build-team.md ]"
 assert "/fullstack-team command exists" "[ -f .claude/commands/fullstack-team.md ]"
-assert "/research-team command exists" "[ -f .claude/commands/research-team.md ]"
 assert "/review-team command exists" "[ -f .claude/commands/review-team.md ]"
 
 # ═══════════════════════════════════════════════════

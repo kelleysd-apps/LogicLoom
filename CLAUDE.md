@@ -155,11 +155,10 @@ This is a specification-driven development framework that uses structured templa
 | `/create-plugin` | Create new SDD plugin | sdd-creation |
 | `/debug` | Debug deployment/runtime issues | sdd-debug |
 | `/finalize` | Pre-commit compliance validation | sdd-git |
-| `/research` | Multi-pass deep research with validation | sdd-orchestrator |
+| `/research` | Multi-LLM tribunal research (Claude, OpenAI, Gemini) | sdd-orchestrator |
 | `/swarm` | Multi-agent swarm execution | sdd-orchestrator |
 | `/build-team` | Sequential architect→implementor→reviewer | sdd-orchestrator |
 | `/fullstack-team` | Parallel full-stack team | sdd-orchestrator |
-| `/research-team` | Parallel research agents + synthesizer | sdd-orchestrator |
 | `/review-team` | Parallel security+quality+performance review | sdd-orchestrator |
 | `/update-framework` | Check and apply upstream enhancements | sdd-maintenance |
 | `/initialize-project` | Post-PRD project customization | sdd-maintenance |

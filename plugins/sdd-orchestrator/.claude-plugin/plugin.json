@@ -1,7 +1,7 @@
 {
   "name": "sdd-orchestrator",
-  "version": "2.0.0",
-  "description": "Multi-agent orchestration plugin \u2014 task orchestration with MCP marketplace integration, dynamic plugin discovery, RL-weighted routing, and on-demand plugin creation.",
+  "version": "3.0.0",
+  "description": "Multi-agent orchestration plugin — multi-LLM tribunal research (Claude, OpenAI, Gemini), swarm execution, team workflows, MCP marketplace integration, and RL-weighted routing.",
   "author": "kelleysd-apps",
   "license": "MIT",
   "keywords": [
@@ -12,7 +12,12 @@
     "team",
     "parallel",
     "marketplace",
-    "discovery"
+    "tribunal",
+    "voting",
+    "multi-llm",
+    "openai",
+    "gemini",
+    "perplexity"
   ],
   "dependencies": [
     "sdd-governance"

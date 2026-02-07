@@ -65,7 +65,7 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 |-------|---------|-------|
 | **task-orchestrator** | Multi-agent coordination via Plugin Marketplace (MCP) | opus |
 | **swarm-coordinator** | Multi-agent swarm management, task graphs, budget controls | opus |
-| **team-synthesizer** | Merges parallel agent outputs into coherent results | opus |
+| **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
 | **workflow-coordinator** | Multi-skill workflows, migrations, complex orchestration | opus |
 
 ### sdd-specification (4 agents)
@@ -154,11 +154,10 @@ Quick reference for agent selection based on task domain:
 | `/debug` | auto-debug-agent | sdd-debug | Debug deployment/runtime issues |
 | `/finalize` | - | sdd-git | Pre-commit compliance validation |
 | `/git-push` | - | sdd-git | Complete git workflow |
-| `/research` | task-orchestrator | sdd-orchestrator | Multi-pass deep research |
+| `/research` | swarm-coordinator | sdd-orchestrator | Multi-LLM tribunal research (Claude, OpenAI, Gemini) |
 | `/swarm` | swarm-coordinator | sdd-orchestrator | Multi-agent swarm execution |
 | `/build-team` | swarm-coordinator | sdd-orchestrator | Sequential architect→implementor→reviewer |
 | `/fullstack-team` | swarm-coordinator | sdd-orchestrator | Parallel full-stack team |
-| `/research-team` | swarm-coordinator | sdd-orchestrator | Parallel research agents + synthesizer |
 | `/review-team` | swarm-coordinator | sdd-orchestrator | Parallel security+quality+performance |
 | `/update-framework` | framework-sync-agent | sdd-maintenance | Framework updates from upstream |
 | `/initialize-project` | - | sdd-maintenance | Post-PRD project customization |
