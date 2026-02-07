@@ -1,19 +1,19 @@
 # Core Context Module
-<!-- Auto-generated from CLAUDE.md - Sprint 3 Task T028 -->
+<!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
 <!-- Module: Essential instructions, constitutional principles, project overview -->
 
 ## MANDATORY: Message Pre-Flight Compliance Check
 
 **EVERY user message requires a 4-step compliance check BEFORE any action.**
 
-This is enforced by the `message-preflight` skill at `.claude/skills/validation/message-preflight/SKILL.md`.
+This is enforced by the `message-preflight` skill at `plugins/sdd-governance/skills/message-preflight/SKILL.md`.
 
 ### The 4-Step Protocol (Execute on EVERY message)
 
 ```
 STEP 1: CONSTITUTION ACKNOWLEDGMENT
-       └─ Confirm awareness of 14 principles (I-XIV)
-       └─ Key: II (Test-First), VI (Git Approval), X (Agent Delegation)
+       └─ Confirm awareness of 16 principles (I-XVI)
+       └─ Key: II (Test-First), VI (Git Approval), X (Agent Delegation), XVI (Plugin-First)
 
 STEP 2: DOMAIN ANALYSIS
        └─ Scan message for domain trigger keywords
@@ -56,10 +56,10 @@ If pre-flight was skipped or violated:
 
 **The constitution at `.specify/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v1.5.0) contains **14 enforceable principles**:
+The constitution (v3.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **5 Workflow & Delegation Principles** (X-XIV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection
+- **7 Workflow & Delegation Principles** (X-XVI): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
 
 The constitution governs:
 - Core development principles and rules
@@ -188,3 +188,14 @@ Or analyze request automatically:
 ```bash
 ./.specify/scripts/bash/load-context.sh analyze "<request text>"
 ```
+
+---
+
+**Module Version**: 2.0.0
+**Created**: 2026-01-09 (Sprint 3 Task T028)
+**Last Updated**: 2026-02-07
+**Constitutional Authority**: All 16 Principles (I-XVI)
+**Source Documents**:
+- `.specify/memory/constitution.md` (v3.0.0)
+- CLAUDE.md core sections
+- `plugins/sdd-governance/skills/message-preflight/SKILL.md`

@@ -204,7 +204,7 @@ The framework uses **Docker MCP Toolkit** as the primary MCP orchestration metho
 - Use `env:VAR_NAME` syntax in MCP configuration
 - Docker Toolkit provides container isolation (1 CPU, 2GB RAM limits)
 
-**Skill Reference**: `.claude/skills/integration/mcp-server-setup/SKILL.md`
+**Skill Reference**: `plugins/sdd-maintenance/skills/mcp-server-setup/SKILL.md`
 
 ---
 
@@ -274,10 +274,9 @@ plugins/                               # Plugin-First Architecture (v4.1)
   sdd-domain-*/                        # 7 domain specialist plugins
 
 .claude/
-  commands/                            # Slash commands (bridge-generated + static)
+  commands/                            # Slash commands (all bridge-generated from plugins)
   context/                             # Context modules
-  agents/                              # Deprecated — agents now in plugins/
-  skills/                              # Deprecated — skills now in plugins/
+  hooks/                               # Governance hooks
 
 mcp-servers/sdd-marketplace/           # Plugin marketplace MCP server
 
@@ -387,7 +386,7 @@ The framework now includes 6 production-ready enhancements integrated in Phases 
 | **Enhanced Git Safety** | Rollback checkpoints, commit suggestions | VI (Git Approval) |
 | **Tool Restriction Policies** | Granular command validation | XI, XIII (Input Validation) |
 | **Parallel Agent Execution** | 2-3x speedup for 3+ agents | IV, X (Idempotency, Delegation) |
-| **Skill Auto-Discovery** | Auto-generated `.claude/skill-index.json` | VIII (Documentation Sync) |
+| **Skill Auto-Discovery** | Plugin manifests with RL metrics | VIII (Documentation Sync) |
 | **Modular Context Loading** | 37% token efficiency improvement | V, VIII, IX |
 
 ### Performance Improvements
@@ -472,7 +471,7 @@ The framework includes an RL (Reinforcement Learning) feedback system that impro
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | Metrics Tracking | `.docs/rl-metrics/skill-performance.json` | Detailed performance history |
-| Skill Index | `.claude/skill-index.json` | RL weights for routing |
+| Skill Index | Plugin manifests (`plugins/*/plugin.json`) | RL weights for routing |
 | Feedback Script | `.specify/scripts/bash/rl/collect-feedback.sh` | Record outcomes |
 | Sync Script | `.specify/scripts/bash/rl/sync-metrics.sh` | Update skill index |
 | Dashboard | `.specify/scripts/bash/rl/dashboard.sh` | View metrics |
@@ -491,7 +490,7 @@ Skill Execution → Verifier Validation → Feedback Collection → Metrics Upda
 # Record skill execution result
 .specify/scripts/bash/rl/collect-feedback.sh <skill-name> success|failure [tokens]
 
-# Sync metrics to skill-index.json
+# Sync metrics to plugin manifests
 .specify/scripts/bash/rl/sync-metrics.sh
 
 # View dashboard
@@ -528,8 +527,8 @@ For comprehensive documentation, load the appropriate context modules:
 
 **See Also**:
 - `.specify/memory/constitution.md` - Constitutional principles (v3.0.0)
-- `.claude/agents/` - Agent definitions
-- `.claude/skills/` - Skill documentation
+- `plugins/*/agents/` - Agent definitions (Plugin-First Architecture)
+- `plugins/*/skills/` - Skill documentation (Plugin-First Architecture)
 - `.docs/policies/` - Framework policies
 - `.docs/reports/` - Framework documentation
 

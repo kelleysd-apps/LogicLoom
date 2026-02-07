@@ -3,103 +3,69 @@ name: create-plugin
 description: Create a new SDD plugin with constitutional compliance (Plugin-First Architecture v4.0)
 model: opus
 ---
+
 # /create-plugin Command
 
-Create a new SDD plugin following Plugin-First Architecture (Principle XVI).
+**AGENT REQUIREMENT**: This command should be executed by the subagent-architect agent.
 
-## Usage
-
+**If you are NOT the subagent-architect**, delegate immediately:
 ```
-/create-plugin <plugin-name> [options]
-/create-plugin sdd-domain-ai-ml --category domain
-/create-plugin sdd-custom-workflow --category orchestration
-```
-
-## Arguments
-
-**Required**:
-- `plugin-name`: Kebab-case plugin name (must start with `sdd-` prefix)
-
-**Optional**:
-- `--category <type>`: Plugin category (domain, orchestration, governance, creation, specification, integration)
-- `--description "text"`: Brief description of the plugin
-- `--from-template <template>`: Use sdd-domain-template as scaffold base
-
-## Execution Steps
-
-### Step 1: Validate Plugin Name
-- Must be kebab-case with `sdd-` prefix
-- Must not conflict with existing plugins
-- Check: `ls plugins/ | grep <name>`
-
-### Step 2: Scaffold Plugin Structure
-
-```
-plugins/<plugin-name>/
-  .claude-plugin/
-    plugin.json          # Manifest (required)
-  commands/              # Slash commands
-  agents/                # Agent definitions
-  skills/                # Skill definitions
-  scripts/               # Automation scripts
-  hooks/                 # Lifecycle hooks
-    on-install.sh
-  README.md
+Use the Task tool to invoke subagent-architect:
+- description: "Execute /create-plugin command"
+- prompt: "Create a new SDD plugin. Arguments: $ARGUMENTS"
 ```
 
-### Step 3: Generate plugin.json Manifest
+## Execution Instructions (for subagent-architect)
 
-```json
-{
-  "name": "<plugin-name>",
-  "version": "1.0.0",
-  "description": "<description>",
-  "author": "kelleysd-apps",
-  "license": "MIT",
-  "keywords": ["sdd", "<category>"],
-  "dependencies": ["sdd-governance"],
-  "rl_metrics": {
-    "success_rate": 0.5,
-    "selection_weight": 0.5,
-    "invocation_count": 0,
-    "avg_tokens": 0,
-    "last_updated": "<ISO timestamp>"
-  }
-}
+### Step 1: Parse Arguments
+- Extract plugin name from $ARGUMENTS (must be kebab-case, prefixed with `sdd-`)
+- If no arguments: prompt user for plugin name and description
+
+### Step 2: Validate Plugin Name
+```bash
+# Must be kebab-case, prefixed with sdd- or sdd-domain-
+echo "$PLUGIN_NAME" | grep -qE '^sdd-(domain-)?[a-z0-9]+(-[a-z0-9]+)*$'
+```
+- Check for existing plugin: `ls plugins/$PLUGIN_NAME 2>/dev/null`
+
+### Step 3: Create Plugin Structure
+```bash
+PLUGIN_DIR="plugins/$PLUGIN_NAME"
+mkdir -p "$PLUGIN_DIR/.claude-plugin"
+mkdir -p "$PLUGIN_DIR/commands"
+mkdir -p "$PLUGIN_DIR/skills"
+mkdir -p "$PLUGIN_DIR/agents"
+mkdir -p "$PLUGIN_DIR/hooks"
+mkdir -p "$PLUGIN_DIR/scripts"
 ```
 
-### Step 4: Create Domain Agent (if category=domain)
-- Copy from sdd-domain-template as base
-- Customize for specific domain
+### Step 4: Generate plugin.json Manifest
+Write `.claude-plugin/plugin.json` with:
+- name, version (1.0.0), description
+- dependencies: ["sdd-governance"]
+- rl_metrics with default values
+- Keywords from description
 
-### Step 5: Register in Marketplace
-- Add entry to `mcp-servers/sdd-marketplace/registry/registry.json`
-- Validate with `marketplace-validate` MCP tool
+### Step 5: Generate README.md
+Write `README.md` with plugin overview, structure, and usage.
 
-### Step 6: Validate Plugin
-- Check plugin.json is valid JSON
-- Verify sdd-governance dependency
-- Ensure at least one command, agent, or skill exists
+### Step 6: Sync Command Bridge
+```bash
+bash .specify/scripts/bash/sync-plugin-commands.sh sync
+```
 
-## Plugin Categories
-
-| Category | Purpose | Example |
-|----------|---------|---------|
-| `domain` | Domain-specific expertise | sdd-domain-ai-ml |
-| `orchestration` | Workflow coordination | sdd-orchestrator |
-| `governance` | Compliance & rules | sdd-governance |
-| `creation` | Entity creation | sdd-creation |
-| `specification` | SDD workflow phases | sdd-specification |
-| `integration` | External integrations | sdd-integration |
-| `maintenance` | Framework operations | sdd-maintenance |
+### Step 7: Report Completion
+- Show created directory structure
+- Show manifest contents
+- Remind about Principle XVI compliance
 
 ## Constitutional Compliance
+- **Principle XVI**: Plugin-First Architecture — all capabilities as plugins
+- **Principle IX**: Dependencies declared in manifest
+- **Principle VII**: RL metrics included for observability
 
-- **Principle I (Library-First)**: Plugins are standalone installable units
-- **Principle III (Contract-First)**: plugin.json manifest defines the contract
-- **Principle XVI (Plugin-First)**: All capabilities as discrete plugins
-
-## Related Commands
-
-- `/create-agent` - Creates an agent within a plugin
-- `/specification` - Uses SDD specification workflow
+## Usage
+```
+/create-plugin sdd-domain-rust "Rust development domain plugin"
+/create-plugin sdd-analytics "Analytics and metrics tracking"
+```

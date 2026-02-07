@@ -475,4 +475,4 @@ VERIFIER_CHECK:
 - Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md`
 - Constitution v1.5.0: `.specify/memory/constitution.md` (Principle X)
 - Detection Script: `.specify/scripts/bash/detect-phase-domain.sh`
-- Agent Directory: `.claude/agents/` (all 12 specialist agents)
+- Agent Directory: `plugins/*/agents/` (all specialist agents across plugins)

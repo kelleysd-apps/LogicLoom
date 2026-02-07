@@ -1,5 +1,5 @@
 # Agents Context Module
-<!-- Auto-generated from CLAUDE.md and agent files - Sprint 3 Task T024 -->
+<!-- Auto-generated from CLAUDE.md and plugin agent files - Plugin-First Architecture v4.1 -->
 <!-- Module: Agent registry, delegation protocol, multi-agent coordination -->
 
 ## Agent Delegation Protocol
@@ -10,7 +10,7 @@ See `.specify/memory/agent-collaboration-triggers.md` for:
 - Domain trigger keywords (Frontend, Backend, Database, Testing, Security, Performance, DevOps, etc.)
 - Single-agent vs multi-agent decision tree
 - Context handoff format
-- 19+ specialized agents across 6 departments
+- 21+ specialized agents across 15 plugins
 
 **Quick Reference**: If task contains domain keywords (test, UI, database, API, security, etc.) → Delegate to specialized agent
 
@@ -38,106 +38,53 @@ See `.specify/memory/agent-collaboration-triggers.md` for:
 
 ## Available Agents by Department
 
-### Architecture Department
+### Domain Plugins (sdd-domain-*)
 
-**backend-architect**
+**backend-architect** (sdd-domain-backend)
 - **Purpose**: System design, API architecture, scalability planning
 - **Competencies**: REST/GraphQL APIs, microservices, serverless architecture, authentication/authorization patterns, system integration
 - **Usage**: `Use the backend-architect agent to...`
-- **Location**: `.claude/agents/architecture/backend-architect.md`
+- **Location**: `plugins/sdd-domain-backend/agents/backend-architect.md`
 
-**subagent-architect**
-- **Purpose**: Creating new SDD-compliant agents with constitutional alignment
-- **Competencies**: Agent design, tool selection, memory structure, department classification, governance setup
-- **Usage**: `Use the subagent-architect agent to create a new agent for...`
-- **Location**: `.claude/agents/architecture/subagent-architect.md`
-
----
-
-### Data Department
-
-**database-specialist**
+**database-specialist** (sdd-domain-database)
 - **Purpose**: Database design, query optimization, migrations, RLS policies
 - **Competencies**: PostgreSQL/Supabase, schema design, indexing, Drizzle ORM, data modeling, query performance
 - **Usage**: `Use the database-specialist agent to...`
-- **Location**: `.claude/agents/data/database-specialist.md`
+- **Location**: `plugins/sdd-domain-database/agents/database-specialist.md`
 
----
-
-### Engineering Department
-
-**frontend-specialist**
+**frontend-specialist** (sdd-domain-frontend)
 - **Purpose**: React/Next.js UI development, component creation, state management
 - **Competencies**: React 18, TypeScript, TailwindCSS, Radix UI, Framer Motion, responsive design, accessibility
 - **Usage**: `Use the frontend-specialist agent to...`
-- **Location**: `.claude/agents/engineering/frontend-specialist.md`
+- **Location**: `plugins/sdd-domain-frontend/agents/frontend-specialist.md`
 
-**full-stack-developer**
-- **Purpose**: End-to-end feature development spanning frontend and backend
-- **Competencies**: React + Express.js, API integration, state management, authentication flows, database integration
-- **Usage**: `Use the full-stack-developer agent to...`
-- **Location**: `.claude/agents/engineering/full-stack-developer.md`
-
----
-
-### Marketing Department
-
-**content-strategist**
-- **Purpose**: Content planning, editorial calendar, SEO keyword research, content brief creation
-- **Competencies**: Content strategy, audience analysis, keyword research, content briefs, editorial planning
-- **Usage**: `Use the content-strategist agent to...`
-- **Location**: `.claude/agents/marketing/content-strategist.md`
-
-**copywriter-agent**
-- **Purpose**: Blog article writing in Brian Kelley's authentic voice
-- **Competencies**: First-person writing, contrarian takes, founder content, LinkedIn-style paragraphs, avoiding AI-sounding language
-- **Voice Profile**: Direct, honest, practical, opinionated, conversational, confident
-- **Workflow Position**: research-agent → content-strategist → **copywriter-agent** → seo-specialist
-- **Usage**: `Use the copywriter-agent agent to write a blog article about...`
-- **Triggers**: write, draft, article, blog post, content creation, Brian's voice, copywriting
-- **Location**: `.claude/agents/marketing/copywriter-agent.md`
-
-**research-agent**
-- **Purpose**: Deep research for AI topics, trends, tools, and competitor analysis
-- **Competencies**: Market intelligence, trend analysis, source gathering, expert opinion research, citation management
-- **Workflow Position**: **research-agent** → content-strategist → copywriter-agent → seo-specialist
-- **Usage**: `Use the research-agent to research [topic]...`
-- **Triggers**: Research, investigate, trends, competitor analysis, market intelligence, sources, citations
-- **Location**: `.claude/agents/marketing/research-agent.md`
-
-**seo-specialist**
-- **Purpose**: SEO optimization, meta tags, heading structure, internal linking
-- **Competencies**: On-page SEO, keyword optimization, meta descriptions, heading hierarchy, link building
-- **Usage**: `Use the seo-specialist agent to...`
-- **Location**: `.claude/agents/marketing/seo-specialist.md`
-
----
-
-### Operations Department
-
-**devops-engineer**
+**devops-engineer** (sdd-domain-devops)
 - **Purpose**: CI/CD, Docker, deployment, infrastructure management
 - **Competencies**: Vercel deployments, GitHub Actions, Docker, environment management, build optimization
 - **Usage**: `Use the devops-engineer agent to...`
-- **Location**: `.claude/agents/operations/devops-engineer.md`
+- **Location**: `plugins/sdd-domain-devops/agents/devops-engineer.md`
 
-**performance-engineer**
+**performance-engineer** (sdd-domain-performance)
 - **Purpose**: Performance optimization, caching, benchmarking
 - **Competencies**: Query optimization, caching strategies, CDN configuration, bundle size reduction, performance profiling
 - **Usage**: `Use the performance-engineer agent to...`
-- **Location**: `.claude/agents/operations/performance-engineer.md`
+- **Location**: `plugins/sdd-domain-performance/agents/performance-engineer.md`
+
+**security-specialist** (sdd-domain-security)
+- **Purpose**: Security review, vulnerability assessment, auth/auth patterns
+- **Competencies**: OWASP Top 10, XSS/CSRF prevention, encryption, RLS policies, API security
+- **Usage**: `Use the security-specialist agent to...`
+- **Location**: `plugins/sdd-domain-security/agents/security-specialist.md`
+
+**testing-specialist** (sdd-domain-testing)
+- **Purpose**: Test strategy, test creation, QA processes
+- **Competencies**: TDD, unit tests, integration tests, E2E tests (Playwright), test coverage analysis
+- **Usage**: `Use the testing-specialist agent to...`
+- **Location**: `plugins/sdd-domain-testing/agents/testing-specialist.md`
 
 ---
 
-### Product Department
-
-**prd-specialist**
-- **Purpose**: Product Requirements Document (PRD) creation for Phase 0 project initialization
-- **Competencies**: Product strategy, user research, requirements gathering, constitutional customization, release planning
-- **Workflow Position**: **prd-specialist** (/create-prd) → specification-agent (/specify) → planning-agent (/plan)
-- **Usage**: Automatically invoked by `/create-prd` command
-- **Triggers**: /create-prd, PRD, product requirements, project initialization
-- **Location**: `.claude/agents/product/prd-specialist.md`
+### Specification Plugin (sdd-specification)
 
 **specification-agent**
 - **Purpose**: Feature specification creation for Phase 1 requirements definition
@@ -145,7 +92,7 @@ See `.specify/memory/agent-collaboration-triggers.md` for:
 - **Workflow Position**: prd-specialist → **specification-agent** (/specify) → planning-agent (/plan)
 - **Usage**: Automatically invoked by `/specify` command
 - **Triggers**: /specify, spec, requirements, user story
-- **Location**: `.claude/agents/product/specification-agent.md`
+- **Location**: `plugins/sdd-specification/agents/specification-agent.md`
 
 **planning-agent**
 - **Purpose**: Implementation planning for Phase 2 technical design
@@ -154,7 +101,7 @@ See `.specify/memory/agent-collaboration-triggers.md` for:
 - **Usage**: Automatically invoked by `/plan` command
 - **Triggers**: /plan, implementation plan, technical research, contract design, data modeling
 - **Produces**: plan.md, research.md, data-model.md, contracts/, quickstart.md
-- **Location**: `.claude/agents/product/planning-agent.md`
+- **Location**: `plugins/sdd-specification/agents/planning-agent.md`
 
 **tasks-agent**
 - **Purpose**: Task generation for Phase 3 implementation breakdown
@@ -163,30 +110,56 @@ See `.specify/memory/agent-collaboration-triggers.md` for:
 - **Usage**: Automatically invoked by `/tasks` command
 - **Triggers**: /tasks, task generation, task breakdown
 - **Produces**: tasks.md with dependency-ordered task list
-- **Location**: `.claude/agents/product/tasks-agent.md`
+- **Location**: `plugins/sdd-specification/agents/tasks-agent.md`
+
+---
+
+### Orchestrator Plugin (sdd-orchestrator)
 
 **task-orchestrator**
 - **Purpose**: Multi-agent workflow coordination for complex features
 - **Competencies**: Agent routing, workflow sequencing, context handoff, quality gate management
 - **Usage**: Automatically invoked for multi-domain tasks (2+ domains detected)
 - **Triggers**: Complex feature, multi-domain, full-stack, end-to-end
-- **Location**: `.claude/agents/product/task-orchestrator.md`
+- **Location**: `plugins/sdd-orchestrator/agents/task-orchestrator.md`
 
 ---
 
-### Quality Department
+### Creation Plugin (sdd-creation)
 
-**security-specialist**
-- **Purpose**: Security review, vulnerability assessment, auth/auth patterns
-- **Competencies**: OWASP Top 10, XSS/CSRF prevention, encryption, RLS policies, API security
-- **Usage**: `Use the security-specialist agent to...`
-- **Location**: `.claude/agents/quality/security-specialist.md`
+**prd-specialist**
+- **Purpose**: Product Requirements Document (PRD) creation for Phase 0 project initialization
+- **Competencies**: Product strategy, user research, requirements gathering, constitutional customization, release planning
+- **Workflow Position**: **prd-specialist** (/create-prd) → specification-agent (/specify) → planning-agent (/plan)
+- **Usage**: Automatically invoked by `/create-prd` command
+- **Triggers**: /create-prd, PRD, product requirements, project initialization
+- **Location**: `plugins/sdd-creation/agents/prd-specialist.md`
 
-**testing-specialist**
-- **Purpose**: Test strategy, test creation, QA processes
-- **Competencies**: TDD, unit tests, integration tests, E2E tests (Playwright), test coverage analysis
-- **Usage**: `Use the testing-specialist agent to...`
-- **Location**: `.claude/agents/quality/testing-specialist.md`
+**subagent-architect**
+- **Purpose**: Creating new SDD-compliant agents with constitutional alignment
+- **Competencies**: Agent design, tool selection, memory structure, plugin classification, governance setup
+- **Usage**: `Use the subagent-architect agent to create a new agent for...`
+- **Location**: `plugins/sdd-creation/agents/subagent-architect.md`
+
+---
+
+### Debug Plugin (sdd-debug)
+
+**auto-debug-agent**
+- **Purpose**: Automated debugging with DS-STAR multi-agent patterns
+- **Competencies**: Error diagnosis, root cause analysis, fix verification, iterative debugging
+- **Usage**: Automatically invoked by `/debug` command
+- **Location**: `plugins/sdd-debug/agents/auto-debug-agent.md`
+
+---
+
+### Maintenance Plugin (sdd-maintenance)
+
+**framework-sync-agent**
+- **Purpose**: Framework update synchronization and upstream enhancement tracking
+- **Competencies**: Version comparison, migration planning, dependency updates, breaking change detection
+- **Usage**: Automatically invoked by `/update-framework` command
+- **Location**: `plugins/sdd-maintenance/agents/framework-sync-agent.md`
 
 ---
 
@@ -271,7 +244,7 @@ Use task-orchestrator        Keywords from 1 domain?
 3. `copywriter-agent`: Write article in Brian's voice
 4. `seo-specialist`: Optimize for SEO
 
-**Skill Reference**: `.claude/skills/marketing/content-pipeline/SKILL.md`
+**Note**: Marketing agents are project-specific and not part of the core plugin framework.
 
 ---
 
@@ -328,13 +301,14 @@ Load agent context modules as needed:
 
 ---
 
-**Module Version**: 1.0.0
+**Module Version**: 2.0.0
 **Created**: 2026-01-09 (Sprint 3 Task T024)
+**Last Updated**: 2026-02-07
 **Constitutional Authority**: Principle X (Agent Delegation Protocol)
 **Source Documents**:
 - CLAUDE.md "Available Agents" section
 - `.specify/memory/agent-collaboration-triggers.md`
-- All agent files in `.claude/agents/`
+- All agent files in `plugins/*/agents/`
 
 ---
 
@@ -364,10 +338,10 @@ Load agent context modules as needed:
 - Gate ALL git operations (Principle VI - CRITICAL)
 - Maintain constitutional governance across session
 
-See `.claude/agents/product/constitutional-governance-agent.md` for full details.
+See `plugins/sdd-governance/agents/constitutional-governance-agent.md` for full details.
 
 ---
 
 **Module**: agents.md
-**Framework**: sdd-agentic-framework v3.1.0
-**Last Updated**: 2026-01-09
+**Framework**: sdd-agentic-framework v4.1.0
+**Last Updated**: 2026-02-07

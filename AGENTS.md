@@ -19,7 +19,7 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 
 **Both files MUST be updated together** when agents are added/modified (see Tandem Update Rules below).
 
-> **Plugin-First Architecture**: All agents now live within their respective plugins at `plugins/<plugin>/agents/`. The `.claude/agents/` directory contains deprecated shims that point to plugin sources.
+> **Plugin-First Architecture**: All agents live within their respective plugins at `plugins/<plugin>/agents/`. Legacy `.claude/agents/` directory has been removed.
 
 ---
 
@@ -246,7 +246,7 @@ plugins/
     └── [domain]-specialist.md  (7 domain agents)
 ```
 
-> **Legacy**: `.claude/agents/` contains deprecated shims pointing to plugin sources. These will be removed in v5.0.
+> **Note**: Legacy `.claude/agents/` directory has been removed. All agents are served exclusively from plugins.
 
 ---
 

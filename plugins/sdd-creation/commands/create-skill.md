@@ -1,24 +1,34 @@
 ---
 name: create-skill
-description: "⚠️ DEPRECATED — Use /create-plugin instead (Plugin-First Architecture v4.0)"
+description: Create a new agent skill with procedural guidance templates for workflow automation.
 model: opus
 ---
-# ⚠️ DEPRECATED: /create-skill
 
-**This command has been replaced by `/create-plugin`.**
+# /create-skill Command
 
-In Plugin-First Architecture (v4.0), all capabilities are organized as plugins.
-Skills, agents, and commands are components within plugins, not standalone entities.
+## Execution Instructions
 
-## Migration
+### Step 1: Parse Arguments
+Extract skill name (kebab-case), optional `--agent` and `--category` flags.
 
+### Step 2: Load Skill Template
+Read: `.specify/templates/skill-template.md`
+
+### Step 3: Generate Skill
+Create SKILL.md at appropriate location:
+- If `--agent`: `plugins/<plugin>/skills/<skill-name>/SKILL.md`
+- If `--category`: `plugins/<plugin>/skills/<skill-name>/SKILL.md`
+- Default: `plugins/sdd-governance/skills/<skill-name>/SKILL.md`
+
+### Step 4: Include RL Metrics
+Add default rl_metrics frontmatter (success_rate: 0.5, selection_weight: 0.5).
+
+### Step 5: Report
+Show: skill path, RL metrics, usage instructions.
+
+## Usage
 ```
-# Old (deprecated):
-/create-skill my-skill --category domain
-
-# New:
-/create-plugin sdd-domain-myskill --category domain
+/create-skill api-design
+/create-skill api-design --agent backend-architect
+/create-skill api-design --category sdd-workflow
 ```
-
-**Removal Target**: v5.0
-**Replacement**: `/create-plugin` (in this same plugin: sdd-creation)

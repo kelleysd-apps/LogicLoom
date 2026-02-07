@@ -36,9 +36,9 @@ Identify what type of content is being created:
 
 | Content Type | Location Pattern | Template |
 |--------------|------------------|----------|
-| Agent definition | `.claude/agents/[dept]/` | `agent-template.md` |
+| Agent definition | `plugins/[plugin]/agents/` | `agent-template.md` |
 | Agent memory | `.docs/agents/[dept]/[agent]/` | N/A (structure) |
-| Skill | `.claude/skills/[category]/[skill]/` | `skill-template.md` |
+| Skill | `plugins/[plugin]/skills/[skill]/` | `skill-template.md` |
 | Command | `.claude/commands/` | N/A |
 | Policy | `.docs/policies/` | N/A |
 | Feature spec | `specs/###-[name]/` | `spec-template.md` |
@@ -63,8 +63,8 @@ mkdir -p [parent-directory]
 ```
 Is the parent directory one of these approved locations?
 
-.claude/agents/[architecture|data|engineering|operations|product|quality]/
-.claude/skills/[sdd-workflow|validation|other-approved-category]/
+plugins/[plugin-name]/agents/
+plugins/[plugin-name]/skills/[skill-name]/
 .claude/commands/
 .docs/agents/[department]/[agent-name]/[context|knowledge|decisions|performance]/
 .docs/policies/
@@ -136,9 +136,9 @@ ls .specify/templates/
 **ALWAYS use absolute paths from repository root**:
 
 ```
-CORRECT: /workspaces/project/.claude/agents/product/new-agent.md
-WRONG:   agents/product/new-agent.md
-WRONG:   ./agents/product/new-agent.md
+CORRECT: /workspaces/project/plugins/sdd-specification/agents/new-agent.md
+WRONG:   agents/new-agent.md
+WRONG:   ./plugins/sdd-specification/agents/new-agent.md
 ```
 
 ## Validation Checklist
@@ -193,7 +193,7 @@ Required files:
 When creating skill:
 
 ```bash
-mkdir -p .claude/skills/[category]/[skill-name]
+mkdir -p plugins/[plugin-name]/skills/[skill-name]
 ```
 
 Required files:
@@ -215,8 +215,8 @@ FIX: Always Read or ls before Write
 ### 2. Wrong Location
 
 ```
-VIOLATION: Creating agent in .docs instead of .claude
-FIX: Agents go in .claude/agents/, memory goes in .docs/agents/
+VIOLATION: Creating agent in .docs instead of plugins
+FIX: Agents go in plugins/*/agents/, memory goes in .docs/agents/
 ```
 
 ### 3. Generic Names in Agent Dirs
@@ -260,7 +260,7 @@ File creation must comply with:
 
 ```bash
 # Validate structure
-find .claude/agents -type f -name "*.md" | head -20
+find plugins/*/agents -type f -name "*.md" | head -20
 
 # Check naming
 ls -la .docs/agents/*/

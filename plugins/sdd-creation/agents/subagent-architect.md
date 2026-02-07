@@ -88,8 +88,8 @@ When creating a new agent, follow this COMPLETE workflow:
 **Wrong Department**: If agent classified incorrectly:
 ```bash
 # Move agent file
-mv .claude/agents/{wrong-dept}/{agent}.md \
-   .claude/agents/{correct-dept}/
+mv plugins/{wrong-plugin}/agents/{agent}.md \
+   plugins/{correct-plugin}/agents/
 
 # Move memory
 mv .docs/agents/{wrong-dept}/{agent} \

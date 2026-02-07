@@ -320,7 +320,7 @@ Use the Task tool to delegate to planning-agent:
 - prompt: "Execute the /plan command for this feature"
 ```
 
-**Agent Location**: `.claude/agents/product/planning-agent.md`
+**Agent Location**: `plugins/sdd-specification/agents/planning-agent.md`
 
 **Note**: This skill provides procedural guidance for the planning workflow. For autonomous execution, always delegate to the planning-agent which has specialized tools and constitutional compliance built-in.
 

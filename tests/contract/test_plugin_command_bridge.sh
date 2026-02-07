@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Contract Tests: Plugin Command Bridge
 # Validates dynamic bridge between plugins/*/commands/ → .claude/commands/
+# AND validates all commands have actionable execution instructions
+# Post Plugin-First v4.0: ALL commands are bridge-generated (no statics)
 set -euo pipefail
 
 PASS=0; FAIL=0; TOTAL=0
@@ -39,12 +41,12 @@ assert "Manifest is valid JSON" "python3 -c 'import json; json.load(open(\".clau
 assert "Manifest has bridged section" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"bridged\" in d'"
 assert "Manifest has static section" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"static\" in d'"
 assert "Manifest has generated timestamp" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"generated\" in d'"
+assert "Manifest has zero statics" "python3 -c 'import json,sys; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); sys.exit(0 if len(d.get(\"static\",[])) == 0 else 1)'"
 
 # ── Command Coverage Tests ──
 echo ""
 echo "Plugin command coverage"
 
-# Count plugin commands (excluding template)
 PLUGIN_CMD_COUNT=0
 BRIDGE_CMD_COUNT=0
 MISSING_CMDS=""
@@ -59,7 +61,6 @@ for plugin_dir in plugins/*/; do
     cmd_name=$(basename "$cmd_file" .md)
     PLUGIN_CMD_COUNT=$((PLUGIN_CMD_COUNT + 1))
     
-    # Check .claude/commands/ has this command
     if [ -f ".claude/commands/${cmd_name}.md" ]; then
       BRIDGE_CMD_COUNT=$((BRIDGE_CMD_COUNT + 1))
     else
@@ -75,33 +76,30 @@ if [ -n "$MISSING_CMDS" ]; then
   echo "  Missing:${MISSING_CMDS}"
 fi
 
-# ── Bridge-Generated Command Quality ──
+# ── All Commands Are Bridge-Generated ──
 echo ""
-echo "Bridge-generated command quality"
+echo "All commands bridge-generated (Plugin-First v4.0)"
 
 BRIDGE_VALID=0
 BRIDGE_TOTAL=0
+NON_BRIDGE=0
 for cmd_file in .claude/commands/*.md; do
   [ -f "$cmd_file" ] || continue
-  # Only check bridge-generated commands
+  BRIDGE_TOTAL=$((BRIDGE_TOTAL + 1))
+  cmd_name=$(basename "$cmd_file" .md)
+  
   if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
-    BRIDGE_TOTAL=$((BRIDGE_TOTAL + 1))
-    
-    cmd_name=$(basename "$cmd_file" .md)
-    
-    # Check has YAML frontmatter
+    # Validate bridge wrapper quality
     has_frontmatter=false
     if head -1 "$cmd_file" | grep -q "^---$"; then
       has_frontmatter=true
     fi
     
-    # Check has name field
     has_name=false
     if head -10 "$cmd_file" | grep -q "^name:"; then
       has_name=true
     fi
     
-    # Check references plugin source
     has_source=false
     if grep -q "plugins/" "$cmd_file"; then
       has_source=true
@@ -112,33 +110,15 @@ for cmd_file in .claude/commands/*.md; do
     else
       echo "  ⚠️  Invalid bridge command: $cmd_file (frontmatter=$has_frontmatter name=$has_name source=$has_source)"
     fi
+  else
+    NON_BRIDGE=$((NON_BRIDGE + 1))
+    echo "  ⚠️  Non-bridge command: ${cmd_name}"
   fi
 done
 
-assert "Bridge commands have valid format (${BRIDGE_VALID}/${BRIDGE_TOTAL})" \
-  "[ $BRIDGE_VALID -eq $BRIDGE_TOTAL ]"
-assert "At least 8 bridge-generated commands exist" "[ $BRIDGE_TOTAL -ge 8 ]"
-
-# ── Static Command Protection ──
-echo ""
-echo "Static command protection"
-
-# These commands existed before the bridge and should NOT be bridge-generated
-STATIC_PROTECTED=0
-STATIC_TOTAL=0
-for static_cmd in specification debug git-push specify plan tasks create-agent create-prd create-skill initialize-project update-framework; do
-  if [ -f ".claude/commands/${static_cmd}.md" ]; then
-    STATIC_TOTAL=$((STATIC_TOTAL + 1))
-    if ! head -10 ".claude/commands/${static_cmd}.md" | grep -q "$BRIDGE_MARKER"; then
-      STATIC_PROTECTED=$((STATIC_PROTECTED + 1))
-    else
-      echo "  ⚠️  Static command overwritten by bridge: ${static_cmd}"
-    fi
-  fi
-done
-
-assert "Static commands not overwritten by bridge (${STATIC_PROTECTED}/${STATIC_TOTAL})" \
-  "[ $STATIC_PROTECTED -eq $STATIC_TOTAL ]"
+assert "All commands are bridge-generated (${BRIDGE_VALID}/${BRIDGE_TOTAL}, non-bridge=${NON_BRIDGE})" \
+  "[ $NON_BRIDGE -eq 0 ] && [ $BRIDGE_VALID -eq $BRIDGE_TOTAL ]"
+assert "At least 19 bridge commands exist" "[ $BRIDGE_TOTAL -ge 19 ]"
 
 # ── No Orphaned Bridge Commands ──
 echo ""
@@ -149,7 +129,6 @@ for cmd_file in .claude/commands/*.md; do
   [ -f "$cmd_file" ] || continue
   if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
     cmd_name=$(basename "$cmd_file" .md)
-    # Check that at least one plugin still has this command
     found=false
     for plugin_dir in plugins/*/; do
       if [ -f "${plugin_dir}commands/${cmd_name}.md" ]; then
@@ -196,6 +175,119 @@ assert "/fullstack-team command exists" "[ -f .claude/commands/fullstack-team.md
 assert "/research-team command exists" "[ -f .claude/commands/research-team.md ]"
 assert "/review-team command exists" "[ -f .claude/commands/review-team.md ]"
 
+# ═══════════════════════════════════════════════════
+# Command Execution Instruction Tests (Bug #1-#3)
+# Validates that ALL commands have actionable execution
+# instructions, not just descriptive documentation.
+# ═══════════════════════════════════════════════════
+
+echo ""
+echo "═══ Command Execution Quality Tests ═══"
+echo ""
+
+# ── Plugin commands must have execution instructions ──
+echo "Plugin command execution instructions"
+
+EXEC_PASS=0
+EXEC_TOTAL=0
+EXEC_MISSING=""
+
+for plugin_dir in plugins/*/; do
+  plugin_name=$(basename "$plugin_dir")
+  [ "$plugin_name" = "sdd-domain-template" ] && continue
+  [ -d "${plugin_dir}commands" ] || continue
+
+  for cmd_file in "${plugin_dir}commands/"*.md; do
+    [ -f "$cmd_file" ] || continue
+    cmd_name=$(basename "$cmd_file" .md)
+    EXEC_TOTAL=$((EXEC_TOTAL + 1))
+
+    # A command must have at least ONE of these execution patterns:
+    has_execution=false
+
+    if grep -qiE "Task tool|subagent_type|Use the Task tool" "$cmd_file"; then
+      has_execution=true
+    elif grep -qE "^### Step [0-9]|^## Step [0-9]|^[0-9]+\. \*\*" "$cmd_file"; then
+      has_execution=true
+    elif grep -qE "\.sh|bash |scripts/" "$cmd_file"; then
+      has_execution=true
+    elif grep -qE "Execution Instructions|## Procedure|## Execution" "$cmd_file"; then
+      if [ "$(wc -l < "$cmd_file")" -gt 30 ]; then
+        has_execution=true
+      fi
+    fi
+
+    if $has_execution; then
+      EXEC_PASS=$((EXEC_PASS + 1))
+    else
+      EXEC_MISSING="${EXEC_MISSING}\n    ❌ ${plugin_name}/commands/${cmd_name}.md"
+    fi
+  done
+done
+
+assert "Plugin commands have execution instructions (${EXEC_PASS}/${EXEC_TOTAL})" \
+  "[ $EXEC_PASS -eq $EXEC_TOTAL ]"
+
+if [ -n "$EXEC_MISSING" ]; then
+  echo -e "  Missing execution instructions:${EXEC_MISSING}"
+fi
+
+# ── All .claude/commands/ must resolve to actionable content ──
+echo ""
+echo "End-to-end command resolution"
+
+RESOLVE_PASS=0
+RESOLVE_TOTAL=0
+RESOLVE_MISSING=""
+
+for cmd_file in .claude/commands/*.md; do
+  [ -f "$cmd_file" ] || continue
+  cmd_name=$(basename "$cmd_file" .md)
+  [ "$cmd_name" = ".bridge-manifest" ] && continue
+  RESOLVE_TOTAL=$((RESOLVE_TOTAL + 1))
+
+  # All commands should be bridge commands now (Plugin-First v4.0)
+  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+    # Bridge command - follow to plugin source and check THAT file
+    plugin_source=$(grep "source:" "$cmd_file" | head -1 | sed 's/.*source: //' | sed 's/ .*//')
+    plugin_cmd_path="plugins/${plugin_source}/commands/${cmd_name}.md"
+
+    if [ -f "$plugin_cmd_path" ]; then
+      if grep -qiE "Task tool|subagent_type|## Procedure|## Execution Instructions|^### Step [0-9]|^[0-9]+\. \*\*" "$plugin_cmd_path"; then
+        RESOLVE_PASS=$((RESOLVE_PASS + 1))
+      elif grep -qE "\.sh|bash |scripts/" "$plugin_cmd_path" && [ "$(wc -l < "$plugin_cmd_path")" -gt 30 ]; then
+        RESOLVE_PASS=$((RESOLVE_PASS + 1))
+      else
+        RESOLVE_MISSING="${RESOLVE_MISSING}\n    ❌ ${cmd_name} → ${plugin_cmd_path} (no execution instructions)"
+      fi
+    else
+      RESOLVE_MISSING="${RESOLVE_MISSING}\n    ❌ ${cmd_name} → ${plugin_cmd_path} (file not found)"
+    fi
+  else
+    RESOLVE_MISSING="${RESOLVE_MISSING}\n    ❌ ${cmd_name} (not bridge-generated — should not exist post v4.0)"
+  fi
+done
+
+assert "All commands resolve to actionable content (${RESOLVE_PASS}/${RESOLVE_TOTAL})" \
+  "[ $RESOLVE_PASS -eq $RESOLVE_TOTAL ]"
+
+if [ -n "$RESOLVE_MISSING" ]; then
+  echo -e "  Missing resolution:${RESOLVE_MISSING}"
+fi
+
+# ── Governance hook integrity ──
+echo ""
+echo "Governance hook integrity"
+
+HOOK_FILE=".claude/hooks/user-prompt-submit/governance-preflight.sh"
+assert "Governance hook exists" "[ -f '$HOOK_FILE' ]"
+assert "Governance hook is executable" "[ -x '$HOOK_FILE' ]"
+assert "Hook references constitution v3.0.0" "grep -q 'v3.0.0' '$HOOK_FILE'"
+assert "Hook detects command invocations" "grep -q 'detect_slash_command' '$HOOK_FILE'"
+
+# ═══════════════════════════════════════
+# Final Results
+# ═══════════════════════════════════════
 echo ""
 echo "═══════════════════════════════════════"
 echo " Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"

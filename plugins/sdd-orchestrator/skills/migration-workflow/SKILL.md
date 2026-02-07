@@ -97,7 +97,7 @@ migration-plan:
   source:
     name: frontend-specialist
     type: agent
-    location: .claude/agents/engineering/frontend-specialist.md
+    location: plugins/sdd-domain-frontend/agents/frontend-specialist.md
   target:
     skill: domain/frontend-operations
     agent: implementation-specialist (consolidated)

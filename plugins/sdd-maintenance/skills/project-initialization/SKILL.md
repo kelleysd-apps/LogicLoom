@@ -354,7 +354,7 @@ test -f .docs/prd/prd.md && echo "PRD found" || echo "PRD MISSING - run /create-
 
 **Goal**: Configure MCP servers for the project using Docker MCP Toolkit
 
-**Skill Reference**: `.claude/skills/integration/mcp-server-setup/SKILL.md`
+**Skill Reference**: `plugins/sdd-maintenance/skills/mcp-server-setup/SKILL.md`
 
 **Docker MCP Toolkit** is pre-installed during framework setup and provides:
 - Dynamic discovery of 310+ servers via `mcp-find` tool

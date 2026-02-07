@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Contract Tests: Deprecation compliance
-# Updated for Plugin-First Architecture v4.0 + Plugin Command Bridge
+# Contract Tests: Legacy Cleanup Validation (Post Plugin-First v4.0)
+# Validates that ALL monolithic legacy artifacts have been removed
+# and all capabilities are served exclusively through plugins.
 set -euo pipefail
 
 PASS=0; FAIL=0; TOTAL=0
@@ -16,77 +17,50 @@ assert() {
   fi
 }
 
-echo "═══ Deprecation Compliance Tests ═══"
+echo "═══ Legacy Cleanup Validation Tests ═══"
 echo ""
 
-echo "Monolithic skills deprecation"
-DEPRECATED_SKILLS=0
-TOTAL_MIGRATED=0
-for skill_file in $(find .claude/skills -name "SKILL.md" -type f); do
-  # Check if this skill has a plugin equivalent
-  skill_name=$(basename "$(dirname "$skill_file")")
-  plugin_match=$(find plugins -path "*/skills/${skill_name}/SKILL.md" -type f 2>/dev/null | head -1)
-  if [ -n "$plugin_match" ]; then
-    TOTAL_MIGRATED=$((TOTAL_MIGRATED + 1))
-    # Search first 20 lines for DEPRECATED (handles YAML frontmatter + notice)
-    if head -20 "$skill_file" | grep -q "DEPRECATED"; then
-      DEPRECATED_SKILLS=$((DEPRECATED_SKILLS + 1))
-    else
-      echo "  ⚠️  Missing deprecation: $skill_file"
-    fi
-  fi
-done
-assert "All migrated skills have deprecation headers" "[ $DEPRECATED_SKILLS -eq $TOTAL_MIGRATED ]"
-echo "  (${DEPRECATED_SKILLS}/${TOTAL_MIGRATED} migrated skills deprecated)"
+# ── Monolithic skills removed ──
+echo "Monolithic skills removed"
+assert "No .claude/skills/ directory exists" "[ ! -d .claude/skills ]"
 
+# ── Monolithic agents removed ──
 echo ""
-echo "Monolithic agents deprecation"
-DEPRECATED_AGENTS=0
-TOTAL_MIGRATED_AGENTS=0
-for agent_file in $(find .claude/agents -name "*.md" -type f); do
-  agent_name=$(basename "$agent_file")
-  plugin_match=$(find plugins -path "*/agents/${agent_name}" -type f 2>/dev/null | head -1)
-  if [ -n "$plugin_match" ]; then
-    TOTAL_MIGRATED_AGENTS=$((TOTAL_MIGRATED_AGENTS + 1))
-    # Search first 20 lines for DEPRECATED (handles YAML frontmatter + notice)
-    if head -20 "$agent_file" | grep -q "DEPRECATED"; then
-      DEPRECATED_AGENTS=$((DEPRECATED_AGENTS + 1))
-    else
-      echo "  ⚠️  Missing deprecation: $agent_file"
-    fi
-  fi
-done
-assert "All migrated agents have deprecation headers" "[ $DEPRECATED_AGENTS -eq $TOTAL_MIGRATED_AGENTS ]"
-echo "  (${DEPRECATED_AGENTS}/${TOTAL_MIGRATED_AGENTS} migrated agents deprecated)"
+echo "Monolithic agents removed"
+assert "No .claude/agents/ directory exists" "[ ! -d .claude/agents ]"
 
+# ── Legacy indexes removed ──
 echo ""
-echo "Monolithic commands deprecation"
-DEPRECATED_CMDS=0
-TOTAL_STATIC_CMDS=0
+echo "Legacy indexes removed"
+assert "No .claude/skill-index.json" "[ ! -f .claude/skill-index.json ]"
+assert "No .claude/agent-index.json" "[ ! -f .claude/agent-index.json ]"
+
+# ── Old constitution versions removed ──
+echo ""
+echo "Old constitution archives removed"
+assert "No constitution-v1.6.0-archive.md" "[ ! -f .specify/memory/constitution-v1.6.0-archive.md ]"
+assert "No constitution-v2.0.0-draft.md" "[ ! -f .specify/memory/constitution-v2.0.0-draft.md ]"
+
+# ── All commands are bridge-generated (no deprecated statics) ──
+echo ""
+echo "All commands served via plugin bridge"
+STATIC_COUNT=0
+BRIDGE_COUNT=0
 for cmd_file in .claude/commands/*.md; do
   [ -f "$cmd_file" ] || continue
-  # Skip bridge-generated commands — they ARE the plugin bridge, not deprecated monolithics
   if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
-    continue
-  fi
-  TOTAL_STATIC_CMDS=$((TOTAL_STATIC_CMDS + 1))
-  if head -20 "$cmd_file" | grep -q "DEPRECATED"; then
-    DEPRECATED_CMDS=$((DEPRECATED_CMDS + 1))
+    BRIDGE_COUNT=$((BRIDGE_COUNT + 1))
   else
-    echo "  ⚠️  Missing deprecation: $cmd_file"
+    STATIC_COUNT=$((STATIC_COUNT + 1))
+    echo "  ⚠️  Non-bridge command: $(basename "$cmd_file")"
   fi
 done
-assert "All static monolithic commands have deprecation headers" "[ $DEPRECATED_CMDS -eq $TOTAL_STATIC_CMDS ]"
-echo "  (${DEPRECATED_CMDS}/${TOTAL_STATIC_CMDS} static commands deprecated)"
+assert "No static commands remain (found ${STATIC_COUNT})" "[ $STATIC_COUNT -eq 0 ]"
+assert "All 19 commands are bridge-generated (found ${BRIDGE_COUNT})" "[ $BRIDGE_COUNT -ge 19 ]"
 
-echo ""
-echo "skill-index.json deprecation"
-assert "skill-index.json has deprecated flag" "python3 -c 'import json; d=json.load(open(\".claude/skill-index.json\")); assert d[\"_metadata\"][\"deprecated\"]==True'"
-assert "skill-index.json has migration target" "python3 -c 'import json; d=json.load(open(\".claude/skill-index.json\")); assert \"plugin\" in d[\"_metadata\"][\"migration_target\"].lower()'"
-
+# ── Plugins are authoritative ──
 echo ""
 echo "Plugin-First completeness (v4.0)"
-# All 3 previously-orphan skills now have plugin homes
 assert "framework-updater has plugin home" "[ -f plugins/sdd-maintenance/skills/framework-updater/SKILL.md ]"
 assert "mcp-server-setup has plugin home" "[ -f plugins/sdd-maintenance/skills/mcp-server-setup/SKILL.md ]"
 assert "project-initialization has plugin home" "[ -f plugins/sdd-maintenance/skills/project-initialization/SKILL.md ]"
@@ -99,6 +73,7 @@ echo "Plugin Command Bridge (v4.1)"
 assert "Bridge script exists" "[ -x .specify/scripts/bash/sync-plugin-commands.sh ]"
 assert "Bridge manifest exists" "[ -f .claude/commands/.bridge-manifest.json ]"
 assert "Bridge manifest is valid JSON" "python3 -c 'import json; json.load(open(\".claude/commands/.bridge-manifest.json\"))'"
+assert "Bridge manifest has no statics" "python3 -c 'import json,sys; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); sys.exit(0 if len(d.get(\"static\",[])) == 0 else 1)'"
 
 echo ""
 echo "Backup files cleaned"

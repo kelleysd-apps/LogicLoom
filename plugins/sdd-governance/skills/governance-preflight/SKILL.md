@@ -125,8 +125,8 @@ Use this checklist to validate compliance with all 15 principles:
 - [ ] **Principle XV: File and Folder Organization**
   - Are files created in correct directories?
   - Do spec directories follow `###-feature-name` format?
-  - Are agents in department subdirectories?
-  - Are skills in `category/skill-name` structure?
+  - Are agents in plugin agent directories?
+  - Are skills in `plugin/skills/skill-name` structure?
 
 ---
 
@@ -373,15 +373,16 @@ Would you like me to start by writing the test first?
 Per Principle XV, agent files should be in department subdirectories:
 
 Incorrect: .claude/agents/api-builder.md
-Correct: .claude/agents/product/api-builder.md
+Correct: plugins/sdd-domain-backend/agents/api-builder.md
 
-Which department should this agent belong to?
-- product
-- engineering
-- quality
-- security
-- operations
-- governance
+Which plugin should this agent belong to?
+- sdd-specification (product/spec agents)
+- sdd-domain-backend (backend agents)
+- sdd-domain-frontend (frontend agents)
+- sdd-domain-testing (testing agents)
+- sdd-domain-security (security agents)
+- sdd-domain-devops (devops agents)
+- sdd-governance (governance agents)
 ```
 
 ---
@@ -492,7 +493,7 @@ VERIFIER_CHECK:
 
 - **Constitution**: `.specify/memory/constitution.md` (v1.6.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
-- **Agent Layer**: `.claude/agents/governance/constitutional-governance-agent.md`
+- **Agent Layer**: `plugins/sdd-governance/agents/constitutional-governance-agent.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`
 - **Finalize Command**: `/finalize` skill for pre-commit validation
 

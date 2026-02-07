@@ -285,10 +285,10 @@ echo ""
 echo -e "${BLUE}[10/15] Principle X: Agent Delegation Protocol (CRITICAL)${NC}"
 echo "Checking for agent infrastructure..."
 
-# Check for agent context files
+# Check for agent context files (now in plugins/*/agents/)
 AGENT_COUNT=0
-if [ -d "$REPO_ROOT/.claude/agents" ]; then
-    AGENT_COUNT=$(find "$REPO_ROOT/.claude/agents" -name "*.md" -type f 2>/dev/null | wc -l)
+if [ -d "$REPO_ROOT/plugins" ]; then
+    AGENT_COUNT=$(find "$REPO_ROOT/plugins" -path "*/agents/*.md" -type f 2>/dev/null | wc -l)
 fi
 
 # Check for agent collaboration triggers
@@ -305,7 +305,7 @@ elif [ $AGENT_COUNT -gt 0 ]; then
     record_warn "Create .specify/memory/agent-collaboration-triggers.md"
 elif [ "$TRIGGERS_EXIST" = true ]; then
     echo -e "   ${YELLOW}⚠${NC}  WARNING: Triggers defined but no agents created"
-    record_warn "Create specialized agents in .claude/agents/"
+    record_warn "Create specialized agents in plugins/*/agents/"
 else
     echo -e "   ${YELLOW}⚠${NC}  WARNING: No agent infrastructure found"
     record_warn "Agent Delegation Protocol requires specialized agents and trigger definitions"
@@ -439,23 +439,25 @@ if [ -d "$REPO_ROOT/specs" ]; then
     done
 fi
 
-# Check agent files in department subdirectories
+# Check agent files in plugin agent directories
 AGENT_ORG=true
-if [ -d "$REPO_ROOT/.claude/agents" ]; then
-    # Check if agents are organized in subdirectories
-    if find "$REPO_ROOT/.claude/agents" -maxdepth 1 -name "*.md" -type f 2>/dev/null | grep -q .; then
+if [ -d "$REPO_ROOT/plugins" ]; then
+    # Check if agents are organized within plugin directories
+    AGENT_COUNT_CHECK=$(find "$REPO_ROOT/plugins" -path "*/agents/*.md" -type f 2>/dev/null | wc -l)
+    if [ "$AGENT_COUNT_CHECK" -eq 0 ]; then
         AGENT_ORG=false
-        record_warn "Agent files should be in department subdirectories, not in .claude/agents/ root"
+        record_warn "Agent files should be in plugins/*/agents/ directories"
     fi
 fi
 
-# Check skills in category/skill-name structure
+# Check skills in plugin skill directories
 SKILL_ORG=true
-if [ -d "$REPO_ROOT/.claude/skills" ]; then
-    # Check if skills follow category/skill-name structure
-    if find "$REPO_ROOT/.claude/skills" -maxdepth 1 -name "*.md" -type f 2>/dev/null | grep -q .; then
+if [ -d "$REPO_ROOT/plugins" ]; then
+    # Check if skills follow plugins/*/skills/skill-name/ structure
+    SKILL_COUNT_CHECK=$(find "$REPO_ROOT/plugins" -path "*/skills/*/SKILL.md" -type f 2>/dev/null | wc -l)
+    if [ "$SKILL_COUNT_CHECK" -eq 0 ]; then
         SKILL_ORG=false
-        record_warn "Skill files should be in category/skill-name/ structure, not in .claude/skills/ root"
+        record_warn "Skill files should be in plugins/*/skills/skill-name/ structure"
     fi
 fi
 

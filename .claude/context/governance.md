@@ -1,15 +1,15 @@
 # Governance Context Module
-<!-- Auto-generated from CLAUDE.md - Sprint 3 Task T024 -->
+<!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
 <!-- Module: Constitutional principles, git operations, compliance, dangerous commands -->
 
 ## Constitutional Foundation
 
 **The constitution at `.specify/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v1.5.0) contains **14 enforceable principles**:
+The constitution (v3.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **5 Workflow & Delegation Principles** (X-XIV): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection
+- **7 Workflow & Delegation Principles** (X-XVI): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
 
 The constitution governs:
 - Core development principles and rules
@@ -17,6 +17,7 @@ The constitution governs:
 - Quality standards and constraints
 - All architectural decisions
 - Agent delegation protocol
+- Plugin-first architecture enforcement
 
 ---
 
@@ -27,10 +28,11 @@ The constitution governs:
 | **II** | Test-First | Write tests BEFORE implementation |
 | **VI** | Git Approval | NEVER auto-commit, ALWAYS ask user |
 | **X** | Agent Delegation | Specialized work → specialized agents |
+| **XVI** | Plugin-First | All capabilities as installable plugins |
 
 ---
 
-## All 14 Constitutional Principles
+## All 16 Constitutional Principles
 
 ### I. Library-First Architecture
 
@@ -237,7 +239,7 @@ mkdir "$DIR"
 
 **Reference**: `.specify/memory/agent-collaboration-triggers.md`
 
-**Skill**: `.claude/skills/validation/message-preflight/SKILL.md`
+**Skill**: `plugins/sdd-governance/skills/message-preflight/SKILL.md`
 
 ---
 
@@ -295,16 +297,48 @@ mkdir "$DIR"
 
 ### XIV. AI Model Selection
 
-**Rule**: Use Sonnet 4.5 by default, escalate to Opus for safety-critical
+**Rule**: Use Opus 4.6 by default for all specialized agents
 
 **Rationale**: Balances performance, cost, and quality
 
 **Guidelines**:
-- **Sonnet 4.5** (default): General development, refactoring, documentation
-- **Opus 4.5** (escalation): Security-critical code, financial transactions, data integrity
-- **Haiku** (cost-sensitive): Simple transformations, batch processing
+- **Opus 4.6** (default): All specialized agents, architecture, security, complex reasoning
+- **Sonnet 4.5** (fallback): Cost optimization, high-volume tasks, quota limits
+- **Haiku** (cost-sensitive): Simple lookups, formatting, file operations
 
 **Enforcement**: Agent configuration, model selection documentation
+
+---
+
+### XV. File Organization
+
+**Rule**: Verify before creating files, use proper naming conventions
+
+**Rationale**: Maintains clean codebase structure and prevents file proliferation
+
+**Requirements**:
+- Verify parent directory exists before creating files
+- Edit existing files over creating new ones
+- Use templates from `.specify/templates/` when available
+- Always use absolute paths from repository root
+
+**Enforcement**: Pre-flight check, code review
+
+---
+
+### XVI. Plugin-First Architecture
+
+**Rule**: All framework capabilities must be organized as discrete installable plugins
+
+**Rationale**: Ensures modularity, extensibility, and marketplace-ready distribution
+
+**Requirements**:
+- All new features implemented as plugins at `plugins/`
+- Each plugin has `plugin.json` manifest, agents, skills, commands
+- Plugin command bridge syncs commands to `.claude/commands/`
+- Plugin governance validation via marketplace tools
+
+**Enforcement**: Plugin validation, marketplace governance checks
 
 ---
 
@@ -441,7 +475,7 @@ Run before commits and releases:
 ```
 
 Validates:
-- All 14 constitutional principles
+- All 16 constitutional principles
 - Documentation synchronization
 - Test coverage
 - Code style compliance
@@ -514,11 +548,12 @@ Load governance context when needed:
 
 ---
 
-**Module Version**: 1.0.0
+**Module Version**: 2.0.0
 **Created**: 2026-01-09 (Sprint 3 Task T024)
-**Constitutional Authority**: All 14 Principles (I-XIV)
+**Last Updated**: 2026-02-07
+**Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.specify/memory/constitution.md` (v1.5.0)
+- `.specify/memory/constitution.md` (v3.0.0)
 - `.specify/memory/constitution_update_checklist.md`
 - CLAUDE.md "Constitutional Foundation" and "Git Operations" sections
 - `.specify/scripts/bash/common.sh` (git approval functions)

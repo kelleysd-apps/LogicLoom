@@ -334,7 +334,7 @@ if [[ -z "$DESCRIPTION" ]]; then
 fi
 
 # Create skill directory
-SKILL_DIR="${REPO_ROOT}/.claude/skills/${CATEGORY}/${SKILL_NAME}"
+SKILL_DIR="${REPO_ROOT}/plugins/sdd-domain-${CATEGORY}/skills/${SKILL_NAME}"
 
 if [[ -d "$SKILL_DIR" ]]; then
     echo -e "${RED}✗ Skill '${SKILL_NAME}' already exists in category '${CATEGORY}'${NC}"
@@ -356,7 +356,7 @@ echo -e "${GREEN}✨ Skill: ${SKILL_NAME}${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${BLUE}Category:${NC} ${CATEGORY}"
-echo -e "${BLUE}Location:${NC} .claude/skills/${CATEGORY}/${SKILL_NAME}/SKILL.md"
+echo -e "${BLUE}Location:${NC} plugins/sdd-domain-${CATEGORY}/skills/${SKILL_NAME}/SKILL.md"
 if [[ -n "$AGENT_NAME" ]]; then
     echo -e "${BLUE}Associated Agent:${NC} ${AGENT_NAME}"
 fi

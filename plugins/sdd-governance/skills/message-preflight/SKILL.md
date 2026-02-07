@@ -384,4 +384,4 @@ VERIFIER_CHECK:
 - Constitution v1.6.0: `.specify/memory/constitution.md`
 - Skill Activation Triggers: `.specify/memory/skill-activation-triggers.md` (Phase 3)
 - Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md` (legacy)
-- Domain Detection Skill: `.claude/skills/validation/domain-detection/SKILL.md`
+- Domain Detection Skill: `plugins/sdd-governance/skills/domain-detection/SKILL.md`
