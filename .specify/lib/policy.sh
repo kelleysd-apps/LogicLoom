@@ -145,8 +145,9 @@ validate_tool_call() {
     for category in "${categories[@]}"; do
         local result=$(check_policy_category "$command" "$category")
 
-        # Parse status from result
-        local status=$(echo "$result" | parse_json - ".status")
+        # Extract status from JSON result using grep/sed (avoids fragile JSON parsing
+        # when alternatives contain unescaped quotes from policy data)
+        local status=$(echo "$result" | grep -o '"status":"[^"]*"' | head -1 | sed 's/"status":"//;s/"//')
 
         if [[ "$status" == "blocked" ]]; then
             # Blocked - return error

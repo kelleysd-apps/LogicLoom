@@ -232,7 +232,7 @@ test_log_level_filtering() {
     log_warn "This should appear"
     log_error "This should also appear"
 
-    local line_count=$(wc -l < "$TEST_LOG_FILE")
+    local line_count=$(wc -l < "$TEST_LOG_FILE" | tr -d ' ')
     assert_equals "2" "$line_count" "WARN level filters out DEBUG and INFO"
 
     # Verify WARN and ERROR are present
@@ -254,7 +254,7 @@ test_debug_level_shows_all() {
     log_warn "Warn message"
     log_error "Error message"
 
-    local line_count=$(wc -l < "$TEST_LOG_FILE")
+    local line_count=$(wc -l < "$TEST_LOG_FILE" | tr -d ' ')
     assert_equals "4" "$line_count" "DEBUG level shows all messages"
 
     # Reset log level
