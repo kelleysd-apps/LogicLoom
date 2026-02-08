@@ -59,6 +59,19 @@ coverage/
 # Session-specific audit logs (generated at runtime)
 .docs/governance/audit/
 
+# Session-specific agent data (generated at runtime)
+.docs/agents/**/decisions/*.json
+.docs/agents/**/sessions/*.json
+.docs/agents/**/reports/*.json
+.docs/agents/shared/context-summaries/*.json
+.docs/agents/audit/creation-log.json
+
+# Research output (session-specific)
+.docs/research/
+
+# Dev-loop runtime data
+.devloop/
+
 # Backup files from edits
 *.bak
 .claude/skill-index.json.bak

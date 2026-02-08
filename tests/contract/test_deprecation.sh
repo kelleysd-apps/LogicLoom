@@ -56,7 +56,7 @@ for cmd_file in .claude/commands/*.md; do
   fi
 done
 assert "No static commands remain (found ${STATIC_COUNT})" "[ $STATIC_COUNT -eq 0 ]"
-assert "All 18 commands are bridge-generated (found ${BRIDGE_COUNT})" "[ $BRIDGE_COUNT -ge 18 ]"
+assert "All 19 commands are bridge-generated (found ${BRIDGE_COUNT})" "[ $BRIDGE_COUNT -ge 19 ]"
 
 # ── Plugins are authoritative ──
 echo ""

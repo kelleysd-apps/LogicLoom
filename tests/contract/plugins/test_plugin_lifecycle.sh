@@ -71,7 +71,7 @@ assert "launch-swarm.sh is executable" "[ -x plugins/sdd-orchestrator/scripts/la
 
 echo ""
 echo "T4.1.2: Agent team templates"
-for team in research-team build-team review-team fullstack-team; do
+for team in build-team review-team fullstack-team; do
   assert "Has /${team} command" "[ -f plugins/sdd-orchestrator/commands/${team}.md ]"
 done
 

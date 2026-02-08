@@ -134,7 +134,7 @@ async function runTest() {
         
         const orch = plugins.find(p => p.name === "sdd-orchestrator");
         assert("Orchestrator plugin found", !!orch);
-        assert("Orchestrator has 6 commands", orch?.commands === 6);
+        assert("Orchestrator has 5 commands", orch?.commands === 5);
       } catch (e) {
         assert("Plugin list is valid JSON", false);
       }
