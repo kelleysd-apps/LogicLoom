@@ -2,19 +2,39 @@
   "mcpServers": {
     "docker": {
       "command": "docker",
-      "args": ["mcp", "gateway", "run"]
+      "args": [
+        "mcp",
+        "gateway",
+        "run"
+      ]
     },
     "browsermcp": {
       "type": "stdio",
       "command": "npx",
-      "args": ["browsermcp@latest"],
+      "args": [
+        "browsermcp@latest"
+      ],
       "description": "Browser automation via Browser MCP extension"
     },
     "chrome-devtools": {
       "type": "stdio",
       "command": "npx",
-      "args": ["chrome-devtools-mcp@latest"],
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ],
       "description": "Chrome DevTools debugging via MCP"
+    },
+    "sdd-marketplace": {
+      "type": "stdio",
+      "command": "node",
+      "args": [
+        "mcp-servers/sdd-marketplace/src/index.js"
+      ],
+      "description": "SDD Plugin Marketplace \u2014 search, install, update, and validate plugins",
+      "env": {
+        "SDD_PLUGINS_DIR": "./plugins",
+        "SDD_REGISTRY_URL": "https://github.com/kelleysd-apps/sdd-plugins-marketplace"
+      }
     }
   }
 }

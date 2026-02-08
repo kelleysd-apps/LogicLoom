@@ -1,7 +1,7 @@
-# SDD Framework Constitution v2.0.0
+# SDD Framework Constitution v3.0.0
 
 **Status**: RATIFIED
-**Feature**: 002-skills-first-architecture
+**Feature**: 004-plugin-first-architecture
 **Ratified**: 2026-01-13
 **Effective Date**: 2026-01-13
 
@@ -13,16 +13,16 @@ This is the draft Constitution v2.0.0 with Principle X rewritten for skills-firs
 
 ## Changes Summary
 
-| Section | v1.6.0 | v2.0.0 | Rationale |
+| Section | v2.0.0 | v3.0.0 | Rationale |
 |---------|--------|--------|-----------|
-| Principle X | Agent Delegation Protocol | **Skills-First Delegation Protocol** | Skills are primary orchestration |
-| Title | Agent Delegation | Skill Delegation | Reflects new paradigm |
-| Flow | User -> Agent | User -> Skill -> Agent | Skills orchestrate |
-| Routing | Domain -> Agent | Domain -> Skill -> Agent | Skill determines agent |
+| Principle X | Skills-First Delegation Protocol | *(unchanged)* | Skills are primary orchestration |
+| **Principle XVI** | *(new)* | **Plugin-First Architecture** | Modular, installable capabilities |
+| Architecture | Monolithic .claude/ | Plugin-based plugins/ | Hot-swap, RL metrics, governance |
+| Routing | skill-index.json | Plugin auto-discovery | Eliminate centralized manifest |
 
 ---
 
-## Constitutional Principles (15 Principles)
+## Constitutional Principles (16 Principles)
 
 ### Preamble
 
@@ -223,6 +223,44 @@ Verify before creating files or folders.
 
 ---
 
+### Principle XVI: Plugin-First Architecture
+
+**Status**: NEW (v3.0.0)
+
+All framework capabilities MUST be organized as discrete, installable plugins.
+
+```
+Plugin Structure:
+  plugins/<name>/
+    .claude-plugin/plugin.json   # Manifest (name, version, dependencies, rl_metrics)
+    commands/                     # Slash commands (/specify, /debug, etc.)
+    skills/                       # Skill definitions (SKILL.md)
+    agents/                       # Agent definitions
+    hooks/                        # Event hooks (UserPromptSubmit, PreToolUse, etc.)
+    scripts/                      # Automation scripts
+```
+
+#### Requirements
+
+1. **Manifest Required**: Every plugin MUST have a valid `.claude-plugin/plugin.json`
+2. **Governance Dependency**: All plugins MUST declare `sdd-governance` as a dependency
+3. **Protected Plugins**: `sdd-governance` is protected and cannot be disabled
+4. **RL Metrics**: All plugins MUST include `rl_metrics` in their manifest
+5. **Hot-Swap**: Plugins MUST support enable/disable without framework restart
+6. **Portable Paths**: Use `${CLAUDE_PLUGIN_ROOT}` for cross-environment compatibility
+
+#### Plugin Categories
+
+| Category | Examples | Can Disable? |
+|----------|----------|-------------|
+| **Governance** | sdd-governance | ❌ Never |
+| **Core** | sdd-specification, sdd-git, sdd-debug, sdd-creation | ⚠️ With warning |
+| **Domain** | sdd-domain-frontend, sdd-domain-backend, etc. | ✅ Yes |
+| **Orchestration** | sdd-orchestrator | ⚠️ With warning |
+| **Community** | Third-party plugins | ✅ Yes |
+
+---
+
 ## Amendment Process
 
 ### To Ratify v2.0.0
@@ -250,9 +288,10 @@ Revert to v1.6.0 if:
 | 1.0.0 | 2025-01-01 | Initial constitution |
 | 1.5.0 | 2025-09-01 | Added principles XI-XIV |
 | 1.6.0 | 2025-11-07 | Added principle XV |
-| 2.0.0-draft | 2026-01-13 | Skills-first Principle X rewrite |
+| 2.0.0 | 2026-01-13 | Skills-first Principle X rewrite (ratified) |
+| 3.0.0 | 2026-01-15 | Added Principle XVI: Plugin-First Architecture |
 
 ---
 
-*Draft prepared for Phase 3 constitutional amendment*
-*Subject to ratification after successful hybrid mode validation*
+*v3.0.0 ratified with Plugin-First Architecture (Principle XVI)*
+*Spec 004: 13 plugins, 36 skills, 20 agents, 16 commands*

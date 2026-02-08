@@ -1,0 +1,35 @@
+{
+  "max_iterations": 25,
+  "max_iterations_min": 10,
+  "max_iterations_max": 50,
+  "budget_tokens": 500000,
+  "budget_cost_usd": 10.00,
+  "permission_tiers": {
+    "L0": {
+      "name": "Read-Only",
+      "operations": ["read_file", "list_directory", "run_linter", "run_type_checker", "run_static_analysis"],
+      "approval": "implicit"
+    },
+    "L1": {
+      "name": "Safe Write",
+      "operations": ["create_file", "edit_file", "run_tests", "install_package_venv"],
+      "approval": "default_granted"
+    },
+    "L2": {
+      "name": "Network/VCS",
+      "operations": ["git_commit", "git_fetch", "api_call_allowlisted"],
+      "approval": "per_session"
+    },
+    "L3": {
+      "name": "High-Risk",
+      "operations": ["git_push", "deploy", "access_secrets", "git_branch_create", "git_branch_switch", "git_branch_delete"],
+      "approval": "per_action_always"
+    }
+  },
+  "blocked_operations": ["git_branch_create", "git_branch_switch", "git_branch_delete"],
+  "resource_limits": {
+    "memory_mb": 2048,
+    "cpu_cores": 1,
+    "disk_gb": 10
+  }
+}

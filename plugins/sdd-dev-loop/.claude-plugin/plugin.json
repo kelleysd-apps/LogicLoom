@@ -1,0 +1,47 @@
+{
+  "name": "sdd-dev-loop",
+  "version": "0.1.0",
+  "category": "orchestration",
+  "description": "Recursive autonomous dev-loop plugin with council/tribunal methodology. Combines edit-test-debug cycles, multi-model tribunal voting, composite quality grading, RL-based self-improvement, sandboxed execution, and self-extension.",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "dependencies": [
+    "sdd-governance",
+    "sdd-specification",
+    "sdd-git"
+  ],
+  "permissions_required": ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Task"],
+  "permissions_elevated": ["WebSearch", "WebFetch"],
+  "agents": {
+    "count": 4,
+    "list": [
+      "dev-loop-orchestrator",
+      "tribunal-judge",
+      "quality-assessor",
+      "debug-analyst"
+    ]
+  },
+  "skills": {
+    "count": 7,
+    "list": [
+      "core-loop",
+      "tribunal-vote",
+      "quality-grade",
+      "scope-analysis",
+      "rl-feedback",
+      "session-report",
+      "self-extend"
+    ]
+  },
+  "commands": {
+    "count": 1,
+    "list": ["dev-loop"]
+  },
+  "rl_metrics": {
+    "success_rate": 0.5,
+    "selection_weight": 0.5,
+    "invocation_count": 0,
+    "avg_tokens": 0,
+    "last_updated": null
+  }
+}

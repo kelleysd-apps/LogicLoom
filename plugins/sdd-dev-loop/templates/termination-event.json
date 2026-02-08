@@ -1,0 +1,207 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "TerminationEvent entity template — Represents the reason a dev-loop session ended and the conditions that triggered termination",
+  "schema_version": "1.0",
+
+  "event_id": "term-20260207-150000-success",
+  "_comment_event_id": "Unique termination event identifier (term-{timestamp}-{reason}). Auto-generated on termination.",
+
+  "session_id": "devloop-20260207-143022-abc123",
+  "_comment_session_id": "Parent DevLoopSession reference. Links this event to session state.",
+
+  "reason": "success",
+  "_comment_reason": "Why the session ended (FR-022). MUST match the highest-priority triggered condition.",
+  "_valid_reason_values": ["success", "converged", "budget_exhausted", "max_iterations", "stuck", "user_interrupt"],
+
+  "iteration": 7,
+  "_comment_iteration": "Iteration at which termination occurred. MUST match session's final iteration_count.",
+
+  "final_grade": 0.96,
+  "_comment_final_grade": "Composite quality grade at termination. MUST match last entry in DevLoopSession.quality_grades[].",
+
+  "checkpoint_saved": true,
+  "_comment_checkpoint_saved": "Whether session state was persisted for --resume. MUST be true for user_interrupt terminations (FR-028).",
+
+  "trigger_conditions": {
+    "_comment": "Boolean flags for each termination layer (FR-022). Evaluated in priority order. Exactly one MUST be true.",
+
+    "threshold_met": true,
+    "_layer_priority": 1,
+    "_trigger_rule": "composite_grade >= quality_threshold (FR-016)",
+    "_example_trigger": "final_grade=0.96, threshold=0.95 => TRUE",
+
+    "convergence_detected": false,
+    "_layer_priority": 2,
+    "_trigger_rule": "Quality improvement < convergence_delta for convergence_window consecutive iterations (FR-023)",
+    "_example_trigger": "grades=[0.845, 0.846, 0.847], delta=0.001, window=3 => improvements all < 0.002 => TRUE",
+
+    "budget_exhausted": false,
+    "_layer_priority": 3,
+    "_trigger_rule": "cumulative_tokens >= budget_limit.tokens OR cumulative_cost >= budget_limit.cost_usd (FR-025)",
+    "_example_trigger": "tokens_used=500001, limit=500000 => TRUE",
+
+    "max_iterations_reached": false,
+    "_layer_priority": 4,
+    "_trigger_rule": "iteration_count >= budget_limit.max_iterations (FR-024)",
+    "_example_trigger": "iteration=25, max_iterations=25 => TRUE",
+
+    "stuck_detected": false,
+    "_layer_priority": 5,
+    "_trigger_rule": "Same error or test failure recurs for 3+ consecutive iterations OR code state oscillation detected (FR-026)",
+    "_example_trigger": "iterations [5,6,7,8] all fail with 'TypeError: undefined property' => TRUE",
+
+    "user_interrupted": false,
+    "_layer_priority": 6,
+    "_trigger_rule": "User sends interrupt signal (Ctrl+C, SIGINT) or .interrupt file detected (FR-028)",
+    "_example_trigger": "User presses Ctrl+C => TRUE"
+  },
+
+  "details": {
+    "_comment": "Context-specific termination details. Structure varies by reason.",
+
+    "quality_threshold": 0.95,
+    "final_quality": 0.96,
+    "iterations_used": 7,
+    "budget_used_pct": 45.3,
+    "_comment_details": "For success termination: shows threshold met and resource efficiency"
+  },
+
+  "timestamp": "2026-02-07T15:00:00Z",
+  "_comment_timestamp": "Termination timestamp (ISO8601). Marks session completion.",
+
+  "_termination_priority": {
+    "_comment": "Priority order for termination evaluation (FR-022). First match wins.",
+    "1_success": "Quality threshold met (most desirable outcome)",
+    "2_converged": "Improvement plateaued (acceptable outcome, diminishing returns)",
+    "3_budget_exhausted": "Hard circuit breaker (resource limit protection)",
+    "4_max_iterations": "Safety backstop (prevents infinite loops)",
+    "5_stuck": "Unproductive looping detected (requires strategy change)",
+    "6_user_interrupt": "User manual intervention (user control)"
+  },
+
+  "_reason_specific_details_schemas": {
+    "success": {
+      "quality_threshold": "float [0.80, 0.99]",
+      "final_quality": "float [0, 1] >= threshold",
+      "iterations_used": "integer",
+      "budget_used_pct": "float [0, 100]"
+    },
+
+    "converged": {
+      "final_quality": "float [0, 1]",
+      "convergence_delta": "float (e.g., 0.001)",
+      "convergence_window": "integer (e.g., 3)",
+      "last_improvements": "array of floats (e.g., [0.0008, 0.0005, 0.0003])",
+      "iterations_used": "integer"
+    },
+
+    "budget_exhausted": {
+      "budget_type": "enum [tokens, cost]",
+      "limit_value": "integer or float",
+      "consumed_value": "integer or float >= limit",
+      "iterations_completed": "integer",
+      "final_quality": "float [0, 1]"
+    },
+
+    "max_iterations": {
+      "max_iterations": "integer",
+      "final_quality": "float [0, 1]",
+      "threshold_gap": "float (threshold - final_quality)",
+      "last_improvements": "array of floats"
+    },
+
+    "stuck": {
+      "stuck_type": "enum [repeated_error, oscillation, no_progress]",
+      "stuck_pattern": "string (description of detected pattern)",
+      "iterations_stuck": "integer (how many iterations stuck)",
+      "last_errors": "array of strings (error messages)",
+      "code_state_hashes": "array of strings (for oscillation detection)"
+    },
+
+    "user_interrupt": {
+      "iteration_when_interrupted": "integer",
+      "current_quality": "float [0, 1]",
+      "budget_used_pct": "float [0, 100]",
+      "checkpoint_path": "string (path to resumable checkpoint)"
+    }
+  },
+
+  "_trigger_condition_algorithms": {
+    "threshold_met": "composite_grade >= session.config.quality_threshold",
+
+    "convergence_detected": [
+      "Get last N grades where N = session.config.convergence_window",
+      "Calculate improvements: [grade[i] - grade[i-1] for i in range(N)]",
+      "Check if all improvements < session.config.convergence_delta",
+      "Return TRUE if all improvements below delta"
+    ],
+
+    "budget_exhausted": [
+      "Check tokens: session.budget_spent.tokens >= session.budget_limit.tokens",
+      "Check cost: session.budget_spent.cost_usd >= session.budget_limit.cost_usd",
+      "Return TRUE if either limit exceeded"
+    ],
+
+    "max_iterations_reached": "session.iteration_count >= session.budget_limit.max_iterations",
+
+    "stuck_detected": [
+      "Repeated error: Check if same error message appears in last 3+ iterations",
+      "Oscillation: Hash code state each iteration, detect if current hash matches any of last 5",
+      "No progress: Check if quality_grade unchanged for 5+ iterations",
+      "Return TRUE if any pattern detected"
+    ],
+
+    "user_interrupted": [
+      "Check for SIGINT signal",
+      "Check for .interrupt file in session directory",
+      "Return TRUE if either detected"
+    ]
+  },
+
+  "_validation_rules": [
+    "Exactly one of trigger_conditions[*] MUST be true",
+    "reason MUST match the highest-priority triggered condition",
+    "checkpoint_saved MUST be true for user_interrupt terminations",
+    "final_grade MUST match last entry in DevLoopSession.quality_grades[] (if quality_grades not empty)",
+    "iteration MUST equal parent session's iteration_count",
+    "timestamp MUST be >= session.started_at"
+  ],
+
+  "_examples_by_reason": {
+    "success_example": {
+      "reason": "success",
+      "trigger_conditions": {"threshold_met": true, "others": false},
+      "details": {"quality_threshold": 0.95, "final_quality": 0.96, "iterations_used": 7}
+    },
+
+    "converged_example": {
+      "reason": "converged",
+      "trigger_conditions": {"convergence_detected": true, "others": false},
+      "details": {"final_quality": 0.93, "convergence_delta": 0.001, "last_improvements": [0.0008, 0.0005, 0.0003]}
+    },
+
+    "budget_exhausted_example": {
+      "reason": "budget_exhausted",
+      "trigger_conditions": {"budget_exhausted": true, "others": false},
+      "details": {"budget_type": "tokens", "limit_value": 500000, "consumed_value": 502000, "final_quality": 0.88}
+    },
+
+    "max_iterations_example": {
+      "reason": "max_iterations",
+      "trigger_conditions": {"max_iterations_reached": true, "others": false},
+      "details": {"max_iterations": 25, "final_quality": 0.91, "threshold_gap": 0.04}
+    },
+
+    "stuck_example": {
+      "reason": "stuck",
+      "trigger_conditions": {"stuck_detected": true, "others": false},
+      "details": {"stuck_type": "repeated_error", "stuck_pattern": "TypeError: Cannot read property 'id' of undefined", "iterations_stuck": 4}
+    },
+
+    "user_interrupt_example": {
+      "reason": "user_interrupt",
+      "trigger_conditions": {"user_interrupted": true, "others": false},
+      "details": {"iteration_when_interrupted": 12, "current_quality": 0.87, "checkpoint_path": ".devloop/sessions/devloop-xyz/checkpoint.json"}
+    }
+  }
+}

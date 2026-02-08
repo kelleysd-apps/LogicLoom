@@ -1,6 +1,6 @@
 {
   "name": "sdd-agentic-framework",
-  "version": "2.0.0",
+  "version": "4.1.0",
   "description": "Specification-driven development framework with DS-STAR multi-agent orchestration, quality gates, and intelligent routing",
   "private": true,
   "scripts": {

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # T023: Skill Auto-Discovery Script
-# Sprint 3: Automatically discover and index skills from .claude/skills/
+# Sprint 3: Automatically discover and index skills from plugins/*/skills/
 # Constitutional Principle VII: Structured logging integrated
 
 set -euo pipefail
@@ -106,7 +106,7 @@ EOF
 # Skill Discovery
 # ==============================================================================
 
-# Discover all skills in .claude/skills/
+# Discover all skills in plugins/*/skills/
 discover_skills() {
     log_info "Starting skill discovery" "{\"skills_dir\":\"$SKILLS_DIR\"}"
 

@@ -305,7 +305,7 @@ elif [ $AGENT_COUNT -gt 0 ]; then
     record_warn "Create .specify/memory/agent-collaboration-triggers.md"
 elif [ "$TRIGGERS_EXIST" = true ]; then
     echo -e "   ${YELLOW}⚠${NC}  WARNING: Triggers defined but no agents created"
-    record_warn "Create specialized agents in .claude/agents/"
+    record_warn "Create specialized agents in plugins/*/agents/"
 else
     echo -e "   ${YELLOW}⚠${NC}  WARNING: No agent infrastructure found"
     record_warn "Agent Delegation Protocol requires specialized agents and trigger definitions"
@@ -439,24 +439,18 @@ if [ -d "$REPO_ROOT/specs" ]; then
     done
 fi
 
-# Check agent files in department subdirectories
+# Check agent files live in plugins (Plugin-First Architecture v4.0)
 AGENT_ORG=true
 if [ -d "$REPO_ROOT/.claude/agents" ]; then
-    # Check if agents are organized in subdirectories
-    if find "$REPO_ROOT/.claude/agents" -maxdepth 1 -name "*.md" -type f 2>/dev/null | grep -q .; then
-        AGENT_ORG=false
-        record_warn "Agent files should be in department subdirectories, not in .claude/agents/ root"
-    fi
+    AGENT_ORG=false
+    record_warn "Legacy .claude/agents/ directory exists — agents should be in plugins/*/agents/"
 fi
 
-# Check skills in category/skill-name structure
+# Check skills live in plugins (Plugin-First Architecture v4.0)
 SKILL_ORG=true
 if [ -d "$REPO_ROOT/.claude/skills" ]; then
-    # Check if skills follow category/skill-name structure
-    if find "$REPO_ROOT/.claude/skills" -maxdepth 1 -name "*.md" -type f 2>/dev/null | grep -q .; then
-        SKILL_ORG=false
-        record_warn "Skill files should be in category/skill-name/ structure, not in .claude/skills/ root"
-    fi
+    SKILL_ORG=false
+    record_warn "Legacy .claude/skills/ directory exists — skills should be in plugins/*/skills/"
 fi
 
 # Overall file organization check

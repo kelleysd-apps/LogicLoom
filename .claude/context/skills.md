@@ -1,5 +1,5 @@
 # Skills Context Module
-<!-- Auto-generated from skill files - Sprint 3 Task T024 -->
+<!-- Auto-generated from plugin skill files - Plugin-First Architecture v4.1 -->
 <!-- Module: Skill definitions, procedural workflows, trigger keywords -->
 
 ## Available Skills
@@ -93,7 +93,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ### sdd-specification
 
-**Location**: `.claude/skills/sdd-workflow/sdd-specification/SKILL.md`
+**Location**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
 
 **Purpose**: Feature specification creation workflow (Phase 1 - /specify command)
 
@@ -120,7 +120,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ### sdd-planning (planning-agent)
 
-**Location**: `.claude/skills/sdd-workflow/planning-agent/SKILL.md`
+**Location**: `plugins/sdd-specification/skills/planning-agent/SKILL.md`
 
 **Purpose**: Implementation planning workflow (Phase 2 - /plan command)
 
@@ -153,7 +153,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ### sdd-tasks
 
-**Location**: `.claude/skills/sdd-workflow/sdd-tasks/SKILL.md`
+**Location**: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
 
 **Purpose**: Task generation workflow (Phase 3 - /tasks command)
 
@@ -182,7 +182,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ### debug
 
-**Location**: `.claude/skills/technical/debug/SKILL.md`
+**Location**: `plugins/sdd-debug/skills/sdd-debug/SKILL.md`
 
 **Purpose**: Interactive debugging workflow for Vercel deployment issues, API endpoint failures, and production runtime errors
 
@@ -239,7 +239,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ### message-preflight
 
-**Location**: `.claude/skills/validation/message-preflight/SKILL.md`
+**Location**: `plugins/sdd-governance/skills/message-preflight/SKILL.md`
 
 **Purpose**: MANDATORY 4-step compliance check before any action (Constitutional Principle X enforcement)
 
@@ -248,8 +248,8 @@ Step 5: Publication → Add to useBlog.ts, deploy
 **Workflow Steps**:
 ```
 STEP 1: CONSTITUTION ACKNOWLEDGMENT
-       └─ Confirm awareness of 14 principles (I-XIV)
-       └─ Key: II (Test-First), VI (Git Approval), X (Agent Delegation)
+       └─ Confirm awareness of 16 principles (I-XVI)
+       └─ Key: II (Test-First), VI (Git Approval), X (Agent Delegation), XVI (Plugin-First)
 
 STEP 2: DOMAIN ANALYSIS
        └─ Scan message for domain trigger keywords
@@ -287,7 +287,7 @@ Constitutional Compliance Check:
 
 ### domain-detection
 
-**Location**: `.claude/skills/validation/domain-detection/SKILL.md`
+**Location**: `plugins/sdd-governance/skills/domain-detection/SKILL.md`
 
 **Purpose**: Automated domain keyword scanning for delegation routing
 
@@ -311,9 +311,9 @@ Constitutional Compliance Check:
 
 ### constitutional-compliance
 
-**Location**: `.claude/skills/validation/constitutional-compliance/SKILL.md`
+**Location**: `plugins/sdd-governance/skills/constitutional-compliance/SKILL.md`
 
-**Purpose**: Validate adherence to 14 constitutional principles
+**Purpose**: Validate adherence to 16 constitutional principles
 
 **When to Use**:
 - Before committing code
@@ -321,7 +321,7 @@ Constitutional Compliance Check:
 - When quality gates trigger
 - Manual compliance audits
 
-**Checks Performed** (aligned with 14 principles):
+**Checks Performed** (aligned with 16 principles):
 1. **Principle I**: Library-First Architecture - Feature implemented as standalone library
 2. **Principle II**: Test-First Development - Tests written before implementation, coverage >80%
 3. **Principle III**: Contract-First Design - Contracts defined and validated
@@ -336,6 +336,8 @@ Constitutional Compliance Check:
 12. **Principle XII**: Design System Compliance - UI consistency
 13. **Principle XIII**: Feature Access Control - Auth/authz enforced
 14. **Principle XIV**: AI Model Selection - Appropriate model used
+15. **Principle XV**: File Organization - Proper structure and naming conventions
+16. **Principle XVI**: Plugin-First Architecture - Capabilities as installable plugins
 
 **Script**: `.specify/scripts/bash/constitutional-check.sh`
 
@@ -347,7 +349,7 @@ Constitutional Compliance Check:
 
 ### Skill Index
 
-Skills are indexed in `.claude/skills/skill-index.json` (if generated).
+Skills are organized within their respective plugins at `plugins/*/skills/`.
 
 ### Manual Skill Loading
 
@@ -363,12 +365,10 @@ Load skill context when needed:
 
 ### Skill Registration
 
-New skills should be registered in:
-1. Skill metadata file (SKILL.md frontmatter)
-2. agent-collaboration-triggers.md (trigger keywords)
-3. skill-index.json (if auto-generation implemented)
-
-**Future Enhancement (T026)**: Git pre-commit hook for automatic skill registration
+New skills should be created within their parent plugin:
+1. Skill metadata file (`plugins/<plugin>/skills/<name>/SKILL.md`)
+2. Plugin manifest (`plugins/<plugin>/plugin.json`)
+3. agent-collaboration-triggers.md (trigger keywords)
 
 ---
 
@@ -401,15 +401,16 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 
 ---
 
-**Module Version**: 1.0.0
+**Module Version**: 2.0.0
 **Created**: 2026-01-09 (Sprint 3 Task T024)
+**Last Updated**: 2026-02-07
 **Constitutional Authority**: Principle X (Procedural Workflow Guidance)
 **Source Documents**:
-- All SKILL.md files in `.claude/skills/`
+- All SKILL.md files in `plugins/*/skills/`
 - `.specify/memory/agent-collaboration-triggers.md`
 - CLAUDE.md "Commands" section
 
-## New Commands (v3.1.0)
+## New Commands (v4.1.0)
 
 ### /specification - Unified Specification Workflow
 
@@ -463,7 +464,7 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 
 ## Deprecated Commands
 
-The following commands are deprecated and will be removed in v4.0.0:
+The following commands are deprecated (use `/specification` instead):
 
 | Deprecated | Use Instead |
 |------------|-------------|

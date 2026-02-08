@@ -127,7 +127,7 @@ After changing constitution, update ALL of the following:
 
 ### Step 3: Update Agent Context Files
 
-For EACH agent in `.claude/agents/**/*.md`:
+For EACH agent in `plugins/*/agents/**/*.md`:
 
 - [ ] Review if agent's domain affected by change
 - [ ] Update "Working Principles" section
@@ -377,7 +377,7 @@ If constitutional change breaks existing projects:
 4. `.specify/scripts/bash/constitutional-check.sh` (automated validation)
 5. `.specify/templates/agent-file-template.md` (new agents must comply)
 6. `.specify/memory/agent-collaboration-triggers.md` (if Principle X changes)
-7. All agent files in `.claude/agents/**/*.md` (14 files)
+7. All agent files in `plugins/*/agents/**/*.md` (14 files)
 
 **Often need updates**:
 
@@ -386,7 +386,7 @@ If constitutional change breaks existing projects:
 10. `.specify/templates/tasks-template.md`
 11. README.md
 12. `.docs/sdd-framework-enhancements-sow.md` (if significant change)
-13. `.claude/skills/validation/message-preflight/SKILL.md` (if principles change)
+13. `plugins/*/skills/validation/message-preflight/SKILL.md` (if principles change)
 
 **TANDEM UPDATE RULE**: CLAUDE.md and AGENTS.md MUST be updated together when:
 - Agent count changes

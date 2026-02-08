@@ -1,5 +1,5 @@
 # Workflows Context Module
-<!-- Auto-generated from CLAUDE.md - Sprint 3 Task T024 -->
+<!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
 <!-- Module: SDD workflow commands, feature development lifecycle, architecture -->
 
 ## SDD (Specification-Driven Development) Workflow
@@ -28,7 +28,7 @@ The SDD framework provides a structured approach to feature development with bui
 - Product vision, goals, and success metrics
 - User personas and journeys
 - Core features and requirements with acceptance criteria
-- Constitutional customizations (all 14 principles)
+- Constitutional customizations (all 16 principles)
 - Technical constraints and integration requirements
 - Release strategy and MVP definition
 - Custom agent planning
@@ -85,7 +85,7 @@ The SDD framework provides a structured approach to feature development with bui
 - Provides actionable feedback for improvements
 - Escalates to human if quality threshold not met
 
-**Skill Reference**: `.claude/skills/sdd-workflow/sdd-specification/SKILL.md`
+**Skill Reference**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
 
 **Usage**:
 ```bash
@@ -136,7 +136,7 @@ The SDD framework provides a structured approach to feature development with bui
 - Pre-research and post-design compliance checks
 - Complexity tracking and justification documentation
 
-**Skill Reference**: `.claude/skills/sdd-workflow/sdd-planning/SKILL.md`
+**Skill Reference**: `plugins/sdd-specification/skills/sdd-planning/SKILL.md`
 
 **Usage**:
 ```bash
@@ -179,7 +179,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Parallel Execution Markers**: Tasks marked with [P] can be executed in parallel (no dependencies)
 
-**Skill Reference**: `.claude/skills/sdd-workflow/sdd-tasks/SKILL.md`
+**Skill Reference**: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
 
 **Usage**:
 ```bash
@@ -238,7 +238,7 @@ The SDD framework provides a structured approach to feature development with bui
 - Code style compliance (black, isort)
 - Documentation synchronized (CLAUDE.md, README, specs, API docs)
 - No secrets in code (.env templates updated)
-- Constitutional compliance across all 14 principles
+- Constitutional compliance across all 16 principles
 
 **Output**: Compliance report with pass/fail status
 
@@ -260,7 +260,7 @@ git commit -m "message"
 git push origin <branch>
 ```
 
-**Skill Reference**: `.claude/skills/validation/constitutional-compliance/SKILL.md`
+**Skill Reference**: `plugins/sdd-governance/skills/constitutional-compliance/SKILL.md`
 
 ---
 
@@ -333,7 +333,7 @@ Phase 5: Finalization & Commit
 │ - Test coverage >80%             │
 │ - No linting errors              │
 │ - Docs synchronized              │
-│ - 14 principles validated        │
+│ - 16 principles validated        │
 │ Output: Compliance report        │
 │ ✓ Suggests git commands          │
 └──────────────────────────────────┘
@@ -371,7 +371,7 @@ Manual Git Operations (User Approval Required)
 /create-agent backend-engineer "API and database specialist"
 ```
 
-**Output**: New agent file at `.claude/agents/<department>/<agent-name>.md`
+**Output**: New agent file at `plugins/<plugin>/agents/<agent-name>.md`
 
 ---
 
@@ -380,8 +380,8 @@ Manual Git Operations (User Approval Required)
 **Purpose**: Create procedural workflow skills with step-by-step guidance
 
 **Features**:
-- Creates skill at `.claude/skills/<category>/<skill-name>/SKILL.md`
-- Auto-registers skill in CLAUDE.md and agent-collaboration-triggers.md
+- Creates skill at `plugins/<plugin>/skills/<skill-name>/SKILL.md`
+- Auto-registers skill in plugin manifest and agent-collaboration-triggers.md
 - Interactive workflow for skill metadata and procedure definition
 
 **Usage**:
@@ -401,12 +401,12 @@ Manual Git Operations (User Approval Required)
 ```
 .specify/
 ├── memory/
-│   ├── constitution.md                    # Core principles (v1.5.0 - 14 principles)
+│   ├── constitution.md                    # Core principles (v3.0.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
 │   └── agent-collaboration-triggers.md    # Agent delegation reference
 ├── scripts/bash/                          # Workflow automation scripts
 │   ├── common.sh                          # Shared functions + git approval
-│   ├── constitutional-check.sh            # 14-principle compliance validator
+│   ├── constitutional-check.sh            # 16-principle compliance validator
 │   ├── sanitization-audit.sh              # Framework sanitization checker
 │   ├── create-new-feature.sh              # Feature initialization + refinement
 │   ├── setup-plan.sh                      # Planning workflow + verification
@@ -445,7 +445,7 @@ specs/###-feature-name/                     # Per-feature documentation
 
 ### Validation Scripts
 
-- **constitutional-check.sh**: Automated compliance checking for all 14 principles
+- **constitutional-check.sh**: Automated compliance checking for all 16 principles
 - **sanitization-audit.sh**: Verifies framework sanitization (no project-specific elements)
 
 **Run before commits and releases**:
@@ -510,13 +510,15 @@ Load workflow context when needed:
 
 ---
 
-**Module Version**: 1.0.0
+**Module Version**: 2.0.0
 **Created**: 2026-01-09 (Sprint 3 Task T024)
-**Constitutional Authority**: Principles I-XIV (All Principles)
+**Last Updated**: 2026-02-07
+**Constitutional Authority**: Principles I-XVI (All 16 Principles)
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
 - `.specify/scripts/bash/` workflow scripts
-- `.specify/memory/constitution.md`
+- `.specify/memory/constitution.md` (v3.0.0)
+- `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow (NEW)
 

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# ⚠️ DEPRECATED: Use /initialize-project command in Claude Code instead.
+# This script is from the pre-plugin era. Use: plugins/sdd-maintenance/commands/initialize-project.md
+# Removal target: v5.0
+
 # Project Initialization Script for SDD Agentic Framework
 # This script helps users quickly set up a new project based on this framework
 

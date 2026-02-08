@@ -1,10 +1,11 @@
 # SDD Framework Agent Registry
 
-**Version**: 2.1.0
-**Last Updated**: 2025-12-05
-**Constitution**: v1.6.0 (15 Principles)
-**Total Agents**: 15
-**Departments**: 6
+**Version**: 3.0.0
+**Last Updated**: 2026-02-07
+**Constitution**: v3.0.0 (16 Principles)
+**Architecture**: Plugin-First (v4.1)
+**Total Agents**: 21
+**Plugins**: 15
 
 ---
 
@@ -18,19 +19,22 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 
 **Both files MUST be updated together** when agents are added/modified (see Tandem Update Rules below).
 
+> **Plugin-First Architecture**: All agents live within their respective plugins at `plugins/<plugin>/agents/`. Legacy `.claude/agents/` directory has been removed.
+
 ---
 
 ## Primary Agent (settings.json)
 
 ### constitutional-governance-agent ⭐ DEFAULT
 
-**Purpose**: Primary orchestration agent that serves as the **main thread entry point** for all Claude Code sessions. Unlike subagents, this agent runs as THE primary conversation thread when configured via `settings.json`.
+**Purpose**: Primary orchestration agent that serves as the **main thread entry point** for all Claude Code sessions. Enforces the 4-step pre-flight compliance protocol on every user message, routes specialized work to domain agents, and gates all git operations.
 
 | Setting | Value |
 |---------|-------|
+| **Plugin** | `sdd-governance` |
 | **Model** | opus (required for governance decisions) |
 | **Tools** | Full access (Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TodoWrite) |
-| **Location** | `.claude/agents/product/constitutional-governance-agent.md` |
+| **Location** | `plugins/sdd-governance/agents/constitutional-governance-agent.md` |
 
 **Configuration** (`.claude/settings.json`):
 ```json
@@ -45,67 +49,70 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 3. Gate ALL git operations (Principle VI - CRITICAL)
 4. Maintain constitutional governance across session
 
-**Difference from task-orchestrator**:
-| Aspect | constitutional-governance-agent | task-orchestrator |
-|--------|--------------------------------|-------------------|
-| Role | Primary/main thread | Subagent |
-| Scope | ALL messages | Multi-domain tasks only |
-| Invocation | Automatic (settings.json) | Explicit delegation |
-
 ---
 
-## Agent Overview by Department
+## Agent Registry by Plugin
 
-### Product Department (6 agents)
-Specification, planning, task management, and governance
+### sdd-governance (1 agent)
 
-| Agent | Purpose | Model | Tools |
-|-------|---------|-------|-------|
-| **constitutional-governance-agent** ⭐ | Primary entry point, governance | opus | Full access |
-| **prd-specialist** | PRD creation, product strategy | opus | Read, Write, Edit, Grep, Glob, AskUserQuestion, TodoWrite |
-| **specification-agent** | Feature specs, user stories | opus | Read, Write, Bash, MultiEdit |
-| **planning-agent** | Implementation planning, /plan command | opus | Read, Write, Bash, MultiEdit |
-| **tasks-agent** | Task decomposition, /tasks command | opus | Read, Write, Bash, MultiEdit |
-| **task-orchestrator** | Multi-agent coordination | opus | Task, Read, Grep, Glob, TodoWrite, Bash |
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **constitutional-governance-agent** ⭐ | Primary entry point, governance enforcement | opus |
 
-### Architecture Department (2 agents)
-System design and agent architecture
+### sdd-orchestrator (4 agents)
 
-| Agent | Purpose | Model | Tools |
-|-------|---------|-------|-------|
-| **subagent-architect** | Agent creation, SDD compliance | inherit | Read, Write, Edit, MultiEdit, Bash, Grep, Glob, TodoWrite |
-| **backend-architect** | API design, system architecture | opus | Read, Write, Bash, MultiEdit |
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **task-orchestrator** | Multi-agent coordination via Plugin Marketplace (MCP) | opus |
+| **swarm-coordinator** | Multi-agent swarm management, task graphs, budget controls | opus |
+| **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
+| **workflow-coordinator** | Multi-skill workflows, migrations, complex orchestration | opus |
 
-### Engineering Department (2 agents)
-Code development and implementation
+### sdd-specification (4 agents)
 
-| Agent | Purpose | Model | Tools |
-|-------|---------|-------|-------|
-| **frontend-specialist** | React/Next.js, UI development | opus | Read, Write, Bash, MultiEdit |
-| **full-stack-developer** | End-to-end feature implementation | opus | Read, Write, Bash, MultiEdit |
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **specification-agent** | Feature specs, user stories, requirements | opus |
+| **planning-agent** | Implementation planning, /plan command | opus |
+| **tasks-agent** | Task decomposition, /tasks command | opus |
+| **specification-orchestrator** | End-to-end product workflow (PRD → spec → plan → tasks) | opus |
 
-### Quality Department (2 agents)
-Testing and security
+### sdd-creation (2 agents)
 
-| Agent | Purpose | Model | Tools |
-|-------|---------|-------|-------|
-| **testing-specialist** | Test planning, TDD, QA | opus | Read, Write, Bash, MultiEdit |
-| **security-specialist** | Security reviews, vulnerability assessment | opus | Read, Write, Bash, MultiEdit |
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **prd-specialist** | PRD creation, product strategy | opus |
+| **subagent-architect** | Agent creation, SDD compliance | inherit |
 
-### Operations Department (2 agents)
-Deployment and performance
+### sdd-debug (1 agent)
 
-| Agent | Purpose | Model | Tools |
-|-------|---------|-------|-------|
-| **devops-engineer** | CI/CD, Docker, cloud deployment | opus | Read, Write, Bash, MultiEdit |
-| **performance-engineer** | Performance analysis, optimization | opus | Read, Write, Bash, MultiEdit |
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **auto-debug-agent** | Self-healing error resolution | opus |
 
-### Data Department (1 agent)
-Database and data management
+### sdd-maintenance (1 agent)
 
-| Agent | Purpose | Model | Tools |
-|-------|---------|-------|-------|
-| **database-specialist** | Schema design, query optimization | opus | Read, Write, Bash, MultiEdit |
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **framework-sync-agent** | Framework updates from upstream | opus |
+
+### Domain Plugins (7 agents — 1 per domain)
+
+| Plugin | Agent | Domain | Model |
+|--------|-------|--------|-------|
+| `sdd-domain-frontend` | **frontend-specialist** | React/Next.js, UI, CSS | opus |
+| `sdd-domain-backend` | **backend-architect** | API design, services, auth | opus |
+| `sdd-domain-database` | **database-specialist** | Schema, SQL, migrations | opus |
+| `sdd-domain-testing` | **testing-specialist** | TDD, E2E, QA | opus |
+| `sdd-domain-security` | **security-specialist** | Vulnerabilities, encryption | opus |
+| `sdd-domain-devops` | **devops-engineer** | CI/CD, Docker, cloud | opus |
+| `sdd-domain-performance` | **performance-engineer** | Optimization, caching, latency | opus |
+
+### sdd-domain-template (1 agent — scaffold only)
+
+| Agent | Purpose | Model |
+|-------|---------|-------|
+| **template-specialist** | Template for new domain plugins | opus |
 
 ---
 
@@ -113,56 +120,47 @@ Database and data management
 
 Quick reference for agent selection based on task domain:
 
-| Domain | Keywords | Primary Agent | Backup Agent |
-|--------|----------|---------------|--------------|
-| **PRD/Product** | PRD, product, vision, personas | prd-specialist | - |
-| **Specification** | spec, requirements, user story | specification-agent | prd-specialist |
-| **Planning** | /plan, research, contracts | planning-agent | backend-architect |
-| **Tasks** | /tasks, task list, breakdown | tasks-agent | planning-agent |
-| **Frontend** | UI, React, CSS, component | frontend-specialist | full-stack-developer |
-| **Backend** | API, endpoint, server, service | backend-architect | full-stack-developer |
-| **Database** | schema, SQL, migration, query | database-specialist | backend-architect |
-| **Testing** | test, TDD, coverage, QA | testing-specialist | - |
-| **Security** | auth, encryption, vulnerability | security-specialist | backend-architect |
-| **Performance** | optimize, cache, latency | performance-engineer | backend-architect |
-| **DevOps** | deploy, CI/CD, Docker | devops-engineer | - |
-| **Agent Creation** | create agent, new agent | subagent-architect | - |
-| **Multi-Domain** | 2+ domains detected | task-orchestrator | - |
+| Domain | Keywords | Primary Agent | Plugin |
+|--------|----------|---------------|--------|
+| **PRD/Product** | PRD, product, vision, personas | prd-specialist | sdd-creation |
+| **Specification** | spec, requirements, user story | specification-agent | sdd-specification |
+| **Planning** | /plan, research, contracts | planning-agent | sdd-specification |
+| **Tasks** | /tasks, task list, breakdown | tasks-agent | sdd-specification |
+| **Frontend** | UI, React, CSS, component | frontend-specialist | sdd-domain-frontend |
+| **Backend** | API, endpoint, server, service | backend-architect | sdd-domain-backend |
+| **Database** | schema, SQL, migration, query | database-specialist | sdd-domain-database |
+| **Testing** | test, TDD, coverage, QA | testing-specialist | sdd-domain-testing |
+| **Security** | auth, encryption, vulnerability | security-specialist | sdd-domain-security |
+| **Performance** | optimize, cache, latency | performance-engineer | sdd-domain-performance |
+| **DevOps** | deploy, CI/CD, Docker | devops-engineer | sdd-domain-devops |
+| **Debugging** | debug, error, fix, crash | auto-debug-agent | sdd-debug |
+| **Agent Creation** | create agent, new agent | subagent-architect | sdd-creation |
+| **Multi-Domain** | 2+ domains detected | task-orchestrator | sdd-orchestrator |
+| **Swarm** | swarm, team, parallel agents | swarm-coordinator | sdd-orchestrator |
 
 ---
 
-## Usage Patterns
+## Slash Command → Agent Mapping
 
-### Automatic Delegation (Principle X)
-
-Agents are automatically invoked based on:
-1. **Keywords** in user request matching domain patterns
-2. **Slash commands** triggering specific agents
-3. **Multi-domain detection** requiring orchestration
-4. **Constitutional requirements** mandating delegation
-
-### Manual Invocation
-
-```
-Use the [agent-name] agent to [task description]
-```
-
-Examples:
-```
-Use the planning-agent to create an implementation plan for user authentication
-Use the testing-specialist to design test coverage for the payment module
-Use the task-orchestrator to coordinate the full-stack feature implementation
-```
-
-### Slash Command → Agent Mapping
-
-| Command | Agent | Purpose |
-|---------|-------|---------|
-| `/create-prd` | prd-specialist | Create Product Requirements Document |
-| `/specify` | specification-agent | Create feature specification |
-| `/plan` | planning-agent | Generate implementation plan |
-| `/tasks` | tasks-agent | Generate task list |
-| `/create-agent` | subagent-architect | Create new agent |
+| Command | Agent | Plugin | Purpose |
+|---------|-------|--------|---------|
+| `/create-prd` | prd-specialist | sdd-creation | Create Product Requirements Document |
+| `/specification` | specification-agent | sdd-specification | Unified SDD workflow (spec+plan+tasks) |
+| `/specify` | specification-agent | sdd-specification | Create feature specification |
+| `/plan` | planning-agent | sdd-specification | Generate implementation plan |
+| `/tasks` | tasks-agent | sdd-specification | Generate task list |
+| `/create-agent` | subagent-architect | sdd-creation | Create new agent |
+| `/create-plugin` | subagent-architect | sdd-creation | Create new plugin |
+| `/debug` | auto-debug-agent | sdd-debug | Debug deployment/runtime issues |
+| `/finalize` | - | sdd-git | Pre-commit compliance validation |
+| `/git-push` | - | sdd-git | Complete git workflow |
+| `/research` | swarm-coordinator | sdd-orchestrator | Multi-LLM tribunal research (Claude, OpenAI, Gemini) |
+| `/swarm` | swarm-coordinator | sdd-orchestrator | Multi-agent swarm execution |
+| `/build-team` | swarm-coordinator | sdd-orchestrator | Sequential architect→implementor→reviewer |
+| `/fullstack-team` | swarm-coordinator | sdd-orchestrator | Parallel full-stack team |
+| `/review-team` | swarm-coordinator | sdd-orchestrator | Parallel security+quality+performance |
+| `/update-framework` | framework-sync-agent | sdd-maintenance | Framework updates from upstream |
+| `/initialize-project` | - | sdd-maintenance | Post-PRD project customization |
 
 ---
 
@@ -171,13 +169,9 @@ Use the task-orchestrator to coordinate the full-stack feature implementation
 ### Feature Development Pipeline
 
 ```
-prd-specialist (Phase 0)
+prd-specialist (Phase 0: PRD)
        ↓
-specification-agent (/specify)
-       ↓
-planning-agent (/plan)
-       ↓
-tasks-agent (/tasks)
+specification-agent (/specification — unified workflow)
        ↓
 [Specialized agents for implementation]
        ↓
@@ -188,99 +182,93 @@ security-specialist (review)
 devops-engineer (deployment)
 ```
 
-### Multi-Agent Orchestration
-
-When task involves 2+ domains:
+### Multi-Agent Swarm
 
 ```
-User Request
-      ↓
-task-orchestrator (analyzes & decomposes)
-      ↓
-┌─────────────────────────────────────┐
-│ Parallel Agent Execution            │
-│ • frontend-specialist (UI)          │
-│ • backend-architect (API)           │
-│ • database-specialist (Schema)      │
-└─────────────────────────────────────┘
-      ↓
-task-orchestrator (coordinates & merges)
-      ↓
-Result
-```
-
-### Agent Creation
-
-```
-/create-agent request
+User: /swarm "Build auth with React UI, Express API, PostgreSQL"
        ↓
-subagent-architect (MANDATORY)
+swarm-coordinator (analyzes domains, plans phases)
        ↓
-Creates:
-• Agent definition (.claude/agents/[dept]/)
-• Agent memory (.docs/agents/[dept]/[agent]/)
-• Updates AGENTS.md
+Phase 1: database-specialist (schema)
+       ↓
+Phase 2 (parallel):
+  ├── backend-architect (API)
+  └── frontend-specialist (UI)
+       ↓
+Phase 3: testing-specialist + security-specialist
+       ↓
+team-synthesizer (merge results)
 ```
+
+### Plugin Discovery (Dynamic)
+
+```
+task-orchestrator receives request
+       ↓
+marketplace-list (MCP) → discover installed plugins
+       ↓
+Domain keyword matching → select agent
+       ↓
+RL-weighted routing (prefer higher success_rate)
+       ↓
+marketplace-search → find missing capabilities
+       ↓
+marketplace-install → install on-demand (with approval)
+```
+
+---
+
+## Agent File Locations (Plugin-First)
+
+```
+plugins/
+├── sdd-governance/agents/
+│   └── constitutional-governance-agent.md  ⭐ PRIMARY
+├── sdd-orchestrator/agents/
+│   ├── task-orchestrator.md
+│   ├── swarm-coordinator.md
+│   ├── team-synthesizer.md
+│   └── workflow-coordinator.md
+├── sdd-specification/agents/
+│   ├── specification-agent.md
+│   ├── planning-agent.md
+│   ├── tasks-agent.md
+│   └── specification-orchestrator.md
+├── sdd-creation/agents/
+│   ├── prd-specialist.md
+│   └── subagent-architect.md
+├── sdd-debug/agents/
+│   └── auto-debug-agent.md
+├── sdd-maintenance/agents/
+│   └── framework-sync-agent.md
+└── sdd-domain-*/agents/
+    └── [domain]-specialist.md  (7 domain agents)
+```
+
+> **Note**: Legacy `.claude/agents/` directory has been removed. All agents are served exclusively from plugins.
 
 ---
 
 ## Constitutional Compliance
 
-All agents enforce Constitution v1.6.0 (15 Principles):
+All agents enforce Constitution v3.0.0 (16 Principles):
 
 ### Immutable Principles (I-III)
-- **I: Library-First** - Features as standalone libraries
-- **II: Test-First** - TDD mandatory, >80% coverage
-- **III: Contract-First** - Define contracts before implementation
+- **I: Library-First** — Features as standalone libraries
+- **II: Test-First** — TDD mandatory, >80% coverage
+- **III: Contract-First** — Define contracts before implementation
 
 ### Critical Principles
-- **VI: Git Approval** - NO autonomous git operations
-- **X: Agent Delegation** - Specialized work → specialized agents
-- **XV: File Organization** - Verify before creating files
+- **VI: Git Approval** — NO autonomous git operations
+- **X: Agent Delegation** — Specialized work → specialized agents
+- **XVI: Plugin-First** — All capabilities as discrete plugins
 
 ### All Agents Must
 - Reference constitution in their system prompt
 - Enforce TDD and library-first patterns
 - Request approval for git operations
 - Maintain audit trails
-- Follow file organization rules
-
----
-
-## Agent File Locations
-
-```
-.claude/agents/
-├── architecture/
-│   ├── backend-architect.md
-│   └── subagent-architect.md
-├── data/
-│   └── database-specialist.md
-├── engineering/
-│   ├── frontend-specialist.md
-│   └── full-stack-developer.md
-├── operations/
-│   ├── devops-engineer.md
-│   └── performance-engineer.md
-├── product/
-│   ├── constitutional-governance-agent.md  ⭐ PRIMARY
-│   ├── prd-specialist.md
-│   ├── planning-agent.md
-│   ├── specification-agent.md
-│   ├── task-orchestrator.md
-│   └── tasks-agent.md
-└── quality/
-    ├── security-specialist.md
-    └── testing-specialist.md
-
-.docs/agents/
-└── [mirrors .claude/agents/ structure]
-    └── [agent-name]/
-        ├── context/
-        ├── knowledge/
-        ├── decisions/
-        └── performance/
-```
+- Follow file organization rules (Principle XV)
 
 ---
 
@@ -298,8 +286,11 @@ Writing tests? ─────────────────────�
 Security concerns? ────────────────────────→ security-specialist
 Performance issues? ───────────────────────→ performance-engineer
 Deploying/CI-CD? ──────────────────────────→ devops-engineer
+Debugging errors? ─────────────────────────→ auto-debug-agent
 Creating new agent? ───────────────────────→ subagent-architect
-Multiple domains (2+)? ────────────────────→ task-orchestrator
+Multi-agent swarm? ────────────────────────→ swarm-coordinator
+Deep research? ────────────────────────────→ /research command
+Multiple domains (2+)? ───────────────────→ task-orchestrator
 ```
 
 ---
@@ -308,80 +299,20 @@ Multiple domains (2+)? ───────────────────
 
 **CRITICAL**: CLAUDE.md and AGENTS.md must be updated together.
 
-### When to Update AGENTS.md
-
-- [ ] New agent created
-- [ ] Agent deleted or deprecated
-- [ ] Agent purpose/capabilities changed
-- [ ] Agent tools modified
-- [ ] Agent model changed
-- [ ] Department restructured
-- [ ] Slash command → agent mapping changed
-
-### When to Update CLAUDE.md
-
-- [ ] Domain → agent mapping changed
-- [ ] Delegation triggers modified
-- [ ] Workflow rules changed
-- [ ] Constitutional compliance requirements changed
-- [ ] Pre-flight check updates
-
-### Both Files Must Update
-
-- [ ] Agent count changes
-- [ ] New department added
-- [ ] Constitutional version changes
-- [ ] Agent delegation protocol changes
+### When to Update
+- Agent added, deleted, or deprecated
+- Agent capabilities/tools/model changed
+- Plugin restructured
+- Command → agent mapping changed
+- Constitutional version changes
 
 ### Update Protocol
-
-```
-1. Update constitution (if needed)
-2. Update CLAUDE.md delegation rules
-3. Update AGENTS.md registry
-4. Update agent file itself
-5. Update agent memory structure
-6. Run constitutional-check.sh
-7. Verify cross-references
-```
-
----
-
-## MCP Server Access by Department
-
-The framework uses **Docker MCP Toolkit** as the primary method for MCP access, providing 310+ containerized servers via dynamic discovery.
-
-### Docker MCP Toolkit Tools (Available to All Agents)
-
-| Tool | Purpose |
-|------|---------|
-| `mcp-find` | Search 310+ servers in Docker catalog |
-| `mcp-add` | Add server to current session dynamically |
-| `mcp-config-set` | Configure server credentials |
-| `mcp-exec` | Execute tools from any enabled server |
-| `code-mode` | Combine multiple MCP tools in JavaScript |
-
-### Department-Specific MCP Servers
-
-| Department | Recommended Servers | Purpose |
-|------------|---------------------|---------|
-| Product | github-official, notion, linear | Project management, documentation |
-| Architecture | aws/gcp/azure, postgres/supabase | Cloud, database design |
-| Engineering | browsermcp, context7, github-official | Testing, docs, version control |
-| Quality | browsermcp, playwright | E2E testing, browser automation |
-| Data | supabase, postgres, firebase | Database operations |
-| Operations | aws/gcp/azure, docker | Deployment, monitoring |
-
-### MCP Access Pattern
-
-Agents can dynamically add MCPs during task execution:
-```
-1. Use mcp-find to search for needed server
-2. Use mcp-add to install server
-3. Use mcp-exec to call server tools
-```
-
-**Fallback**: If server not in Docker catalog, add to `.mcp.json` with npx configuration.
+1. Update agent file in plugin
+2. Update AGENTS.md registry
+3. Update CLAUDE.md delegation rules
+4. Run `sync-plugin-commands.sh sync` (if commands changed)
+5. Run `constitutional-check.sh`
+6. Run full test suite
 
 ---
 
@@ -389,8 +320,9 @@ Agents can dynamically add MCPs during task execution:
 
 | Version | Date | Changes |
 |---------|------|---------|
-| 2.1.0 | 2025-12-05 | Added constitutional-governance-agent as primary entry point (15 agents total) |
-| 2.0.0 | 2025-11-29 | Complete rewrite, added 5 product agents, updated to 14 total, constitution v1.6.0 |
+| 3.0.0 | 2026-02-07 | Plugin-First Architecture rewrite — 21 agents across 15 plugins, command bridge, marketplace |
+| 2.1.0 | 2025-12-05 | Added constitutional-governance-agent (15 agents) |
+| 2.0.0 | 2025-11-29 | Complete rewrite, 14 agents, constitution v1.6.0 |
 | 1.0.0 | 2025-09-19 | Initial creation with 9 agents |
 
 ---

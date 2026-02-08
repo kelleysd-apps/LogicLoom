@@ -524,16 +524,16 @@ Options:
 
 Examples:
   # Analyze an agent
-  $(basename "$0") analyze .claude/agents/engineering/frontend-specialist.md
+  $(basename "$0") analyze plugins/sdd-domain-frontend/agents/frontend-specialist.md
 
   # Migrate to skill
-  $(basename "$0") migrate .claude/agents/engineering/frontend-specialist.md domain
+  $(basename "$0") migrate plugins/sdd-domain-frontend/agents/frontend-specialist.md domain
 
   # Batch migrate
-  $(basename "$0") batch .claude/agents/engineering/
+  $(basename "$0") batch plugins/sdd-domain-frontend/agents/
 
   # Validate result
-  $(basename "$0") validate .claude/skills/domain/frontend-operations/SKILL.md
+  $(basename "$0") validate plugins/sdd-domain-frontend/skills/frontend-operations/SKILL.md
 
 Migration Notes:
   - Skills use v3.0.0 format with RL metrics

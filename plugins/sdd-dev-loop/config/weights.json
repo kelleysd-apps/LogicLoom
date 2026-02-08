@@ -1,0 +1,22 @@
+{
+  "grading_weights": {
+    "test_pass_rate": 0.35,
+    "coverage": 0.20,
+    "lint": 0.15,
+    "type_safety": 0.15,
+    "security": 0.10,
+    "build": 0.05
+  },
+  "grading_weights_with_llm_judge": {
+    "test_pass_rate": 0.30,
+    "coverage": 0.18,
+    "lint": 0.13,
+    "type_safety": 0.13,
+    "security": 0.09,
+    "build": 0.05,
+    "llm_judge": 0.12
+  },
+  "min_test_pass_rate_weight": 0.30,
+  "ema_alpha": 0.1,
+  "ucb1_exploration_constant": 1.414
+}

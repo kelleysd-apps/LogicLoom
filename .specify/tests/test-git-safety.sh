@@ -136,7 +136,7 @@ test_create_git_checkpoint() {
     local checkpoint_id=$(create_git_checkpoint "test-operation" 2>/dev/null || echo "")
 
     if [[ -n "$checkpoint_id" ]]; then
-        assert_contains "$checkpoint_id" "$(date +%Y-%m-%d)" "Checkpoint ID contains today's date"
+        assert_contains "$checkpoint_id" "^[0-9]\{10\}$" "Checkpoint ID is a valid epoch timestamp"
 
         # Verify checkpoint file was created
         local checkpoint_file=".specify/logs/git-checkpoints/$(date +%Y-%m-%d).json"
