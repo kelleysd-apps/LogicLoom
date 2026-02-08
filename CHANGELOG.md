@@ -5,54 +5,62 @@ All notable changes to the SDD Agent Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [4.1.0] - 2026-02-07
+## [4.0.0] - 2026-02-08
 
-### Added - Dynamic Plugin Command Bridge
+**Major release**: Plugin-First Architecture, sdd-dev-loop plugin, Multi-LLM tribunal research, 209/209 tests passing.
 
-- `sync-plugin-commands.sh`: Automatic bridge between plugin commands and `.claude/commands/`
-- Bridge manifest tracking (`.claude/commands/.bridge-manifest.json`)
-- 8 new commands now discoverable: `/research`, `/create-plugin`, `/finalize`, `/swarm`, `/build-team`, `/fullstack-team`, `/research-team`, `/review-team`
-- Integration with `setup.sh`, `marketplace-install`, `marketplace-update`
-- 21 new contract tests for bridge validation (220 total tests)
+### Added - Plugin-First Architecture (v4.1)
 
-### Changed
-
-- AGENTS.md rewritten for Plugin-First Architecture (v3.0.0 — 21 agents across 15 plugins)
-- CLAUDE.md updated: consistent v3.0.0 constitution refs, all 19 commands listed, plugin architecture section
-- settings.json: default agent set to constitutional-governance-agent
-- Deprecation test updated to skip bridge-generated commands
-
-## [4.0.0] - 2026-02-06
-
-### Added - Plugin-First Architecture
-
-**Major architecture change**: All framework capabilities reorganized into 15 discrete installable plugins.
-
-- **15 plugins**: sdd-governance, sdd-specification, sdd-orchestrator, sdd-creation, sdd-git, sdd-debug, sdd-maintenance, 7 domain plugins, sdd-domain-template
+- **16 plugins**: sdd-governance, sdd-specification, sdd-orchestrator, sdd-creation, sdd-git, sdd-debug, sdd-maintenance, sdd-dev-loop, 7 domain plugins, sdd-domain-template
 - **SDD Marketplace MCP Server**: 6 tools for plugin management (list, validate, search, install, update, publish)
-- **Private plugin registry**: `kelleysd-apps/sdd-plugins-marketplace` with sparse checkout installation
-- **Constitution v3.0.0**: Principle XVI (Plugin-First Architecture) — all capabilities as discrete plugins
-- **sdd-maintenance plugin**: Migrated framework-updater, mcp-server-setup, project-initialization skills
-- **create-plugin command**: Scaffold new plugins with governance compliance
-- **Multi-agent swarm system**: `/swarm`, `/build-team`, `/fullstack-team`, `/research-team`, `/review-team`
+- **Dynamic Plugin Command Bridge**: `sync-plugin-commands.sh` auto-syncs plugin commands to `.claude/commands/`
+- **Constitution v3.0.0**: 16 enforceable principles including Principle XVI (Plugin-First Architecture)
+- **19 slash commands** across 7 core plugins, all bridge-generated
+
+### Added - sdd-dev-loop Plugin (NEW)
+
+Recursive autonomous dev-loop with council/tribunal methodology:
+
+- **8 libraries** (5,448 lines): grading-engine, termination-engine, event-logger, tribunal-api, permissions-sandbox, scope-detector, rl-feedback-engine, sandbox
+- **6 skills**: core-loop, tribunal-vote, scope-analysis, rl-feedback, session-report, self-extend
+- **4 agents**: dev-loop-orchestrator, tribunal-judge, quality-assessor, debug-analyst
+- **7 entity models**: DevLoopSession, QualityGrade, TerminationEvent, TribunalBallot, RLMetrics, ScopeAnalysis, GapAnalysis
+- **Composite quality grading**: 6 metrics (test_pass_rate, coverage, lint, type_safety, security, build) + LLM-as-Judge
+- **6-layer termination engine**: Success → Convergence → Budget → Max Iterations → Stuck → User Interrupt
+- **L0-L3 permission tiers**: Read-only → Safe Write → Network/VCS → High-Risk
+- **Self-extension**: Gap detection → scaffold plugin → quarantine validate → register
+- **764 test assertions** across 11 test files (247 passing, 517 TDD awaiting wiring libs)
+
+### Added - Multi-LLM Tribunal Research
+
+- **`/research` command**: Multi-LLM triplicate research with tribunal cross-validation
+- **3 LLM providers**: Claude (Perplexity MCP), OpenAI (GPT-4o API), Gemini (2.5 Pro API)
+- **5-phase pipeline**: Parallel Research → Claim Extraction → Tribunal Voting → Quality Gate → Synthesis
+- **Tribunal voting**: Claude (accuracy), OpenAI (sourcing), Gemini (relevance) with EMA-weighted scoring
+- Consolidates former `/research` and `/research-team` into single command
+
+### Added - Test Infrastructure
+
+- **209/209 framework tests passing** across 11 suites (up from 172)
+- Contract tests: plugin lifecycle, swarm lifecycle, RL metrics, constitution, deprecation, plugin command bridge
+- Integration tests: marketplace MCP (E2E), git safety, policy validation, structured logging
 
 ### Changed
 
-- All monolithic agents deprecated (`.claude/agents/` → `plugins/*/agents/`)
-- All monolithic skills deprecated (`.claude/skills/` → `plugins/*/skills/`)
-- All monolithic commands deprecated (`.claude/commands/` → `plugins/*/commands/`)
+- All monolithic agents/skills/commands migrated to plugins (deprecated stubs remain for backward compat)
 - `skill-index.json` deprecated (plugin manifests now source of truth)
-- Registry source URLs restructured to `{repo, path, type}` objects
-- Framework updater updated to diff `plugins/`, `mcp-servers/`, `tests/`
-- `setup.sh` now installs MCP server dependencies automatically
-- Marketplace README with auth documentation for private registry
+- AGENTS.md rewritten for Plugin-First Architecture (25 agents across 16 plugins)
+- Session-specific artifacts (research output, agent decisions/sessions, feature specs) excluded from main via .gitignore
+- Opus 4.6 model references updated throughout
 
-### Migration
+### Fixed
 
-- 196 tests passing (up from 172)
-- All 11 monolithic commands have deprecation headers
-- All 32 migrated skills have deprecation headers
-- All 20 migrated agents have deprecation headers
+- Git safety checkpoint ID assertion (epoch timestamp format)
+- Structured logging `wc -l` whitespace comparison on macOS
+- Policy validation `parse_json` silent failure on malformed JSON
+- Missing guard-dangerous-commands.sh hook
+- Stale `/research-team` test references after consolidation
+- Governance plugin manifest missing `dependencies` field
 
 ## [3.2.0] - 2026-02-05
 
