@@ -55,6 +55,9 @@ run_suite "RL Metrics" "bash tests/contract/plugins/test_rl_metrics.sh"
 run_suite "Constitution v3.0.0" "bash tests/contract/test_constitution.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
 run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
+run_suite "Orchestration Hook" "bash tests/contract/test_orchestration_hook.sh"
+run_suite "Memory Search" "bash tests/contract/test_memory_search.sh"
+run_suite "Update Framework" "bash tests/contract/test_update_framework.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .specify/tests/test-git-safety.sh"

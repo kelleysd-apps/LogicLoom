@@ -1,5 +1,4 @@
 {
-  "agent": "constitutional-governance-agent",
   "hooks": {
     "UserPromptSubmit": [
       {

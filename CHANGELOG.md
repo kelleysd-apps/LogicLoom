@@ -5,6 +5,46 @@ All notable changes to the SDD Agent Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-02-09
+
+**Release**: Hook-Based Orchestration + Memory Context Injection + Additive Update Framework. 261/261 tests passing.
+
+### Added - Hook-Based Orchestration (Feature 005)
+
+- **Removed custom agent profile** from `settings.json` — Claude Code runs natively, augmented by hooks
+- **`sdd-orchestrator-hook` plugin**: Domain detection via `config/domains.conf`, orchestration guidance injected as `additionalContext`
+- **`governance-preflight.sh` v3.0.0**: Refactored to provide domain analysis, agent recommendations, and constitutional reminders without constraining Claude Code
+- Downstream projects customize `domains.conf` for their own agent registries
+
+### Added - Memory Context Agent (Feature 005)
+
+- **`sdd-memory` plugin**: 3-tier memory search (working/recall/archival) with keyword extraction and relevance scoring
+- **`memory-search.sh`**: Searches project knowledge (specs, architecture docs, session history, plugins) within 5-second hook timeout
+- **`memory-log.sh`**: Observability logging for memory search operations (JSONL format)
+- **`memory-context-agent`**: Haiku-model agent for lightweight context injection
+- Graceful fallback when plugin not installed — hook continues without memory context
+
+### Added - Additive Update Framework (Feature 005 / Issue #30)
+
+- **`.sdd-sync-ref`**: Single commit hash tracking last upstream sync point
+- **`extract-proposals.sh`**: Upstream-history-only diffing (`sync-ref..upstream/main`) — never compares downstream content against upstream
+- **Enhancement proposals**: Each upstream change presented as independently accept/reject proposal
+- **Framework-updater skill v3.0.0**: 10-step proposal-based adoption flow replacing old git-diff heuristics
+- Supports selective adoption: accept new plugins without accepting governance changes, etc.
+
+### Added - Test Infrastructure
+
+- **261/261 tests passing** across 14 suites (up from 209/11)
+- 3 new contract test suites: `test_orchestration_hook.sh` (19), `test_memory_search.sh` (19), `test_update_framework.sh` (14)
+- Test output format standardized to `N/N passed, N failed` for parser compatibility
+
+### Changed
+
+- `settings.json`: Removed `"agent"` field — Claude Code is primary agent, augmented by hook-based governance
+- CLAUDE.md: Replaced agent profile section with hook-based orchestration documentation
+- AGENTS.md: 22 agents across 17 plugins (up from 21/15)
+- Plugin Command Bridge: 19 commands synced (unchanged count)
+
 ## [4.0.0] - 2026-02-08
 
 **Major release**: Plugin-First Architecture, sdd-dev-loop plugin, Multi-LLM tribunal research, 209/209 tests passing.

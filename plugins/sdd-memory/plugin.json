@@ -1,0 +1,34 @@
+{
+  "name": "sdd-memory",
+  "version": "1.0.0",
+  "description": "Memory context injection for Claude Code sessions. Searches tiered project memory (working/recall/archival) and injects relevant context via preflight hook. Uses keyword-based retrieval with relevance scoring.",
+  "category": "orchestration",
+  "author": "sdd-agentic-framework",
+  "skills": [
+    {
+      "name": "context-injection",
+      "path": "skills/context-injection/SKILL.md",
+      "triggers": ["memory context", "context injection", "project memory"],
+      "rl_metrics": {
+        "success_rate": 0.5,
+        "selection_weight": 0.5,
+        "invocation_count": 0,
+        "avg_tokens": 0,
+        "last_feedback": null
+      }
+    }
+  ],
+  "agents": [
+    {
+      "name": "memory-context-agent",
+      "path": "agents/memory-context-agent.md",
+      "department": "orchestration"
+    }
+  ],
+  "commands": [],
+  "config": {
+    "memory_conf": "config/memory.conf"
+  },
+  "dependencies": [],
+  "constitutional_principles": ["VII", "XVI"]
+}

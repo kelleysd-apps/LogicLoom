@@ -225,27 +225,31 @@ For complete agent documentation, load the agents module:
 ./.specify/scripts/bash/load-context.sh load agents
 ```
 
-### constitutional-governance-agent (Primary Entry Point)
+### Hook-Based Orchestration (v3.0 — No Custom Agent Profile)
 
-**Purpose**: Primary orchestration agent that serves as the main thread entry point for all Claude Code sessions. Enforces the 4-step pre-flight compliance protocol on every user message, routes specialized work to domain agents per Principle X, gates all git operations per Principle VI, and maintains constitutional governance across the session.
+**Architecture**: Claude Code runs with its native capabilities. Constitutional governance
+and orchestration guidance are injected via the `UserPromptSubmit` preflight hook as
+`additionalContext`. No custom `"agent"` field in settings.json.
 
-**Model**: opus (required for maximum governance capability)
+**Components**:
+- `sdd-orchestrator-hook` plugin — Domain detection, agent recommendations, governance reminders
+- `sdd-memory` plugin — Automatic memory context injection from project knowledge
+- `governance-preflight.sh` — Hook script that combines orchestration + memory into additionalContext
 
-**Tools**: Full access (Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TodoWrite)
+**How It Works**:
+1. User sends message → preflight hook fires
+2. Hook detects domains (security, backend, etc.) from message keywords
+3. Hook recommends specialist agents per Principle X
+4. Hook searches project memory for relevant context (specs, tasks, past sessions)
+5. Hook injects orchestration guidance + memory context as additionalContext
+6. Claude Code processes request with full context, following constitutional governance
 
-**Usage**: Configure as default agent in settings.json:
-```json
-{
-  "agent": "constitutional-governance-agent",
-  "model": "claude-opus-4-6"
-}
-```
-
-**Key Responsibilities**:
-- Enforce 4-step pre-flight compliance on every message
-- Route specialized work to domain agents (Principle X)
+**Key Responsibilities** (via hook injection):
+- Inject constitutional governance reminder on every message
+- Detect domains and recommend specialist agents (Principle X)
+- Route slash commands to plugin procedures
+- Inject relevant project memory context
 - Gate ALL git operations (Principle VI - CRITICAL)
-- Maintain constitutional governance across session
 
 ---
 
@@ -428,6 +432,8 @@ All framework capabilities are organized as **discrete installable plugins** at 
 | `sdd-governance` | governance | 6 | 1 | 0 |
 | `sdd-specification` | core | 5 | 4 | 4 |
 | `sdd-orchestrator` | orchestration | 5 | 4 | 6 |
+| `sdd-orchestrator-hook` | orchestration | 1 | 0 | 0 |
+| `sdd-memory` | orchestration | 1 | 1 | 0 |
 | `sdd-creation` | core | 5 | 2 | 4 |
 | `sdd-git` | core | 2 | 0 | 2 |
 | `sdd-debug` | core | 1 | 1 | 1 |
