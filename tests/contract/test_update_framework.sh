@@ -57,6 +57,20 @@ assert "SKILL.md references upstream-history-only approach" \
 assert "SKILL.md does NOT reference Tier 2 safe replace" \
   "! grep -q 'Tier 2.*safe replace\|Tier 2.*Replace' $SKILL_FILE"
 
+# ── Tag Awareness Tests ──
+echo ""
+echo "Tag awareness"
+assert "extract-proposals.sh has list_tags_in_range function" \
+  "grep -q 'list_tags_in_range' $EXTRACT_SCRIPT"
+assert "extract-proposals.sh has find_tag_for_file function" \
+  "grep -q 'find_tag_for_file' $EXTRACT_SCRIPT"
+assert "extract-proposals.sh outputs release_tag field" \
+  "grep -q 'release_tag' $EXTRACT_SCRIPT"
+assert "SKILL.md references release tag grouping" \
+  "grep -qi 'release.tag\|per.release\|group.*by.*release' $SKILL_FILE"
+assert "Help text mentions release tags" \
+  "bash $EXTRACT_SCRIPT --help 2>&1 | grep -qi 'release\|tag'"
+
 # ── Update Command ──
 echo ""
 echo "Update framework command"

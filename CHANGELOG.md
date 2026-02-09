@@ -5,6 +5,19 @@ All notable changes to the SDD Agent Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-02-09
+
+**Patch**: Tag-aware update framework. 266/266 tests passing.
+
+### Added
+
+- **Release tag awareness** in `extract-proposals.sh`: proposals now include `release_tag` field associating each change with its upstream release version
+- `list_tags_in_range()`: discovers release tags between sync-ref and upstream/main
+- `find_tag_for_file()`: maps each changed file to the release it belongs to
+- `--dry-run` now shows release tags in range with dates
+- Framework-updater skill updated to group proposals by release tag for per-release adoption
+- 5 new tag-awareness contract tests (266/266 total)
+
 ## [4.1.0] - 2026-02-09
 
 **Release**: Hook-Based Orchestration + Memory Context Injection + Additive Update Framework. 261/261 tests passing.

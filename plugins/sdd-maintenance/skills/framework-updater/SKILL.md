@@ -109,23 +109,23 @@ Framework Enhancement Proposals
 
 Source: upstream/main (last sync: <sync-ref-date>)
 Changes: <N> files changed in upstream since last sync
+Releases: v4.1.0 (2026-02-09), v4.2.0 (2026-02-15)
 
-New Files Available:
+── v4.1.0 ──────────────────────────
   EP-001: [plugin] New plugin: sdd-foo — Install? [y/N]
   EP-002: [skill] New skill: bar-skill — Install? [y/N]
+
+── v4.2.0 ──────────────────────────
   EP-003: [agent] New agent: baz-agent — Install? [y/N]
-
-Enhancement Proposals (existing files changed upstream):
   EP-004: [governance] constitution.md — New Principle XVII added — Accept? [y/N]
+
+── Untagged ─────────────────────────
   EP-005: [config] CLAUDE.md — New command table entries — Accept? [y/N]
-  EP-006: [script] validate-spec.sh — Bug fix — Accept? [y/N]
-
-Structural Changes (manual review required):
-  EP-007: [config] settings.json restructured — Review needed
-
-Info Only:
-  EP-008: [info] old-deprecated-file.md removed upstream
 ```
+
+**Group proposals by release tag** when available. Each proposal's `release_tag`
+field comes from `extract-proposals.sh`. This lets users adopt per-release
+(e.g., "accept all v4.1.0 changes") or per-file.
 
 **For each proposal**: Show what upstream changed (not how downstream differs).
 User accepts or rejects each independently.
