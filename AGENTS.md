@@ -4,8 +4,8 @@
 **Last Updated**: 2026-02-07
 **Constitution**: v3.0.0 (16 Principles)
 **Architecture**: Plugin-First (v4.1)
-**Total Agents**: 21
-**Plugins**: 15
+**Total Agents**: 22
+**Plugins**: 17
 
 ---
 
@@ -95,6 +95,7 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 | Agent | Purpose | Model |
 |-------|---------|-------|
 | **framework-sync-agent** | Framework updates from upstream | opus |
+| **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku |
 
 ### Domain Plugins (7 agents — 1 per domain)
 
