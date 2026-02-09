@@ -539,7 +539,7 @@ For comprehensive documentation, load the appropriate context modules:
 
 ---
 
-**Framework**: sdd-agentic-framework v4.1.0
+**Framework**: sdd-agentic-framework v4.1.1
 **Constitution**: v3.0.0 (16 Principles)
 **Architecture**: Plugin-First (v4.1) with Command Bridge
 **Context System**: Modular (v2.0)
