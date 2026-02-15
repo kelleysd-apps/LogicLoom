@@ -186,22 +186,33 @@ parse_tool_action() {
 # Find session file using multiple paths and find command
 find_session_file() {
     local session_file=""
-    local project_name
-    project_name=$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)")
+    local repo_root
+    repo_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+
+    # Claude Code uses absolute path with / replaced by - for project directory name
+    local project_dir_name
+    project_dir_name=$(echo "$repo_root" | sed 's|/|-|g')
+    local project_basename
+    project_basename=$(basename "$repo_root")
 
     # Session path patterns to search (in order of preference)
     local -a search_paths=(
-        "$HOME/.claude/projects/-workspaces-${project_name}"
-        "$HOME/.claude/projects/${project_name}"
+        "$HOME/.claude/projects/${project_dir_name}"
+        "$HOME/.claude/projects/-workspaces-${project_basename}"
+        "$HOME/.claude/projects/${project_basename}"
         "$HOME/.claude/projects"
-        "/home/codespace/.claude/projects/-workspaces-${project_name}"
+        "/home/codespace/.claude/projects/${project_dir_name}"
         "/home/codespace/.claude/projects"
     )
 
     for search_path in "${search_paths[@]}"; do
         if [ -d "$search_path" ]; then
             # Use stat for macOS compatibility (GNU find -printf not available on Darwin)
-            session_file=$(find "$search_path" -maxdepth 2 -name "*.jsonl" -type f 2>/dev/null | xargs stat -f '%m %N' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            if [[ "$(uname)" == "Darwin" ]]; then
+                session_file=$(find "$search_path" -maxdepth 2 -name "*.jsonl" -type f 2>/dev/null | xargs stat -f '%m %N' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            else
+                session_file=$(find "$search_path" -maxdepth 2 -name "*.jsonl" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            fi
             if [ -n "$session_file" ] && [ -f "$session_file" ]; then
                 echo "$session_file"
                 return 0
@@ -220,8 +231,13 @@ else
     session_file=$(find_session_file || echo "")
 
     if [ -n "$session_file" ] && [ -f "$session_file" ] && command -v jq >/dev/null 2>&1; then
-        # More efficient: tail | tac | grep -m1 for first match from end
-        last_entry=$(tail -20 "$session_file" 2>/dev/null | tac | grep -m1 '"usage":' || echo "")
+        # More efficient: tail | reverse | grep -m1 for first match from end
+        # Use tail -r on macOS (no tac available)
+        if command -v tac >/dev/null 2>&1; then
+            last_entry=$(tail -20 "$session_file" 2>/dev/null | tac | grep -m1 '"usage":' || echo "")
+        else
+            last_entry=$(tail -20 "$session_file" 2>/dev/null | tail -r | grep -m1 '"usage":' || echo "")
+        fi
 
         if [ -n "$last_entry" ]; then
             extract_from_json "$last_entry"

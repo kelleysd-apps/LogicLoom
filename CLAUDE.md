@@ -540,8 +540,8 @@ For comprehensive documentation, load the appropriate context modules:
 
 ---
 
-**Framework**: sdd-agentic-framework v4.1.1
+**Framework**: sdd-agentic-framework v5.0.0
 **Constitution**: v3.0.0 (16 Principles)
-**Architecture**: Plugin-First (v4.1) with Command Bridge
+**Architecture**: Plugin-First (v4.1) + Skill-Based Delegation (v5.0)
 **Context System**: Modular (v2.0)
-**Last Updated**: 2026-02-07
+**Last Updated**: 2026-02-15

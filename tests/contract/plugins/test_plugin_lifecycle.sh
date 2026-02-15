@@ -72,7 +72,7 @@ assert "team-synthesizer agent retained" "[ -f plugins/sdd-orchestrator/agents/t
 assert "task-orchestrator agent removed" "[ ! -f plugins/sdd-orchestrator/agents/task-orchestrator.md ]"
 assert "swarm-coordinator agent removed" "[ ! -f plugins/sdd-orchestrator/agents/swarm-coordinator.md ]"
 assert "workflow-coordinator agent removed" "[ ! -f plugins/sdd-orchestrator/agents/workflow-coordinator.md ]"
-assert "plugin.json lists only team-synthesizer" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-orchestrator/.claude-plugin/plugin.json\")); assert d.get(\"agents\") == [\"team-synthesizer\"]'"
+assert "plugin.json lists only team-synthesizer" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-orchestrator/.claude-plugin/plugin.json\")); agents=d.get(\"agents\",{}); lst=agents.get(\"list\",agents) if isinstance(agents,dict) else agents; assert lst==[\"team-synthesizer\"]'"
 
 echo ""
 echo "═══ Specification Skill Consolidation Tests ═══"
@@ -83,7 +83,7 @@ assert "sdd-planning skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-
 assert "sdd-tasks skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/sdd-tasks/SKILL.md"
 assert "unified-specification skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/unified-specification/SKILL.md"
 assert "specification agents directory removed" "[ ! -d plugins/sdd-specification/agents ]"
-assert "plugin.json has empty agents array" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-specification/.claude-plugin/plugin.json\")); assert d.get(\"agents\") == []'"
+assert "plugin.json has empty agents array" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-specification/.claude-plugin/plugin.json\")); agents=d.get(\"agents\",{}); lst=agents.get(\"list\",agents) if isinstance(agents,dict) else agents; assert lst==[]'"
 
 echo ""
 echo "═══ Swarm Contract Tests (T4.1.1-T4.1.3) ═══"

@@ -99,6 +99,9 @@ plugins/sdd-memory/recall/
 !plugins/sdd-memory/recall/.gitkeep
 plugins/sdd-memory/.retention-last-run
 
+# Test artifacts
+test-checkpoint-*
+
 # Python bytecode
 __pycache__/
 *.py[cod]

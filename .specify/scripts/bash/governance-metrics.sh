@@ -134,11 +134,11 @@ elif [ "$DATE_RANGE" = "single" ] || [ "$DATE_RANGE" = "range" ]; then
             [ "$dir_date" = "$START_DATE" ] && include=true
         elif [ "$DATE_RANGE" = "range" ]; then
             if [ -n "$START_DATE" ] && [ -n "$END_DATE" ]; then
-                [[ "$dir_date" >= "$START_DATE" ]] && [[ "$dir_date" <= "$END_DATE" ]] && include=true
+                [[ ! "$dir_date" < "$START_DATE" ]] && [[ ! "$dir_date" > "$END_DATE" ]] && include=true
             elif [ -n "$START_DATE" ]; then
-                [[ "$dir_date" >= "$START_DATE" ]] && include=true
+                [[ ! "$dir_date" < "$START_DATE" ]] && include=true
             elif [ -n "$END_DATE" ]; then
-                [[ "$dir_date" <= "$END_DATE" ]] && include=true
+                [[ ! "$dir_date" > "$END_DATE" ]] && include=true
             fi
         fi
 

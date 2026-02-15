@@ -403,6 +403,7 @@ echo "Tests run:    $TESTS_RUN"
 echo "Tests passed: $TESTS_PASSED"
 echo "Tests failed: $TESTS_FAILED"
 echo ""
+echo "Results: ${TESTS_PASSED}/${TESTS_RUN} passed, ${TESTS_FAILED} failed"
 
 # Clean up test log file
 rm -f "$TEST_LOG_FILE"
