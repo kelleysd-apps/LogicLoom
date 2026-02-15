@@ -478,7 +478,7 @@ Pre-flight check executed before session start. Violations halt execution.
 
 ---
 
-**Framework**: sdd-agentic-framework v4.1.0
+**Framework**: sdd-agentic-framework v5.0.0
 **Plugin**: sdd-dev-loop v0.1.0
 **Spec Reference**: `specs/feature-sdd-dev-loop/spec.md`
 **Data Model**: `specs/feature-sdd-dev-loop/data-model.md`

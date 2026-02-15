@@ -79,11 +79,11 @@ function buildComplianceContext(prompt, domains) {
   // Build contextual reminder
   let context = '## Pre-Flight Compliance Check (FR-707)\n\n';
   context += '**Constitution**: v3.0.0 (16 Principles)\n';
-  context += '**Critical Principles**: II (Test-First >80%), VI (Git Approval), X (Skills-First)\n\n';
+  context += '**Critical Principles**: II (Test-First >80%), VI (Git Approval), X (Skill-First Routing)\n\n';
 
   if (domains.length > 0) {
     context += `**Detected Domains**: ${domains.join(', ')}\n`;
-    context += '**Routing**: Check skill-index.json for matching skills\n\n';
+    context += '**Routing**: Activate appropriate specialist skills\n\n';
   }
 
   context += '---\n';
@@ -150,7 +150,7 @@ async function writeAuditLog(prompt, domains, durationMs) {
     event_type: 'context_injection',
     decision_type: 'context_injection',
     layer: 'hook',
-    agent_role: 'task-orchestrator',
+    agent_role: 'governance-hook',
     input_summary: JSON.stringify({
       user_message: prompt.substring(0, 200), // Truncate for summary
       message_length: prompt.length,

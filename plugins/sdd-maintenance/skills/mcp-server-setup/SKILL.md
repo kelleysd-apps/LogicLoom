@@ -395,18 +395,20 @@ Or in conversation:
 
 ---
 
-## Department-to-MCP Mapping
+## Domain-to-MCP Mapping
 
-Based on agent departments, recommend appropriate MCPs:
+Based on domain skills, recommend appropriate MCPs:
 
-| Department | Agents | Recommended MCPs |
-|------------|--------|------------------|
-| **Architecture** | backend-architect | aws/gcp/azure, postgres/supabase |
-| **Engineering** | frontend-specialist, full-stack-developer | browsermcp, github-official, context7 |
-| **Data** | database-specialist | postgres, supabase, firebase |
-| **Quality** | testing-specialist, security-specialist | browsermcp, playwright |
-| **Product** | specification-agent, planning-agent, tasks-agent | github-official, notion, linear |
-| **Operations** | devops-engineer, performance-engineer | aws/gcp/azure, docker |
+| Domain | Skills | Recommended MCPs |
+|--------|--------|------------------|
+| **Backend** | backend-operations, api-design, service-architecture | aws/gcp/azure, postgres/supabase |
+| **Frontend** | frontend-operations | browsermcp, github-official, context7 |
+| **Database** | database-operations, schema-design | postgres, supabase, firebase |
+| **Testing** | testing-operations, qa-validation | browsermcp, playwright |
+| **Security** | security-operations | browsermcp, playwright |
+| **Specification** | unified-specification, sdd-planning, sdd-tasks | github-official, notion, linear |
+| **DevOps** | devops-operations, monitoring | aws/gcp/azure, docker |
+| **Performance** | performance-operations | aws/gcp/azure, docker |
 
 ---
 

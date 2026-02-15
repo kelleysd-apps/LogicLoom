@@ -28,32 +28,37 @@
 15. **Principle XV**: File and Folder Organization
 16. **Principle XVI**: Plugin-First Architecture
 
-### Domain-Agent Mapping
+### Domain-Skill Mapping (v5.0)
 
-| Domain | Primary Agent | Backup Agent |
-|--------|---------------|--------------|
-| Frontend | frontend-specialist | full-stack-developer |
-| Backend | backend-architect | full-stack-developer |
-| Database | database-specialist | backend-architect |
-| Testing | testing-specialist | - |
-| Security | security-specialist | - |
-| Performance | performance-engineer | - |
-| DevOps | devops-engineer | - |
-| Specification | specification-agent | - |
-| Planning | planning-agent | - |
-| Tasks | tasks-agent | - |
-| Multi-Domain | task-orchestrator | - |
-| PRD | prd-specialist | - |
+| Domain | Primary Skill/Agent | Plugin |
+|--------|---------------------|--------|
+| Frontend | frontend-operations skill | sdd-domain-frontend |
+| Backend | api-design / service-architecture skill | sdd-domain-backend |
+| Database | schema-design / database-operations skill | sdd-domain-database |
+| Testing | testing-operations skill | sdd-domain-testing |
+| Security | security-operations skill | sdd-domain-security |
+| Performance | performance-operations skill | sdd-domain-performance |
+| DevOps | monitoring / devops-operations skill | sdd-domain-devops |
+| Specification | sdd-specification skill | sdd-specification |
+| Planning | sdd-planning skill | sdd-specification |
+| Tasks | sdd-tasks skill | sdd-specification |
+| Multi-Domain | team-orchestration skill | sdd-orchestrator |
+| PRD | prd-specialist agent | sdd-creation |
 
 ### Slash Command Routing
 
-| Command | Agent | Description |
-|---------|-------|-------------|
-| /create-prd | prd-specialist | Create Product Requirements Document |
-| /specify | specification-agent | Create feature specification |
-| /plan | planning-agent | Generate implementation plan |
-| /tasks | tasks-agent | Generate task list |
-| /create-agent | subagent-architect | Create new specialized agent |
+| Command | Skill/Agent | Description |
+|---------|-------------|-------------|
+| /specification | unified-specification skill | Unified spec + plan + tasks workflow |
+| /create-prd | prd-specialist agent | Create Product Requirements Document |
+| /specify | sdd-specification skill | Create feature specification |
+| /plan | sdd-planning skill | Generate implementation plan |
+| /tasks | sdd-tasks skill | Generate task list |
+| /create-agent | subagent-architect agent | Create new specialized agent |
+| /debug | auto-debug-agent | Debug deployment/runtime issues |
+| /research | team-synthesizer agent | Multi-LLM tribunal research |
+| /swarm | team-orchestration skill | Multi-agent swarm execution |
+| /dev-loop | dev-loop-orchestrator agent | Recursive dev-loop with tribunal |
 
 ## Accumulated Learnings
 

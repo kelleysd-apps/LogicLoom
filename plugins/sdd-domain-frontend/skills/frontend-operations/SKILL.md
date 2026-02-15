@@ -2,7 +2,7 @@
 name: frontend-operations
 version: 3.0.0
 category: domain
-description: Frontend development skill. Routes to implementation-specialist.
+description: Frontend development skill providing direct domain expertise.
 triggers: ["frontend", "UI component", "React", "CSS", "form", "responsive"]
 rl_metrics:
   success_rate: 0.5
@@ -56,10 +56,9 @@ You are a frontend specialist working on a team task. Your expertise includes:
 ### Allowed Tools
 Read, Write, Edit, MultiEdit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-agent: implementation-specialist
 context-subset:
   - ui-requirements
   - design-system
@@ -94,9 +93,9 @@ context-subset:
   - styling-guidelines: CSS approach
 ```
 
-### Step 3: Invoke Implementation Specialist
+### Step 3: Execute Frontend Work
 
-Delegate to `implementation-specialist` with:
+Implement frontend work with:
 - Clear component specifications
 - Expected props and events
 - Styling requirements
@@ -113,7 +112,7 @@ Delegate to `implementation-specialist` with:
 ## Constitutional Compliance
 
 - **Principle II**: Tests required for components
-- **Principle X**: Routes to implementation-specialist
+- **Principle X**: This skill provides frontend domain expertise directly
 - **Principle XII**: Follows project design system
 
 

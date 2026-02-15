@@ -20,8 +20,8 @@ allowed-tools:
   - Bash
   - Grep
   - Glob
-agent-invocations:
-  - agent: workflow-coordinator
+skill-invocations:
+  - skill: team-orchestration
     context-subset:
       - migration-plan
       - source-pattern
@@ -85,7 +85,7 @@ consolidation, and legacy pattern conversion within the SDD framework.
 **Constitutional constraints:**
 - Principle V: Progressive Enhancement - gradual migration, never big-bang
 - Principle VIII: Documentation Sync - migration documentation kept current
-- Principle X: Delegation - route complex migrations to workflow-coordinator
+- Principle X: Delegation - route complex migrations to team-orchestration skill
 - Principle IV: Idempotency - migrations must be safe to retry
 
 **Error handling:**
@@ -120,9 +120,9 @@ Build a migration plan:
 migration-plan:
   type: agent-to-skill
   source:
-    name: frontend-specialist
+    name: frontend-operations skill (sdd-domain-frontend)
     type: agent
-    location: plugins/sdd-domain-frontend/agents/frontend-specialist.md
+    location: plugins/sdd-domain-frontend/agents/frontend-operations skill (sdd-domain-frontend).md
   target:
     skill: domain/frontend-operations
     agent: implementation-specialist (consolidated)
@@ -167,15 +167,13 @@ Rollback if needed:
 | target-pattern | Yes | What to migrate to |
 | rollback-strategy | Yes | How to rollback |
 
-## Agent Invocation
+## Skill Invocation
 
 ```yaml
-agent: workflow-coordinator
+skill: team-orchestration
 purpose: Coordinate multi-skill workflows and migrations
-department: product
-merged-from:
-  - task-orchestrator
-skill-portfolio:
+plugin: sdd-orchestrator
+delegates-to:
   - orchestration/multi-skill-workflow
   - orchestration/migration-workflow
 ```
@@ -185,7 +183,7 @@ skill-portfolio:
 ### Agent to Skill Migration
 
 ```
-frontend-specialist (legacy)
+frontend-operations skill (sdd-domain-frontend) (legacy)
        |
        v
 domain/frontend-operations (skill)
@@ -222,19 +220,19 @@ progressive-disclosure:
 
 | Original | Consolidated |
 |----------|--------------|
-| frontend-specialist | implementation-specialist |
-| full-stack-developer | implementation-specialist |
-| devops-engineer | operations-specialist |
-| performance-engineer | operations-specialist |
-| testing-specialist | quality-specialist |
-| security-specialist | quality-specialist |
+| frontend-operations skill (sdd-domain-frontend) | implementation-specialist |
+| backend-operations skill (sdd-domain-backend) | implementation-specialist |
+| monitoring skill (sdd-domain-devops) | operations-specialist |
+| performance-operations skill (sdd-domain-performance) | operations-specialist |
+| testing-operations skill (sdd-domain-testing) | quality-specialist |
+| security-operations skill (sdd-domain-security) | quality-specialist |
 
 ## Migration Scripts
 
 ### migrate-agent-to-skill.sh
 ```bash
 # Usage: ./migrate-agent-to-skill.sh <agent-name> <skill-path>
-./migrate-agent-to-skill.sh frontend-specialist domain/frontend-operations
+./migrate-agent-to-skill.sh frontend-operations skill (sdd-domain-frontend) domain/frontend-operations
 ```
 
 ### upgrade-skill-to-v3.sh

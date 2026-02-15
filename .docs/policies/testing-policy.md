@@ -718,6 +718,6 @@ Even emergency hotfixes require:
 
 ---
 
-**Policy Owner**: Quality Department (testing-specialist)
+**Policy Owner**: Quality Department (testing-operations skill)
 **Last Reviewed**: 2025-11-07
 **Next Review**: 2026-02-07

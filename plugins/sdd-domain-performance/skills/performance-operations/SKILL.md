@@ -2,7 +2,7 @@
 name: performance-operations
 version: 3.0.0
 category: domain
-description: Performance optimization and caching. Routes to operations-specialist.
+description: Performance optimization and caching providing direct domain expertise.
 triggers: ["performance", "optimize", "cache", "benchmark", "latency", "profiling"]
 rl_metrics:
   success_rate: 0.5
@@ -16,8 +16,7 @@ rl_metrics:
 ## Overview
 
 This skill handles all performance operations including optimization, caching
-strategies, benchmarking, profiling, and latency reduction. Routes to
-`operations-specialist` agent.
+strategies, benchmarking, profiling, and latency reduction.
 
 ## When to Use
 
@@ -59,9 +58,9 @@ You are a performance engineer working on a team task. Your expertise includes:
 
 - Read, Write, Edit, Bash, Grep, Glob
 
-### Agent Invocations
+### Skill Context
 
-**operations-specialist**:
+**Performance work**:
 - Context: performance-requirements, bottleneck-analysis, caching-needs, benchmark-targets
 - When: Performance optimization work is needed
 - Timeout: 10m
@@ -95,9 +94,9 @@ context-subset:
   - benchmark-targets: Performance goals
 ```
 
-### Step 3: Invoke Operations Specialist
+### Step 3: Execute Performance Work
 
-Delegate to `operations-specialist` with:
+Implement performance work with:
 - Clear performance targets
 - Bottleneck analysis results
 - Caching requirements
@@ -120,21 +119,6 @@ Check agent output for:
 | bottleneck-analysis | No | Known issues |
 | caching-needs | No | Cache requirements |
 | benchmark-targets | Yes | Performance goals |
-
-## Agent Invocation
-
-```yaml
-agent: operations-specialist
-purpose: Manage runtime infrastructure and performance optimization
-department: operations
-merged-from:
-  - devops-engineer
-  - performance-engineer
-skill-portfolio:
-  - domain/devops-operations
-  - domain/performance-operations
-  - domain/monitoring
-```
 
 ## Performance Targets
 
@@ -248,5 +232,5 @@ VERIFIER_CHECK:
 ## Constitutional Compliance
 
 - **Principle V (Progressive Enhancement)**: Start simple, optimize when needed
-- **Principle X (Delegation)**: Routes to operations-specialist
+- **Principle X (Delegation)**: This skill provides performance domain expertise directly
 - **Principle VII (Observability)**: Performance metrics logged

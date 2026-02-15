@@ -1,5 +1,5 @@
 ---
-name: planning-agent
+name: sdd-planning
 description: |
   Step-by-step procedural guidance for executing the /plan command workflow. Covers
   Phase 0 (Research), Phase 1 (Design), and Phase 2 (Validation) for implementation
@@ -268,10 +268,10 @@ Next Step: Run /tasks to generate implementation task list
 
 ### Principle X: Agent Delegation Protocol
 When to delegate during planning:
-- Complex multi-service architecture research: delegate Phase 0 research to backend-architect
-- Database schema design requiring optimization expertise: delegate to database-specialist
-- Multi-domain features (3+ domains detected): recommend task-orchestrator for implementation phase
-- Security-critical features: flag for security-specialist review
+- Complex multi-service architecture research: delegate Phase 0 research to api-design skill
+- Database schema design requiring optimization expertise: delegate to schema-design skill
+- Multi-domain features (3+ domains detected): recommend team-orchestration skill for implementation phase
+- Security-critical features: flag for security-operations skill review
 
 ## Examples
 
@@ -327,36 +327,36 @@ specs/001-user-list-api/
 
 **Expected Result**: Complete plan with frontend-focused artifacts, ready for `/tasks` generation.
 
-## Agent Collaboration
+## Skill Collaboration
 
-### specification-agent
+### sdd-specification skill
 **When to delegate**: If no specification exists yet, redirect user to run `/specify` first.
 
 **What they handle**: Feature specification creation, requirements gathering, user story definition.
 
 **Handoff format**: "Run /specify first to create a feature specification, then return to /plan."
 
-### backend-architect
+### api-design skill
 **When to delegate**: Multi-service architecture decisions, complex backend system design, API gateway patterns during Phase 0 research.
 
 **What they handle**: Backend system design, service decomposition, API architecture patterns.
 
-### frontend-specialist
+### frontend-operations skill
 **When to delegate**: UI component architecture, state management decisions, client-side routing during Phase 0 research.
 
 **What they handle**: Component design patterns, state management, UI/UX patterns.
 
-### database-specialist
+### schema-design skill
 **When to delegate**: Complex data modeling, query optimization, schema design for high-scale systems during Phase 1.
 
 **What they handle**: Database schema design, relationships, indexing strategies, query patterns.
 
-### task-orchestrator
+### team-orchestration skill
 **When to delegate**: Multi-domain features where 3+ domains are detected during Step 8 domain detection.
 
-**What they handle**: Coordinating multiple specialist agents during the implementation phase.
+**What they handle**: Coordinating multiple specialist skills during the implementation phase.
 
-### tasks-agent
+### sdd-tasks skill
 **When to delegate**: After planning completes, the user runs `/tasks` to generate the implementation task list.
 
 **What they handle**: Converting the plan and its artifacts into an ordered, dependency-aware task list.
@@ -414,7 +414,7 @@ VERIFIER_CHECK:
 ### Verifier Handoff
 ```json
 {
-  "skill": "planning-agent",
+  "skill": "sdd-planning",
   "output": "<skill_output>",
   "validation_required": ["format", "compliance", "quality", "artifacts"],
   "threshold": 0.85
@@ -579,4 +579,3 @@ Extended usage examples and edge cases
 **Created**: 2025-11-08
 **Last Updated**: 2026-02-15
 **Department**: product
-**Associated Agent**: planning-agent

@@ -623,6 +623,6 @@ All team members must complete:
 
 ---
 
-**Policy Owner**: Quality Department (security-specialist)
+**Policy Owner**: Quality Department (security-operations skill)
 **Last Reviewed**: 2025-11-07
 **Next Review**: 2026-02-07

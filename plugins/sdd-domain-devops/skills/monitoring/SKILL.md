@@ -2,7 +2,7 @@
 name: monitoring
 version: 3.0.0
 category: domain
-description: Monitoring and observability operations. Routes to operations-specialist.
+description: Monitoring and observability operations providing direct domain expertise.
 triggers: ["monitoring", "observability", "metrics", "logging", "health check", "alerting"]
 rl_metrics:
   success_rate: 0.5
@@ -53,11 +53,9 @@ You are a monitoring and observability specialist working on a team task. Your e
 ### Allowed Tools
 Read, Write, Edit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-primary-agent: operations-specialist
-secondary-agent: system-architect
 context-subset:
   - monitoring-scope
   - infrastructure
@@ -92,9 +90,9 @@ context-subset:
   - metrics-config: Metrics to collect
 ```
 
-### Step 3: Invoke Operations Specialist
+### Step 3: Execute Monitoring Setup
 
-Delegate to `operations-specialist` with:
+Implement monitoring setup with:
 - Clear monitoring scope
 - Infrastructure details
 - Alerting requirements

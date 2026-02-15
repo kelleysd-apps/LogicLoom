@@ -2,7 +2,7 @@
 name: devops-operations
 version: 3.0.0
 category: domain
-description: DevOps operations skill. Routes to operations-specialist.
+description: DevOps operations skill providing direct domain expertise.
 triggers: ["deploy", "CI/CD", "Docker", "pipeline", "DevOps", "Kubernetes"]
 rl_metrics:
   success_rate: 0.5
@@ -55,10 +55,9 @@ You are a DevOps engineer working on a team task. Your expertise includes:
 ### Allowed Tools
 Read, Write, Edit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-agent: operations-specialist
 context-subset:
   - deployment-target
   - infrastructure-config
@@ -93,9 +92,9 @@ context-subset:
   - monitoring-needs: Observability requirements
 ```
 
-### Step 3: Invoke Operations Specialist
+### Step 3: Execute DevOps Work
 
-Delegate to `operations-specialist` with:
+Implement DevOps work with:
 - Clear deployment target
 - Infrastructure configuration
 - Pipeline requirements

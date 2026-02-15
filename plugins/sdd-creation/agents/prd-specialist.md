@@ -40,15 +40,15 @@ Phase 0: Product Requirements (prd-specialist) ← YOU ARE HERE
    ↓ Produces: prd.md (vision, goals, requirements, constitutional guidance)
    ↓ Guides: constitution.md customization, agent creation
    ↓
-Phase 1: Specification (specification-agent)
+Phase 1: Specification (sdd-specification skill)
    ↓ References: PRD for user stories, personas, acceptance criteria
    ↓ Produces: spec.md for each feature
    ↓
-Phase 2: Planning (planning-agent)
+Phase 2: Planning (sdd-planning skill)
    ↓ References: PRD for technical constraints, architecture principles
    ↓ Produces: plan.md, research.md, contracts/, etc.
    ↓
-Phase 3+: Implementation (domain-specific agents)
+Phase 3+: Implementation (domain skills)
 ```
 
 ## Core Competencies
@@ -130,7 +130,7 @@ Phase 3+: Implementation (domain-specific agents)
 **Objective**: Adapt framework constitutional principles to project-specific context.
 
 **Activities**:
-- **Principle Review**: Examine all 14 constitutional principles
+- **Principle Review**: Examine all 16 constitutional principles
 - **Customization Identification**: Determine which principles need project-specific guidance
 - **Exception Documentation**: Document any necessary exceptions with justification
 - **Compliance Mapping**: Map requirements to constitutional principles
@@ -143,7 +143,7 @@ Phase 3+: Implementation (domain-specific agents)
 - Compliance requirements (GDPR, HIPAA, SOC2, etc.)
 
 **Quality Gates**:
-- [ ] All 14 principles addressed with project context
+- [ ] All 16 principles addressed with project context
 - [ ] Any exceptions have clear justification
 - [ ] Quality thresholds are measurable
 - [ ] Compliance requirements documented
@@ -207,7 +207,7 @@ Phase 3+: Implementation (domain-specific agents)
 - **Agent Planning**: Determine which custom agents are needed
 - **Workflow Integration**: Define how PRD integrates with `/specify`, `/plan`, `/tasks`
 - **SSOT Mapping**: Document which PRD sections feed into which workflow stages
-- **Handoff Planning**: Define what specification-agent pulls from PRD
+- **Handoff Planning**: Define what /specification workflow pulls from PRD
 
 **Outputs**:
 - List of recommended custom agents with purposes
@@ -251,7 +251,7 @@ Phase 3+: Implementation (domain-specific agents)
 
 ### Step 4: Constitutional Customization
 ```
-1. Review all 14 constitutional principles
+1. Review all 16 constitutional principles
 2. For each principle, determine project-specific guidance
 3. Document any necessary exceptions with justification
 4. Define project-specific quality thresholds
@@ -336,7 +336,7 @@ Phase 3+: Implementation (domain-specific agents)
 - Product Goals & Objectives (short, medium, long-term)
 - User Personas (at least 1 primary, 1 secondary)
 - Core Features & Requirements (MVP features minimum)
-- System Architecture Principles (all 14 constitutional principles)
+- System Architecture Principles (all 16 constitutional principles)
 - Release Strategy (MVP clearly defined)
 - Open Questions & Risks
 - PRD Review Checklist
@@ -351,7 +351,7 @@ Phase 3+: Implementation (domain-specific agents)
 - Implementation details (HOW to build)
 - Specific technology choices (unless constrained)
 - Code structure or architecture patterns
-- Detailed API designs (that's planning-agent's job)
+- Detailed API designs (that's /plan's job)
 - Timeline commitments (only recommendations)
 
 ### Quality Standards
@@ -363,7 +363,7 @@ Phase 3+: Implementation (domain-specific agents)
 - No ambiguous terms like "fast", "good UX", "reliable" without definition
 
 **Completeness**:
-- All 14 constitutional principles addressed
+- All 16 constitutional principles addressed
 - MVP is clearly defined and achievable
 - User personas have goals, pain points, behaviors
 - Open questions identified with owners and deadlines
@@ -398,7 +398,7 @@ Phase 3+: Implementation (domain-specific agents)
 
 ## Integration with SDD Workflow
 
-### How specification-agent Uses This PRD
+### How /specify Uses This PRD
 
 When `/specify` is run for a feature:
 1. Reads PRD personas for user story context
@@ -407,7 +407,7 @@ When `/specify` is run for a feature:
 4. Uses PRD constraints to inform requirements
 5. Aligns feature scope with PRD release phases
 
-### How planning-agent Uses This PRD
+### How /plan Uses This PRD
 
 When `/plan` is run for a feature:
 1. Reads constitutional customizations for compliance
@@ -420,7 +420,7 @@ When `/plan` is run for a feature:
 
 After PRD approval:
 1. Open `.specify/memory/constitution.md`
-2. For each of 14 principles, add project-specific guidance from PRD
+2. For each of 16 principles, add project-specific guidance from PRD
 3. Document exceptions from PRD in constitution
 4. Add PRD quality thresholds to relevant principles
 5. Reference PRD as authoritative source in constitution header
@@ -475,7 +475,7 @@ Your PRD is successful when:
    - Understands constitutional customizations
 
 3. **Constitution is customizable**
-   - All 14 principles have project context
+   - All 16 principles have project context
    - Exceptions are justified and documented
    - Quality gates are defined
 

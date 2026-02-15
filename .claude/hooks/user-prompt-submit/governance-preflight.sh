@@ -135,7 +135,7 @@ generate_orchestration_guidance() {
             delegation="single: $delegates"
         fi
     else
-        delegation="task-orchestrator (multi-domain: $domains)"
+        delegation="team-orchestration (multi-domain: $domains)"
     fi
 
     cat <<EOF
@@ -158,8 +158,8 @@ You are operating under the Specification-Driven Development Constitution v3.0.0
 
 3. **DELEGATION DECISION**
    - 0 domains -> may execute directly
-   - 1 domain -> MUST delegate to specialist agent
-   - 2+ domains -> MUST delegate to task-orchestrator
+   - 1 domain -> MUST activate specialist skill
+   - 2+ domains -> MUST activate team-orchestration skill
 
 4. **EXECUTION AUTHORIZATION**
    - Confirm all steps complete
@@ -168,7 +168,7 @@ You are operating under the Specification-Driven Development Constitution v3.0.0
 
 **CRITICAL PRINCIPLES:**
 - **Principle VI (IMMUTABLE)**: NO autonomous git operations without explicit user approval
-- **Principle X (CRITICAL)**: Specialized work -> specialized agents
+- **Principle X (CRITICAL)**: Specialized work -> specialist skills
 - **Principle II (IMMUTABLE)**: TDD mandatory, >80% coverage
 - **Principle XVI**: Plugin-First Architecture -- all capabilities as plugins
 
@@ -176,7 +176,7 @@ You are operating under the Specification-Driven Development Constitution v3.0.0
 \`\`\`
 Constitutional Compliance Check:
 - Domain(s): [none | single: <domain> | multi: <domains>]
-- Delegation: [direct execution | <agent-name>]
+- Delegation: [direct execution | <skill-name>]
 - Git operations: [none planned | will request approval]
 - Proceeding with: [action description]
 \`\`\`

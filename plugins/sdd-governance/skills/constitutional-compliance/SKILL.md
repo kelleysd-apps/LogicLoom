@@ -2,10 +2,10 @@
 name: constitutional-compliance
 description: |
   Validate constitutional compliance for specifications, plans, tasks, code, and operations
-  using the SDD Framework Constitution v1.5.0 (14 principles). Use when checking if work
+  using the SDD Framework Constitution v3.0.0 (16 principles). Use when checking if work
   follows constitutional requirements or executing compliance validation.
 
-  This skill provides guidance on applying all 14 constitutional principles and running
+  This skill provides guidance on applying all 16 constitutional principles and running
   automated compliance checks. It ensures all work adheres to immutable, critical, and
   standard principles governing architecture, quality, workflow, and safety.
 
@@ -50,7 +50,7 @@ Activate this skill when:
 Read: .specify/memory/constitution.md
 ```
 
-**Understand the 14 principles** organized in 3 tiers:
+**Understand the 16 principles** organized in 3 tiers:
 
 **Immutable Principles (I-III)** - NON-NEGOTIABLE:
 - **Principle I**: Library-First Architecture
@@ -65,12 +65,14 @@ Read: .specify/memory/constitution.md
 - **Principle VIII**: Documentation Synchronization
 - **Principle IX**: Dependency Management
 
-**Workflow & Delegation Principles (X-XIV)** - CRITICAL/STANDARD:
+**Workflow & Delegation Principles (X-XVI)** - CRITICAL/STANDARD:
 - **Principle X**: Agent Delegation Protocol (CRITICAL)
 - **Principle XI**: Input Validation & Output Sanitization (CRITICAL)
 - **Principle XII**: Design System Compliance
 - **Principle XIII**: Access Control
 - **Principle XIV**: AI Model Selection
+- **Principle XV**: File and Folder Organization
+- **Principle XVI**: Plugin-First Architecture
 
 ### Step 2: Run Automated Compliance Check
 
@@ -205,12 +207,14 @@ Automated Checks: X/9 passing, Y skipped, Z failing
 - Principle VIII (Documentation): [status]
 - Principle IX (Dependencies): [status]
 
-✅ Workflow & Delegation (X-XIV):
+✅ Workflow & Delegation (X-XVI):
 - Principle X (Agent Delegation): [status]
 - Principle XI (Validation/Sanitization): [status]
 - Principle XII (Design System): [status - manual review]
 - Principle XIII (Access Control): [status - manual review]
 - Principle XIV (AI Model Selection): [status - manual review]
+- Principle XV (File Organization): [status]
+- Principle XVI (Plugin-First): [status]
 
 Overall Status: [COMPLIANT / NON-COMPLIANT / NEEDS REVIEW]
 
@@ -342,7 +346,7 @@ Verify the skill executed correctly:
 
 ### Issue: Don't know which principles apply to current work
 
-**Cause**: Constitution has 14 principles
+**Cause**: Constitution has 16 principles
 
 **Solution**:
 - **All work**: I, II, III (immutable - always apply)
@@ -437,7 +441,7 @@ VERIFIER_CHECK:
 
 ## References
 
-- Constitution v1.5.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
 - Constitution Update Checklist: `.specify/memory/constitution_update_checklist.md`
 - Automated Check Script: `.specify/scripts/bash/constitutional-check.sh`
 - Testing Policy: `.docs/policies/testing-policy.md` (Principle II)

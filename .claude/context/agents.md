@@ -1,5 +1,5 @@
 # Agents Context Module
-<!-- Auto-generated from AGENTS.md and plugin files - Plugin-First Architecture v5.0.0 -->
+<!-- Auto-generated from AGENTS.md and plugin files - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->
 <!-- Module: Agent/skill registry, delegation protocol, multi-agent coordination -->
 
 ## Agent & Skill Delegation Protocol

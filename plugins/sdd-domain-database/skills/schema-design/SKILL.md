@@ -19,11 +19,11 @@ progressive-disclosure:
   layer-1-metadata:
     description: "Handles database schema and data model design"
     triggers: [schema, data model, ERD, entity]
-    primary-agent: database-specialist
+    primary-agent: schema-design skill (sdd-domain-database)
   layer-2-instructions: true
   layer-3-examples: true
 agent-invocations:
-  - agent: database-specialist
+  - agent: schema-design skill (sdd-domain-database)
     context-subset:
       - entities
       - relationships
@@ -69,7 +69,7 @@ You are a database schema design specialist working on a team task. Your experti
 ## Constitutional Compliance
 
 - **Principle III (Contract-First)**: Schema contracts before implementation
-- **Principle X (Skills-First)**: Skill orchestrates, database-specialist executes
+- **Principle X (Skills-First)**: Skill orchestrates, schema-design skill (sdd-domain-database) executes
 
 ## Instructions
 
@@ -137,7 +137,7 @@ Produce:
 ## Agent Invocation
 
 ```yaml
-invoke: database-specialist
+invoke: schema-design skill (sdd-domain-database)
 context:
   entities: ["<entity1>", "<entity2>"]
   relationships: [<relationships>]

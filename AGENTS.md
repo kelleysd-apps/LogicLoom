@@ -349,7 +349,7 @@ Multiple domains (2+)? ───────────────────
 | Version | Date | Changes |
 |---------|------|---------|
 | 5.0.0 | 2026-02-15 | Full skill-based delegation — 3 orchestrator + 4 specification agents converted to skills, added sdd-dev-loop agents, 11 agents |
-| 4.0.0 | 2026-02-15 | Skill-based domain delegation — 7 domain agents converted to skills, model mixing (Opus/Sonnet), 14 agents |
+| 4.0.0 | 2026-02-15 | Skill-based domain delegation — 7 domain agents converted to skills, model mixing (Opus/Sonnet) |
 | 3.0.0 | 2026-02-07 | Plugin-First Architecture rewrite — 22 agents across 15 plugins, command bridge, marketplace |
 | 2.1.0 | 2025-12-05 | Added constitutional-governance-agent (15 agents) |
 | 2.0.0 | 2025-11-29 | Complete rewrite, 14 agents, constitution v1.6.0 |

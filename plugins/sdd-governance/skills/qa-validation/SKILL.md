@@ -31,10 +31,10 @@ Validation skill for quality assurance including test coverage validation, accep
 ### Allowed Tools
 Read, Grep, Glob, Bash
 
-### Agent Invocation
+### Skill Invocation
 
 ```yaml
-agent: quality-specialist
+skill: testing-operations
 context-subset:
   - coverage-report
   - test-results

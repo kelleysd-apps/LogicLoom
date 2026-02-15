@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sdd-agentic-framework"
-version = "4.1.0"
+version = "5.0.0"
 description = "Specification-Driven Development (SDD) Agentic Framework with DS-STAR Multi-Agent Enhancement"
 readme = "README.md"
 requires-python = ">=3.11"

@@ -18,17 +18,17 @@ to skills. Used by the Router Agent for RL-enhanced skill selection.
 
 Exact matches for slash commands:
 
-| Command | Skill Path | Agent |
+| Command | Skill Path | Skill |
 |---------|------------|-------|
-| `/specify` | sdd-workflow/sdd-specification | specification-orchestrator |
-| `/plan` | sdd-workflow/sdd-planning | specification-orchestrator |
-| `/tasks` | sdd-workflow/sdd-tasks | specification-orchestrator |
-| `/debug` | sdd-workflow/sdd-debug | auto-debug-agent |
-| `/finalize` | governance/finalize | finalizer-agent |
-| `/create-agent` | creation/create-agent | system-architect |
-| `/create-skill` | creation/create-skill | system-architect |
-| `/create-prd` | creation/create-prd | specification-orchestrator |
-| `/initialize-project` | project-initialization/initialize-project | specification-orchestrator |
+| `/specify` | sdd-workflow/sdd-specification | unified-specification skill |
+| `/plan` | sdd-workflow/sdd-planning | planning-agent skill |
+| `/tasks` | sdd-workflow/sdd-tasks | task-generation skill |
+| `/debug` | sdd-workflow/sdd-debug | auto-debug skill (auto-debug-agent) |
+| `/finalize` | governance/finalize | finalize skill (sdd-git) |
+| `/create-agent` | creation/create-agent | agent-creation skill (subagent-architect) |
+| `/create-skill` | creation/create-skill | skill-creation skill (subagent-architect) |
+| `/create-prd` | creation/create-prd | prd-creation skill (prd-specialist) |
+| `/initialize-project` | project-initialization/initialize-project | project-initialization skill |
 
 ---
 
@@ -38,8 +38,7 @@ Exact matches for slash commands:
 
 **Triggers**: UI, component, React, CSS, form, responsive, page, layout, style
 
-**Primary Skill**: domain/frontend-operations
-**Agent**: implementation-specialist
+**Primary Skill**: frontend-operations skill (sdd-domain-frontend)
 
 **Examples**:
 - "Create a login form component"
@@ -50,9 +49,8 @@ Exact matches for slash commands:
 
 **Triggers**: API, endpoint, server, middleware, service, authentication
 
-**Primary Skill**: domain/backend-operations
-**Fallback Skill**: domain/api-design
-**Agent**: backend-architect, implementation-specialist
+**Primary Skill**: api-design skill (sdd-domain-backend)
+**Fallback Skill**: service-architecture skill (sdd-domain-backend)
 
 **Examples**:
 - "Create a user registration endpoint"
@@ -63,9 +61,8 @@ Exact matches for slash commands:
 
 **Triggers**: schema, migration, query, SQL, RLS, table, index, data model
 
-**Primary Skill**: domain/database-operations
-**Fallback Skill**: sdd-workflow/sdd-planning
-**Agent**: database-specialist
+**Primary Skill**: schema-design skill (sdd-domain-database)
+**Fallback Skill**: planning-agent skill (sdd-specification)
 
 **Examples**:
 - "Create the users table schema"
@@ -76,8 +73,7 @@ Exact matches for slash commands:
 
 **Triggers**: test, TDD, E2E, coverage, unit test, QA, assertion, mock
 
-**Primary Skill**: domain/testing-operations
-**Agent**: quality-specialist
+**Primary Skill**: testing-operations skill (sdd-domain-testing)
 
 **Examples**:
 - "Write unit tests for the user service"
@@ -88,9 +84,8 @@ Exact matches for slash commands:
 
 **Triggers**: security, encryption, XSS, secrets, vulnerability, OWASP
 
-**Primary Skill**: domain/security-operations
-**Fallback Skill**: domain/backend-operations
-**Agent**: quality-specialist
+**Primary Skill**: security-operations skill (sdd-domain-security)
+**Fallback Skill**: api-design skill (sdd-domain-backend)
 
 **Examples**:
 - "Review code for security vulnerabilities"
@@ -101,9 +96,8 @@ Exact matches for slash commands:
 
 **Triggers**: performance, optimize, cache, benchmark, latency, speed
 
-**Primary Skill**: domain/performance-operations
-**Fallback Skill**: domain/devops-operations
-**Agent**: operations-specialist
+**Primary Skill**: performance-operations skill (sdd-domain-performance)
+**Fallback Skill**: monitoring skill (sdd-domain-devops)
 
 **Examples**:
 - "Optimize database queries"
@@ -114,8 +108,7 @@ Exact matches for slash commands:
 
 **Triggers**: deploy, CI/CD, Docker, pipeline, infrastructure, Kubernetes
 
-**Primary Skill**: domain/devops-operations
-**Agent**: operations-specialist
+**Primary Skill**: monitoring skill (sdd-domain-devops)
 
 **Examples**:
 - "Set up CI/CD pipeline"
@@ -130,29 +123,25 @@ Exact matches for slash commands:
 
 **Triggers**: specify, specification, requirements, feature spec, user story
 
-**Skill**: sdd-workflow/sdd-specification
-**Agent**: specification-orchestrator
+**Skill**: unified-specification skill (sdd-specification)
 
 ### Planning Phase
 
 **Triggers**: plan, implementation plan, technical research, data model, contract
 
-**Skill**: sdd-workflow/sdd-planning
-**Agent**: specification-orchestrator
+**Skill**: planning-agent skill (sdd-specification)
 
 ### Tasks Phase
 
 **Triggers**: tasks, task list, breakdown, dependencies, implementation tasks
 
-**Skill**: sdd-workflow/sdd-tasks
-**Agent**: specification-orchestrator
+**Skill**: task-generation skill (sdd-specification)
 
 ### Debug Phase
 
 **Triggers**: debug, troubleshoot, error, deployment issue, bug
 
-**Skill**: sdd-workflow/sdd-debug
-**Agent**: auto-debug-agent
+**Skill**: auto-debug skill (auto-debug-agent plugin)
 
 ---
 
@@ -162,15 +151,13 @@ Exact matches for slash commands:
 
 **Triggers**: finalize, pre-commit, commit check, ready to commit
 
-**Skill**: governance/finalize
-**Agent**: finalizer-agent
+**Skill**: finalize skill (sdd-git plugin)
 
 ### Compliance
 
 **Triggers**: compliance, constitutional check, validation
 
-**Skill**: validation/constitutional-compliance
-**Agent**: verifier-agent
+**Skill**: constitutional-compliance skill (constitutional-governance-agent)
 
 ---
 
@@ -180,8 +167,7 @@ Exact matches for slash commands:
 
 **Detection**: 2+ domains identified in message
 
-**Skill**: orchestration/multi-skill-workflow
-**Agent**: workflow-coordinator
+**Skill**: team-orchestration skill (sdd-orchestrator)
 
 **Examples**:
 - "Build user profile with database and UI" (frontend + database)
@@ -192,8 +178,7 @@ Exact matches for slash commands:
 
 **Triggers**: migration, migrate, upgrade pattern, convert to skills
 
-**Skill**: orchestration/migration-workflow
-**Agent**: workflow-coordinator
+**Skill**: multi-skill-workflow skill (sdd-orchestrator)
 
 ---
 
@@ -203,22 +188,19 @@ Exact matches for slash commands:
 
 **Triggers**: create agent, new agent, /create-agent
 
-**Skill**: creation/create-agent
-**Agent**: system-architect
+**Skill**: agent-creation skill (subagent-architect)
 
 ### Skill Creation
 
 **Triggers**: create skill, new skill, /create-skill
 
-**Skill**: creation/create-skill
-**Agent**: system-architect
+**Skill**: skill-creation skill (subagent-architect)
 
 ### PRD Creation
 
 **Triggers**: create PRD, product requirements, /create-prd
 
-**Skill**: creation/create-prd
-**Agent**: specification-orchestrator
+**Skill**: prd-creation skill (prd-specialist)
 
 ---
 
@@ -228,8 +210,7 @@ Exact matches for slash commands:
 
 **Triggers**: MCP, mcp-add, MCP server, tool integration
 
-**Skill**: integration/mcp-server-setup
-**Agent**: operations-specialist
+**Skill**: mcp-server-setup skill (sdd-maintenance)
 
 ---
 
@@ -272,7 +253,7 @@ Triggers are validated against:
 - Uniqueness within category
 - No conflicting routes
 - Valid skill path references
-- Agent exists in agent-index.json
+- Skill exists in plugin manifests
 
 ---
 

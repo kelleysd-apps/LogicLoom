@@ -91,11 +91,11 @@ test -f .docs/prd/prd.md && echo "PRD found" || echo "PRD MISSING - run /create-
 
    | PRD Section | Domain Trigger | Suggested Agent |
    |-------------|----------------|-----------------|
-   | UI features | frontend | frontend-specialist |
-   | API requirements | backend | backend-architect |
-   | Database schemas | database | database-specialist |
-   | Security requirements | security | security-specialist |
-   | Performance targets | performance | performance-engineer |
+   | UI features | frontend | frontend-operations skill (sdd-domain-frontend) |
+   | API requirements | backend | api-design skill (sdd-domain-backend) |
+   | Database schemas | database | schema-design skill (sdd-domain-database) |
+   | Security requirements | security | security-operations skill (sdd-domain-security) |
+   | Performance targets | performance | performance-operations skill (sdd-domain-performance) |
 
 4. **Extract principle customizations**:
    For each of the 16 principles, note:
@@ -554,10 +554,10 @@ This skill may require delegation to:
 | Task | Delegate To |
 |------|-------------|
 | Create custom agent | subagent-architect |
-| Frontend agent config | frontend-specialist |
-| Backend agent config | backend-architect |
-| Security review | security-specialist |
-| Testing setup | testing-specialist |
+| Frontend agent config | frontend-operations skill (sdd-domain-frontend) |
+| Backend agent config | api-design skill (sdd-domain-backend) |
+| Security review | security-operations skill (sdd-domain-security) |
+| Testing setup | testing-operations skill (sdd-domain-testing) |
 
 ---
 

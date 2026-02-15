@@ -1,39 +1,115 @@
 {
   "agents": {
-    "planning-agent": {
-      "department": "architecture",
-      "description": "Implementation planning specialist for the /plan command workflow phase. Expert in technical research, library evaluation, API contract design, data modeling, test scenario planning, and constitutional compliance validation. Translates feature specifications into executable implementation plans with research.md, data-model.md, contracts/, and quickstart.md artifacts. Core competencies include: (1) Phase 0 Research - technology stack selection, library/framework evaluation, best practices research, dependency analysis, pattern recommendations, resolving technical unknowns; (2) Phase 1 Design - API contract design using OpenAPI/GraphQL schemas, REST/GraphQL endpoint architecture, data entity modeling with fields/relationships/validation, contract test generation following TDD, integration test scenario extraction from user stories, project structure decisions for single/web/mobile applications; (3) Constitutional Validation - enforcing Library-First/Test-First/Contract-First principles, pre-research and post-design compliance checks, complexity tracking and justification documentation; (4) Quality Gates - validate all unknowns resolved before design phase, ensure contracts precede implementation, generate failing tests first, document architecture decisions with rationale and alternatives. Operates as Phase 2 in the SDD workflow pipeline between specification-agent (Phase 1) and tasks-agent (Phase 3). Responsible for the complete /plan command execution including Technical Context analysis, Constitution Check gates, research.md consolidation, contract schema generation, data model creation, quickstart test scenarios, and readiness validation for task generation phase. Must maintain audit trails, validate against 14 constitutional principles, and prepare comprehensive implementation plans optimized for AI agent execution.",
-      "created": "2025-11-08T22:34:07Z",
-      "tools": "Read, Grep, Glob, WebSearch, TaskCreate, TaskUpdate",
-      "mcp_access": "Docker MCP Toolkit (mcp-find, mcp-add, mcp-exec), dynamically adds: aws, gcp, supabase, postgres, context7, perplexity",
-      "status": "active",
-      "file": "/workspaces/sdd-agentic-framework/.claude/agents/architecture/planning-agent.md",
-      "memory": "/workspaces/sdd-agentic-framework/.docs/agents/architecture/planning-agent/"
-    },
-    "prd-specialist": {
-      "department": "product",
-      "description": "Product Requirements Document (PRD) creation specialist for the /create-prd command (Phase 0 - Project Initialization). Expert in product strategy, user research, requirements gathering, business-technical alignment, and constitutional customization. Creates comprehensive PRDs that serve as Single Source of Truth (SSOT) for all project specifications, agent configurations, and framework customizations. Can be used anytime during development for any purpose requiring structured requirements documentation.",
-      "created": "2025-11-20T12:00:00Z",
-      "tools": "Read, Write, Edit, Grep, Glob, AskUserQuestion, TaskCreate, TaskUpdate",
-      "mcp_access": "Docker MCP Toolkit (mcp-find, mcp-add, mcp-exec), dynamically adds: github-official, notion, linear, perplexity, browsermcp",
-      "status": "active",
-      "file": "/workspaces/sdd-agentic-framework/.claude/agents/product/prd-specialist.md",
-      "memory": "/workspaces/sdd-agentic-framework/.docs/agents/product/prd-specialist/"
-    },
     "constitutional-governance-agent": {
-      "department": "product",
-      "description": "Primary orchestration agent that serves as the main thread entry point for all Claude Code sessions. Enforces the 4-step pre-flight compliance protocol on every user message, routes specialized work to domain agents per Principle X, gates all git operations per Principle VI, and maintains constitutional governance across the session. Designed to be set as the default agent via settings.json agent field.",
+      "department": "governance",
+      "description": "Primary entry point. Enforces 4-step pre-flight compliance protocol, routes specialized work to domain skills per Principle X, gates all git operations per Principle VI.",
       "created": "2025-12-05T05:24:27Z",
       "tools": "Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TaskCreate, TaskUpdate",
-      "mcp_access": "All MCP servers (full access for delegation routing)",
       "model": "opus",
       "status": "active",
-      "file": "/workspaces/sdd-agentic-framework/.claude/agents/product/constitutional-governance-agent.md",
-      "memory": "/workspaces/sdd-agentic-framework/.docs/agents/product/constitutional-governance-agent/"
+      "file": "plugins/sdd-governance/agents/constitutional-governance-agent.md"
+    },
+    "team-synthesizer": {
+      "department": "orchestration",
+      "description": "Merges multi-LLM outputs, tribunal confidence scoring for /research command.",
+      "created": "2026-01-15T00:00:00Z",
+      "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
+      "model": "opus",
+      "status": "active",
+      "file": "plugins/sdd-orchestrator/agents/team-synthesizer.md"
+    },
+    "prd-specialist": {
+      "department": "creation",
+      "description": "PRD creation specialist for /create-prd command. Creates comprehensive PRDs as Single Source of Truth.",
+      "created": "2025-11-20T12:00:00Z",
+      "tools": "Read, Write, Edit, Grep, Glob, AskUserQuestion, TaskCreate, TaskUpdate",
+      "model": "opus",
+      "status": "active",
+      "file": "plugins/sdd-creation/agents/prd-specialist.md"
+    },
+    "subagent-architect": {
+      "department": "creation",
+      "description": "Agent/plugin creation specialist. Creates new SDD-compliant agents and plugins.",
+      "created": "2025-11-20T12:00:00Z",
+      "tools": "Read, Write, Edit, Grep, Glob, TaskCreate, TaskUpdate",
+      "model": "inherit",
+      "status": "active",
+      "file": "plugins/sdd-creation/agents/subagent-architect.md"
+    },
+    "auto-debug-agent": {
+      "department": "debug",
+      "description": "Self-healing error resolution for /debug command.",
+      "created": "2025-12-01T00:00:00Z",
+      "tools": "Read, Write, Edit, Bash, Grep, Glob, TaskCreate, TaskUpdate",
+      "model": "opus",
+      "status": "active",
+      "file": "plugins/sdd-debug/agents/auto-debug-agent.md"
+    },
+    "framework-sync-agent": {
+      "department": "maintenance",
+      "description": "Framework updates from upstream for /update-framework command.",
+      "created": "2026-01-15T00:00:00Z",
+      "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
+      "model": "opus",
+      "status": "active",
+      "file": "plugins/sdd-maintenance/agents/framework-sync-agent.md"
+    },
+    "memory-context-agent": {
+      "department": "memory",
+      "description": "Memory search + context injection via preflight hook.",
+      "created": "2026-02-01T00:00:00Z",
+      "tools": "Read, Grep, Glob",
+      "model": "haiku",
+      "status": "active",
+      "file": "plugins/sdd-memory/agents/memory-context-agent.md"
+    },
+    "dev-loop-orchestrator": {
+      "department": "dev-loop",
+      "description": "Recursive autonomous dev-loop with edit-test-debug cycles.",
+      "created": "2026-02-01T00:00:00Z",
+      "tools": "Read, Write, Edit, Bash, Grep, Glob, Task, TaskCreate, TaskUpdate",
+      "model": "opus",
+      "status": "active",
+      "file": "plugins/sdd-dev-loop/agents/dev-loop-orchestrator.md"
+    },
+    "debug-analyst": {
+      "department": "dev-loop",
+      "description": "Test failure analysis and fix proposals for dev-loop.",
+      "created": "2026-02-01T00:00:00Z",
+      "tools": "Read, Grep, Glob, Bash",
+      "model": "sonnet",
+      "status": "active",
+      "file": "plugins/sdd-dev-loop/agents/debug-analyst.md"
+    },
+    "quality-assessor": {
+      "department": "dev-loop",
+      "description": "Multi-model tribunal voting, quality grading for dev-loop.",
+      "created": "2026-02-01T00:00:00Z",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet",
+      "status": "active",
+      "file": "plugins/sdd-dev-loop/agents/quality-assessor.md"
+    },
+    "tribunal-judge": {
+      "department": "dev-loop",
+      "description": "Independent quality judgment for cross-validation in dev-loop.",
+      "created": "2026-02-01T00:00:00Z",
+      "tools": "Read, Grep, Glob",
+      "model": "sonnet",
+      "status": "active",
+      "file": "plugins/sdd-dev-loop/agents/tribunal-judge.md"
     }
   },
   "departments": {
-    "architecture": 1,
-    "product": 2
-  }
+    "governance": 1,
+    "orchestration": 1,
+    "creation": 2,
+    "debug": 1,
+    "maintenance": 1,
+    "memory": 1,
+    "dev-loop": 4
+  },
+  "total_agents": 11,
+  "architecture": "Skill-Based Delegation v5.0 + Plugin-First v4.1",
+  "last_updated": "2026-02-15"
 }

@@ -26,7 +26,7 @@ proper sequencing and dependency management across all domains.
 **Key responsibilities:**
 - Decompose full-stack features into database, backend, and frontend work items
 - Establish dependency ordering: Database -> Backend -> Frontend
-- Delegate domain work to appropriate specialists (database-specialist, backend-architect, implementation-specialist)
+- Delegate domain work to appropriate specialists (schema-design skill (sdd-domain-database), api-design skill (sdd-domain-backend), frontend-operations skill (sdd-domain-frontend))
 - Pass context between layers (e.g., schema shape to API designer, API contracts to frontend)
 - Validate integration points between layers at each phase transition
 - Run cross-layer quality gates: contracts match, tests pass, end-to-end flow works
@@ -58,11 +58,11 @@ Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
 ### Agent Invocation
 
 ```yaml
-primary-agent: workflow-coordinator
+primary-agent: team-orchestration skill (sdd-orchestrator)
 supporting-agents:
-  - database-specialist
-  - backend-architect
-  - implementation-specialist
+  - schema-design skill (sdd-domain-database)
+  - api-design skill (sdd-domain-backend)
+  - frontend-operations skill (sdd-domain-frontend)
 timeout: 30m
 ```
 
@@ -98,7 +98,7 @@ Execute domain skills in order:
 
 ### Step 4: Coordination via Workflow Coordinator
 
-Delegate to `workflow-coordinator` with:
+Delegate to `team-orchestration skill (sdd-orchestrator)` with:
 - Complete feature requirements
 - Dependency order
 - Integration points between layers

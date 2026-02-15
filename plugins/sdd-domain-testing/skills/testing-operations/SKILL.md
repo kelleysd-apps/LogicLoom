@@ -2,7 +2,7 @@
 name: testing-operations
 version: 3.0.0
 category: domain
-description: Testing operations skill. Routes to quality-specialist.
+description: Testing operations skill providing direct domain expertise.
 triggers: ["test", "TDD", "coverage", "unit test", "E2E", "QA"]
 rl_metrics:
   success_rate: 0.5
@@ -54,10 +54,9 @@ You are a testing specialist working on a team task. Your expertise includes:
 ### Allowed Tools
 Read, Write, Edit, MultiEdit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-agent: quality-specialist
 context-subset:
   - test-requirements
   - coverage-targets
@@ -92,9 +91,9 @@ context-subset:
   - code-to-test: Files/functions to test
 ```
 
-### Step 3: Invoke Quality Specialist
+### Step 3: Execute Testing Work
 
-Delegate to `quality-specialist` with:
+Implement testing work with:
 - Clear test requirements
 - Coverage targets (min 80% per Principle II)
 - Test framework in use

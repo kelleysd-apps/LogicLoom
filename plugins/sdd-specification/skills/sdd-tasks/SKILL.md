@@ -264,7 +264,7 @@ Write: $FEATURE_DIR/tasks.md
 **Identify agents needed** for task execution:
 - Specialist agents by domain
 - Delegation strategy (single vs multi-agent)
-- task-orchestrator if multi-domain
+- team-orchestration skill (sdd-orchestrator) if multi-domain
 
 ### Step 9: Report Completion
 
@@ -326,7 +326,7 @@ Next Step: Execute tasks sequentially or delegate to specialized agents
 
 ### Principle X: Agent Delegation Protocol
 - Tasks identify which agents/domains are needed
-- Multi-domain features routed to task-orchestrator
+- Multi-domain features routed to team-orchestration skill (sdd-orchestrator)
 - Single-domain features routed to specialist
 - Domain detection guides delegation
 
@@ -381,8 +381,8 @@ Total: 18 tasks (8 parallel)
 
 **Validation**: 12/12 checks passing
 **Domains**: backend, database, security
-**Agents**: backend-architect, database-specialist, security-specialist
-**Delegation**: multi-agent via task-orchestrator
+**Domain Skills**: api-design skill (sdd-domain-backend), schema-design skill (sdd-domain-database), security-operations skill (sdd-domain-security)
+**Delegation**: multi-skill via team-orchestration skill
 
 ### Example 2: React Component Task Generation
 
@@ -423,18 +423,18 @@ Total: 12 tasks (6 parallel)
 
 **Validation**: 11/12 checks passing (no integration tasks needed)
 **Domains**: frontend
-**Agents**: frontend-specialist
-**Delegation**: single-agent
+**Domain Skills**: frontend-operations skill
+**Delegation**: single-skill
 
-## Agent Collaboration
+## Skill Collaboration
 
-### task-orchestrator
-**When to delegate**: Multi-domain tasks (3+ domains)
+### team-orchestration skill
+**When to use**: Multi-domain tasks (3+ domains)
 
-**What they handle**: Coordinating multiple specialists to execute tasks
+**What they handle**: Coordinating multiple domain skills to execute tasks
 
-### Domain Specialists
-**When to notify**: Report which specialists needed based on domains
+### Domain Skills
+**When to notify**: Report which domain skills needed based on domains
 
 **What they handle**: Executing tasks in their domain
 

@@ -2,7 +2,7 @@
 name: backend-operations
 version: 3.0.0
 category: domain
-description: Backend development and API endpoints. Routes to backend-architect.
+description: Backend development and API endpoints. Routes to api-design skill (sdd-domain-backend).
 triggers: ["backend", "API endpoint", "server", "middleware", "service layer", "authentication"]
 rl_metrics:
   success_rate: 0.5
@@ -60,12 +60,12 @@ You are a backend architect working on a team task. Your expertise includes:
 
 ### Agent Invocations
 
-**backend-architect**:
+**api-design skill (sdd-domain-backend)**:
 - Context: api-contracts, service-requirements, authentication-needs, data-flow
 - When: API design or service architecture work is needed
 - Timeout: 10m
 
-**implementation-specialist**:
+**backend-operations skill (sdd-domain-backend)**:
 - Context: api-specifications, endpoint-requirements, middleware-config
 - When: Backend implementation work is needed
 - Timeout: 10m
@@ -89,7 +89,7 @@ Identify the specific backend work needed:
 
 ### Step 2: Prepare Context for Agent
 
-For **API Design** (backend-architect):
+For **API Design** (api-design skill (sdd-domain-backend)):
 ```yaml
 context-subset:
   - api-contracts: OpenAPI/Swagger specs
@@ -98,7 +98,7 @@ context-subset:
   - data-flow: How data moves through system
 ```
 
-For **Implementation** (implementation-specialist):
+For **Implementation** (backend-operations skill (sdd-domain-backend)):
 ```yaml
 context-subset:
   - api-specifications: Endpoint specs
@@ -108,12 +108,12 @@ context-subset:
 
 ### Step 3: Select and Invoke Agent
 
-**backend-architect** for:
+**api-design skill (sdd-domain-backend)** for:
 - API contract design
 - Service architecture decisions
 - Authentication strategy
 
-**implementation-specialist** for:
+**backend-operations skill (sdd-domain-backend)** for:
 - Endpoint implementation
 - Middleware implementation
 - Integration work
@@ -138,7 +138,7 @@ Check agent output for:
 
 ## Agent Invocations
 
-### backend-architect
+### api-design skill (sdd-domain-backend)
 ```yaml
 purpose: Design APIs and backend services
 department: architecture
@@ -147,7 +147,7 @@ skill-portfolio:
   - domain/service-architecture
 ```
 
-### implementation-specialist
+### backend-operations skill (sdd-domain-backend)
 ```yaml
 purpose: Build backend integrations
 merged-from:

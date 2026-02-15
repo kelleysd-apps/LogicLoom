@@ -323,7 +323,7 @@ Run before commits:
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| Agent | `[role]-[function].md` | `backend-architect.md` |
+| Agent | `[role]-[function].md` | `dev-loop-orchestrator.md` |
 | Skill folder | `[skill-name]/` | `domain-detection/` |
 | Feature dir | `###-[name]/` | `001-user-auth/` |
 
@@ -542,6 +542,6 @@ For comprehensive documentation, load the appropriate context modules:
 
 **Framework**: sdd-agentic-framework v5.0.0
 **Constitution**: v3.0.0 (16 Principles)
-**Architecture**: Plugin-First (v4.1) + Skill-Based Delegation (v5.0)
+**Architecture**: Skill-Based Delegation (v5.0) + Plugin-First (v4.1)
 **Context System**: Modular (v2.0)
 **Last Updated**: 2026-02-15

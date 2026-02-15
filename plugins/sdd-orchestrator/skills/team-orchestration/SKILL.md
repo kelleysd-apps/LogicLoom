@@ -60,15 +60,15 @@ Before spawning agents, discover available capabilities dynamically:
 
 Built at runtime from installed plugins. Common mappings:
 
-| Domain | Plugin | Primary Agent |
+| Domain | Plugin | Primary Skill |
 |--------|--------|---------------|
-| Frontend | sdd-domain-frontend | frontend-specialist |
-| Backend | sdd-domain-backend | backend-architect |
-| Database | sdd-domain-database | database-specialist |
-| Testing | sdd-domain-testing | testing-specialist |
-| Security | sdd-domain-security | security-specialist |
-| Performance | sdd-domain-performance | performance-engineer |
-| DevOps | sdd-domain-devops | devops-engineer |
+| Frontend | sdd-domain-frontend | frontend-operations |
+| Backend | sdd-domain-backend | api-design, service-architecture, system-design |
+| Database | sdd-domain-database | schema-design |
+| Testing | sdd-domain-testing | testing-operations |
+| Security | sdd-domain-security | security-operations |
+| Performance | sdd-domain-performance | performance-operations |
+| DevOps | sdd-domain-devops | monitoring |
 
 ## Swarm Coordination Protocol
 

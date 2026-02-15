@@ -265,7 +265,7 @@ Next Step: Run /tasks to generate implementation task list
 5. Verify all artifacts generated
 6. Run validation → 16/16 checks passing
 7. Run domain detection → backend, database domains
-8. Report completion with suggested agents: backend-architect, database-specialist
+8. Report completion with suggested agents: api-design skill (sdd-domain-backend), schema-design skill (sdd-domain-database)
 
 **Generated Artifacts**:
 ```
@@ -297,26 +297,26 @@ specs/001-user-list-api/
 5. Verify artifacts
 6. Run validation → 15/16 passing (missing deployment for component)
 7. Run domain detection → frontend domain
-8. Report completion with suggested agent: frontend-specialist
+8. Report completion with suggested agent: frontend-operations skill (sdd-domain-frontend)
 
 ## Agent Collaboration
 
-### backend-architect
+### api-design skill (sdd-domain-backend)
 **When to delegate**: Multi-service architecture, complex backend systems (for specialized research during Phase 0)
 
 **What they handle**: Backend system design, API architecture, service patterns
 
-### frontend-specialist
+### frontend-operations skill (sdd-domain-frontend)
 **When to delegate**: UI components, user interactions, client-side logic
 
 **What they handle**: Component design, state management, UI patterns
 
-### database-specialist
+### schema-design skill (sdd-domain-database)
 **When to delegate**: Complex data models, query optimization, schema design
 
 **What they handle**: Database schema, relationships, indexing, query patterns
 
-### task-orchestrator
+### team-orchestration skill (sdd-orchestrator)
 **When to delegate**: Multi-domain feature (3+ domains detected)
 
 **What they handle**: Coordinating multiple specialists during implementation
@@ -388,7 +388,7 @@ Verify the skill executed correctly:
 - quickstart.md test scenarios drive TDD implementation
 - Use absolute paths to avoid path resolution issues
 - Domain detection may reveal domains not apparent in specification
-- Multi-domain features benefit from task-orchestrator coordination
+- Multi-domain features benefit from team-orchestration skill (sdd-orchestrator) coordination
 
 
 
@@ -479,7 +479,7 @@ data-model.md + contracts/ + quickstart.md. Downstream: tasks-agent consumes the
 **Data model design**: Define entities with fields, types, constraints, relationships,
 validation rules, state transitions, and indexes.
 
-**Quality gates**: Pre-research constitution check (14 principles) and post-design
+**Quality gates**: Pre-research constitution check (16 principles) and post-design
 constitution check. Refactor if violations found. Validate plan score >= 80%.
 
 **Output standards**: All NEEDS CLARIFICATION resolved, each decision has rationale,

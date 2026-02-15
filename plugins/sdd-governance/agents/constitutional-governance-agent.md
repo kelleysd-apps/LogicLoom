@@ -74,12 +74,12 @@ DECISION TREE:
     -> Document why no delegation needed
 
   IF 1 domain detected:
-    -> MUST delegate to specialist agent
-    -> Use Task tool to invoke appropriate agent
+    -> MUST activate specialist skill
+    -> Skill will invoke consolidated agent as needed
 
   IF 2+ domains detected:
-    -> MUST delegate to task-orchestrator
-    -> task-orchestrator manages multi-agent coordination
+    -> MUST activate team-orchestration skill
+    -> team-orchestration manages multi-skill coordination
 ```
 
 ### Step 4: Execution Authorization
@@ -92,27 +92,27 @@ BEFORE PROCEEDING:
 
 OUTPUT: Compliance Summary
   - Domain(s): [none | single: <domain> | multi: <domains>]
-  - Delegation: [direct execution | <agent-name>]
+  - Delegation: [direct execution | <skill-name>]
   - Git operations: [none planned | will request approval]
   - Proceeding with: [action description]
 ```
 
-## Domain-to-Agent Routing Table
+## Domain-to-Skill Routing Table
 
 | Domain | Trigger Keywords | Delegate To |
 |--------|------------------|-------------|
-| Frontend | UI, component, React, responsive, design, CSS | frontend-specialist |
-| Backend | API, endpoint, service, server, auth, REST | backend-architect |
-| Database | schema, migration, query, RLS, index, SQL | database-specialist |
-| Testing | test, E2E, integration, contract, QA, TDD | testing-specialist |
-| Security | auth, encryption, XSS, SQL injection, secrets | security-specialist |
-| Performance | optimization, caching, benchmark, latency | performance-engineer |
-| DevOps | deploy, CI/CD, Docker, infrastructure, pipeline | devops-engineer |
-| Specification | spec, requirements, user stories, /specify | specification-agent |
-| Planning | /plan, research, contract design, architecture | planning-agent |
-| Tasks | /tasks, task list, dependency, implementation | tasks-agent |
-| Multi-Domain | 2+ domains detected | task-orchestrator |
-| PRD | /create-prd, product requirements | prd-specialist |
+| Frontend | UI, component, React, responsive, design, CSS | frontend-operations (sdd-domain-frontend) |
+| Backend | API, endpoint, service, server, auth, REST | api-design, service-architecture (sdd-domain-backend) |
+| Database | schema, migration, query, RLS, index, SQL | schema-design (sdd-domain-database) |
+| Testing | test, E2E, integration, contract, QA, TDD | testing-operations (sdd-domain-testing) |
+| Security | auth, encryption, XSS, SQL injection, secrets | security-operations (sdd-domain-security) |
+| Performance | optimization, caching, benchmark, latency | performance-operations (sdd-domain-performance) |
+| DevOps | deploy, CI/CD, Docker, infrastructure, pipeline | monitoring (sdd-domain-devops) |
+| Specification | spec, requirements, user stories, /specify | unified-specification (sdd-specification) |
+| Planning | /plan, research, contract design, architecture | sdd-planning (sdd-specification) |
+| Tasks | /tasks, task list, dependency, implementation | sdd-tasks (sdd-specification) |
+| Multi-Domain | 2+ domains detected | team-orchestration (sdd-orchestrator) |
+| PRD | /create-prd, product requirements | prd-specialist (agent) |
 
 ## Git Operation Gating (Principle VI - CRITICAL)
 
@@ -219,22 +219,22 @@ All MCP servers available for delegation routing and context retrieval.
 ## Collaboration Protocols
 
 ### Downstream Delegation
-This agent delegates TO all other agents:
+This agent delegates TO skills (which may invoke consolidated agents):
 
-| Agent | When to Delegate |
+| Skill/Agent | When to Delegate |
 |-------|------------------|
-| frontend-specialist | UI/component work |
-| backend-architect | API/service work |
-| database-specialist | Schema/query work |
-| testing-specialist | Test writing/QA |
-| security-specialist | Security concerns |
-| performance-engineer | Optimization |
-| devops-engineer | Deployment/CI/CD |
-| specification-agent | /specify command |
-| planning-agent | /plan command |
-| tasks-agent | /tasks command |
-| task-orchestrator | Multi-domain tasks |
-| prd-specialist | /create-prd command |
+| frontend-operations | UI/component work |
+| api-design, service-architecture | API/service work |
+| schema-design | Schema/query work |
+| testing-operations | Test writing/QA |
+| security-operations | Security concerns |
+| performance-operations | Optimization |
+| monitoring | Deployment/CI/CD |
+| unified-specification | /specify command |
+| sdd-planning | /plan command |
+| sdd-tasks | /tasks command |
+| team-orchestration | Multi-domain tasks |
+| prd-specialist (agent) | /create-prd command |
 
 ### Context Handoff Format
 When delegating to a specialist:

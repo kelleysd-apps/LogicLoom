@@ -109,14 +109,14 @@ Framework Enhancement Proposals
 
 Source: upstream/main (last sync: <sync-ref-date>)
 Changes: <N> files changed in upstream since last sync
-Releases: v4.1.0 (2026-02-09), v4.2.0 (2026-02-15)
+Releases: v5.0.0 (2026-02-15), v5.1.0 (2026-03-01)
 
-── v4.1.0 ──────────────────────────
+── v5.0.0 ──────────────────────────
   EP-001: [plugin] New plugin: sdd-foo — Install? [y/N]
   EP-002: [skill] New skill: bar-skill — Install? [y/N]
 
-── v4.2.0 ──────────────────────────
-  EP-003: [agent] New agent: baz-agent — Install? [y/N]
+── v5.1.0 ──────────────────────────
+  EP-003: [skill] New skill: baz-skill — Install? [y/N]
   EP-004: [governance] constitution.md — New Principle XVII added — Accept? [y/N]
 
 ── Untagged ─────────────────────────
@@ -125,7 +125,7 @@ Releases: v4.1.0 (2026-02-09), v4.2.0 (2026-02-15)
 
 **Group proposals by release tag** when available. Each proposal's `release_tag`
 field comes from `extract-proposals.sh`. This lets users adopt per-release
-(e.g., "accept all v4.1.0 changes") or per-file.
+(e.g., "accept all v5.0.0 changes") or per-file.
 
 **For each proposal**: Show what upstream changed (not how downstream differs).
 User accepts or rejects each independently.

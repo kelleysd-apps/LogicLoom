@@ -2,7 +2,7 @@
 name: api-design
 version: 3.0.0
 category: domain
-description: REST, GraphQL, and OpenAPI contract design. Routes to backend-architect.
+description: REST, GraphQL, and OpenAPI contract design. Routes to api-design skill (sdd-domain-backend).
 triggers: ["API design", "REST", "GraphQL", "OpenAPI", "Swagger", "contract"]
 rl_metrics:
   success_rate: 0.5
@@ -17,7 +17,7 @@ rl_metrics:
 
 This skill handles all API design work including REST API design, GraphQL schemas,
 OpenAPI/Swagger specifications, endpoint design, and contract definition. Critical
-for Principle III (Contract-First Design). Routes to `backend-architect` agent.
+for Principle III (Contract-First Design). Uses the api-design and service-architecture skills from the sdd-domain-backend plugin.
 
 ## Task Brief
 
@@ -59,7 +59,7 @@ Activate this skill when the user request involves:
 
 ### Agent Invocations
 
-**backend-architect**:
+**api-design skill (sdd-domain-backend)**:
 - Context: api-requirements, data-contracts, authentication-model, versioning-strategy
 - When: API design or contract work is needed
 - Timeout: 10m
@@ -95,7 +95,7 @@ context-subset:
 
 ### Step 3: Invoke Backend Architect
 
-Delegate to `backend-architect` with:
+Delegate to `api-design skill (sdd-domain-backend)` with:
 - Clear API requirements
 - Data contract definitions
 - Authentication model
@@ -122,7 +122,7 @@ Check agent output for:
 ## Agent Invocation
 
 ```yaml
-agent: backend-architect
+agent: api-design skill (sdd-domain-backend)
 purpose: Design APIs and backend services
 department: architecture
 skill-portfolio:
@@ -299,5 +299,5 @@ VERIFIER_CHECK:
 ## Constitutional Compliance
 
 - **Principle III (Contract-First)**: MANDATORY - contracts first
-- **Principle X (Delegation)**: Routes to backend-architect
+- **Principle X (Delegation)**: Routes to api-design skill (sdd-domain-backend)
 - **Principle XI (Input Validation)**: Request validation defined

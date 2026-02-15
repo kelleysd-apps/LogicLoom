@@ -55,8 +55,8 @@ Extract unique domains and their corresponding agents.
 
 Based on detected domains:
 - 0 domains: "No specialized domain detected — direct execution appropriate"
-- 1 domain: "Domain detected: [X]. Consider delegating to [agent]"
-- 2+ domains: "Multiple domains detected: [X, Y]. Consider task-orchestrator"
+- 1 domain: "Domain detected: [X]. Consider using [X]-operations skill"
+- 2+ domains: "Multiple domains detected: [X, Y]. Consider multi-skill-workflow or team-orchestration"
 
 ### Step 3: Constitutional Context
 

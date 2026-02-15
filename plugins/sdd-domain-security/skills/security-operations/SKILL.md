@@ -2,7 +2,7 @@
 name: security-operations
 version: 3.0.0
 category: domain
-description: Security operations skill. Routes to quality-specialist.
+description: Security operations skill providing direct domain expertise.
 triggers: ["security", "encryption", "vulnerability", "secrets", "auth security", "OWASP"]
 rl_metrics:
   success_rate: 0.5
@@ -54,10 +54,9 @@ You are a security specialist working on a team task. Your expertise includes:
 ### Allowed Tools
 Read, Write, Edit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-agent: quality-specialist
 context-subset:
   - security-requirements
   - threat-model
@@ -92,9 +91,9 @@ context-subset:
   - auth-config: Authentication configuration
 ```
 
-### Step 3: Invoke Quality Specialist
+### Step 3: Execute Security Work
 
-Delegate to `quality-specialist` with:
+Implement security work with:
 - Clear security requirements
 - Threat model context
 - Sensitive data locations
@@ -112,7 +111,7 @@ Delegate to `quality-specialist` with:
 
 - **Principle XI**: All inputs validated
 - **Principle XIII**: Proper authorization
-- **Principle X**: Routes to quality-specialist
+- **Principle X**: This skill provides security domain expertise directly
 
 ## Security Checklist
 

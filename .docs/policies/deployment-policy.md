@@ -664,6 +664,6 @@ Deployment logs retained for:
 
 ---
 
-**Policy Owner**: Operations Department (devops-engineer)
+**Policy Owner**: Operations Department (monitoring skill)
 **Last Reviewed**: 2025-11-07
 **Next Review**: 2026-02-07

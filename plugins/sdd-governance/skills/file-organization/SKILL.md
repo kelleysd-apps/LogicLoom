@@ -98,11 +98,11 @@ Read: [full-file-path]
 
 | Type | Pattern | Valid Example | Invalid Example |
 |------|---------|---------------|-----------------|
-| Agent | `[role]-[function].md` | `backend-architect.md` | `BackendArchitect.md` |
+| Agent | `[role]-[function].md` | `constitutional-governance-agent.md` | `ConstitutionalGovernanceAgent.md` |
 | Skill folder | `[skill-name]/` | `domain-detection/` | `DomainDetection/` |
 | Skill file | `SKILL.md` | `SKILL.md` | `skill.md`, `README.md` |
 | Policy | `[topic]-policy.md` | `testing-policy.md` | `TestingPolicy.md` |
-| Agent memory | `[agent]-[type].md` | `planning-agent-context.md` | `context.md` |
+| Agent memory | `[agent]-[type].md` | `team-synthesizer-context.md` | `context.md` |
 | Feature dir | `###-[name]/` | `001-user-auth/` | `user-auth/` |
 | Python test | `test_[name].py` | `test_user_service.py` | `TestUserService.py` |
 
@@ -111,7 +111,7 @@ Read: [full-file-path]
 - Use **snake_case** for Python files
 - Use **camelCase** for JavaScript/TypeScript files
 - Feature directories MUST have 3-digit prefix
-- Agent memory files MUST include agent name
+- Agent files MUST be in plugin agent directories (only 11 agents remain in v5.0)
 
 ### Step 5: Apply Template (If Applicable)
 

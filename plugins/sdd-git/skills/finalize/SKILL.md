@@ -96,10 +96,10 @@ Use this checklist to validate compliance with all 16 principles:
 ### Part III: Workflow & Delegation Principles (X-XVI)
 
 - [ ] **Principle X: Agent Delegation Protocol** ⚠️ CRITICAL
-  - Is specialized work delegated to specialist agents?
+  - Is specialized work delegated to specialist skills?
   - Is domain correctly identified?
-  - Is appropriate agent selected?
-  - **1 domain = 1 specialist**, **2+ domains = task-orchestrator**
+  - Is appropriate skill selected?
+  - **1 domain = 1 specialist skill**, **2+ domains = orchestration skill**
 
 - [ ] **Principle XI: Input Validation & Output Sanitization**
   - Is user input validated?
@@ -130,32 +130,30 @@ Use this checklist to validate compliance with all 16 principles:
 
 ---
 
-## Agent Delegation Reference
+## Skill Delegation Reference
 
-Use this table to route tasks to appropriate agents:
+Use this table to route tasks to appropriate skills:
 
 ### Single-Domain Routing
 
-| Domain | Keywords | Agent | Model |
-|--------|----------|-------|-------|
-| **Frontend** | UI, component, React, CSS, form, responsive | frontend-specialist | Opus |
-| **Backend** | API, endpoint, server, auth, middleware | backend-architect | Opus |
-| **Database** | schema, migration, query, RLS, SQL | database-specialist | Opus |
-| **Testing** | test, TDD, E2E, coverage, QA | testing-specialist | Opus |
-| **Security** | encryption, XSS, secrets, vulnerability | security-specialist | Opus |
-| **Performance** | optimize, cache, benchmark, latency | performance-engineer | Opus |
-| **DevOps** | deploy, CI/CD, Docker, pipeline | devops-engineer | Opus |
-| **Planning** | /plan, research, contract design | planning-agent | Opus |
-| **Specification** | /specify, requirements, user story | specification-agent | Opus |
-| **Tasks** | /tasks, task list, dependencies | tasks-agent | Opus |
+| Domain | Keywords | Skill | Command |
+|--------|----------|-------|---------|
+| **Frontend** | UI, component, React, CSS, form, responsive | frontend-operations | (invoke skill) |
+| **Backend** | API, endpoint, server, auth, middleware | backend-operations | (invoke skill) |
+| **Database** | schema, migration, query, RLS, SQL | database-operations | (invoke skill) |
+| **Testing** | test, TDD, E2E, coverage, QA | testing-operations | (invoke skill) |
+| **Security** | encryption, XSS, secrets, vulnerability | security-operations | (invoke skill) |
+| **Performance** | optimize, cache, benchmark, latency | performance-operations | (invoke skill) |
+| **DevOps** | deploy, CI/CD, Docker, pipeline | devops-operations | (invoke skill) |
+| **Specification** | /specification, requirements, user story | unified-specification | /specification |
 
 ### Multi-Domain Routing
 
 | Scenario | Delegate To | Reason |
 |----------|-------------|--------|
-| 2+ domains detected | task-orchestrator | Coordinates multiple specialists |
-| Complex workflow | task-orchestrator | Orchestrates end-to-end implementation |
-| Unclear domain | task-orchestrator | Routes after analysis |
+| 2+ domains detected | multi-skill-workflow | Coordinates multiple specialists |
+| Complex workflow | team-orchestration | Orchestrates end-to-end implementation |
+| Unclear domain | (analyze first) | Identify domain then route |
 
 ### Domain Trigger Keywords (Comprehensive)
 
@@ -286,15 +284,15 @@ echo '{ ... }' >> .docs/governance/audit/$(date +%Y-%m-%d)/skill-decision.json
 - Complexity: Medium (also involves backend API call)
 - Wait - TWO domains: Frontend (UI) + Backend (API)
 
-**Decision**: Delegate to `task-orchestrator` (2+ domains)
+**Decision**: Use multi-skill workflow (2+ domains)
 
 **Output**:
 ```
 Constitutional Compliance Check:
 - Domain(s): multi (frontend, backend)
-- Delegation: task-orchestrator
+- Delegation: multi-skill-workflow (coordinates frontend-operations + backend-operations)
 - Git operations: none planned (will request approval if needed)
-- Proceeding with: coordinating frontend and backend specialists
+- Proceeding with: coordinating frontend and backend specialist skills
 ```
 
 ---
@@ -370,19 +368,20 @@ Would you like me to start by writing the test first?
 ```
 ⚠️ FILE ORGANIZATION
 
-Per Principle XV, agent files should be in department subdirectories:
+Per Principle XV, agent files should be in plugin agent directories:
 
-Incorrect: .claude/agents/api-builder.md
-Correct: plugins/sdd-domain-backend/agents/api-builder.md
+Incorrect: .claude/agents/tribunal-judge.md
+Correct: plugins/sdd-orchestrator/agents/tribunal-judge.md
 
-Which plugin should this agent belong to?
-- sdd-specification (product/spec agents)
-- sdd-domain-backend (backend agents)
-- sdd-domain-frontend (frontend agents)
-- sdd-domain-testing (testing agents)
-- sdd-domain-security (security agents)
-- sdd-domain-devops (devops agents)
-- sdd-governance (governance agents)
+Note: In v5.0, most domain agents were converted to skills.
+Remaining 11 agents belong to these plugins:
+- sdd-governance (constitutional-governance-agent)
+- sdd-orchestrator (team-synthesizer, tribunal-judge)
+- sdd-creation (prd-specialist, subagent-architect)
+- sdd-debug (auto-debug-agent, debug-analyst, quality-assessor)
+- sdd-maintenance (framework-sync-agent)
+- sdd-memory (memory-context-agent)
+- sdd-dev-loop (dev-loop-orchestrator)
 ```
 
 ---

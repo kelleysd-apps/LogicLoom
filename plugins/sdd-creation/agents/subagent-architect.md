@@ -136,7 +136,7 @@ Users can explicitly request this agent by saying:
 
 ## Working Principles
 
-### Constitutional Principles Application (v1.5.0 - 14 Principles)
+### Constitutional Principles Application (v3.0.0 - 16 Principles)
 
 **Core Immutable Principles (I-III)**:
 1. **Principle I - Library-First Architecture**: Every feature must begin as a standalone library
@@ -234,11 +234,12 @@ All operations must log:
 |---------|------|---------|-------------|
 | 1.0.0   | 2025-09-18 | Initial creation | create-agent.sh |
 | 1.1.0   | 2025-11-07 | Updated to constitution v1.5.0 (14 principles) | Phase 2 Implementation |
+| 1.2.0   | 2026-02-15 | Updated to constitution v3.0.0 (16 principles) | v5.0 Architecture |
 
 ---
 
-**Agent Version**: 1.1.0
+**Agent Version**: 1.2.0
 **Created**: 2025-09-18
-**Last Modified**: 2025-11-07
-**Constitution**: v1.5.0 (14 Principles)
+**Last Modified**: 2026-02-15
+**Constitution**: v3.0.0 (16 Principles)
 **Review Schedule**: Quarterly

@@ -82,6 +82,7 @@ This policy defines the relationship, responsibilities, and tandem update rules 
 │ Agent deleted                │           │     ✓     │   ✓*    │
 │ Agent capabilities changed   │           │     ✓     │   ✓*    │
 │ Agent model changed          │           │     ✓     │         │
+│ Skill replaces agent         │     ✓     │     ✓     │   ✓     │
 │ Domain keywords changed      │     ✓     │     ✓     │   ✓     │
 │ Delegation triggers changed  │     ✓     │     ✓     │   ✓     │
 │ Workflow process changed     │     ✓     │           │         │
@@ -100,13 +101,14 @@ This policy defines the relationship, responsibilities, and tandem update rules 
 After tandem updates, verify:
 
 ```
-[ ] Agent count matches in both files
-[ ] Domain → agent mappings are consistent
+[ ] Agent count matches in both files (11 remaining agents)
+[ ] Domain → skill/agent mappings are consistent
 [ ] Constitutional version matches in both files
 [ ] Delegation triggers align between files
 [ ] Slash command mappings match
 [ ] Department counts are accurate
 [ ] Model selections are current
+[ ] Skill references match plugin architecture
 ```
 
 ---
@@ -116,7 +118,7 @@ After tandem updates, verify:
 ### When Adding a New Agent
 
 ```
-1. Create agent file in .claude/agents/[dept]/
+1. Create agent file in plugins/[plugin]/agents/[agent].md
 2. Create agent memory in .docs/agents/[dept]/[agent]/
 3. Update AGENTS.md:
    - Add to department table
@@ -125,22 +127,25 @@ After tandem updates, verify:
    - Add to decision tree
    - Update file locations
 4. Update CLAUDE.md:
-   - Update domain → agent mapping table (if changed)
+   - Update domain → skill/agent mapping table (if changed)
    - Update agent count reference (if mentioned)
-5. Run verification checklist
+5. Update plugin manifest (plugins/[plugin]/plugin.json)
+6. Run verification checklist
 ```
 
-### When Modifying an Agent
+### When Modifying an Agent or Skill
 
 ```
-1. Update agent file in .claude/agents/[dept]/
+1. Update agent/skill file in plugins/[plugin]/agents/ or plugins/[plugin]/skills/
 2. Update AGENTS.md:
-   - Update department table entry
+   - Update department table entry (for agents)
    - Update capabilities/tools if changed
    - Update domain mapping if keywords changed
 3. Update CLAUDE.md:
    - Update delegation triggers if changed
-4. Run verification checklist
+   - Update skill/agent references
+4. Update plugin manifest if capabilities changed
+5. Run verification checklist
 ```
 
 ### When Constitutional Version Changes
@@ -171,14 +176,14 @@ Both files contain domain → agent mappings. They must stay synchronized:
 ```markdown
 | Domain | Trigger Keywords | Delegate To |
 |--------|------------------|-------------|
-| Frontend | UI, component, React | frontend-specialist |
+| Frontend | UI, component, React | frontend-operations skill |
 ```
 
 **AGENTS.md** (Full Reference - detailed):
 ```markdown
-| Domain | Keywords | Primary Agent | Backup Agent |
-|--------|----------|---------------|--------------|
-| Frontend | UI, React, CSS, component | frontend-specialist | full-stack-developer |
+| Domain | Keywords | Primary Skill/Agent | Backup |
+|--------|----------|---------------------|--------|
+| Frontend | UI, React, CSS, component | frontend-operations skill | team-synthesizer |
 ```
 
 **Sync Rule**: AGENTS.md has authoritative detail; CLAUDE.md has quick reference subset.
@@ -187,10 +192,10 @@ Both files contain domain → agent mappings. They must stay synchronized:
 
 Both files reference agent counts:
 
-- `CLAUDE.md`: "14 agents across 6 departments"
-- `AGENTS.md`: "Total Agents: 14, Departments: 6"
+- `CLAUDE.md`: "11 agents (after v5.0 skill migration)"
+- `AGENTS.md`: "Total Agents: 11, across 5 departments"
 
-**Sync Rule**: Must match exactly.
+**Sync Rule**: Must match exactly. Note: 14 agents were converted to enhanced skills in v5.0.
 
 ### Constitutional Version
 
@@ -209,7 +214,7 @@ Both files reference constitution version:
 
 ```bash
 # Verify agent counts match
-grep -E "14 agents|Total Agents: 14" CLAUDE.md AGENTS.md
+grep -E "11 agents|Total Agents: 11" CLAUDE.md AGENTS.md
 
 # Verify constitutional version
 grep -E "v3\.0\.0|16 principles|16 Principles" CLAUDE.md AGENTS.md
