@@ -212,7 +212,7 @@ The framework uses **Docker MCP Toolkit** as the primary MCP orchestration metho
 **Constitutional Principle X** requires specialized work be delegated to specialized agents.
 
 **See `AGENTS.md`** for complete agent registry including:
-- All 11 agents across 15 plugins (14 agents converted to enhanced skills)
+- All 11 agents across 18 plugins (14 agents converted to enhanced skills)
 - Agent capabilities and tools
 - Domain -> agent mapping (detailed)
 - Slash command -> agent mapping

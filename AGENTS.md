@@ -5,7 +5,7 @@
 **Constitution**: v3.0.0 (16 Principles)
 **Architecture**: Plugin-First (v4.1) + Skill-Based Delegation
 **Total Agents**: 11
-**Plugins**: 17
+**Plugins**: 18
 
 ---
 
