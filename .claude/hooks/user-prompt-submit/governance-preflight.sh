@@ -36,37 +36,45 @@ DATE=$(date "+%Y-%m-%d")
 # ============================================
 
 # Detect domains from user message using domains.conf
+# v2.0: Supports both agent references (value=agent-name) and
+#        skill references (value=plugin:skill-name)
 detect_domains() {
     local message="$1"
     local domains=""
-    local agents=""
+    local delegates=""
 
     if [ ! -f "$DOMAINS_CONF" ]; then
         echo ""
         return
     fi
 
-    # Read domain mappings (keyword=agent format)
-    while IFS='=' read -r keyword agent; do
+    # Read domain mappings (keyword=delegate format)
+    while IFS='=' read -r keyword delegate; do
         # Skip comments and empty lines
         [[ "$keyword" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$keyword" ]] && continue
         keyword=$(echo "$keyword" | xargs)  # trim whitespace
-        agent=$(echo "$agent" | xargs)
+        delegate=$(echo "$delegate" | xargs)
 
         # Case-insensitive keyword match in message
         if echo "$message" | grep -qi "$keyword"; then
-            # Add domain (extract from agent name: X-specialist -> X)
+            # Extract domain name from delegate
             local domain
-            domain=$(echo "$agent" | sed 's/-specialist//' | sed 's/-architect//' | sed 's/-engineer//' | sed 's/-agent//')
+            if echo "$delegate" | grep -q ':'; then
+                # Skill-based: sdd-domain-backend:backend-operations -> backend
+                domain=$(echo "$delegate" | sed 's/sdd-domain-//' | cut -d: -f1)
+            else
+                # Legacy agent-based: backend-architect -> backend
+                domain=$(echo "$delegate" | sed 's/-specialist//' | sed 's/-architect//' | sed 's/-engineer//' | sed 's/-agent//')
+            fi
             if ! echo "$domains" | grep -q "$domain"; then
                 domains="${domains:+$domains, }$domain"
-                agents="${agents:+$agents, }$agent"
+                delegates="${delegates:+$delegates, }$delegate"
             fi
         fi
     done < "$DOMAINS_CONF"
 
-    echo "${domains}|${agents}"
+    echo "${domains}|${delegates}"
 }
 
 # Detect slash command from user input
@@ -109,9 +117,9 @@ generate_orchestration_guidance() {
     local domain_result="$2"
     local command_name="$3"
 
-    local domains agents delegation
+    local domains delegates delegation
     domains=$(echo "$domain_result" | cut -d'|' -f1)
-    agents=$(echo "$domain_result" | cut -d'|' -f2)
+    delegates=$(echo "$domain_result" | cut -d'|' -f2)
 
     # Determine delegation strategy
     local domain_count
@@ -120,7 +128,12 @@ generate_orchestration_guidance() {
     if [ "$domain_count" -eq 0 ]; then
         delegation="direct execution"
     elif [ "$domain_count" -eq 1 ]; then
-        delegation="single: $agents"
+        # Check if skill-based (contains :) or agent-based
+        if echo "$delegates" | grep -q ':'; then
+            delegation="delegate to $delegates skill (load Task Brief via extract_skill_brief)"
+        else
+            delegation="single: $delegates"
+        fi
     else
         delegation="task-orchestrator (multi-domain: $domains)"
     fi
@@ -176,7 +189,7 @@ EOF
 
 **DOMAIN DETECTION** (auto-detected from message):
 - Domain(s): $domains
-- Recommended agent(s): $agents
+- Recommended delegate(s): $delegates
 - Delegation: $delegation
 
 EOF
@@ -246,7 +259,7 @@ main() {
 
     # Extract message content for analysis
     local INPUT_SUMMARY
-    INPUT_SUMMARY=$(echo "$INPUT" | head -c 200 | tr -d '\n\r')
+    INPUT_SUMMARY=$(echo "$INPUT" | head -c 500 | tr -d '\n\r')
 
     # Detect slash command
     local COMMAND_NAME

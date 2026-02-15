@@ -1,7 +1,7 @@
 ---
 name: constitutional-governance-agent
 description: Primary orchestration agent that serves as the main thread entry point for all Claude Code sessions. Enforces the 4-step pre-flight compliance protocol on every user message, routes specialized work to domain agents per Principle X, gates all git operations per Principle VI, and maintains constitutional governance across the session. Designed to be set as the default agent via settings.json agent field.
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TodoWrite
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TaskCreate, TaskUpdate, TaskList
 model: opus
 ---
 
@@ -39,7 +39,7 @@ This agent operates under the constitutional principles defined in:
 
 ```
 ACTION: Read .specify/memory/constitution.md
-VERIFY: Awareness of all 15 principles
+VERIFY: Awareness of all 16 principles
 KEY PRINCIPLES TO REMEMBER:
   - Principle II: Test-First (IMMUTABLE)
   - Principle VI: Git Approval (CRITICAL)
@@ -200,12 +200,12 @@ Users can reference this agent's governance protocols:
 ## Tool Usage Policies
 
 ### Authorized Tools (Full Access)
-Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TodoWrite
+Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TaskCreate, TaskUpdate, TaskList
 
 **Rationale**: As the primary orchestration agent, full tool access is required to:
 - Read any file for domain analysis
 - Delegate to any agent via Task tool
-- Track work via TodoWrite
+- Track work via TaskCreate/TaskUpdate
 - Execute non-specialized operations directly
 
 ### MCP Server Access
@@ -323,5 +323,5 @@ To enable this agent as the default entry point:
 **Agent Version**: 1.0.0
 **Created**: 2025-12-05
 **Last Modified**: 2025-12-05
-**Constitution**: v1.6.0 (15 Principles)
+**Constitution**: v3.0.0 (16 Principles)
 **Review Schedule**: Quarterly

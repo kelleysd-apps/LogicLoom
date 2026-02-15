@@ -4,7 +4,7 @@ Constitutional governance enforcement plugin for the SDD Agentic Framework.
 
 ## Overview
 
-This plugin enforces 15 constitutional principles across all installed SDD plugins. It is **required** and **protected** — it cannot be disabled.
+This plugin enforces 16 constitutional principles across all installed SDD plugins. It is **required** and **protected** — it cannot be disabled.
 
 ## Features
 
@@ -27,7 +27,7 @@ claude plugin install sdd-governance@sdd-marketplace
 | Skill | Purpose |
 |-------|---------|
 | message-preflight | 4-step compliance check on every message |
-| constitutional-compliance | Full 15-principle validation |
+| constitutional-compliance | Full 16-principle validation |
 | domain-detection | Keyword-based domain routing |
 | governance-preflight | Pre-flight governance protocol |
 | qa-validation | Quality assurance gates |
@@ -49,7 +49,7 @@ claude plugin install sdd-governance@sdd-marketplace
 
 ## Constitutional Principles Enforced
 
-All 15 principles (I-XV) from constitution v2.0.0:
+All 16 principles (I-XVI) from constitution v3.0.0:
 - I: Library-First Architecture
 - II: Test-First Development
 - III: Contract-First Design
@@ -65,6 +65,7 @@ All 15 principles (I-XV) from constitution v2.0.0:
 - XIII: Feature Access Control
 - XIV: AI Model Selection
 - XV: File Organization
+- XVI: Plugin-First Architecture
 
 ## Version History
 

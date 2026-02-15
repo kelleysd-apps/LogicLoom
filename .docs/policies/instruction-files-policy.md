@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-29
-**Authority**: Constitution v1.6.0 - Principle VIII (Documentation Sync)
+**Authority**: Constitution v3.0.0 - Principle VIII (Documentation Sync)
 **Review Cycle**: On any agent or workflow change
 
 ---
@@ -196,8 +196,8 @@ Both files reference agent counts:
 
 Both files reference constitution version:
 
-- `CLAUDE.md`: "Constitution v1.6.0 contains 15 enforceable principles"
-- `AGENTS.md`: "Constitution: v1.6.0 (15 Principles)"
+- `CLAUDE.md`: "Constitution v3.0.0 contains 16 enforceable principles"
+- `AGENTS.md`: "Constitution: v3.0.0 (16 Principles)"
 
 **Sync Rule**: Must match exactly.
 
@@ -212,7 +212,7 @@ Both files reference constitution version:
 grep -E "14 agents|Total Agents: 14" CLAUDE.md AGENTS.md
 
 # Verify constitutional version
-grep -E "v1\.6\.0|15 principles|15 Principles" CLAUDE.md AGENTS.md
+grep -E "v3\.0\.0|16 principles|16 Principles" CLAUDE.md AGENTS.md
 
 # Find all domain mappings
 grep -A 20 "Domain.*Agent.*Mapping" CLAUDE.md AGENTS.md

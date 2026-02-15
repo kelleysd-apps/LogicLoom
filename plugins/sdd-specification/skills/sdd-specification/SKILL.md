@@ -214,11 +214,6 @@ Next Step: Run /plan to generate implementation plan
 
 ## Agent Collaboration
 
-### specification-agent
-**When to delegate**: For creating user stories, acceptance criteria, functional requirements from business needs
-
-**What they handle**: Translating business requirements into technical specifications using SDD methodology
-
 ### task-orchestrator
 **When to delegate**: When multi-domain feature detected (3+ domains)
 
@@ -345,8 +340,36 @@ VERIFIER_CHECK:
 - Update rl_metrics with failure
 - Report to user with remediation options
 
+## Task Brief
+
+You are a Senior Specification Engineer specializing in Spec-Driven Development (SDD).
+Your job is to translate business needs into executable, AI-optimized specifications.
+
+**Core approach**: Intent-first (what/why before how), technology-agnostic, measurable outcomes.
+
+**Specification quality checklist**:
+1. Business objectives clearly defined and traceable
+2. User stories complete with specific, testable acceptance criteria
+3. Functional and non-functional requirements specified
+4. Edge cases and error conditions identified
+5. Technical constraints documented without prescribing solutions
+6. Success metrics established (measurable, not vague)
+
+**Anti-patterns to avoid**:
+- Solution Bias: Prescribing implementation instead of describing requirements
+- Ambiguous Language: Vague terms allowing multiple interpretations
+- Missing Context: Insufficient background for understanding requirements
+- Feature Creep: Requirements expanding beyond core objectives
+
+**AI-readiness**: Write specs that AI agents can interpret directly -- include
+specific examples, scenarios, clear boundaries, and unambiguous acceptance criteria.
+
+**Iterative refinement**: Start with high-level requirements, progressively add detail,
+incorporate stakeholder feedback, validate against real-world scenarios.
+
+---
+
 ## Related Skills
 
 - **sdd-planning**: Next step after specification (generates implementation plan)
 - **domain-detection**: Standalone domain detection for existing files
-- **specification-agent**: Agent that can be delegated specification work

@@ -67,11 +67,13 @@ extract_from_json() {
         fi
     fi
 
-    # Extract context/usage
-    local cache_read
+    # Extract context/usage — total input tokens (including cache)
+    local input_tokens cache_read total_ctx
+    input_tokens=$(echo "$json" | jq -r '.message.usage.input_tokens // .usage.input_tokens // 0' 2>/dev/null || echo "0")
     cache_read=$(echo "$json" | jq -r '.message.usage.cache_read_input_tokens // .usage.cache_read_input_tokens // 0' 2>/dev/null || echo "0")
-    if [ "$cache_read" -gt 0 ] 2>/dev/null; then
-        context_used=$(awk "BEGIN { printf \"%.1f\", $cache_read / 1000 }" 2>/dev/null || echo "0")
+    total_ctx=$((input_tokens + cache_read))
+    if [ "$total_ctx" -gt 0 ] 2>/dev/null; then
+        context_used=$(awk "BEGIN { printf \"%.1f\", $total_ctx / 1000 }" 2>/dev/null || echo "0")
     fi
 
     # Extract output style
@@ -118,6 +120,7 @@ parse_model_name() {
     local model_raw="$1"
 
     case "$model_raw" in
+        *opus-4-6*|*opus-4.6*) model_name="Opus 4.6" ;;
         *opus-4-5*|*opus-4.5*) model_name="Opus 4.5" ;;
         *opus-4-1*|*opus-4.1*) model_name="Opus 4.1" ;;
         *opus-4*|*opus4*) model_name="Opus 4" ;;
@@ -127,6 +130,7 @@ parse_model_name() {
         *sonnet-3-7*|*sonnet-3.7*) model_name="Sonnet 3.7" ;;
         *sonnet-3-5*|*sonnet-3.5*) model_name="Sonnet 3.5" ;;
         *sonnet*) model_name="Sonnet" ;;
+        *haiku-4-5*|*haiku-4.5*) model_name="Haiku 4.5" ;;
         *haiku-3-5*|*haiku-3.5*) model_name="Haiku 3.5" ;;
         *haiku*) model_name="Haiku" ;;
         *) model_name="Claude" ;;
@@ -150,10 +154,16 @@ parse_tool_action() {
         "WebSearch") last_action="Web search" ;;
         "AskUserQuestion") last_action="Asking user" ;;
         "NotebookEdit") last_action="Editing notebook" ;;
-        "TodoRead") last_action="Reading todos" ;;
-        "TodoWrite") last_action="Managing todos" ;;
-        "BashOutput") last_action="Reading output" ;;
-        "KillShell") last_action="Killing shell" ;;
+        "Skill") last_action="Running skill" ;;
+        "ToolSearch") last_action="Finding tools" ;;
+        "EnterPlanMode") last_action="Planning" ;;
+        "ExitPlanMode") last_action="Plan ready" ;;
+        "TaskCreate") last_action="Creating task" ;;
+        "TaskUpdate") last_action="Updating task" ;;
+        "TaskGet") last_action="Reading task" ;;
+        "TaskList") last_action="Listing tasks" ;;
+        "TaskOutput") last_action="Reading output" ;;
+        "TaskStop") last_action="Stopping task" ;;
         mcp__*)
             # MCP tool - extract server name
             local mcp_name="${tool_name#mcp__}"
@@ -190,8 +200,8 @@ find_session_file() {
 
     for search_path in "${search_paths[@]}"; do
         if [ -d "$search_path" ]; then
-            # Use find with proper sorting (more efficient than ls -t)
-            session_file=$(find "$search_path" -maxdepth 2 -name "*.jsonl" -type f -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+            # Use stat for macOS compatibility (GNU find -printf not available on Darwin)
+            session_file=$(find "$search_path" -maxdepth 2 -name "*.jsonl" -type f 2>/dev/null | xargs stat -f '%m %N' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
             if [ -n "$session_file" ] && [ -f "$session_file" ]; then
                 echo "$session_file"
                 return 0

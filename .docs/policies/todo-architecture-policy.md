@@ -36,8 +36,8 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 │  └─────────────────────────────────────────────────────────┘   │
 │                            ↓                                    │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │              SESSION-LEVEL TODOWRITE                     │   │
-│  │           (Claude Code TodoWrite tool)                   │   │
+│  │              SESSION-LEVEL TASK TOOLS                     │   │
+│  │     (Claude Code TaskCreate/TaskUpdate/TaskList)          │   │
 │  │                                                          │   │
 │  │  • Active work tracking within session                  │   │
 │  │  • Real-time progress visibility                        │   │
@@ -104,12 +104,12 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 
 ---
 
-### Level 2: Session Tasks (TodoWrite Tool)
+### Level 2: Session Tasks (Task Tools)
 
 **Purpose**: Real-time tracking of active work within a Claude Code session.
 
 **Characteristics**:
-- Managed via `TodoWrite` tool
+- Managed via `TaskCreate`, `TaskUpdate`, `TaskList`, and `TaskGet` tools
 - Visible to user in real-time
 - Ephemeral (session-scoped)
 - Should reflect current work focus
@@ -131,14 +131,11 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 5. Update frequently to show progress
 ```
 
-**Format**:
-```json
-{
-  "content": "Implement user model in src/models/user.py",
-  "status": "in_progress",
-  "activeForm": "Implementing user model"
-}
-```
+**Usage**:
+- Use `TaskCreate` to create new tasks
+- Use `TaskUpdate` to change task status (pending, in_progress, completed)
+- Use `TaskList` to view all session tasks
+- Use `TaskGet` to get details of a specific task
 
 ---
 
@@ -205,7 +202,7 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
           │ Read and derive
           ▼
 ┌─────────────────────┐     ┌─────────────────────┐
-│   TodoWrite Tool    │ ──> │  User Visibility    │
+│   Task Tools        │ ──> │  User Visibility    │
 │  (SESSION SSOT)     │     │  (Real-time UI)     │
 └─────────┬───────────┘     └─────────────────────┘
           │
@@ -224,7 +221,7 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 │  Task Completed     │
 └─────────┬───────────┘
           │
-          ├──> Update TodoWrite (mark completed)
+          ├──> Update via TaskUpdate (mark completed)
           │
           ├──> Update tasks.md (check off)
           │
@@ -234,9 +231,9 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 
 ---
 
-## TodoWrite Usage Guidelines
+## Task Tool Usage Guidelines
 
-### When to Use TodoWrite
+### When to Use Task Tools
 
 **ALWAYS use** when:
 - Task requires 3+ distinct steps
@@ -251,23 +248,23 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 - Simple file reads
 - Conversational responses
 
-### TodoWrite Workflow
+### Task Tool Workflow
 
 ```
 1. ANALYZE request
    └─ Count steps, identify complexity
 
-2. CREATE todo list (if needed)
-   └─ Use TodoWrite with all items as "pending"
+2. CREATE task list (if needed)
+   └─ Use TaskCreate for all items as "pending"
 
 3. START first task
-   └─ Mark ONE item as "in_progress"
+   └─ Use TaskUpdate to mark ONE item as "in_progress"
 
 4. COMPLETE task
-   └─ Mark as "completed" IMMEDIATELY
+   └─ Use TaskUpdate to mark as "completed" IMMEDIATELY
 
 5. START next task
-   └─ Mark next item as "in_progress"
+   └─ Use TaskUpdate to mark next item as "in_progress"
 
 6. REPEAT until all complete
 ```
@@ -303,8 +300,8 @@ When starting work on a feature:
 
 1. **Read** `specs/###-feature/tasks.md`
 2. **Identify** next uncompleted tasks
-3. **Create** TodoWrite list with those tasks
-4. **Work** through tasks (update TodoWrite)
+3. **Create** task list via TaskCreate with those tasks
+4. **Work** through tasks (update via TaskUpdate)
 5. **Update** tasks.md to reflect completions
 
 ### Cross-Session Continuity
@@ -313,7 +310,7 @@ When resuming work:
 
 1. **Check** `specs/###-feature/tasks.md` for status
 2. **Review** `.docs/agents/*/decisions/tasks/` for context
-3. **Recreate** TodoWrite list from incomplete tasks
+3. **Recreate** task list via TaskCreate from incomplete tasks
 4. **Continue** work from last checkpoint
 
 ### Multi-Agent Coordination
@@ -321,7 +318,7 @@ When resuming work:
 When multiple agents work on same feature:
 
 1. **task-orchestrator** owns overall task allocation
-2. Each agent updates TodoWrite for their assigned tasks
+2. Each agent updates tasks via TaskUpdate for their assigned tasks
 3. Completed tasks recorded in agent's `decisions/tasks/`
 4. **task-orchestrator** syncs back to tasks.md
 
@@ -338,7 +335,7 @@ When multiple agents work on same feature:
 | `- [~]` | In progress (optional) |
 | `- [!]` | Blocked (optional) |
 
-### Session-Level (TodoWrite)
+### Session-Level (Task Tools)
 
 | Status | Meaning | Rules |
 |--------|---------|-------|
@@ -414,7 +411,7 @@ notes: "Implemented per data-model.md specification"
 | Requirement | Enforcement |
 |-------------|-------------|
 | TDD order | Tests tasks before implementation tasks |
-| SSOT sync | TodoWrite reflects tasks.md |
+| SSOT sync | Task tools reflect tasks.md |
 | Immediate updates | Completion marked when done |
 | One active | Single in_progress task |
 
@@ -426,7 +423,7 @@ notes: "Implemented per data-model.md specification"
 
 ```
 1. Read specs/###-feature/tasks.md for project tasks
-2. Use TodoWrite for session tracking
+2. Use TaskCreate/TaskUpdate for session tracking
 3. Mark tasks completed IMMEDIATELY
 4. Keep ONE task in_progress at a time
 5. Sync completions back to tasks.md
@@ -437,7 +434,7 @@ notes: "Implemented per data-model.md specification"
 
 ```
 1. Generate tasks with /tasks command
-2. View progress via TodoWrite UI
+2. View progress via TaskList
 3. Check tasks.md for overall status
 4. Use /finalize before committing
 ```

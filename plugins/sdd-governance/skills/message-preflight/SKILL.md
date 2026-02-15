@@ -63,7 +63,7 @@ rl_metrics:
 
 ### Step 1: Constitution Acknowledgment
 
-**Action**: Confirm awareness of the 15 constitutional principles (v1.6.0).
+**Action**: Confirm awareness of the 16 constitutional principles (v3.0.0).
 
 **Key Principles to Remember**:
 - **Principle II (Test-First)**: TDD is mandatory, >80% coverage
@@ -73,7 +73,7 @@ rl_metrics:
 
 **Mental Checklist**:
 ```
-[ ] I am aware of the 15 constitutional principles
+[ ] I am aware of the 16 constitutional principles
 [ ] I know Principles I-III are IMMUTABLE
 [ ] I know Principle VI prohibits autonomous git operations
 [ ] I know Principle X requires skill-first routing (skills -> agents)
@@ -284,7 +284,7 @@ This skill directly implements:
 - **Principle X**: Work Session Initiation Protocol (skills-first in v3)
 - **Principle VI**: Git operation approval enforcement
 
-**From Constitution v1.6.0**:
+**From Constitution v3.0.0**:
 
 > **Work Session Initiation Protocol (MANDATORY for EVERY task)**:
 >
@@ -381,7 +381,7 @@ VERIFIER_CHECK:
 
 ## References
 
-- Constitution v1.6.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
 - Skill Activation Triggers: `.specify/memory/skill-activation-triggers.md` (Phase 3)
 - Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md` (legacy)
 - Domain Detection Skill: `plugins/sdd-governance/skills/domain-detection/SKILL.md`

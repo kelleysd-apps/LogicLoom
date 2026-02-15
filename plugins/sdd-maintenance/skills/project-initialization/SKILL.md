@@ -20,7 +20,7 @@ rl_metrics:
 
 This skill provides procedural guidance for initializing a project after PRD completion. It ensures:
 
-1. **Constitution Customization** - All 15 principles adapted to project needs
+1. **Constitution Customization** - All 16 principles adapted to project needs
 2. **Agent Training** - Custom agents created and configured
 3. **Workflow Configuration** - Documentation updated for project context
 4. **SSOT Integrity** - All documents remain synchronized
@@ -56,7 +56,7 @@ Required PRD sections for initialization:
 1. **Executive Summary** - Project name, vision, success metrics
 2. **User Personas** - At least primary persona defined
 3. **Core Features** - MVP features with acceptance criteria
-4. **Constitutional Principles** - All 15 principles addressed
+4. **Constitutional Principles** - All 16 principles addressed
 5. **Technical Constraints** - Required/prohibited technologies
 6. **Release Strategy** - MVP scope defined
 
@@ -98,7 +98,7 @@ test -f .docs/prd/prd.md && echo "PRD found" || echo "PRD MISSING - run /create-
    | Performance targets | performance | performance-engineer |
 
 4. **Extract principle customizations**:
-   For each of the 15 principles, note:
+   For each of the 16 principles, note:
    - Project-specific guidance from PRD
    - Exceptions documented
    - Custom thresholds defined
@@ -136,7 +136,7 @@ test -f .docs/prd/prd.md && echo "PRD found" || echo "PRD MISSING - run /create-
 
 3. **Apply principle customizations**:
 
-   For each principle (I-XV), add project-specific section if PRD has customizations:
+   For each principle (I-XVI), add project-specific section if PRD has customizations:
 
    ```markdown
    ### Principle [N]: [Name]
@@ -533,7 +533,7 @@ Before completing initialization, verify:
 
 ```
 [ ] PRD analyzed completely
-[ ] All 15 principles reviewed for customizations
+[ ] All 16 principles reviewed for customizations
 [ ] Constitution updated with project specifics
 [ ] Custom agents created per PRD Principle X
 [ ] CLAUDE.md updated with project context

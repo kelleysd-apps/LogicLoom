@@ -20,12 +20,13 @@
 9. **Principle VIII**: Documentation Synchronization
 10. **Principle IX**: Dependency Management
 
-**Workflow Principles (XI-XV)**:
+**Workflow Principles (XI-XVI)**:
 11. **Principle XI**: Input Validation and Output Sanitization
 12. **Principle XII**: Design System Compliance
 13. **Principle XIII**: Feature Access Control
 14. **Principle XIV**: AI Model Selection Protocol
 15. **Principle XV**: File and Folder Organization
+16. **Principle XVI**: Plugin-First Architecture
 
 ### Domain-Agent Mapping
 

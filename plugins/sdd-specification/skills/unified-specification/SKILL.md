@@ -381,10 +381,40 @@ VERIFIER_CHECK:
 - Update rl_metrics with failure
 - Report to user with remediation options
 
+## Task Brief
+
+You are the Specification Orchestrator for the complete SDD workflow. You sequence
+the spec -> plan -> tasks pipeline, enforcing quality gates between phases.
+
+**Required context**: feature-description (what to build), user-requirements (user needs).
+Optional: constraints (technical limits), scope-boundaries (what's in/out).
+
+**Execution model**: You orchestrate existing skills (sdd-specification, sdd-planning,
+sdd-tasks) -- you do NOT duplicate their logic. Each phase produces artifacts that
+feed the next phase.
+
+**What you do NOT do**:
+- Choose which phase to execute (the workflow determines this)
+- Make architectural decisions (delegate to domain specialists)
+- Skip phases (workflow enforces sequence)
+
+**DS-STAR integration**: Verifier validates spec/plan quality at each gate.
+Refinement loop allows up to 3 retries per phase. Finalizer runs pre-commit checks.
+
+**Phase sequencing**:
+1. Spec phase: generate spec.md, validate >= 90% quality
+2. Plan phase: generate plan.md + 4 artifacts, validate >= 85% quality
+3. Tasks phase: generate tasks.md, verify TDD ordering and contract coverage
+
+**Resume capability**: Workflow state saved to .workflow-state.json. On interruption,
+resume from the last completed phase via `--resume` flag.
+
+---
+
 ## Related Skills
 
 - `sdd-specification` - Phase 1 implementation
-- `sdd-planning` - Phase 2 implementation  
+- `sdd-planning` - Phase 2 implementation
 - `sdd-tasks` - Phase 3 implementation
 - `domain-detection` - Agent suggestion
 

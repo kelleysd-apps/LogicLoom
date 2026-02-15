@@ -90,6 +90,7 @@ assert "domains.conf exists" "[ -f $DOMAINS_CONF ]"
 assert "domains.conf has frontend mapping" "grep -q 'frontend' $DOMAINS_CONF"
 assert "domains.conf has backend mapping" "grep -q 'backend' $DOMAINS_CONF"
 assert "domains.conf has security mapping" "grep -q 'security' $DOMAINS_CONF"
+assert "domains.conf uses skill-based delegation format" "grep -q 'sdd-domain-.*:.*-operations' $DOMAINS_CONF"
 assert "Orchestration skill exists" \
   "[ -f plugins/sdd-orchestrator-hook/skills/orchestration-guidance/SKILL.md ]"
 
@@ -105,4 +106,4 @@ echo ""
 echo "════════════════════════════════"
 echo " Results: $PASS/$TOTAL passed, $FAIL failed"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
-exit $FAIL
+[ $FAIL -eq 0 ] && exit 0 || exit 1

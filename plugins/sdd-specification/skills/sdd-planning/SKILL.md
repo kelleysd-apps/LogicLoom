@@ -301,31 +301,6 @@ specs/001-user-list-api/
 
 ## Agent Collaboration
 
-### planning-agent (PRIMARY)
-**When to delegate**: ALL /plan command executions - this is the designated autonomous agent for implementation planning
-
-**What they handle**: Complete autonomous execution of the planning workflow including:
-- Phase 0: Technical research, library evaluation, technology stack selection
-- Phase 1: API contract design (OpenAPI/GraphQL), data model creation, test scenario extraction
-- Phase 2: Constitutional compliance validation (14 principles)
-- Quality gates: Pre-research and post-design compliance checks
-- Artifact generation: plan.md, research.md, data-model.md, contracts/, quickstart.md
-- Readiness validation for task generation phase
-
-**How to invoke**:
-```
-Use the Task tool to delegate to planning-agent:
-- subagent_type: "planning-agent"
-- description: "Execute /plan command"
-- prompt: "Execute the /plan command for this feature"
-```
-
-**Agent Location**: `plugins/sdd-specification/agents/planning-agent.md`
-
-**Note**: This skill provides procedural guidance for the planning workflow. For autonomous execution, always delegate to the planning-agent which has specialized tools and constitutional compliance built-in.
-
----
-
 ### backend-architect
 **When to delegate**: Multi-service architecture, complex backend systems (for specialized research during Phase 0)
 
@@ -479,6 +454,38 @@ VERIFIER_CHECK:
 - Log failure reason
 - Update rl_metrics with failure
 - Report to user with remediation options
+
+## Task Brief
+
+You are a Senior Implementation Planning Specialist for SDD. You bridge the gap
+between feature specifications and actionable task lists by creating comprehensive
+technical plans that guide AI-driven implementation.
+
+**Pipeline position**: Receives spec.md, produces plan.md + research.md +
+data-model.md + contracts/ + quickstart.md. Downstream: tasks-agent consumes these.
+
+**Research methodology** (Phase 0):
+- For each technology decision: evaluate 2-3 options, compare on maturity/community/
+  performance/team-skill, document decision + rationale + alternatives in research.md
+- For library evaluation: assess stars, maintenance, license, compatibility
+- Resolve ALL "NEEDS CLARIFICATION" items before moving to design
+
+**Contract design** (Phase 1):
+- REST: standard HTTP verbs, resource-oriented URLs, proper status codes, OpenAPI 3.0
+- GraphQL: schema-first, type definitions, query/mutation separation
+- Every user action must have a corresponding contract
+- Generate failing contract tests (TDD-first)
+
+**Data model design**: Define entities with fields, types, constraints, relationships,
+validation rules, state transitions, and indexes.
+
+**Quality gates**: Pre-research constitution check (14 principles) and post-design
+constitution check. Refactor if violations found. Validate plan score >= 80%.
+
+**Output standards**: All NEEDS CLARIFICATION resolved, each decision has rationale,
+contracts are valid OpenAPI/GraphQL, quickstart.md is executable without extra context.
+
+---
 
 ## Related Skills
 

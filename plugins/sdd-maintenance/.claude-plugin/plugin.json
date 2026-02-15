@@ -1,7 +1,7 @@
 {
   "name": "sdd-maintenance",
   "version": "1.0.0",
-  "description": "Framework maintenance plugin \u2014 update framework, sync upstream, MCP server setup, and project initialization.",
+  "description": "Framework maintenance plugin -- update framework, sync upstream, MCP server setup, and project initialization.",
   "author": "kelleysd-apps",
   "license": "MIT",
   "keywords": [

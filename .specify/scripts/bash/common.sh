@@ -370,13 +370,18 @@ cleanup_old_checkpoints() {
 
     echo "Cleaning up checkpoints older than $days days..."
 
-    # Find and remove old checkpoint files
+    # Find and remove old checkpoint files (use temp file to avoid subshell counter bug)
     local deleted_count=0
-    find "$checkpoint_dir" -name "*.json" -type f -mtime +"$days" -print | while read -r file; do
-        rm -f "$file"
-        deleted_count=$((deleted_count + 1))
-        echo "  Removed: $(basename "$file")"
-    done
+    local old_files
+    old_files=$(find "$checkpoint_dir" -name "*.json" -type f -mtime +"$days" -print 2>/dev/null || echo "")
+
+    if [[ -n "$old_files" ]]; then
+        while IFS= read -r file; do
+            rm -f "$file"
+            deleted_count=$((deleted_count + 1))
+            echo "  Removed: $(basename "$file")"
+        done <<< "$old_files"
+    fi
 
     if [[ $deleted_count -eq 0 ]]; then
         echo "✓ No old checkpoints to remove"
@@ -503,6 +508,58 @@ suggest_commit_message() {
     echo "========================================"
 
     log_info "Commit message suggestions generated" "{\"type\":\"$commit_type\",\"files\":$file_count,\"insertions\":$insertions,\"deletions\":$deletions}"
+}
+
+# ==============================================================================
+# Skill-Brief Extraction (Spec 006 - Agent Simplification)
+# ==============================================================================
+
+# Extract the Task Brief section from a plugin's SKILL.md file.
+# Used to inject domain skill knowledge into Task tool prompts
+# when spawning team workers (replacing custom agent definitions).
+#
+# Args: $1=plugin_name (e.g. "sdd-domain-backend")
+#       $2=skill_name (e.g. "backend-operations")
+# Output: Brief text from the ## Task Brief section, or empty string if missing
+# Returns: 0 always (graceful degradation)
+extract_skill_brief() {
+    local plugin_name="${1:-}"
+    local skill_name="${2:-}"
+
+    if [ -z "$plugin_name" ] || [ -z "$skill_name" ]; then
+        return 0
+    fi
+
+    local skill_file="$REPO_ROOT/plugins/$plugin_name/skills/$skill_name/SKILL.md"
+
+    if [ ! -f "$skill_file" ]; then
+        return 0
+    fi
+
+    # Extract content between "## Task Brief" and the next ## heading (or EOF)
+    local in_brief=false
+    local brief=""
+
+    while IFS= read -r line; do
+        if echo "$line" | grep -q '^## Task Brief'; then
+            in_brief=true
+            continue
+        fi
+
+        if [ "$in_brief" = true ]; then
+            # Stop at next ## heading
+            if echo "$line" | grep -q '^## '; then
+                break
+            fi
+            brief="${brief}${line}
+"
+        fi
+    done < "$skill_file"
+
+    # Trim leading/trailing blank lines (macOS compatible)
+    brief=$(echo "$brief" | sed '/^[[:space:]]*$/d')
+
+    echo "$brief"
 }
 
 # ==============================================================================

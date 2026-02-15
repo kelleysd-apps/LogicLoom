@@ -7,7 +7,7 @@ This file tracks the current working context for the constitutional-governance-a
 ## Session Information
 
 - **Agent Version**: 1.0.0
-- **Constitution Version**: 1.6.0 (15 Principles)
+- **Constitution Version**: 3.0.0 (16 Principles)
 - **Role**: Primary Entry Point / Main Thread Agent
 
 ## Active Governance State

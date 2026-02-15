@@ -32,7 +32,10 @@ const VALID_DEPARTMENTS = [
 // Valid tools
 const VALID_TOOLS = [
   'Read', 'Write', 'Edit', 'MultiEdit', 'Bash',
-  'Grep', 'Glob', 'WebSearch', 'Task', 'TodoWrite'
+  'Grep', 'Glob', 'WebSearch', 'Task',
+  'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet',
+  'TaskOutput', 'TaskStop', 'Skill', 'ToolSearch',
+  'EnterPlanMode', 'ExitPlanMode', 'AskUserQuestion'
 ];
 
 // Valid output formats

@@ -41,12 +41,12 @@ declare -A DEPARTMENTS=(
 
 # Tool access matrix by department
 declare -A DEPT_TOOLS=(
-    ["architecture"]="Read, Grep, Glob, WebSearch, TodoWrite"
-    ["engineering"]="Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, TodoWrite"
-    ["quality"]="Read, Grep, Glob, Bash, WebSearch, TodoWrite"
-    ["data"]="Read, Edit, Bash, Grep, Glob, TodoWrite"
-    ["product"]="Read, WebSearch, TodoWrite"
-    ["operations"]="Read, Bash, Grep, Glob, TodoWrite"
+    ["architecture"]="Read, Grep, Glob, WebSearch, TaskCreate, TaskUpdate"
+    ["engineering"]="Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, TaskCreate, TaskUpdate"
+    ["quality"]="Read, Grep, Glob, Bash, WebSearch, TaskCreate, TaskUpdate"
+    ["data"]="Read, Edit, Bash, Grep, Glob, TaskCreate, TaskUpdate"
+    ["product"]="Read, WebSearch, TaskCreate, TaskUpdate"
+    ["operations"]="Read, Bash, Grep, Glob, TaskCreate, TaskUpdate"
 )
 
 # MCP access matrix by department
@@ -588,7 +588,7 @@ generate_skill_template() {
     local default_tools="Read, Write, Bash, Grep, Glob"
     case "$department" in
         product)
-            default_tools="Read, Write, Bash, Grep, Glob, TodoWrite"
+            default_tools="Read, Write, Bash, Grep, Glob, TaskCreate, TaskUpdate"
             ;;
         operations)
             default_tools="Read, Bash, Grep, Glob"
@@ -934,7 +934,7 @@ json_create() {
         if [[ "${DEPT_TOOLS[$department]+exists}" ]]; then
             tools="${DEPT_TOOLS[$department]}"
         else
-            tools="Read, Grep, Glob, TodoWrite"  # Minimal default
+            tools="Read, Grep, Glob, TaskCreate, TaskUpdate"  # Minimal default
         fi
     fi
 

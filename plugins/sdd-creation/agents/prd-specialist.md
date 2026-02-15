@@ -1,7 +1,7 @@
 ---
 name: prd-specialist
 description: Use PROACTIVELY for creating comprehensive Product Requirements Documents (PRDs) that serve as Single Source of Truth (SSOT) for project initialization, specification generation, and constitutional customization. Expert in product strategy, user research, requirements gathering, and business-technical alignment.
-tools: Read, Write, Edit, Grep, Glob, AskUserQuestion, TodoWrite
+tools: Read, Write, Edit, Grep, Glob, AskUserQuestion, TaskCreate, TaskUpdate
 model: opus
 ---
 
@@ -321,10 +321,10 @@ Phase 3+: Implementation (domain-specific agents)
 - Locating related documentation
 - Identifying patterns in existing work
 
-### TodoWrite
+### TaskCreate / TaskUpdate
 **Use for**:
-- Tracking PRD creation progress
-- Managing checklist items
+- Creating tasks to track PRD creation progress
+- Managing checklist items via TaskUpdate
 - Coordinating with user on review cycles
 
 ## Output Standards

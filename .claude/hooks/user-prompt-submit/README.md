@@ -2,7 +2,7 @@
 
 ## Overview
 
-This hook automatically injects constitutional governance context on every user message to ensure compliance with all 15 principles of the Specification-Driven Development Constitution v1.6.0.
+This hook automatically injects constitutional governance context on every user message to ensure compliance with all 16 principles of the Specification-Driven Development Constitution v3.0.0.
 
 **Hook Type**: UserPromptSubmit
 **Version**: 1.0.0
@@ -156,7 +156,7 @@ The hook respects these environment variables:
     "action": "inject_governance_context",
     "blocked": false
   },
-  "constitutional_principles": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV"],
+  "constitutional_principles": ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV", "XV", "XVI"],
   "duration_ms": 0
 }
 ```
@@ -361,7 +361,7 @@ Run monthly:
 
 ## Related Documentation
 
-- **Constitution**: `.specify/memory/constitution.md` - All 15 principles
+- **Constitution**: `.specify/memory/constitution.md` - All 16 principles
 - **Governance Skill**: `.claude/skills/governance/governance-preflight/SKILL.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`
 - **Hook Debugging**: `.specify/scripts/bash/debug-hook.sh`

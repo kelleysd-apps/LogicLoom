@@ -57,7 +57,7 @@ Outcome: [Executed/Cancelled/Deferred]
 ```
 Timestamp: [ISO 8601]
 Category: Compliance
-Principle: [I-XV]
+Principle: [I-XVI]
 Check Result: [Pass/Fail/Warning]
 Details: [Specific findings]
 Action Taken: [Correction/Proceed/Escalate]

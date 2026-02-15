@@ -101,7 +101,7 @@ The setup will recommend creating a PRD first. This serves as your Single Source
 ### Step 2: Initialize Project from PRD
 
 After completing the PRD, run `/initialize-project` to automatically:
-- Customize all 15 constitutional principles based on your PRD
+- Customize all 16 constitutional principles based on your PRD
 - Create custom agents identified in your PRD (Principle X)
 - Recommend and configure MCP servers for your tech stack
 - Update workflow documentation for your project context
@@ -471,12 +471,12 @@ Once setup is complete, you'll have access to:
 | `/create-agent` | Create specialized AI agent | When you need domain expertise |
 | `/finalize` | Pre-commit compliance validation | Before committing code |
 
-### 15 Constitutional Principles
+### 16 Constitutional Principles
 
-The framework enforces 15 core principles:
+The framework enforces 16 core principles:
 - **Principle I-III:** Library-First, Test-First, Contract-First (Immutable)
 - **Principle IV-IX:** Quality & Safety (Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management)
-- **Principle X-XV:** Workflow & Delegation (Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization)
+- **Principle X-XVI:** Workflow & Delegation (Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture)
 
 ### DS-STAR Multi-Agent System
 
@@ -592,7 +592,7 @@ After completing setup, explore these files:
 
 - **CLAUDE.md** - Complete AI assistant instructions
 - **README.md** - Framework features and architecture
-- **.specify/memory/constitution.md** - 15 development principles (v1.6.0)
+- **.specify/memory/constitution.md** - 16 development principles (v3.0.0)
 - **AGENTS.md** - Specialized agent documentation
 - **.claude/commands/** - Custom command documentation
 

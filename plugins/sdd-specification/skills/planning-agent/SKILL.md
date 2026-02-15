@@ -8,7 +8,7 @@ description: |
   execute tasks that planning-agent would typically handle.
 
   Triggered by: [TODO: Add trigger phrases]
-allowed-tools: Read, Write, Bash, Grep, Glob, TodoWrite
+allowed-tools: Read, Write, Bash, Grep, Glob, TaskCreate, TaskUpdate
 rl_metrics:
   success_rate: 0.5
   selection_weight: 0.5

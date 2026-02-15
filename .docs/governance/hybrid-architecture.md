@@ -1,14 +1,14 @@
 # 3-Layer Hybrid Governance Architecture
 
 **Version**: 1.0.0
-**Constitution**: v1.6.0
+**Constitution**: v3.0.0
 **Feature**: 003-governance-browser-enhancement
 
 ---
 
 ## Overview
 
-The SDD Framework employs a **3-layer hybrid governance architecture** that combines automatic enforcement, manual review, and active agent governance to ensure constitutional compliance across all 15 principles.
+The SDD Framework employs a **3-layer hybrid governance architecture** that combines automatic enforcement, manual review, and active agent governance to ensure constitutional compliance across all 16 principles.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -131,13 +131,13 @@ Provide **manual constitutional review** for complex scenarios requiring human j
 ### How It Works
 1. User invokes `/governance-preflight` (or Claude suggests it)
 2. Skill presents comprehensive constitutional checklist
-3. User/Claude reviews all 15 principles
+3. User/Claude reviews all 16 principles
 4. Skill provides delegation guidance
 5. Decision documented in audit log
 6. User proceeds with validated approach
 
 ### Strengths
-- ✅ **Comprehensive Review** - All 15 principles checked
+- ✅ **Comprehensive Review** - All 16 principles checked
 - ✅ **Decision Guidance** - Delegation tables, examples
 - ✅ **Flexible** - Can handle novel scenarios
 - ✅ **Educational** - Teaches constitutional compliance
@@ -218,7 +218,7 @@ Provide **active real-time enforcement** of constitutional principles by serving
 #### Layer 1 (Hook)
 ```
 ✅ Inject governance context
-   "You are operating under Constitution v1.6.0 with 15 principles.
+   "You are operating under Constitution v3.0.0 with 16 principles.
     Remember: Principle VI (Git Approval), Principle X (Agent Delegation)."
 
 ✅ Create audit log
@@ -407,7 +407,7 @@ All 3 layers contribute to unified audit trail:
 - **Layer 1 Hook**: `.claude/hooks/user-prompt-submit/README.md`
 - **Layer 2 Skill**: `.claude/skills/governance/governance-preflight/SKILL.md`
 - **Layer 3 Agent**: `.claude/agents/governance/constitutional-governance-agent.md`
-- **Constitution**: `.specify/memory/constitution.md` (v1.6.0)
+- **Constitution**: `.specify/memory/constitution.md` (v3.0.0)
 - **Setup Guide**: `.docs/governance/browser-mcp-setup.md`
 
 ---

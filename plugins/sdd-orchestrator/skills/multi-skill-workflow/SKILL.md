@@ -3,7 +3,7 @@ name: multi-skill-workflow
 version: 3.0.0
 description: |
   Orchestration skill for coordinating multi-domain workflows that require 2+ skills.
-  Routes to workflow-coordinator agent when multiple domain skills must work together.
+  Handles skill sequencing, dependency resolution, and cross-domain integration directly.
   Activates automatically when message-preflight detects multi-domain work.
 category: orchestration
 triggers:
@@ -21,15 +21,7 @@ allowed-tools:
   - Grep
   - Glob
   - Task
-agent-invocations:
-  - agent: workflow-coordinator
-    context-subset:
-      - skill-sequence
-      - domain-requirements
-      - coordination-plan
-      - dependencies
-    when: "multi-skill coordination is needed"
-    timeout: 30m
+agent-invocations: []  # Workflow coordination logic merged into this skill
 composes:
   - skill: validation/message-preflight
     phase: pre-execution
@@ -131,18 +123,35 @@ After all skills complete:
 | coordination-plan | Yes | Execution plan |
 | dependencies | Yes | Skill dependencies |
 
-## Agent Invocation
+## Task Brief
 
-```yaml
-agent: workflow-coordinator
-purpose: Coordinate multi-skill workflows and migrations
-department: product
-merged-from:
-  - task-orchestrator
-skill-portfolio:
-  - orchestration/multi-skill-workflow
-  - orchestration/migration-workflow
-```
+You are the multi-skill workflow coordination skill. Your job is to manage the
+sequencing, dependency resolution, and integration of 2+ domain skills that must
+work together to fulfill a user request.
+
+**Key responsibilities:**
+- Receive multi-domain analysis from message-preflight (detected domains, skills needed)
+- Build coordination plans with dependency ordering across domain skills
+- Execute skills in correct sequence, passing context between them
+- Handle three execution patterns: sequential, parallel, and iterative (refinement loops)
+- Validate outputs at each step before passing to dependent skills
+- Manage migration workflows (agent-to-skill, version upgrades, rollbacks)
+- Consolidate results and run cross-domain validation on completion
+- Track RL metrics per invocation (success/failure, tokens, duration)
+
+**Constitutional constraints:**
+- Principle X: Route domain work to appropriate domain skills
+- Principle IV: Workflows must be idempotent (safe to retry partial workflows)
+- Principle VII: Log each skill execution for observability
+
+**Error handling:**
+- Skill failure: Log, determine rollback need, report to user
+- Dependency failure: Block dependent skills, mark workflow as blocked
+- Timeout: Retry with backoff
+- Partial success: Report progress, suggest recovery steps
+
+**When invoked:** Multi-domain requests detected by message-preflight, full-stack
+feature implementation, cross-cutting concerns, or explicit "orchestrate workflow" triggers.
 
 ## Execution Patterns
 
@@ -291,6 +300,6 @@ VERIFIER_CHECK:
 
 ## Constitutional Compliance
 
-- **Principle X (Delegation)**: Routes to workflow-coordinator
+- **Principle X (Delegation)**: Routes domain work to appropriate domain skills
 - **Principle IV (Idempotent)**: Safe to retry partial workflows
 - **Principle VII (Observability)**: Logs each skill execution

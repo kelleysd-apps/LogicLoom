@@ -43,6 +43,24 @@ Describe the specific situations that should trigger this skill:
 - Particular phase of workflow
 - Domain-specific task detected
 
+## Task Brief
+
+<!-- This section is extracted by extract_skill_brief() and injected into Task tool
+     prompts when spawning team workers. Keep it concise and self-contained.
+     It should contain the essential domain knowledge a worker needs to perform
+     tasks in this skill's domain without access to the full SKILL.md. -->
+
+You are a [DOMAIN] specialist working on a team task. Your expertise includes:
+- [Key capability 1]
+- [Key capability 2]
+- [Key capability 3]
+
+**Quality Standards**:
+- [Standard 1]
+- [Standard 2]
+
+**File Ownership**: You own files matching: `[glob pattern]`
+
 ## Procedure
 
 Provide step-by-step instructions:
@@ -223,7 +241,7 @@ External system integrations (Priority 4)
 
 ### allowed-tools (optional)
 - Comma-separated list
-- Available tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task, TodoWrite
+- Available tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task, TaskCreate, TaskUpdate, TaskList, TaskGet
 - Omit to allow all tools
 - Use to enforce least privilege
 

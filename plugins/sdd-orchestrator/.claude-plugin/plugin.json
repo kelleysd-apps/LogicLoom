@@ -19,6 +19,9 @@
     "gemini",
     "perplexity"
   ],
+  "agents": [
+    "team-synthesizer"
+  ],
   "dependencies": [
     "sdd-governance"
   ],

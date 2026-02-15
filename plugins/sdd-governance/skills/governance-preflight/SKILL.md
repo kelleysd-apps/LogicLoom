@@ -39,7 +39,7 @@ Use `/governance-preflight` when:
 
 ## Constitutional Compliance Checklist
 
-Use this checklist to validate compliance with all 15 principles:
+Use this checklist to validate compliance with all 16 principles:
 
 ### Part I: Core Immutable Principles (I-III)
 
@@ -93,7 +93,7 @@ Use this checklist to validate compliance with all 15 principles:
   - Are version constraints specified?
   - Are security vulnerabilities checked?
 
-### Part III: Workflow & Delegation Principles (X-XV)
+### Part III: Workflow & Delegation Principles (X-XVI)
 
 - [ ] **Principle X: Agent Delegation Protocol** ⚠️ CRITICAL
   - Is specialized work delegated to specialist agents?
@@ -198,7 +198,7 @@ Before ANY git commit, verify:
 - [ ] `.env.example` updated if new vars added
 
 ### Constitutional Compliance
-- [ ] All 15 principles checked
+- [ ] All 16 principles checked
 - [ ] Critical principles (II, VI, X) verified
 - [ ] Exceptions documented with justification
 - [ ] `/finalize` command run (if available)
@@ -491,7 +491,7 @@ VERIFIER_CHECK:
 
 ## Related Documentation
 
-- **Constitution**: `.specify/memory/constitution.md` (v1.6.0)
+- **Constitution**: `.specify/memory/constitution.md` (v3.0.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
 - **Agent Layer**: `plugins/sdd-governance/agents/constitutional-governance-agent.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`

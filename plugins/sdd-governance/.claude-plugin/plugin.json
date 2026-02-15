@@ -1,7 +1,7 @@
 {
   "name": "sdd-governance",
   "version": "1.0.0",
-  "description": "Constitutional governance enforcement for the SDD Agentic Framework. Enforces 15 constitutional principles across all plugins via pre-flight compliance checks, git safety gates, and domain detection.",
+  "description": "Constitutional governance enforcement for the SDD Agentic Framework. Enforces 16 constitutional principles across all plugins via pre-flight compliance checks, git safety gates, and domain detection.",
   "author": "kelleysd-apps",
   "license": "MIT",
   "homepage": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",

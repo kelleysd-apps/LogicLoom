@@ -52,7 +52,7 @@ STEP 2: DOMAIN ANALYSIS
 STEP 3: DELEGATION DECISION
        - 0 domains: may execute directly
        - 1 domain: MUST delegate to specialist agent
-       - 2+ domains: MUST delegate to task-orchestrator
+       - 2+ domains: MUST delegate to team-orchestration skill
 
 STEP 4: EXECUTION AUTHORIZATION
        - Confirm all steps complete
@@ -70,21 +70,21 @@ Constitutional Compliance Check:
 - Proceeding with: [action description]
 ```
 
-### Quick Reference: Domain - Agent Mapping
+### Quick Reference: Domain Delegation
 
 | Domain | Trigger Keywords | Delegate To |
 |--------|------------------|-------------|
-| Frontend | UI, component, React, CSS, form | frontend-specialist |
-| Backend | API, endpoint, server, auth, service | backend-architect |
-| Database | schema, migration, query, RLS, SQL | database-specialist |
-| Testing | test, TDD, E2E, coverage, QA | testing-specialist |
-| Security | encryption, XSS, secrets, vulnerability | security-specialist |
-| Performance | optimize, cache, benchmark, latency | performance-engineer |
-| DevOps | deploy, CI/CD, Docker, pipeline | devops-engineer |
-| Specification | spec, requirements, user story | specification-agent |
-| Planning | /plan, research, contract design | planning-agent |
-| Tasks | /tasks, task list, dependencies | tasks-agent |
-| Multi-Domain | 2+ domains detected | task-orchestrator |
+| Frontend | UI, component, React, CSS, form | sdd-domain-frontend:frontend-operations skill |
+| Backend | API, endpoint, server, auth, service | sdd-domain-backend:backend-operations skill |
+| Database | schema, migration, query, RLS, SQL | sdd-domain-database:database-operations skill |
+| Testing | test, TDD, E2E, coverage, QA | sdd-domain-testing:testing-operations skill |
+| Security | encryption, XSS, secrets, vulnerability | sdd-domain-security:security-operations skill |
+| Performance | optimize, cache, benchmark, latency | sdd-domain-performance:performance-operations skill |
+| DevOps | deploy, CI/CD, Docker, pipeline | sdd-domain-devops:devops-operations skill |
+| Specification | spec, requirements, user story | sdd-specification skill |
+| Planning | /plan, research, contract design | sdd-planning skill |
+| Tasks | /tasks, task list, dependencies | sdd-tasks skill |
+| Multi-Domain | 2+ domains detected | team-orchestration skill |
 
 ### Violation Self-Correction
 
@@ -212,7 +212,7 @@ The framework uses **Docker MCP Toolkit** as the primary MCP orchestration metho
 **Constitutional Principle X** requires specialized work be delegated to specialized agents.
 
 **See `AGENTS.md`** for complete agent registry including:
-- All 21 agents across 15 plugins
+- All 11 agents across 15 plugins (14 agents converted to enhanced skills)
 - Agent capabilities and tools
 - Domain -> agent mapping (detailed)
 - Slash command -> agent mapping
@@ -338,14 +338,14 @@ Run before commits:
 | Level | Location | Purpose |
 |-------|----------|---------|
 | **Project** | `specs/###-feature/tasks.md` | Full implementation checklist |
-| **Session** | TodoWrite tool | Active work tracking |
+| **Session** | TaskCreate/TaskUpdate tools | Active work tracking |
 | **Agent** | `.docs/agents/*/decisions/tasks/` | Completion history |
 
-### TodoWrite Rules (CRITICAL)
+### Task Tool Rules (CRITICAL)
 
 1. **ONE task `in_progress`** at any time - never multiple
-2. **Mark `completed` IMMEDIATELY** - don't batch completions
-3. **Use for 3+ step tasks** - skip for trivial single-step work
+2. **Mark `completed` IMMEDIATELY** via TaskUpdate - don't batch completions
+3. **Use TaskCreate for 3+ step tasks** - skip for trivial single-step work
 4. **Keep focused** - 3-10 items max
 5. **Derive from tasks.md** - session tasks come from project tasks
 
@@ -430,15 +430,16 @@ All framework capabilities are organized as **discrete installable plugins** at 
 | Plugin | Category | Skills | Agents | Commands |
 |--------|----------|--------|--------|----------|
 | `sdd-governance` | governance | 6 | 1 | 0 |
-| `sdd-specification` | core | 5 | 4 | 4 |
-| `sdd-orchestrator` | orchestration | 5 | 4 | 6 |
+| `sdd-specification` | core | 5 | 0 | 4 |
+| `sdd-orchestrator` | orchestration | 7 | 1 | 6 |
 | `sdd-orchestrator-hook` | orchestration | 1 | 0 | 0 |
 | `sdd-memory` | orchestration | 1 | 1 | 0 |
 | `sdd-creation` | core | 5 | 2 | 4 |
 | `sdd-git` | core | 2 | 0 | 2 |
 | `sdd-debug` | core | 1 | 1 | 1 |
 | `sdd-maintenance` | core | 3 | 1 | 2 |
-| `sdd-domain-*` | domain | 1-4 | 1 | 0 |
+| `sdd-dev-loop` | core | 1 | 4 | 1 |
+| `sdd-domain-*` | domain | 1-4 | 0 | 0 |
 
 ### Plugin Command Bridge
 

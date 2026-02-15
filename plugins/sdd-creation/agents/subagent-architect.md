@@ -1,7 +1,7 @@
 ---
 name: subagent-architect
 description: Use PROACTIVELY for creating SDD-compliant subagents, designing constitutional agent workflows, and managing specification-driven agent teams. Expert in TDD-enforced agent patterns and constitutional compliance.
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, TodoWrite
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, TaskCreate, TaskUpdate
 model: inherit
 ---
 
@@ -165,7 +165,7 @@ Users can explicitly request this agent by saying:
 ## Tool Usage Policies
 
 ### Authorized Tools
-Read, Grep, Glob, WebSearch, TodoWrite
+Read, Grep, Glob, WebSearch, TaskCreate, TaskUpdate
 
 ### MCP Server Access
 mcp__ref-tools, mcp__supabase__search_docs, mcp__perplexity, mcp__claude-context

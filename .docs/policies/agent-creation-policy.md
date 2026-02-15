@@ -30,7 +30,7 @@ This document defines the standards, workflows, and requirements for creating an
 #### Architecture Department
 **Purpose**: High-level system design and technical planning
 **Typical Agents**: system-architect, solution-designer, integration-specialist
-**Tool Access**: Read, Grep, Glob, WebSearch, TodoWrite
+**Tool Access**: Read, Grep, Glob, WebSearch, TaskCreate, TaskUpdate
 **Memory Focus**: Patterns, decisions, references
 
 #### Engineering Department
@@ -54,13 +54,13 @@ This document defines the standards, workflows, and requirements for creating an
 #### Product Department
 **Purpose**: Requirements analysis and user experience
 **Typical Agents**: product-analyst, ux-researcher, requirements-analyst
-**Tool Access**: Read, WebSearch, TodoWrite
+**Tool Access**: Read, WebSearch, TaskCreate, TaskUpdate
 **Memory Focus**: Personas, journeys, feedback
 
 #### Operations Department
 **Purpose**: Deployment, monitoring, and incident response
 **Typical Agents**: release-manager, incident-responder, documentation-specialist
-**Tool Access**: Read, Bash, Grep, TodoWrite
+**Tool Access**: Read, Bash, Grep, TaskCreate, TaskUpdate
 **Memory Focus**: Runbooks, incidents, releases
 
 ## Agent Creation Workflow
@@ -133,7 +133,7 @@ model: inherit               # Usually inherit, specify when needed
 
 ## Tool Access Matrix
 
-| Department    | Read | Write | Edit | Bash | Grep | Glob | WebSearch | TodoWrite | MCP Tools |
+| Department    | Read | Write | Edit | Bash | Grep | Glob | WebSearch | Task Tools | MCP Tools |
 |--------------|------|-------|------|------|------|------|-----------|-----------|-----------|
 | Architecture | ✅   | ❌    | ❌   | ⚠️   | ✅   | ✅   | ✅        | ✅        | ⚠️        |
 | Engineering  | ✅   | ✅    | ✅   | ✅   | ✅   | ✅   | ✅        | ✅        | ✅        |
