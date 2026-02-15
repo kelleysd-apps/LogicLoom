@@ -9,11 +9,11 @@
 #   1. Success:        composite grade >= quality threshold
 #   2. Convergence:    grade delta < convergence_delta for convergence_window iterations
 #   3. Budget:         tokens > budget_tokens OR cost > budget_cost
-#   4. Max iterations: iteration_count > max_iterations
+#   4. Max iterations: iteration_count >= max_iterations
 #   5. Stuck:          same error 3+ times OR oscillation detected
 #   6. User interrupt: SIGINT received
 #
-# This file is designed to be sourced, not executed directly.
+# All public functions use flag-style arguments: --session ID --workdir PATH
 #
 # Dependencies: bc (floating-point arithmetic), jq (JSON parsing)
 # Constitutional Principle VII: Observability — termination reasons are structured
@@ -39,13 +39,10 @@ _DEVLOOP_USER_INTERRUPTED=false
 # Internal Helpers
 # ==============================================================================
 
-# _term_bc_calc — Evaluate a floating-point expression via bc
 _term_bc_calc() {
     echo "$1" | bc -l 2>/dev/null || echo "0"
 }
 
-# _term_bc_compare — Compare two floating-point numbers
-# Returns: 0 (true) or 1 (false)
 _term_bc_compare() {
     local a="$1" op="$2" b="$3"
     local result
@@ -60,62 +57,84 @@ _term_bc_compare() {
     [[ "$result" == "1" ]] && return 0 || return 1
 }
 
-# _setup_interrupt_handler — Register SIGINT trap for user interrupt detection
-# Usage: Call once at session start
 _setup_interrupt_handler() {
     trap '_DEVLOOP_USER_INTERRUPTED=true' INT
+}
+
+# _term_load_state — Load session state from disk
+# Returns: JSON to stdout, exit 1 if not found
+_term_load_state() {
+    local session_id="$1" workdir="$2"
+    local state_file="${workdir}/.dev-loop/sessions/${session_id}/state.json"
+    if [[ ! -f "$state_file" ]]; then
+        return 1
+    fi
+    cat "$state_file"
 }
 
 # ==============================================================================
 # check_convergence — Check if quality grades have converged
 # ==============================================================================
-# Usage: check_convergence <grades_json_array>
+# Usage: check_convergence --grades '[...]' --delta 0.001 --consecutive 3
 #
-# Grades have converged when the absolute difference between consecutive
-# grades is less than convergence_delta for the last convergence_window
-# iterations.
-#
-# Arguments:
-#   grades_json_array — JSON array of recent composite grades (floats), e.g. [0.89, 0.891, 0.8912]
-#
-# Outputs: JSON object with convergence analysis:
-#   {"converged": true/false, "window": N, "delta": <max_delta>, "threshold": <convergence_delta>}
-# Returns: 0 if converged, 1 if not converged
+# Outputs: JSON with convergence analysis
+# Returns: 0 if converged, 1 if not
 check_convergence() {
-    local grades_json="$1"
+    local grades_json="" conv_delta="" consecutive=""
 
-    # Load convergence config
-    local conv_delta conv_window
-    if [[ -f "$_TERM_THRESHOLDS_CONFIG" ]]; then
-        conv_delta=$(jq -r '.convergence_delta' "$_TERM_THRESHOLDS_CONFIG")
-        conv_window=$(jq -r '.convergence_window' "$_TERM_THRESHOLDS_CONFIG")
-    else
-        conv_delta="${DEVLOOP_CONVERGENCE_DELTA:-0.001}"
-        conv_window="${DEVLOOP_CONVERGENCE_WINDOW:-3}"
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --grades)      grades_json="$2"; shift 2 ;;
+            --delta)       conv_delta="$2"; shift 2 ;;
+            --consecutive) consecutive="$2"; shift 2 ;;
+            *)             shift ;;
+        esac
+    done
+
+    # Validate delta > 0
+    if [[ -n "$conv_delta" ]]; then
+        local delta_valid
+        delta_valid=$(_term_bc_calc "$conv_delta > 0")
+        if [[ "$delta_valid" != "1" ]]; then
+            echo "INVALID_DELTA: delta must be positive, got ${conv_delta}"
+            return 1
+        fi
     fi
 
-    # Count grades
+    # Defaults from config
+    if [[ -z "$conv_delta" ]]; then
+        if [[ -f "$_TERM_THRESHOLDS_CONFIG" ]]; then
+            conv_delta=$(jq -r '.convergence_delta' "$_TERM_THRESHOLDS_CONFIG")
+        else
+            conv_delta="${DEVLOOP_CONVERGENCE_DELTA:-0.001}"
+        fi
+    fi
+    if [[ -z "$consecutive" ]]; then
+        if [[ -f "$_TERM_THRESHOLDS_CONFIG" ]]; then
+            consecutive=$(jq -r '.convergence_window' "$_TERM_THRESHOLDS_CONFIG")
+        else
+            consecutive="${DEVLOOP_CONVERGENCE_WINDOW:-3}"
+        fi
+    fi
+
     local grade_count
     grade_count=$(echo "$grades_json" | jq 'length')
 
-    # Need at least convergence_window + 1 grades to check window deltas
-    if [[ "$grade_count" -lt $((conv_window + 1)) ]]; then
-        jq -n \
-            --argjson converged false \
-            --argjson window "$conv_window" \
-            --arg delta "N/A" \
-            --arg threshold "$conv_delta" \
-            --arg reason "insufficient_data" \
-            '{converged: $converged, window: $window, delta: $delta, threshold: ($threshold | tonumber), reason: $reason}'
+    # Need at least consecutive grades to compute deltas
+    if [[ "$grade_count" -lt "$consecutive" ]]; then
+        echo "INSUFFICIENT_DATA: need at least ${consecutive} grades, got ${grade_count}"
         return 1
     fi
 
-    # Check the last conv_window consecutive deltas
-    # We need the last (conv_window + 1) grades to compute conv_window deltas
-    local max_delta="0"
+    # Compute deltas between the last consecutive grades
+    # consecutive=3 means look at 3 grades, producing 2 deltas
+    local num_deltas=$((consecutive - 1))
+    local sum_improvement="0"
     local all_below=true
+    local improvements_json="["
+    local delta_idx=0
 
-    for ((i = grade_count - conv_window; i < grade_count; i++)); do
+    for ((i = grade_count - consecutive + 1; i < grade_count; i++)); do
         local prev_idx=$((i - 1))
         local curr prev delta abs_delta
         curr=$(echo "$grades_json" | jq ".[$i]")
@@ -123,14 +142,19 @@ check_convergence() {
         delta=$(_term_bc_calc "$curr - $prev")
         abs_delta=$(echo "$delta" | tr -d '-')
 
-        if _term_bc_compare "$abs_delta" ">" "$max_delta"; then
-            max_delta="$abs_delta"
-        fi
+        [[ $delta_idx -gt 0 ]] && improvements_json="${improvements_json},"
+        improvements_json="${improvements_json}${abs_delta}"
+        delta_idx=$((delta_idx + 1))
+        sum_improvement=$(_term_bc_calc "$sum_improvement + $abs_delta")
 
-        if _term_bc_compare "$abs_delta" ">=" "$conv_delta"; then
+        if _term_bc_compare "$abs_delta" ">" "$conv_delta"; then
             all_below=false
         fi
     done
+    improvements_json="${improvements_json}]"
+
+    local avg_improvement
+    avg_improvement=$(_term_bc_calc "$sum_improvement / $num_deltas")
 
     local converged
     if [[ "$all_below" == "true" ]]; then
@@ -141,10 +165,9 @@ check_convergence() {
 
     jq -n \
         --argjson converged "$converged" \
-        --argjson window "$conv_window" \
-        --arg delta "$max_delta" \
-        --arg threshold "$conv_delta" \
-        '{converged: $converged, window: $window, delta: ($delta | tonumber), threshold: ($threshold | tonumber)}'
+        --argjson last_improvements "$improvements_json" \
+        --arg average_improvement "$avg_improvement" \
+        '{converged: $converged, last_improvements: $last_improvements, average_improvement: ($average_improvement | tonumber)}'
 
     if [[ "$converged" == "true" ]]; then
         return 0
@@ -156,162 +179,205 @@ check_convergence() {
 # ==============================================================================
 # check_budget — Check if session has exceeded token or cost budget
 # ==============================================================================
-# Usage: check_budget <session_state_json>
+# Usage: check_budget --session ID --workdir PATH
 #
-# Checks:
-#   - tokens_spent > budget_tokens
-#   - cost_spent > budget_cost_usd
-#
-# Arguments:
-#   session_state_json — JSON object with fields:
-#     {"tokens_spent": N, "cost_spent": F, "budget_tokens": N, "budget_cost_usd": F}
-#     If budget fields are omitted, defaults are loaded from config/safety-limits.json
-#
-# Outputs: JSON object with budget analysis:
-#   {"exhausted": true/false, "reason": "tokens"|"cost"|null, "details": {...}}
+# Outputs: JSON with budget analysis including budget_status
 # Returns: 0 if budget exhausted, 1 if within budget
 check_budget() {
-    local session_json="$1"
+    local session_id="" workdir=""
 
-    # Extract values with fallback to config defaults
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --session) session_id="$2"; shift 2 ;;
+            --workdir) workdir="$2"; shift 2 ;;
+            *)         shift ;;
+        esac
+    done
+
+    # Load session state
+    local state_json
+    state_json=$(_term_load_state "$session_id" "$workdir") || {
+        echo "SESSION_NOT_FOUND: No session with id '${session_id}'"
+        return 1
+    }
+
+    # Extract resource consumption
     local tokens_spent cost_spent budget_tokens budget_cost
+    tokens_spent=$(echo "$state_json" | jq -r '.resources_consumed.total_tokens // 0')
+    cost_spent=$(echo "$state_json" | jq -r '.resources_consumed.total_cost // 0')
+    budget_tokens=$(echo "$state_json" | jq -r '.budget.tokens // 500000')
+    budget_cost=$(echo "$state_json" | jq -r '.budget.cost // 10.00')
 
-    tokens_spent=$(echo "$session_json" | jq -r '.tokens_spent // 0')
-    cost_spent=$(echo "$session_json" | jq -r '.cost_spent // 0')
+    # Calculate remaining and percent used
+    local tokens_remaining cost_remaining tokens_pct cost_pct
+    tokens_remaining=$(_term_bc_calc "$budget_tokens - $tokens_spent")
+    cost_remaining=$(_term_bc_calc "$budget_cost - $cost_spent")
+    tokens_pct=$(_term_bc_calc "($tokens_spent / $budget_tokens) * 100")
+    cost_pct=$(_term_bc_calc "($cost_spent / $budget_cost) * 100")
 
-    # Load budget limits from session or config
-    budget_tokens=$(echo "$session_json" | jq -r '.budget_tokens // null')
-    budget_cost=$(echo "$session_json" | jq -r '.budget_cost_usd // null')
-
-    if [[ "$budget_tokens" == "null" ]] && [[ -f "$_TERM_SAFETY_CONFIG" ]]; then
-        budget_tokens=$(jq -r '.budget_tokens' "$_TERM_SAFETY_CONFIG")
-    fi
-    if [[ "$budget_cost" == "null" ]] && [[ -f "$_TERM_SAFETY_CONFIG" ]]; then
-        budget_cost=$(jq -r '.budget_cost_usd' "$_TERM_SAFETY_CONFIG")
-    fi
-
-    # Default fallbacks
-    budget_tokens="${budget_tokens:-500000}"
-    budget_cost="${budget_cost:-10.00}"
-
-    # Check token budget
+    # Check if budget exhausted
+    local exhausted=false
     if _term_bc_compare "$tokens_spent" ">" "$budget_tokens"; then
-        local token_pct
-        token_pct=$(_term_bc_calc "($tokens_spent / $budget_tokens) * 100")
-        jq -n \
-            --argjson exhausted true \
-            --arg reason "tokens" \
-            --arg tokens_spent "$tokens_spent" \
-            --arg budget_tokens "$budget_tokens" \
-            --arg usage_pct "$token_pct" \
-            '{exhausted: $exhausted, reason: $reason, details: {tokens_spent: ($tokens_spent | tonumber), budget_tokens: ($budget_tokens | tonumber), usage_pct: ($usage_pct | tonumber)}}'
-        return 0
+        exhausted=true
+    elif _term_bc_compare "$cost_spent" ">" "$budget_cost"; then
+        exhausted=true
     fi
 
-    # Check cost budget
-    if _term_bc_compare "$cost_spent" ">" "$budget_cost"; then
-        local cost_pct
-        cost_pct=$(_term_bc_calc "($cost_spent / $budget_cost) * 100")
-        jq -n \
-            --argjson exhausted true \
-            --arg reason "cost" \
-            --arg cost_spent "$cost_spent" \
-            --arg budget_cost "$budget_cost" \
-            --arg usage_pct "$cost_pct" \
-            '{exhausted: $exhausted, reason: $reason, details: {cost_spent: ($cost_spent | tonumber), budget_cost: ($budget_cost | tonumber), usage_pct: ($usage_pct | tonumber)}}'
-        return 0
-    fi
-
-    # Within budget
     jq -n \
-        --argjson exhausted false \
+        --argjson budget_exhausted "$exhausted" \
         --arg tokens_spent "$tokens_spent" \
         --arg budget_tokens "$budget_tokens" \
+        --arg tokens_remaining "$tokens_remaining" \
+        --arg tokens_pct "$tokens_pct" \
         --arg cost_spent "$cost_spent" \
         --arg budget_cost "$budget_cost" \
-        '{exhausted: $exhausted, reason: null, details: {tokens_spent: ($tokens_spent | tonumber), budget_tokens: ($budget_tokens | tonumber), cost_spent: ($cost_spent | tonumber), budget_cost: ($budget_cost | tonumber)}}'
-    return 1
+        --arg cost_remaining "$cost_remaining" \
+        --arg cost_pct "$cost_pct" \
+        '{
+            budget_exhausted: $budget_exhausted,
+            budget_status: {
+                tokens: {
+                    spent: ($tokens_spent | tonumber),
+                    limit: ($budget_tokens | tonumber),
+                    remaining: ($tokens_remaining | tonumber),
+                    percent_used: ($tokens_pct | tonumber)
+                },
+                cost: {
+                    spent: ($cost_spent | tonumber),
+                    limit: ($budget_cost | tonumber),
+                    remaining: ($cost_remaining | tonumber),
+                    percent_used: ($cost_pct | tonumber)
+                }
+            }
+        }'
+
+    if [[ "$exhausted" == "true" ]]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # ==============================================================================
 # check_oscillation — Detect oscillating code states via hash comparison
 # ==============================================================================
-# Usage: check_oscillation <hashes_json_array>
+# Usage: check_oscillation --session ID --workdir PATH
 #
-# Oscillation is detected when a code state hash appears more than once
-# in the recent history, indicating the loop is flip-flopping between states.
-#
-# Arguments:
-#   hashes_json_array — JSON array of code state hashes (strings), e.g.
-#     ["abc123", "def456", "abc123", "def456"]
-#
-# Outputs: JSON object:
-#   {"oscillating": true/false, "repeated_hash": "...", "occurrences": N}
-# Returns: 0 if oscillation detected, 1 if no oscillation
+# Reads state_hashes.json from session directory.
+# Outputs: JSON with oscillation analysis
+# Returns: 0 if oscillation detected, 1 if not
 check_oscillation() {
-    local hashes_json="$1"
+    local session_id="" workdir=""
 
-    # Use jq to find any hash that appears 2+ times
-    local repeated
-    repeated=$(echo "$hashes_json" | jq -r '
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --session) session_id="$2"; shift 2 ;;
+            --workdir) workdir="$2"; shift 2 ;;
+            *)         shift ;;
+        esac
+    done
+
+    # Verify session exists
+    local sess_dir="${workdir}/.dev-loop/sessions/${session_id}"
+    if [[ ! -d "$sess_dir" ]]; then
+        echo "SESSION_NOT_FOUND: No session with id '${session_id}'"
+        return 1
+    fi
+
+    local hashes_file="${sess_dir}/state_hashes.json"
+    if [[ ! -f "$hashes_file" ]]; then
+        echo "INSUFFICIENT_HISTORY: No state hashes recorded"
+        return 1
+    fi
+
+    # Extract hashes array from iterations
+    local iteration_count
+    iteration_count=$(jq '.iterations | length' "$hashes_file")
+
+    if [[ "$iteration_count" -lt 4 ]]; then
+        echo "INSUFFICIENT_HISTORY: Need at least 4 iterations, got ${iteration_count}"
+        return 1
+    fi
+
+    # Extract just the hash values
+    local hashes_array
+    hashes_array=$(jq '[.iterations[].hash]' "$hashes_file")
+
+    # Find repeated hashes and detect cycle patterns
+    local repeated_info
+    repeated_info=$(echo "$hashes_array" | jq '
         group_by(.) |
         map(select(length > 1)) |
         if length > 0 then
-            .[0] | {repeated_hash: .[0], occurrences: length}
+            {
+                has_repeats: true,
+                repeated_states: [.[] | {hash: .[0], count: length}]
+            }
         else
-            {repeated_hash: null, occurrences: 0}
+            {has_repeats: false, repeated_states: []}
         end
     ')
 
-    local repeated_hash occurrences
-    repeated_hash=$(echo "$repeated" | jq -r '.repeated_hash')
-    occurrences=$(echo "$repeated" | jq -r '.occurrences')
+    local has_repeats
+    has_repeats=$(echo "$repeated_info" | jq -r '.has_repeats')
 
-    if [[ "$repeated_hash" != "null" && "$occurrences" -ge 2 ]]; then
+    if [[ "$has_repeats" == "true" ]]; then
+        # Detect cycle length by finding the shortest repeating pattern
+        # For A-B-A-B, cycle_length = 2; for A-B-C-A-B-C, cycle_length = 3
+        local cycle_length
+        cycle_length=$(echo "$hashes_array" | jq '
+            . as $arr |
+            # Find first repeated hash
+            (group_by(.) | map(select(length > 1)) | .[0][0]) as $first_repeat |
+            # Find indices of this hash
+            [range(length) | select($arr[.] == $first_repeat)] |
+            # Cycle length is difference between first two occurrences
+            if length >= 2 then .[1] - .[0] else 2 end
+        ')
+
+        local repeated_states
+        repeated_states=$(echo "$repeated_info" | jq '.repeated_states')
+
         jq -n \
-            --argjson oscillating true \
-            --arg repeated_hash "$repeated_hash" \
-            --argjson occurrences "$occurrences" \
-            '{oscillating: $oscillating, repeated_hash: $repeated_hash, occurrences: $occurrences}'
+            --argjson oscillation_detected true \
+            --argjson cycle_length "$cycle_length" \
+            --argjson repeated_states "$repeated_states" \
+            '{
+                oscillation_detected: $oscillation_detected,
+                oscillation_pattern: {
+                    cycle_length: $cycle_length,
+                    repeated_states: $repeated_states
+                },
+                recommendation: "Code state is oscillating between states. Consider a different approach or manual intervention."
+            }'
         return 0
     else
         jq -n \
-            --argjson oscillating false \
-            '{oscillating: $oscillating, repeated_hash: null, occurrences: 0}'
+            --argjson oscillation_detected false \
+            '{
+                oscillation_detected: $oscillation_detected,
+                oscillation_pattern: null,
+                recommendation: null
+            }'
         return 1
     fi
 }
 
 # ==============================================================================
-# check_stuck — Detect repeated identical errors
+# check_stuck — Detect repeated identical errors (internal helper)
 # ==============================================================================
-# Usage: check_stuck <errors_json_array>
-#
-# Stuck is detected when the same error message appears 3 or more consecutive
-# times in the recent error history, indicating no progress is being made.
-#
-# Arguments:
-#   errors_json_array — JSON array of recent error strings, e.g.
-#     ["TypeError: x is not a function", "TypeError: x is not a function", "TypeError: x is not a function"]
-#
-# Outputs: JSON object:
-#   {"stuck": true/false, "repeated_error": "...", "consecutive_count": N}
-# Returns: 0 if stuck detected, 1 if not stuck
-check_stuck() {
+_check_stuck() {
     local errors_json="$1"
-    local stuck_threshold="${DEVLOOP_STUCK_THRESHOLD:-3}"
+    local stuck_threshold="${2:-3}"
 
     local error_count
     error_count=$(echo "$errors_json" | jq 'length')
 
     if [[ "$error_count" -lt "$stuck_threshold" ]]; then
-        jq -n \
-            --argjson stuck false \
-            '{stuck: $stuck, repeated_error: null, consecutive_count: 0}'
+        echo '{"stuck": false}'
         return 1
     fi
 
-    # Check for consecutive identical errors from the end of the array
     local last_error consecutive_count
     last_error=$(echo "$errors_json" | jq -r '.[-1]')
     consecutive_count=0
@@ -327,17 +393,11 @@ check_stuck() {
     done
 
     if [[ "$consecutive_count" -ge "$stuck_threshold" ]]; then
-        jq -n \
-            --argjson stuck true \
-            --arg repeated_error "$last_error" \
-            --argjson consecutive_count "$consecutive_count" \
-            '{stuck: $stuck, repeated_error: $repeated_error, consecutive_count: $consecutive_count}'
+        jq -n --argjson stuck true --arg err "$last_error" --argjson count "$consecutive_count" \
+            '{stuck: $stuck, repeated_error: $err, consecutive_count: $count}'
         return 0
     else
-        jq -n \
-            --argjson stuck false \
-            --argjson consecutive_count "$consecutive_count" \
-            '{stuck: $stuck, repeated_error: null, consecutive_count: $consecutive_count}'
+        echo '{"stuck": false}'
         return 1
     fi
 }
@@ -345,217 +405,230 @@ check_stuck() {
 # ==============================================================================
 # check_all_layers — Evaluate all 6 termination layers in priority order
 # ==============================================================================
-# Usage: check_all_layers <session_state_json>
+# Usage: check_all_layers --session ID --workdir PATH
 #
-# Evaluates termination conditions in strict priority order. The first
-# triggered condition is returned immediately (short-circuit evaluation).
-#
-# Arguments:
-#   session_state_json — JSON object containing full session state:
-#     {
-#       "composite_grade": 0.89,
-#       "quality_grades": [0.72, 0.81, 0.89],
-#       "iteration_count": 3,
-#       "tokens_spent": 125000,
-#       "cost_spent": 3.75,
-#       "budget_tokens": 500000,
-#       "budget_cost_usd": 15.00,
-#       "max_iterations": 25,
-#       "recent_errors": ["err1", "err1", "err1"],
-#       "code_state_hashes": ["abc", "def", "abc"]
-#     }
-#
-# Outputs: JSON object with termination result:
-#   {
-#     "should_terminate": true/false,
-#     "reason": "success"|"converged"|"budget_exhausted"|"max_iterations"|"stuck"|"user_interrupt"|null,
-#     "layer": 1-6,
-#     "details": {...}
-#   }
+# Outputs: JSON with should_terminate, layer_triggered, termination_reason,
+#          and layer_results for all 6 layers
 # Returns: 0 if should terminate, 1 if should continue
 check_all_layers() {
-    local session_json="$1"
+    local session_id="" workdir=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --session) session_id="$2"; shift 2 ;;
+            --workdir) workdir="$2"; shift 2 ;;
+            *)         shift ;;
+        esac
+    done
+
+    # Load session state
+    local state_json
+    state_json=$(_term_load_state "$session_id" "$workdir") || {
+        echo "SESSION_NOT_FOUND: No session with id '${session_id}'"
+        return 1
+    }
 
     # Extract fields
     local composite_grade quality_grades iteration_count max_iterations
-    local recent_errors code_hashes
-
-    composite_grade=$(echo "$session_json" | jq -r '.composite_grade // 0')
-    quality_grades=$(echo "$session_json" | jq -c '.quality_grades // []')
-    iteration_count=$(echo "$session_json" | jq -r '.iteration_count // 0')
-    recent_errors=$(echo "$session_json" | jq -c '.recent_errors // []')
-    code_hashes=$(echo "$session_json" | jq -c '.code_state_hashes // []')
-
-    # Load max_iterations from session or config
-    max_iterations=$(echo "$session_json" | jq -r '.max_iterations // null')
-    if [[ "$max_iterations" == "null" ]] && [[ -f "$_TERM_SAFETY_CONFIG" ]]; then
-        max_iterations=$(jq -r '.max_iterations' "$_TERM_SAFETY_CONFIG")
-    fi
-    max_iterations="${max_iterations:-25}"
-
-    # Load quality threshold
     local quality_threshold
-    quality_threshold=$(echo "$session_json" | jq -r '.quality_threshold // null')
-    if [[ "$quality_threshold" == "null" ]] && [[ -f "$_TERM_THRESHOLDS_CONFIG" ]]; then
-        quality_threshold=$(jq -r '.quality_threshold' "$_TERM_THRESHOLDS_CONFIG")
-    fi
-    quality_threshold="${quality_threshold:-0.95}"
+
+    composite_grade=$(echo "$state_json" | jq -r '.current_grade // 0')
+    quality_grades=$(echo "$state_json" | jq -c '.quality_history // []')
+    iteration_count=$(echo "$state_json" | jq -r '.current_iteration // 0')
+    max_iterations=$(echo "$state_json" | jq -r '.max_iterations // 25')
+    quality_threshold=$(echo "$state_json" | jq -r '.quality_threshold // 0.95')
+
+    # Initialize layer results
+    local l1_triggered=false l2_triggered=false l3_triggered=false
+    local l4_triggered=false l5_triggered=false l6_triggered=false
+    local triggered_layer="null" triggered_reason="null"
 
     # ---- Layer 1: Success (grade >= threshold) ----
     if _term_bc_compare "$composite_grade" ">=" "$quality_threshold"; then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "success" \
-            --argjson layer 1 \
-            --arg grade "$composite_grade" \
-            --arg threshold "$quality_threshold" \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: {grade: ($grade | tonumber), threshold: ($threshold | tonumber)}}'
-        return 0
+        l1_triggered=true
+        if [[ "$triggered_layer" == "null" ]]; then
+            triggered_layer=1
+            triggered_reason="success"
+        fi
     fi
 
     # ---- Layer 2: Convergence ----
     local conv_result
-    if conv_result=$(check_convergence "$quality_grades" 2>/dev/null); then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "converged" \
-            --argjson layer 2 \
-            --argjson details "$conv_result" \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: $details}'
-        return 0
+    conv_result=$(check_convergence --grades "$quality_grades" 2>/dev/null) && l2_triggered=true || true
+    if [[ "$l2_triggered" == "true" && "$triggered_layer" == "null" ]]; then
+        triggered_layer=2
+        triggered_reason="converged"
     fi
 
-    # ---- Layer 3: Budget exhausted ----
+    # ---- Layer 3: Budget ----
     local budget_result
-    if budget_result=$(check_budget "$session_json" 2>/dev/null); then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "budget_exhausted" \
-            --argjson layer 3 \
-            --argjson details "$budget_result" \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: $details}'
-        return 0
+    budget_result=$(check_budget --session "$session_id" --workdir "$workdir" 2>/dev/null) && l3_triggered=true || true
+    if [[ "$l3_triggered" == "true" && "$triggered_layer" == "null" ]]; then
+        triggered_layer=3
+        triggered_reason="budget_exhausted"
     fi
 
     # ---- Layer 4: Max iterations ----
-    if [[ "$iteration_count" -gt "$max_iterations" ]]; then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "max_iterations" \
-            --argjson layer 4 \
-            --argjson iteration "$iteration_count" \
-            --argjson max "$max_iterations" \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: {iteration: $iteration, max_iterations: $max}}'
-        return 0
+    if [[ "$iteration_count" -ge "$max_iterations" ]]; then
+        l4_triggered=true
+        if [[ "$triggered_layer" == "null" ]]; then
+            triggered_layer=4
+            triggered_reason="max_iterations"
+        fi
     fi
 
-    # ---- Layer 5: Stuck (repeated errors or oscillation) ----
-    local stuck_result oscillation_result
-    if stuck_result=$(check_stuck "$recent_errors" 2>/dev/null); then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "stuck" \
-            --argjson layer 5 \
-            --argjson details "$stuck_result" \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: ($details + {type: "repeated_error"})}'
-        return 0
-    fi
+    # ---- Layer 5: Stuck (errors or oscillation) ----
+    local recent_errors
+    recent_errors=$(echo "$state_json" | jq -c '.recent_errors // []')
+    local stuck_result
+    stuck_result=$(_check_stuck "$recent_errors" 2>/dev/null) && l5_triggered=true || true
 
-    if oscillation_result=$(check_oscillation "$code_hashes" 2>/dev/null); then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "stuck" \
-            --argjson layer 5 \
-            --argjson details "$oscillation_result" \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: ($details + {type: "oscillation"})}'
-        return 0
+    if [[ "$l5_triggered" != "true" ]]; then
+        # Check oscillation too
+        local osc_result
+        osc_result=$(check_oscillation --session "$session_id" --workdir "$workdir" 2>/dev/null) && l5_triggered=true || true
+    fi
+    if [[ "$l5_triggered" == "true" && "$triggered_layer" == "null" ]]; then
+        triggered_layer=5
+        triggered_reason="stuck"
     fi
 
     # ---- Layer 6: User interrupt ----
     if [[ "$_DEVLOOP_USER_INTERRUPTED" == "true" ]]; then
-        jq -n \
-            --argjson should_terminate true \
-            --arg reason "user_interrupt" \
-            --argjson layer 6 \
-            '{should_terminate: $should_terminate, reason: $reason, layer: $layer, details: {signal: "SIGINT"}}'
-        return 0
+        l6_triggered=true
+        if [[ "$triggered_layer" == "null" ]]; then
+            triggered_layer=6
+            triggered_reason="user_interrupt"
+        fi
     fi
 
-    # ---- No termination condition triggered ----
+    # Determine if should terminate
+    local should_terminate=false
+    if [[ "$triggered_layer" != "null" ]]; then
+        should_terminate=true
+    fi
+
+    # Build output
     jq -n \
-        --argjson should_terminate false \
-        --argjson iteration "$iteration_count" \
-        --arg grade "$composite_grade" \
-        --arg threshold "$quality_threshold" \
-        '{should_terminate: $should_terminate, reason: null, layer: null, details: {iteration: ($iteration), grade: ($grade | tonumber), threshold: ($threshold | tonumber)}}'
-    return 1
+        --argjson should_terminate "$should_terminate" \
+        --argjson layer_triggered "$triggered_layer" \
+        --arg termination_reason "$triggered_reason" \
+        --argjson l1 "$l1_triggered" \
+        --argjson l2 "$l2_triggered" \
+        --argjson l3 "$l3_triggered" \
+        --argjson l4 "$l4_triggered" \
+        --argjson l5 "$l5_triggered" \
+        --argjson l6 "$l6_triggered" \
+        '{
+            should_terminate: $should_terminate,
+            layer_triggered: (if $layer_triggered == 0 then null else $layer_triggered end),
+            termination_reason: (if $termination_reason == "null" then null else $termination_reason end),
+            layer_results: {
+                layer_1_success: $l1,
+                layer_2_convergence: $l2,
+                layer_3_budget: $l3,
+                layer_4_max_iterations: $l4,
+                layer_5_stuck: $l5,
+                layer_6_user_interrupt: $l6
+            }
+        }'
+
+    if [[ "$should_terminate" == "true" ]]; then
+        return 0
+    else
+        return 1
+    fi
 }
 
 # ==============================================================================
-# save_checkpoint — Serialize session state to a JSON checkpoint file
+# save_checkpoint — Save session state to a checkpoint file
 # ==============================================================================
-# Usage: save_checkpoint <session_state_json> <checkpoint_path>
+# Usage: save_checkpoint --session ID --workdir PATH [--name NAME]
 #
-# Saves the full session state to a JSON file for later resumption.
-# Creates parent directories if they do not exist. Adds a checkpoint
-# timestamp and version marker.
-#
-# Arguments:
-#   session_state_json — JSON string with full session state
-#   checkpoint_path    — Absolute file path for the checkpoint
-#
-# Outputs: checkpoint file path on success
+# Outputs: JSON with checkpoint_path, checkpoint_size_bytes, state_captured
 # Returns: 0 on success, 1 on failure
 save_checkpoint() {
-    local session_json="$1"
-    local checkpoint_path="$2"
+    local session_id="" workdir="" checkpoint_name=""
 
-    # Create parent directory if needed
-    local parent_dir
-    parent_dir=$(dirname "$checkpoint_path")
-    if [[ ! -d "$parent_dir" ]]; then
-        mkdir -p "$parent_dir"
-    fi
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --session) session_id="$2"; shift 2 ;;
+            --workdir) workdir="$2"; shift 2 ;;
+            --name)    checkpoint_name="$2"; shift 2 ;;
+            *)         shift ;;
+        esac
+    done
 
-    # Add checkpoint metadata
-    local timestamp
-    timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-    local checkpoint_json
-    checkpoint_json=$(echo "$session_json" | jq \
-        --arg ts "$timestamp" \
-        --arg version "1.0" \
-        '. + {checkpoint_timestamp: $ts, checkpoint_version: $version}')
-
-    # Write atomically (write to temp, then move)
-    local tmp_file="${checkpoint_path}.tmp"
-    echo "$checkpoint_json" > "$tmp_file"
-
-    # Validate the JSON before finalizing
-    if ! jq empty "$tmp_file" 2>/dev/null; then
-        echo "ERROR: Generated checkpoint is not valid JSON" >&2
-        rm -f "$tmp_file"
+    # Load session state
+    local state_json
+    state_json=$(_term_load_state "$session_id" "$workdir") || {
+        echo "SESSION_NOT_FOUND: No session with id '${session_id}'"
         return 1
+    }
+
+    local sess_dir="${workdir}/.dev-loop/sessions/${session_id}"
+    local checkpoints_dir="${sess_dir}/checkpoints"
+    mkdir -p "$checkpoints_dir"
+
+    # Determine checkpoint filename
+    local checkpoint_file
+    if [[ -n "$checkpoint_name" ]]; then
+        checkpoint_file="${checkpoints_dir}/${checkpoint_name}.json"
+    else
+        local timestamp
+        timestamp=$(date +%s)
+        checkpoint_file="${checkpoints_dir}/checkpoint_${timestamp}.json"
     fi
 
-    mv "$tmp_file" "$checkpoint_path"
-    echo "$checkpoint_path"
+    # Add checkpoint metadata and write
+    local timestamp_iso
+    timestamp_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    echo "$state_json" | jq \
+        --arg ts "$timestamp_iso" \
+        --arg version "1.0" \
+        '. + {checkpoint_timestamp: $ts, checkpoint_version: $version}' > "$checkpoint_file"
+
+    # Get file size
+    local file_size
+    if [[ "$(uname)" == "Darwin" ]]; then
+        file_size=$(stat -f%z "$checkpoint_file" 2>/dev/null || echo "0")
+    else
+        file_size=$(stat -c%s "$checkpoint_file" 2>/dev/null || echo "0")
+    fi
+
+    # Extract state_captured info
+    local current_iteration quality_history resources_consumed
+    current_iteration=$(echo "$state_json" | jq -r '.current_iteration // 0')
+    quality_history=$(echo "$state_json" | jq -c '.quality_history // []')
+    resources_consumed=$(echo "$state_json" | jq -c '.resources_consumed // {}')
+
+    jq -n \
+        --arg checkpoint_path "$checkpoint_file" \
+        --argjson checkpoint_size_bytes "$file_size" \
+        --argjson iteration "$current_iteration" \
+        --argjson quality_history "$quality_history" \
+        --argjson resources_consumed "$resources_consumed" \
+        '{
+            checkpoint_path: $checkpoint_path,
+            checkpoint_size_bytes: $checkpoint_size_bytes,
+            state_captured: {
+                iteration: $iteration,
+                quality_history: $quality_history,
+                resources_consumed: $resources_consumed
+            }
+        }'
+
     return 0
 }
 
 # ==============================================================================
-# load_checkpoint — Deserialize session state from a JSON checkpoint file
+# load_checkpoint — Load session state from a checkpoint file
 # ==============================================================================
 # Usage: load_checkpoint <checkpoint_path>
 #
-# Loads a previously saved checkpoint file and outputs the session state.
-# Validates that the file contains valid JSON before returning.
-#
-# Arguments:
-#   checkpoint_path — Absolute file path to the checkpoint
-#
 # Outputs: JSON session state to stdout
-# Returns: 0 on success, 1 on failure (file missing or invalid JSON)
+# Returns: 0 on success, 1 on failure
 load_checkpoint() {
     local checkpoint_path="$1"
 
@@ -564,13 +637,11 @@ load_checkpoint() {
         return 1
     fi
 
-    # Validate JSON
     if ! jq empty "$checkpoint_path" 2>/dev/null; then
         echo "ERROR: Checkpoint file is not valid JSON: $checkpoint_path" >&2
         return 1
     fi
 
-    # Output the checkpoint data
     jq '.' "$checkpoint_path"
     return 0
 }
