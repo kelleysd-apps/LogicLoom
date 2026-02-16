@@ -14,7 +14,7 @@ description: |
 
   **Workflow**: 10-step systematic diagnosis with max 5 iterations before user escalation
 
-  **Delegates To**: backend-architect, database-specialist, security-specialist, devops-engineer
+  **Delegates To**: api-design skill (sdd-domain-backend), schema-design skill (sdd-domain-database), security-operations skill (sdd-domain-security), monitoring skill (sdd-domain-devops)
 
 allowed-tools: Read, Write, Bash, Grep, Glob, Edit, WebFetch
 rl_metrics:
@@ -394,10 +394,10 @@ Recommended next steps:
 - [Escalation path if needed]
 
 Consider delegating to:
-- backend-architect (API architecture issues)
-- database-specialist (query/schema problems)
-- security-specialist (auth/security issues)
-- devops-engineer (infrastructure/CI-CD problems)
+- api-design skill (sdd-domain-backend) (API architecture issues)
+- schema-design skill (sdd-domain-database) (query/schema problems)
+- security-operations skill (sdd-domain-security) (auth/security issues)
+- monitoring skill (sdd-domain-devops) (infrastructure/CI-CD problems)
 ```
 
 ---
@@ -410,16 +410,16 @@ Consider delegating to:
 
 | Specialist | When to Delegate |
 |------------|------------------|
-| `backend-architect` | API architecture issues, system design problems, service orchestration |
-| `database-specialist` | Query optimization, schema issues, connection pool problems, RLS policies |
-| `security-specialist` | Authentication, authorization, vulnerability fixes, CSP/CORS issues |
-| `devops-engineer` | CI/CD pipeline issues, infrastructure problems, deployment automation |
+| `api-design skill (sdd-domain-backend)` | API architecture issues, system design problems, service orchestration |
+| `schema-design skill (sdd-domain-database)` | Query optimization, schema issues, connection pool problems, RLS policies |
+| `security-operations skill (sdd-domain-security)` | Authentication, authorization, vulnerability fixes, CSP/CORS issues |
+| `monitoring skill (sdd-domain-devops)` | CI/CD pipeline issues, infrastructure problems, deployment automation |
 
 ### Delegation Pattern
 
 ```
 Task tool:
-  subagent_type: "backend-architect"
+  subagent_type: "api-design skill (sdd-domain-backend)"
   description: "Debug and fix [issue]"
   prompt: |
     Debug the following production issue:
@@ -717,10 +717,10 @@ VERIFIER_CHECK:
 | `/plan` | Preventive | Design implementation to avoid common issues |
 | `/tasks` | Complementary | Break down debugging tasks into subtasks |
 | `constitutional-compliance` | Validation | Ensure fixes follow all principles |
-| `backend-architect` | Delegation | API redesign, system architecture issues |
-| `database-specialist` | Delegation | Query optimization, schema issues |
-| `security-specialist` | Delegation | Auth/authorization, security vulnerabilities |
-| `devops-engineer` | Delegation | CI/CD failures, infrastructure configuration |
+| `api-design skill (sdd-domain-backend)` | Delegation | API redesign, system architecture issues |
+| `schema-design skill (sdd-domain-database)` | Delegation | Query optimization, schema issues |
+| `security-operations skill (sdd-domain-security)` | Delegation | Auth/authorization, security vulnerabilities |
+| `monitoring skill (sdd-domain-devops)` | Delegation | CI/CD failures, infrastructure configuration |
 
 ---
 

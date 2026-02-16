@@ -8,9 +8,9 @@
 ## SSOT Task Architecture
 
 ```
-PROJECT LEVEL (This File)          SESSION LEVEL (TodoWrite)
+PROJECT LEVEL (This File)          SESSION LEVEL (Task Tools)
 ┌─────────────────────────┐        ┌─────────────────────────┐
-│ specs/###-feature/      │   ──>  │ Claude Code TodoWrite   │
+│ specs/###-feature/      │   ──>  │ Claude Code Task Tools  │
 │     tasks.md            │        │ (real-time tracking)    │
 │ • Persists in git       │   <──  │ • Session-scoped        │
 │ • Full task list        │        │ • Active work focus     │
@@ -20,7 +20,7 @@ PROJECT LEVEL (This File)          SESSION LEVEL (TodoWrite)
 
 **Workflow**:
 1. This file defines ALL implementation tasks (project SSOT)
-2. Agents use TodoWrite to track active work (session SSOT)
+2. Agents use TaskCreate/TaskUpdate to track active work (session SSOT)
 3. Completions sync back to this file (check off tasks)
 4. `/finalize` validates all tasks completed before commit
 
@@ -164,7 +164,7 @@ Task: "Integration test auth in tests/integration/test_auth.py"
 
 When completing a task:
 
-1. **Update TodoWrite** - Mark task as `completed` immediately
+1. **Update via TaskUpdate** - Mark task as `completed` immediately
 2. **Update this file** - Change `[ ]` to `[x]`
 3. **Record in agent decisions** - Log completion details
 4. **Verify** - Run any validation scripts
@@ -175,7 +175,7 @@ When resuming work on this feature:
 
 1. Review this file for incomplete tasks (`[ ]` items)
 2. Check `.docs/agents/*/decisions/tasks/` for context
-3. Create TodoWrite list from next incomplete tasks
+3. Create task list via TaskCreate from next incomplete tasks
 4. Continue execution
 
 ### Completion Summary

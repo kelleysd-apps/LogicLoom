@@ -207,19 +207,19 @@ done
 IFS=$'\n' SORTED_DOMAINS=($(sort -t: -k2 -nr <<<"${DETECTED_DOMAINS[*]}"))
 unset IFS
 
-# Map domains to agents
-map_domain_to_agent() {
+# Map domains to skills (or remaining agents)
+map_domain_to_skill() {
     case "$1" in
-        frontend) echo "frontend-specialist" ;;
-        backend) echo "backend-architect" ;;
-        database) echo "database-specialist" ;;
-        testing) echo "testing-specialist" ;;
-        security) echo "security-specialist" ;;
-        performance) echo "performance-engineer" ;;
-        devops) echo "devops-engineer" ;;
-        specification) echo "specification-agent" ;;
-        tasks) echo "tasks-agent" ;;
-        orchestration) echo "task-orchestrator" ;;
+        frontend) echo "frontend-operations skill" ;;
+        backend) echo "api-design / service-architecture skills" ;;
+        database) echo "schema-design skill" ;;
+        testing) echo "testing-operations skill" ;;
+        security) echo "security-operations skill" ;;
+        performance) echo "performance-operations skill" ;;
+        devops) echo "monitoring skill" ;;
+        specification) echo "unified-specification skill" ;;
+        tasks) echo "sdd-tasks skill" ;;
+        orchestration) echo "team-orchestration skill" ;;
         agent_creation) echo "subagent-architect" ;;
         *) echo "unknown" ;;
     esac
@@ -234,7 +234,7 @@ if [ $DOMAIN_COUNT -eq 0 ]; then
 elif [ $DOMAIN_COUNT -eq 1 ]; then
     DELEGATION_STRATEGY="single-agent"
     PRIMARY_DOMAIN=$(echo "${SORTED_DOMAINS[0]}" | cut -d: -f1)
-    SUGGESTED_AGENTS+=("$(map_domain_to_agent "$PRIMARY_DOMAIN")")
+    SUGGESTED_AGENTS+=("$(map_domain_to_skill "$PRIMARY_DOMAIN")")
 elif [ $DOMAIN_COUNT -ge 2 ]; then
     # Check if orchestration is needed (2+ domains with significant scores)
     SIGNIFICANT_DOMAINS=0
@@ -246,26 +246,26 @@ elif [ $DOMAIN_COUNT -ge 2 ]; then
     done
 
     if [ $SIGNIFICANT_DOMAINS -ge 2 ]; then
-        DELEGATION_STRATEGY="multi-agent"
-        SUGGESTED_AGENTS+=("task-orchestrator")
+        DELEGATION_STRATEGY="multi-skill"
+        SUGGESTED_AGENTS+=("team-orchestration skill")
 
-        # Add top 3 specialist agents
+        # Add top 3 specialist skills
         for i in {0..2}; do
             if [ $i -lt ${#SORTED_DOMAINS[@]} ]; then
                 domain=$(echo "${SORTED_DOMAINS[$i]}" | cut -d: -f1)
                 score=$(echo "${SORTED_DOMAINS[$i]}" | cut -d: -f2)
                 if [ $score -gt 0 ] && [ "$domain" != "orchestration" ]; then
-                    agent=$(map_domain_to_agent "$domain")
-                    if [ "$agent" != "unknown" ]; then
-                        SUGGESTED_AGENTS+=("$agent")
+                    skill=$(map_domain_to_skill "$domain")
+                    if [ "$skill" != "unknown" ]; then
+                        SUGGESTED_AGENTS+=("$skill")
                     fi
                 fi
             fi
         done
     else
-        DELEGATION_STRATEGY="single-agent"
+        DELEGATION_STRATEGY="single-skill"
         PRIMARY_DOMAIN=$(echo "${SORTED_DOMAINS[0]}" | cut -d: -f1)
-        SUGGESTED_AGENTS+=("$(map_domain_to_agent "$PRIMARY_DOMAIN")")
+        SUGGESTED_AGENTS+=("$(map_domain_to_skill "$PRIMARY_DOMAIN")")
     fi
 fi
 
@@ -287,7 +287,7 @@ if $JSON_MODE; then
         else
             echo ","
         fi
-        echo -n "    {\"domain\": \"$domain\", \"score\": $score, \"agent\": \"$(map_domain_to_agent "$domain")\"}"
+        echo -n "    {\"domain\": \"$domain\", \"score\": $score, \"skill\": \"$(map_domain_to_skill "$domain")\"}"
     done
     echo ""
     echo "  ],"
@@ -322,19 +322,19 @@ else
         for domain_score in "${SORTED_DOMAINS[@]}"; do
             domain=$(echo "$domain_score" | cut -d: -f1)
             score=$(echo "$domain_score" | cut -d: -f2)
-            agent=$(map_domain_to_agent "$domain")
-            echo "  • $domain: $score matches → $agent"
+            skill=$(map_domain_to_skill "$domain")
+            echo "  • $domain: $score matches → $skill"
         done
         echo ""
     fi
 
     if [ ${#SUGGESTED_AGENTS[@]} -gt 0 ]; then
-        echo -e "${GREEN}Suggested Agents:${NC}"
+        echo -e "${GREEN}Suggested Skills/Agents:${NC}"
         for agent in "${SUGGESTED_AGENTS[@]}"; do
             echo "  • $agent"
         done
     else
-        echo -e "${YELLOW}No specific agent delegation needed${NC}"
+        echo -e "${YELLOW}No specific skill delegation needed${NC}"
     fi
 
     if $VERBOSE; then

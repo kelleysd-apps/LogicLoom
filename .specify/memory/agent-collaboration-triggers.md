@@ -2,8 +2,8 @@
 
 **Purpose**: Define when and how to delegate work to specialized agents (Constitutional Principle X)
 
-**Version**: 1.0.0
-**Last Updated**: 2025-11-06
+**Version**: 2.0.0
+**Last Updated**: 2026-02-15
 **Authority**: Constitutional Principle X - Agent Delegation Protocol
 
 ---
@@ -28,33 +28,29 @@ Every work session must follow these 4 steps:
 ### Available Agents by Department
 
 **Architecture Department**:
-- `backend-architect` - System design, API architecture, scalability
-- `subagent-architect` - Creating new SDD-compliant agents
-- `structure-architect` - File organization and project structure (if exists)
+- `api-design` skill (sdd-domain-backend plugin) - API architecture, contract design
+- `service-architecture` skill (sdd-domain-backend plugin) - System design, scalability
+- `subagent-architect` agent (sdd-creation plugin) - Creating new SDD-compliant agents
 
 **Data Department**:
-- `database-specialist` - Schema design, queries, migrations, RLS, indexing
-
-**Design Department**:
-- `theme-designer` - Design systems, UI/UX patterns (if exists)
+- `schema-design` skill (sdd-domain-database plugin) - Schema design, queries, migrations, RLS, indexing
 
 **Engineering Department**:
-- `frontend-specialist` - React/Next.js, UI components, state management
-- `full-stack-developer` - End-to-end feature development
+- `frontend-operations` skill (sdd-domain-frontend plugin) - React/Next.js, UI components, state management
 
 **Operations Department**:
-- `devops-engineer` - CI/CD, Docker, deployment, infrastructure
-- `performance-engineer` - Optimization, caching, benchmarking
+- `monitoring` skill (sdd-domain-devops plugin) - CI/CD, Docker, deployment, infrastructure
+- `performance-operations` skill (sdd-domain-performance plugin) - Optimization, caching, benchmarking
 
 **Product Department**:
-- `specification-agent` - Feature specs, requirements, user stories
-- `planning-agent` - Implementation planning, technical research, contract design
-- `tasks-agent` - Task breakdown, dependency tracking
-- `task-orchestrator` - Multi-agent workflow coordination
+- `sdd-specification` skill (sdd-specification plugin) - Feature specs, requirements, user stories
+- `planning-agent` skill (sdd-specification plugin) - Implementation planning, technical research, contract design
+- `task-generation` skill (sdd-specification plugin) - Task breakdown, dependency tracking
+- `team-orchestration` skill (sdd-orchestrator plugin) - Multi-agent workflow coordination
 
 **Quality Department**:
-- `testing-specialist` - Test strategy, test creation, QA
-- `security-specialist` - Security review, vulnerability assessment
+- `testing-operations` skill (sdd-domain-testing plugin) - Test strategy, test creation, QA
+- `security-operations` skill (sdd-domain-security plugin) - Security review, vulnerability assessment
 
 ---
 
@@ -78,7 +74,7 @@ Every work session must follow these 4 steps:
 - "Add responsive navigation menu"
 - "Implement state management for user data"
 
-**Delegate To**: `frontend-specialist`
+**Delegate To**: `frontend-operations` skill (sdd-domain-frontend plugin)
 
 ---
 
@@ -101,7 +97,7 @@ Every work session must follow these 4 steps:
 - "Add role-based access control"
 - "Build webhook handler for payments"
 
-**Delegate To**: `backend-architect` or `full-stack-developer`
+**Delegate To**: `api-design` or `service-architecture` skill (sdd-domain-backend plugin)
 
 ---
 
@@ -125,7 +121,7 @@ Every work session must follow these 4 steps:
 - "Add indexes for query performance"
 - "Write migration for new table"
 
-**Delegate To**: `database-specialist`
+**Delegate To**: `schema-design` skill (sdd-domain-database plugin)
 
 ---
 
@@ -148,7 +144,7 @@ Every work session must follow these 4 steps:
 - "Add integration tests for API"
 - "Set up test fixtures and mocks"
 
-**Delegate To**: `testing-specialist`
+**Delegate To**: `testing-operations` skill (sdd-domain-testing plugin)
 
 ---
 
@@ -172,7 +168,7 @@ Every work session must follow these 4 steps:
 - "Implement rate limiting on login"
 - "Encrypt sensitive user data"
 
-**Delegate To**: `security-specialist`
+**Delegate To**: `security-operations` skill (sdd-domain-security plugin)
 
 ---
 
@@ -196,7 +192,7 @@ Every work session must follow these 4 steps:
 - "Improve page load speed"
 - "Profile and fix memory leaks"
 
-**Delegate To**: `performance-engineer`
+**Delegate To**: `performance-operations` skill (sdd-domain-performance plugin)
 
 ---
 
@@ -219,7 +215,7 @@ Every work session must follow these 4 steps:
 - "Deploy to production on AWS"
 - "Configure environment variables for staging"
 
-**Delegate To**: `devops-engineer`
+**Delegate To**: `monitoring` skill (sdd-domain-devops plugin)
 
 ---
 
@@ -241,7 +237,7 @@ Every work session must follow these 4 steps:
 - "Define acceptance criteria for feature"
 - "Document requirements for API"
 
-**Delegate To**: `specification-agent`
+**Delegate To**: `sdd-specification` skill (sdd-specification plugin)
 
 ---
 
@@ -269,11 +265,11 @@ Every work session must follow these 4 steps:
 
 **Workflow Context**:
 - Phase 2 of SDD workflow (between specification and tasks)
-- Receives: spec.md from specification-agent
+- Receives: spec.md from sdd-specification skill
 - Produces: plan.md, research.md, data-model.md, contracts/, quickstart.md
-- Hands off to: tasks-agent for task generation
+- Hands off to: task-generation skill for task generation
 
-**Delegate To**: `planning-agent`
+**Delegate To**: `planning-agent` skill (sdd-specification plugin)
 
 ---
 
@@ -298,11 +294,11 @@ Every work session must follow these 4 steps:
 
 **Workflow Context**:
 - Phase 3 of SDD workflow (after planning, before implementation)
-- Receives: plan.md + artifacts from planning-agent
+- Receives: plan.md + artifacts from planning-agent skill
 - Produces: tasks.md with dependency-ordered task list
-- Hands off to: Domain-specific agents for task execution
+- Hands off to: Domain-specific skills for task execution
 
-**Delegate To**: `tasks-agent`
+**Delegate To**: `task-generation` skill (sdd-specification plugin)
 
 ---
 
@@ -323,9 +319,9 @@ Every work session must follow these 4 steps:
 - "Develop multi-tenant system" (architecture + database + security + frontend)
 
 **Multi-Domain Detection**:
-If task description contains keywords from 2+ domains → Use `task-orchestrator`
+If task description contains keywords from 2+ domains → Use `team-orchestration` skill (sdd-orchestrator plugin)
 
-**Delegate To**: `task-orchestrator`
+**Delegate To**: `team-orchestration` skill (sdd-orchestrator plugin)
 
 ---
 
@@ -362,13 +358,13 @@ Scan for Trigger Keywords
 └─────────────────────────────────┘
   ↓ YES                        NO ↓
   ↓                               ↓
-Use task-orchestrator        Keywords from 1 domain?
+Use team-orchestration       Keywords from 1 domain?
   ↓                               ↓
   ↓                         YES ↙   ↘ NO
   ↓                          ↓         ↓
   ↓                    Delegate to    Execute
-  ↓                    specialized    directly
-  ↓                    agent          (if simple)
+  ↓                    domain         directly
+  ↓                    skill          (if simple)
   ↓                          ↓         ↓
   └──────────────────────────┴─────────┘
                     ↓
@@ -387,15 +383,15 @@ Use task-orchestrator        Keywords from 1 domain?
 - Keywords: authentication (backend), login (frontend), database (data), security (quality)
 - Domains: Backend, Frontend, Database, Security = 4 domains
 
-**Decision**: Multi-agent scenario → Delegate to `task-orchestrator`
+**Decision**: Multi-agent scenario → Delegate to `team-orchestration` skill (sdd-orchestrator plugin)
 
-**Orchestrator Workflow**:
-1. `specification-agent`: Create feature spec
-2. `backend-architect`: Design API endpoints
-3. `database-specialist`: Design user schema, RLS policies
-4. `security-specialist`: Review auth flow, encryption
-5. `frontend-specialist`: Implement login UI
-6. `testing-specialist`: Create E2E tests
+**Orchestration Workflow**:
+1. `sdd-specification` skill: Create feature spec
+2. `api-design` skill: Design API endpoints
+3. `schema-design` skill: Design user schema, RLS policies
+4. `security-operations` skill: Review auth flow, encryption
+5. `frontend-operations` skill: Implement login UI
+6. `testing-operations` skill: Create E2E tests
 
 ---
 
@@ -407,7 +403,7 @@ Use task-orchestrator        Keywords from 1 domain?
 - Keywords: API, endpoint (backend), pagination (backend)
 - Domains: Backend only = 1 domain
 
-**Decision**: Single-agent scenario → Delegate to `backend-architect`
+**Decision**: Single-domain scenario → Delegate to `api-design` skill (sdd-domain-backend plugin)
 
 ---
 
@@ -419,7 +415,7 @@ Use task-orchestrator        Keywords from 1 domain?
 - Keywords: database, schema, table relationships
 - Domains: Database only = 1 domain
 
-**Decision**: Single-agent scenario → Delegate to `database-specialist`
+**Decision**: Single-domain scenario → Delegate to `schema-design` skill (sdd-domain-database plugin)
 
 ---
 
@@ -431,7 +427,7 @@ Use task-orchestrator        Keywords from 1 domain?
 - Keywords: optimize, performance, slow loading
 - Domains: Performance = 1 domain (but may expand after analysis)
 
-**Decision**: Start with `performance-engineer` → May delegate to frontend/backend if needed
+**Decision**: Start with `performance-operations` skill (sdd-domain-performance plugin) → May delegate to frontend/backend if needed
 
 ---
 
@@ -443,23 +439,23 @@ Use task-orchestrator        Keywords from 1 domain?
 - Scope: Full feature with CRUD, UI, API, database
 - Domains: Frontend, Backend, Database, Testing = 4+ domains
 
-**Decision**: Complex multi-domain → Delegate to `task-orchestrator`
+**Decision**: Complex multi-domain → Delegate to `team-orchestration` skill (sdd-orchestrator plugin)
 
-**Orchestrator Workflow**:
-1. `specification-agent`: Create feature specification
-2. `backend-architect`: Design data model and API
-3. `database-specialist`: Design schema and relationships
-4. `frontend-specialist`: Implement UI components
-5. `testing-specialist`: Create test suite
-6. `security-specialist`: Review for vulnerabilities
+**Orchestration Workflow**:
+1. `sdd-specification` skill: Create feature specification
+2. `api-design` skill: Design data model and API
+3. `schema-design` skill: Design schema and relationships
+4. `frontend-operations` skill: Implement UI components
+5. `testing-operations` skill: Create test suite
+6. `security-operations` skill: Review for vulnerabilities
 
 ---
 
 ## Agent Routing Logic
 
-### Single-Agent Routing
+### Single-Domain Routing
 
-**When to use single agent**:
+**When to use single domain skill**:
 - Task clearly within one domain
 - Simple, straightforward requirements
 - No cross-functional dependencies
@@ -467,12 +463,12 @@ Use task-orchestrator        Keywords from 1 domain?
 
 **Pattern**:
 ```
-Task → Analyze Domain → Select Agent → Delegate → Execute
+Task → Analyze Domain → Select Domain Skill → Delegate → Execute
 ```
 
-### Multi-Agent Orchestration
+### Multi-Domain Orchestration
 
-**When to use orchestrator**:
+**When to use orchestration skill**:
 - Task spans 2+ domains
 - Complex feature requiring multiple expertise areas
 - Needs quality gates between stages
@@ -480,21 +476,21 @@ Task → Analyze Domain → Select Agent → Delegate → Execute
 
 **Pattern**:
 ```
-Task → task-orchestrator → Coordinate Agents → Manage Handoffs → Validate → Complete
+Task → team-orchestration skill → Coordinate Skills → Manage Handoffs → Validate → Complete
 ```
 
 ---
 
 ## Context Handoff Format
 
-When multiple agents work on same feature, use structured context handoff:
+When multiple skills work on same feature, use structured context handoff:
 
 ```json
 {
   "feature": "user-authentication",
   "phase": "implementation",
-  "previous_agent": "backend-architect",
-  "next_agent": "frontend-specialist",
+  "previous_skill": "api-design",
+  "next_skill": "frontend-operations",
   "context": {
     "api_endpoints": [
       "POST /api/auth/login",
@@ -526,7 +522,7 @@ When multiple agents work on same feature, use structured context handoff:
    - Explaining how something works
 
 3. **Coordination tasks**:
-   - Determining which agent to use
+   - Determining which skill to use
    - Analyzing task complexity
    - Project planning (high-level)
 
@@ -560,24 +556,25 @@ Checks for:
 - Constitution read at session start
 - Domain analysis performed
 - Delegation decision documented
-- Appropriate agent invoked
+- Appropriate skill invoked
 
 ---
 
 ## Quick Reference Table
 
-| Domain | Agent | Trigger Keywords |
-|--------|-------|------------------|
-| Frontend | frontend-specialist | UI, React, component, styling, responsive |
-| Backend | backend-architect | API, endpoint, server, auth, business logic |
-| Database | database-specialist | schema, migration, query, RLS, index |
-| Testing | testing-specialist | test, E2E, unit, integration, QA |
-| Security | security-specialist | security, XSS, encryption, vulnerability |
-| Performance | performance-engineer | optimization, caching, benchmark, speed |
-| DevOps | devops-engineer | deploy, CI/CD, Docker, infrastructure |
-| Specs | specification-agent | spec, requirements, user story |
-| Tasks | tasks-agent | task list, breakdown, dependency |
-| Multi-Domain | task-orchestrator | 2+ domains, complex feature |
+| Domain | Skill / Agent | Trigger Keywords |
+|--------|---------------|------------------|
+| Frontend | frontend-operations (sdd-domain-frontend) | UI, React, component, styling, responsive |
+| Backend | api-design / service-architecture (sdd-domain-backend) | API, endpoint, server, auth, business logic |
+| Database | schema-design (sdd-domain-database) | schema, migration, query, RLS, index |
+| Testing | testing-operations (sdd-domain-testing) | test, E2E, unit, integration, QA |
+| Security | security-operations (sdd-domain-security) | security, XSS, encryption, vulnerability |
+| Performance | performance-operations (sdd-domain-performance) | optimization, caching, benchmark, speed |
+| DevOps | monitoring (sdd-domain-devops) | deploy, CI/CD, Docker, infrastructure |
+| Specs | sdd-specification (sdd-specification) | spec, requirements, user story |
+| Planning | planning-agent (sdd-specification) | implementation plan, research, contracts |
+| Tasks | task-generation (sdd-specification) | task list, breakdown, dependency |
+| Multi-Domain | team-orchestration (sdd-orchestrator) | 2+ domains, complex feature |
 | Agent Creation | subagent-architect | create agent, new agent |
 
 ---
@@ -586,6 +583,7 @@ Checks for:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.0.0 | 2026-02-15 | Updated for v5.0 refactor: 14 agents converted to enhanced skills |
 | 1.1.0 | 2025-12-01 | Updated for Constitution v1.6.0 (15 principles) |
 | 1.0.0 | 2025-11-06 | Initial creation for Constitution v1.5.0 |
 
@@ -593,4 +591,4 @@ Checks for:
 
 **Authority**: Constitutional Principle X
 **Enforcement**: constitutional-check.sh
-**Referenced By**: constitution.md, all agent context files
+**Referenced By**: constitution.md, all agent/skill context files

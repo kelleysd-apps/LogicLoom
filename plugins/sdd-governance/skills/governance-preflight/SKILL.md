@@ -39,7 +39,7 @@ Use `/governance-preflight` when:
 
 ## Constitutional Compliance Checklist
 
-Use this checklist to validate compliance with all 15 principles:
+Use this checklist to validate compliance with all 16 principles:
 
 ### Part I: Core Immutable Principles (I-III)
 
@@ -93,13 +93,13 @@ Use this checklist to validate compliance with all 15 principles:
   - Are version constraints specified?
   - Are security vulnerabilities checked?
 
-### Part III: Workflow & Delegation Principles (X-XV)
+### Part III: Workflow & Delegation Principles (X-XVI)
 
 - [ ] **Principle X: Agent Delegation Protocol** ⚠️ CRITICAL
-  - Is specialized work delegated to specialist agents?
+  - Is specialized work routed to specialist skills?
   - Is domain correctly identified?
-  - Is appropriate agent selected?
-  - **1 domain = 1 specialist**, **2+ domains = task-orchestrator**
+  - Is appropriate skill selected?
+  - **1 domain = 1 specialist skill**, **2+ domains = team-orchestration**
 
 - [ ] **Principle XI: Input Validation & Output Sanitization**
   - Is user input validated?
@@ -130,32 +130,32 @@ Use this checklist to validate compliance with all 15 principles:
 
 ---
 
-## Agent Delegation Reference
+## Skill Delegation Reference
 
-Use this table to route tasks to appropriate agents:
+Use this table to route tasks to appropriate skills:
 
 ### Single-Domain Routing
 
-| Domain | Keywords | Agent | Model |
-|--------|----------|-------|-------|
-| **Frontend** | UI, component, React, CSS, form, responsive | frontend-specialist | Opus |
-| **Backend** | API, endpoint, server, auth, middleware | backend-architect | Opus |
-| **Database** | schema, migration, query, RLS, SQL | database-specialist | Opus |
-| **Testing** | test, TDD, E2E, coverage, QA | testing-specialist | Opus |
-| **Security** | encryption, XSS, secrets, vulnerability | security-specialist | Opus |
-| **Performance** | optimize, cache, benchmark, latency | performance-engineer | Opus |
-| **DevOps** | deploy, CI/CD, Docker, pipeline | devops-engineer | Opus |
-| **Planning** | /plan, research, contract design | planning-agent | Opus |
-| **Specification** | /specify, requirements, user story | specification-agent | Opus |
-| **Tasks** | /tasks, task list, dependencies | tasks-agent | Opus |
+| Domain | Keywords | Skill | Plugin |
+|--------|----------|-------|--------|
+| **Frontend** | UI, component, React, CSS, form, responsive | frontend-operations | sdd-domain-frontend |
+| **Backend** | API, endpoint, server, auth, middleware | api-design, service-architecture | sdd-domain-backend |
+| **Database** | schema, migration, query, RLS, SQL | schema-design | sdd-domain-database |
+| **Testing** | test, TDD, E2E, coverage, QA | testing-operations | sdd-domain-testing |
+| **Security** | encryption, XSS, secrets, vulnerability | security-operations | sdd-domain-security |
+| **Performance** | optimize, cache, benchmark, latency | performance-operations | sdd-domain-performance |
+| **DevOps** | deploy, CI/CD, Docker, pipeline | monitoring | sdd-domain-devops |
+| **Planning** | /plan, research, contract design | sdd-planning | sdd-specification |
+| **Specification** | /specify, requirements, user story | unified-specification | sdd-specification |
+| **Tasks** | /tasks, task list, dependencies | sdd-tasks | sdd-specification |
 
 ### Multi-Domain Routing
 
 | Scenario | Delegate To | Reason |
 |----------|-------------|--------|
-| 2+ domains detected | task-orchestrator | Coordinates multiple specialists |
-| Complex workflow | task-orchestrator | Orchestrates end-to-end implementation |
-| Unclear domain | task-orchestrator | Routes after analysis |
+| 2+ domains detected | team-orchestration | Coordinates multiple specialist skills |
+| Complex workflow | team-orchestration | Orchestrates end-to-end implementation |
+| Unclear domain | team-orchestration | Routes after analysis |
 
 ### Domain Trigger Keywords (Comprehensive)
 
@@ -198,7 +198,7 @@ Before ANY git commit, verify:
 - [ ] `.env.example` updated if new vars added
 
 ### Constitutional Compliance
-- [ ] All 15 principles checked
+- [ ] All 16 principles checked
 - [ ] Critical principles (II, VI, X) verified
 - [ ] Exceptions documented with justification
 - [ ] `/finalize` command run (if available)
@@ -218,7 +218,7 @@ Before ANY git commit, verify:
 **ALWAYS BLOCK**:
 - Autonomous git operations without user approval (Principle VI)
 - TDD violation (tests not written first) (Principle II)
-- Specialist work performed by generalist (Principle X)
+- Specialist work performed without skill-first routing (Principle X)
 - Secrets committed to repository (Principle XI)
 
 **WARN BUT ALLOW**:
@@ -286,15 +286,15 @@ echo '{ ... }' >> .docs/governance/audit/$(date +%Y-%m-%d)/skill-decision.json
 - Complexity: Medium (also involves backend API call)
 - Wait - TWO domains: Frontend (UI) + Backend (API)
 
-**Decision**: Delegate to `task-orchestrator` (2+ domains)
+**Decision**: Activate `team-orchestration` skill (2+ domains)
 
 **Output**:
 ```
 Constitutional Compliance Check:
 - Domain(s): multi (frontend, backend)
-- Delegation: task-orchestrator
+- Delegation: team-orchestration
 - Git operations: none planned (will request approval if needed)
-- Proceeding with: coordinating frontend and backend specialists
+- Proceeding with: coordinating frontend and backend specialist skills
 ```
 
 ---
@@ -491,7 +491,7 @@ VERIFIER_CHECK:
 
 ## Related Documentation
 
-- **Constitution**: `.specify/memory/constitution.md` (v1.6.0)
+- **Constitution**: `.specify/memory/constitution.md` (v3.0.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
 - **Agent Layer**: `plugins/sdd-governance/agents/constitutional-governance-agent.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`

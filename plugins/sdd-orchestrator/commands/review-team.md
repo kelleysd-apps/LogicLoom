@@ -6,16 +6,7 @@ model: opus
 
 # /review-team Command
 
-**AGENT REQUIREMENT**: This command requires the swarm-coordinator agent for parallel review.
-
-**If you are NOT the swarm-coordinator**, delegate immediately:
-```
-Use the Task tool to invoke swarm-coordinator:
-- description: "Execute /review-team parallel review"
-- prompt: "Launch parallel security, quality, and performance reviewers for: $ARGUMENTS"
-```
-
-## Execution Instructions (for swarm-coordinator)
+## Execution Instructions
 
 ### Step 1: Initialize Review
 ```bash
@@ -23,64 +14,93 @@ REVIEW_DIR=".docs/teams/review-team-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$REVIEW_DIR"
 ```
 
-### Step 2: Spawn 3 Parallel Reviewers via Task Tool
+### Step 2: Load Domain Skill Briefs
+```bash
+source .specify/scripts/bash/common.sh
+SECURITY_BRIEF=$(extract_skill_brief "sdd-domain-security" "security-operations")
+TESTING_BRIEF=$(extract_skill_brief "sdd-domain-testing" "testing-operations")
+PERF_BRIEF=$(extract_skill_brief "sdd-domain-performance" "performance-operations")
+```
+
+### Step 3: Spawn 3 Parallel Reviewers (model: sonnet)
 
 **Security Reviewer** (25% budget):
 ```
 Use the Task tool:
 - description: "Review-team: Security analysis"
+- model: sonnet
 - prompt: |
-    You are the security-specialist agent. Perform security review:
+    $SECURITY_BRIEF
+
+    TASK: Perform security review for:
     SCOPE: $ARGUMENTS
-    
+
     Check: XSS, SQL injection, auth vulnerabilities, CORS, CSP, secrets exposure.
     Save to: $REVIEW_DIR/security-review.md
     Rate: PASS/WARN/FAIL per category.
+
+    FILE OWNERSHIP: You own $REVIEW_DIR/security-review.md
 ```
 
 **Quality Reviewer** (25% budget):
 ```
 Use the Task tool:
 - description: "Review-team: Code quality analysis"
+- model: sonnet
 - prompt: |
-    You are the testing-specialist agent. Perform quality review:
+    $TESTING_BRIEF
+
+    TASK: Perform quality review for:
     SCOPE: $ARGUMENTS
-    
+
     Check: test coverage, code duplication, complexity, constitutional compliance.
     Save to: $REVIEW_DIR/quality-review.md
     Rate: Coverage %, complexity score, compliance status.
+
+    FILE OWNERSHIP: You own $REVIEW_DIR/quality-review.md
 ```
 
 **Performance Reviewer** (25% budget):
 ```
 Use the Task tool:
 - description: "Review-team: Performance analysis"
+- model: sonnet
 - prompt: |
-    You are the performance-engineer agent. Perform performance review:
+    $PERF_BRIEF
+
+    TASK: Perform performance review for:
     SCOPE: $ARGUMENTS
-    
+
     Check: N+1 queries, bundle size, caching, lazy loading, memory leaks.
     Save to: $REVIEW_DIR/performance-review.md
     Rate: Performance grade A-F per category.
+
+    FILE OWNERSHIP: You own $REVIEW_DIR/performance-review.md
 ```
 
-### Step 3: Wait for All Reviewers
+### Step 4: Wait for All Reviewers
 
-### Step 4: Spawn Synthesizer (25% budget)
+### Step 5: Synthesize Findings (25% budget, model: sonnet)
 ```
 Use the Task tool:
 - description: "Review-team: Synthesize findings"
+- model: sonnet
 - prompt: |
     Read all three review reports and produce unified assessment:
     Read: $REVIEW_DIR/security-review.md
     Read: $REVIEW_DIR/quality-review.md
     Read: $REVIEW_DIR/performance-review.md
-    
+
     Produce: $REVIEW_DIR/final-review.md
     Include: Priority-ranked issues, overall grade, action items.
 ```
 
-### Step 5: Report to User
+### Step 6: Report to User
+
+## Model Strategy
+- **Coordinator** (you): Opus — orchestrates and sequences
+- **Reviewers** (security, quality, performance): Sonnet — domain analysis
+- **Synthesizer**: Sonnet — report consolidation
 
 ## Budget Allocation
 - Each reviewer: 25% | Synthesizer: 25%

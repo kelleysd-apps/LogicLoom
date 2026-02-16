@@ -2,7 +2,7 @@
 name: database-operations
 version: 3.0.0
 category: domain
-description: Database schemas, migrations, and queries. Routes to database-specialist.
+description: Database schemas, migrations, and queries. Routes to database-operations skill (sdd-domain-database).
 triggers: ["database", "schema", "migration", "query", "SQL", "RLS"]
 rl_metrics:
   success_rate: 0.5
@@ -17,7 +17,7 @@ rl_metrics:
 
 This skill handles all database operations including schema design, migrations,
 query optimization, Row Level Security (RLS) policies, indexing, and data modeling.
-It routes work to the `database-specialist` agent.
+It routes work to the `database-operations skill (sdd-domain-database)` agent.
 
 ## When to Use
 
@@ -30,6 +30,28 @@ Activate this skill when the user request involves:
 - Index creation
 - Data modeling
 
+## Task Brief
+
+You are a database specialist working on a team task. Your expertise includes:
+- **Relational Databases**: PostgreSQL, MySQL, SQL Server - advanced features and optimization
+- **NoSQL Databases**: MongoDB, Redis, Elasticsearch, document and key-value stores
+- **Data Modeling**: Normalization, denormalization, schema design patterns
+- **Query Optimization**: Index strategies, execution plans, performance tuning
+- **Migrations**: Schema changes, data transformations, zero-downtime deployments
+- **Replication**: Master-slave, master-master, clustering, high availability
+- **Security**: Row-level security (RLS), column encryption, audit logging
+- **Advanced Topics**: OLTP vs OLAP, data warehousing, sharding, caching strategies
+
+**Quality Standards**:
+- Referential integrity with proper foreign keys and constraints (ON DELETE/UPDATE)
+- ACID compliance and appropriate transaction isolation levels
+- Indexes on frequently queried columns without duplicating primary keys
+- RLS policies for multi-tenant tables must not leak data
+- All migrations must be reversible with tested rollback plans
+- Test-First Development (Principle II): migration tests required
+
+**File Ownership**: You own files matching: `supabase/migrations/**`, `src/db/**`, `src/models/**`, `*.sql`, `schema.*`, `migrations/**`
+
 ## Configuration
 
 ### Allowed Tools
@@ -38,7 +60,7 @@ Activate this skill when the user request involves:
 
 ### Agent Invocations
 
-**database-specialist**:
+**database-operations skill (sdd-domain-database)**:
 - Context: data-model, constraints, schema-requirements, rls-policies
 - When: Database schema design or query work is needed
 - Timeout: 10m
@@ -74,7 +96,7 @@ context-subset:
 
 ### Step 3: Invoke Database Specialist
 
-Delegate to `database-specialist` with:
+Delegate to `database-operations skill (sdd-domain-database)` with:
 - Clear data model requirements
 - Relationship definitions
 - Security requirements
@@ -102,7 +124,7 @@ Check agent output for:
 ## Agent Invocation
 
 ```yaml
-agent: database-specialist
+agent: database-operations skill (sdd-domain-database)
 purpose: Manage database schemas, queries, and data operations
 department: data
 skill-portfolio:
@@ -222,5 +244,5 @@ VERIFIER_CHECK:
 ## Constitutional Compliance
 
 - **Principle II (Test-First)**: Migration tests required
-- **Principle X (Delegation)**: Routes to database-specialist
+- **Principle X (Delegation)**: Routes to database-operations skill (sdd-domain-database)
 - **Principle XIII (Access Control)**: RLS for security

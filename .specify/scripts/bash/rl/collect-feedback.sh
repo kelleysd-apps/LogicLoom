@@ -12,6 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 METRICS_FILE="$REPO_ROOT/.docs/rl-metrics/skill-performance.json"
+# Note: Plugin manifests at plugins/*/plugin.json are the authoritative source for RL metrics
 SKILL_INDEX="$REPO_ROOT/.claude/skill-index.json"
 
 # Colors

@@ -110,7 +110,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 5. Identify constraints and dependencies
 6. Generate spec.md at `specs/###-feature-name/spec.md`
 
-**Delegates To**: `specification-agent`
+**Delegates To**: `sdd-specification` skill
 
 **Outputs**: spec.md with user stories, acceptance criteria, constraints
 
@@ -118,9 +118,9 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ---
 
-### sdd-planning (planning-agent)
+### sdd-planning
 
-**Location**: `plugins/sdd-specification/skills/planning-agent/SKILL.md`
+**Location**: `plugins/sdd-specification/skills/sdd-planning/SKILL.md`
 
 **Purpose**: Implementation planning workflow (Phase 2 - /plan command)
 
@@ -136,7 +136,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 4. **Constitution Check Gate**: Validate design quality
 5. **Readiness Validation**: Ensure ready for task generation
 
-**Delegates To**: `planning-agent`
+**Delegates To**: `sdd-planning` skill
 
 **Outputs**:
 - plan.md - Implementation approach
@@ -170,7 +170,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 5. Order tasks by dependencies
 6. Generate tasks.md
 
-**Delegates To**: `tasks-agent`
+**Delegates To**: `sdd-tasks` skill
 
 **Outputs**: tasks.md with dependency-ordered task list
 
@@ -209,10 +209,10 @@ Step 5: Publication → Add to useBlog.ts, deploy
 10. **Iteration Handling**: Max 5 diagnostic cycles before user escalation
 
 **Delegates To** (when specialized work identified):
-- `backend-architect` - API redesign, system architecture issues
-- `database-specialist` - Query performance, schema-related errors
-- `security-specialist` - Auth/authorization failures, security vulnerabilities
-- `devops-engineer` - CI/CD failures, infrastructure configuration
+- `api-design` / `service-architecture` skills - API redesign, system architecture issues
+- `schema-design` skill - Query performance, schema-related errors
+- `security-operations` skill - Auth/authorization failures, security vulnerabilities
+- `monitoring` skill - CI/CD failures, infrastructure configuration
 
 **Specialized In**:
 - Vercel deployment failures (build errors, function limits, 404s)
@@ -258,8 +258,8 @@ STEP 2: DOMAIN ANALYSIS
 
 STEP 3: DELEGATION DECISION
        └─ 0 domains → may execute directly
-       └─ 1 domain → MUST delegate to specialist agent
-       └─ 2+ domains → MUST delegate to task-orchestrator
+       └─ 1 domain → MUST delegate to specialist skill
+       └─ 2+ domains → MUST delegate to team-orchestration skill
 
 STEP 4: EXECUTION AUTHORIZATION
        └─ Confirm all steps complete
@@ -389,7 +389,7 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 
 - "create blog post" → content-pipeline
 - "deployment failed" → debug
-- "optimize performance" → delegates to performance-engineer
+- "optimize performance" → delegates to performance-operations skill
 - Any message → message-preflight (mandatory)
 
 ### Explicit Invocation (Skill Reference)
@@ -410,7 +410,7 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 - `.specify/memory/agent-collaboration-triggers.md`
 - CLAUDE.md "Commands" section
 
-## New Commands (v4.1.0)
+## New Commands (v5.0.0)
 
 ### /specification - Unified Specification Workflow
 

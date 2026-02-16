@@ -17,12 +17,12 @@ assert() {
 echo "═══ Swarm Lifecycle Contract Tests ═══"
 echo ""
 
-echo "T4.1.1: Swarm command and coordinator"
+echo "T4.1.1: Swarm command and orchestration skills"
 assert "/swarm command exists" "[ -f plugins/sdd-orchestrator/commands/swarm.md ]"
-assert "swarm-coordinator agent exists" "[ -f plugins/sdd-orchestrator/agents/swarm-coordinator.md ]"
+assert "team-orchestration skill exists" "[ -f plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md ]"
 assert "team-synthesizer agent exists" "[ -f plugins/sdd-orchestrator/agents/team-synthesizer.md ]"
-assert "task-orchestrator agent exists" "[ -f plugins/sdd-orchestrator/agents/task-orchestrator.md ]"
-assert "workflow-coordinator agent exists" "[ -f plugins/sdd-orchestrator/agents/workflow-coordinator.md ]"
+assert "multi-skill-workflow skill exists" "[ -f plugins/sdd-orchestrator/skills/multi-skill-workflow/SKILL.md ]"
+assert "orchestrator agents converted to skills" "[ ! -f plugins/sdd-orchestrator/agents/swarm-coordinator.md ]"
 
 echo ""
 echo "T4.1.2: Launch script"

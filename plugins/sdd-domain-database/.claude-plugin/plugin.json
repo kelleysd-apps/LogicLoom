@@ -6,5 +6,22 @@
   "license": "MIT",
   "keywords": ["sdd", "domain", "database"],
   "dependencies": ["sdd-governance"],
-  "rl_metrics": { "success_rate": 0.5, "selection_weight": 0.5, "invocation_count": 0, "avg_tokens": 0, "last_updated": "2026-02-06T00:00:00Z" }
+  "agents": {
+    "count": 0,
+    "list": []
+  },
+  "skills": {
+    "count": 2,
+    "list": [
+      "database-operations",
+      "schema-design"
+    ]
+  },
+  "rl_metrics": {
+    "success_rate": 0.5,
+    "selection_weight": 0.5,
+    "invocation_count": 0,
+    "avg_tokens": 0,
+    "last_updated": "2026-02-06T00:00:00Z"
+  }
 }

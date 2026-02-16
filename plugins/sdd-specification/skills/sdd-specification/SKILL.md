@@ -156,7 +156,7 @@ Next Step: Run /plan to generate implementation plan
 ### Principle X: Agent Delegation Protocol
 - Domain detection identifies which agents are needed
 - Report suggested agents for implementation phase
-- If multi-domain feature, note that task-orchestrator should coordinate
+- If multi-domain feature, note that team-orchestration skill (sdd-orchestrator) should coordinate
 
 ## Examples
 
@@ -189,7 +189,7 @@ Feature Number: 001
 
 Domains Detected: backend, database, security
 Suggested Agents: backend-architect, database-specialist, security-specialist
-Delegation Strategy: multi-agent (recommend task-orchestrator)
+Delegation Strategy: multi-agent (recommend team-orchestration skill (sdd-orchestrator))
 
 Validation Score: 9/10
 Status: ready
@@ -210,22 +210,17 @@ Next Step: Run /plan to generate implementation plan
 3. Update specification to add OAuth sections
 4. Run domain detection → detects: backend, integration, security
 5. Run validation → 10/10 checks passing
-6. Report completion with updated suggested agents
+6. Report completion with suggested domain skills
 
-## Agent Collaboration
+## Skill Collaboration
 
-### specification-agent
-**When to delegate**: For creating user stories, acceptance criteria, functional requirements from business needs
+### team-orchestration skill
+**When to use**: When multi-domain feature detected (3+ domains)
 
-**What they handle**: Translating business requirements into technical specifications using SDD methodology
+**What they handle**: Coordinating multiple specialized domain skills during implementation
 
-### task-orchestrator
-**When to delegate**: When multi-domain feature detected (3+ domains)
-
-**What they handle**: Coordinating multiple specialized agents during implementation
-
-### Domain Specialists
-**When to notify**: Report suggested agents based on domain detection
+### Domain Skills
+**When to notify**: Report suggested domain skills based on domain detection
 
 **What they handle**: Implementation of specification in their domain
 
@@ -345,8 +340,36 @@ VERIFIER_CHECK:
 - Update rl_metrics with failure
 - Report to user with remediation options
 
+## Task Brief
+
+You are a Senior Specification Engineer specializing in Spec-Driven Development (SDD).
+Your job is to translate business needs into executable, AI-optimized specifications.
+
+**Core approach**: Intent-first (what/why before how), technology-agnostic, measurable outcomes.
+
+**Specification quality checklist**:
+1. Business objectives clearly defined and traceable
+2. User stories complete with specific, testable acceptance criteria
+3. Functional and non-functional requirements specified
+4. Edge cases and error conditions identified
+5. Technical constraints documented without prescribing solutions
+6. Success metrics established (measurable, not vague)
+
+**Anti-patterns to avoid**:
+- Solution Bias: Prescribing implementation instead of describing requirements
+- Ambiguous Language: Vague terms allowing multiple interpretations
+- Missing Context: Insufficient background for understanding requirements
+- Feature Creep: Requirements expanding beyond core objectives
+
+**AI-readiness**: Write specs that AI agents can interpret directly -- include
+specific examples, scenarios, clear boundaries, and unambiguous acceptance criteria.
+
+**Iterative refinement**: Start with high-level requirements, progressively add detail,
+incorporate stakeholder feedback, validate against real-world scenarios.
+
+---
+
 ## Related Skills
 
 - **sdd-planning**: Next step after specification (generates implementation plan)
 - **domain-detection**: Standalone domain detection for existing files
-- **specification-agent**: Agent that can be delegated specification work

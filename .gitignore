@@ -88,6 +88,20 @@ specs/*/
 # Deprecated items (kept locally for reference, not in template)
 **/.deprecated/
 
+# Memory search index (generated, regenerable)
+.sdd-memory-index/
+vector_helper.py
+
+# Memory working tier (session-specific)
+plugins/sdd-memory/working/
+!plugins/sdd-memory/working/.gitkeep
+plugins/sdd-memory/recall/
+!plugins/sdd-memory/recall/.gitkeep
+plugins/sdd-memory/.retention-last-run
+
+# Test artifacts
+test-checkpoint-*
+
 # Python bytecode
 __pycache__/
 *.py[cod]

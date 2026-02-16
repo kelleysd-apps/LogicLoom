@@ -76,6 +76,147 @@ END=$(date +%s)
 DURATION=$((END - START))
 assert "Memory search completes within 5 seconds" "[ $DURATION -le 5 ]"
 
+# ── Memory v2.0 Backend Interface Tests ──
+echo ""
+echo "Memory v2.0 backend interface"
+assert "backend-interface.sh exists" "[ -f plugins/sdd-memory/lib/backend-interface.sh ]"
+assert "backend-interface.sh is executable" "[ -x plugins/sdd-memory/lib/backend-interface.sh ]"
+assert "keyword-backend.sh exists" "[ -f plugins/sdd-memory/lib/keyword-backend.sh ]"
+assert "keyword-backend.sh is executable" "[ -x plugins/sdd-memory/lib/keyword-backend.sh ]"
+assert "memory-v2.conf exists" "[ -f plugins/sdd-memory/config/memory-v2.conf ]"
+assert "memory-v2.conf has MEMORY_BACKEND setting" "grep -q 'MEMORY_BACKEND' plugins/sdd-memory/config/memory-v2.conf"
+assert "memory-v2.conf defaults to keyword backend" "grep -q 'MEMORY_BACKEND=keyword' plugins/sdd-memory/config/memory-v2.conf"
+assert "memory-v2.conf has hybrid weights" "grep -q 'VECTOR_WEIGHT' plugins/sdd-memory/config/memory-v2.conf"
+
+# Test keyword backend health check
+KB_HEALTH=$(bash -c 'source plugins/sdd-memory/lib/keyword-backend.sh && backend_health_check' 2>/dev/null || echo "")
+KB_HEALTH_LEN=${#KB_HEALTH}
+assert "Keyword backend health check returns output" "[ $KB_HEALTH_LEN -gt 0 ]"
+
+# Test keyword backend search
+KB_SEARCH=$(bash -c 'source plugins/sdd-memory/lib/keyword-backend.sh && backend_search "constitution principles" 5 3000 session' 2>/dev/null || echo "")
+KB_SEARCH_LEN=${#KB_SEARCH}
+assert "Keyword backend search returns results for known content" "[ $KB_SEARCH_LEN -gt 0 ]"
+
+# Test backend interface has required function stubs
+assert "Interface defines backend_search" "grep -q 'backend_search()' plugins/sdd-memory/lib/backend-interface.sh"
+assert "Interface defines backend_index" "grep -q 'backend_index()' plugins/sdd-memory/lib/backend-interface.sh"
+assert "Interface defines backend_health_check" "grep -q 'backend_health_check()' plugins/sdd-memory/lib/backend-interface.sh"
+assert "Interface defines format_search_result helper" "grep -q 'format_search_result()' plugins/sdd-memory/lib/backend-interface.sh"
+
+# ── Skill-Brief Extraction Tests ──
+echo ""
+echo "Skill-brief extraction"
+assert "extract_skill_brief function exists in common.sh" \
+  "grep -q 'extract_skill_brief()' .specify/scripts/bash/common.sh"
+
+# Test extraction returns content for domain skills with Task Brief section
+BRIEF_OUTPUT=$(bash -c 'source .specify/scripts/bash/common.sh 2>/dev/null; extract_skill_brief "sdd-domain-backend" "backend-operations"' 2>/dev/null || echo "")
+BRIEF_LEN=${#BRIEF_OUTPUT}
+assert "extract_skill_brief returns content for backend skill" "[ $BRIEF_LEN -gt 20 ]"
+
+# Test extraction returns empty for missing skill
+EMPTY_BRIEF=$(bash -c 'source .specify/scripts/bash/common.sh 2>/dev/null; extract_skill_brief "nonexistent" "nonexistent"' 2>/dev/null || echo "")
+EMPTY_BRIEF_LEN=${#EMPTY_BRIEF}
+assert "extract_skill_brief returns empty for missing skill" "[ $EMPTY_BRIEF_LEN -le 1 ]"
+
+# ── Domain Agent Removal Verification ──
+echo ""
+echo "Domain agent removal verification"
+DOMAIN_AGENT_COUNT=0
+for d in frontend backend database security testing performance devops; do
+  [ -d "plugins/sdd-domain-${d}/agents" ] && DOMAIN_AGENT_COUNT=$((DOMAIN_AGENT_COUNT + 1))
+done
+assert "No domain agent directories remain (found $DOMAIN_AGENT_COUNT)" "[ '$DOMAIN_AGENT_COUNT' -eq 0 ]"
+
+# Verify domain skills have Task Brief sections
+for domain in frontend backend database security testing performance devops; do
+  SKILL_FILE="plugins/sdd-domain-${domain}/skills/${domain}-operations/SKILL.md"
+  if [ -f "$SKILL_FILE" ]; then
+    HAS_BRIEF=$(grep -c '## Task Brief' "$SKILL_FILE" || echo "0")
+    assert "${domain} skill has Task Brief section" "[ '$HAS_BRIEF' -ge 1 ]"
+  fi
+done
+
+# ── Memory v2.0 Backend Implementations ──
+echo ""
+echo "Memory v2.0 backend implementations"
+assert "bm25-search.sh exists" "[ -f plugins/sdd-memory/lib/bm25-search.sh ]"
+assert "bm25-search.sh is executable" "[ -x plugins/sdd-memory/lib/bm25-search.sh ]"
+assert "vector-search.sh exists" "[ -f plugins/sdd-memory/lib/vector-search.sh ]"
+assert "vector-search.sh is executable" "[ -x plugins/sdd-memory/lib/vector-search.sh ]"
+assert "hybrid-search.sh exists" "[ -f plugins/sdd-memory/lib/hybrid-search.sh ]"
+assert "hybrid-search.sh is executable" "[ -x plugins/sdd-memory/lib/hybrid-search.sh ]"
+
+# BM25 backend implements all interface functions
+assert "BM25 implements backend_search" "grep -q 'backend_search()' plugins/sdd-memory/lib/bm25-search.sh"
+assert "BM25 implements backend_index" "grep -q 'backend_index()' plugins/sdd-memory/lib/bm25-search.sh"
+assert "BM25 implements backend_reindex_all" "grep -q 'backend_reindex_all()' plugins/sdd-memory/lib/bm25-search.sh"
+assert "BM25 implements backend_health_check" "grep -q 'backend_health_check()' plugins/sdd-memory/lib/bm25-search.sh"
+
+# Vector backend implements all interface functions
+assert "Vector implements backend_search" "grep -q 'backend_search()' plugins/sdd-memory/lib/vector-search.sh"
+assert "Vector implements backend_index" "grep -q 'backend_index()' plugins/sdd-memory/lib/vector-search.sh"
+assert "Vector implements backend_reindex_all" "grep -q 'backend_reindex_all()' plugins/sdd-memory/lib/vector-search.sh"
+assert "Vector implements backend_health_check" "grep -q 'backend_health_check()' plugins/sdd-memory/lib/vector-search.sh"
+
+# Hybrid backend implements all interface functions
+assert "Hybrid implements backend_search" "grep -q 'backend_search()' plugins/sdd-memory/lib/hybrid-search.sh"
+assert "Hybrid implements backend_index" "grep -q 'backend_index()' plugins/sdd-memory/lib/hybrid-search.sh"
+assert "Hybrid implements backend_reindex_all" "grep -q 'backend_reindex_all()' plugins/sdd-memory/lib/hybrid-search.sh"
+assert "Hybrid implements backend_health_check" "grep -q 'backend_health_check()' plugins/sdd-memory/lib/hybrid-search.sh"
+
+# ── Memory v2.0 Retention & Flush ──
+echo ""
+echo "Memory v2.0 retention and flush"
+assert "retention.sh exists" "[ -f plugins/sdd-memory/lib/retention.sh ]"
+assert "retention.sh is executable" "[ -x plugins/sdd-memory/lib/retention.sh ]"
+assert "memory-flush.sh exists" "[ -f plugins/sdd-memory/lib/memory-flush.sh ]"
+assert "memory-flush.sh is executable" "[ -x plugins/sdd-memory/lib/memory-flush.sh ]"
+assert "retention.sh has retention_cleanup" "grep -q 'retention_cleanup()' plugins/sdd-memory/lib/retention.sh"
+assert "retention.sh has retention_lazy_check" "grep -q 'retention_lazy_check()' plugins/sdd-memory/lib/retention.sh"
+assert "retention.sh has retention_is_expired" "grep -q 'retention_is_expired()' plugins/sdd-memory/lib/retention.sh"
+assert "memory-flush.sh has memory_flush" "grep -q 'memory_flush()' plugins/sdd-memory/lib/memory-flush.sh"
+assert "memory-flush.sh has memory_flush_extract" "grep -q 'memory_flush_extract()' plugins/sdd-memory/lib/memory-flush.sh"
+
+# ── Memory Tier Directories ──
+echo ""
+echo "Memory tier directories"
+assert "working directory exists" "[ -d plugins/sdd-memory/working ]"
+assert "working has .gitkeep" "[ -f plugins/sdd-memory/working/.gitkeep ]"
+assert "recall directory exists" "[ -d plugins/sdd-memory/recall ]"
+assert "recall has .gitkeep" "[ -f plugins/sdd-memory/recall/.gitkeep ]"
+assert "archival directory exists" "[ -d plugins/sdd-memory/archival ]"
+assert "archival has .gitkeep" "[ -f plugins/sdd-memory/archival/.gitkeep ]"
+
+# ── Configuration v2.0 ──
+echo ""
+echo "Memory v2.0 configuration"
+assert "v2 config has retention settings" "grep -q 'WORKING_TTL' plugins/sdd-memory/config/memory-v2.conf"
+assert "v2 config has recall TTL" "grep -q 'RECALL_TTL' plugins/sdd-memory/config/memory-v2.conf"
+assert "v2 config has scope mode" "grep -q 'SCOPE_MODE' plugins/sdd-memory/config/memory-v2.conf"
+assert "v2 config has timeout setting" "grep -q 'MEMORY_TIMEOUT_MS' plugins/sdd-memory/config/memory-v2.conf"
+assert "v2 config has inject count" "grep -q 'INJECT_COUNT' plugins/sdd-memory/config/memory-v2.conf"
+
+# ── Memory-search.sh v2.0 Upgrade Verification ──
+echo ""
+echo "Memory-search.sh v2.0 upgrade"
+assert "memory-search.sh references v2.0" "grep -q 'v2.0' plugins/sdd-memory/scripts/memory-search.sh"
+assert "memory-search.sh uses backend interface" "grep -q '_select_backend' plugins/sdd-memory/scripts/memory-search.sh"
+assert "memory-search.sh integrates retention" "grep -q 'retention' plugins/sdd-memory/scripts/memory-search.sh"
+assert "memory-search.sh supports multiple backends" "grep -q 'hybrid' plugins/sdd-memory/scripts/memory-search.sh"
+
+# Test v2.0 search output still has correct format
+V2_OUTPUT=$(bash plugins/sdd-memory/scripts/memory-search.sh "constitution governance" 2>/dev/null || echo "")
+V2_LEN=${#V2_OUTPUT}
+assert "v2.0 search returns output for known content" "[ $V2_LEN -gt 0 ]"
+if [ -n "$V2_OUTPUT" ]; then
+  V2_HEADER=$(echo "$V2_OUTPUT" | head -1 | grep -c "MEMORY CONTEXT" || echo "0")
+  assert "v2.0 search output has MEMORY CONTEXT header" "[ '$V2_HEADER' -ge 1 ]"
+  V2_BACKEND=$(echo "$V2_OUTPUT" | grep -c "backend: keyword" || echo "0")
+  assert "v2.0 search shows keyword backend" "[ '$V2_BACKEND' -ge 1 ]"
+fi
+
 # ── Integration with Hook ──
 echo ""
 echo "Hook integration"

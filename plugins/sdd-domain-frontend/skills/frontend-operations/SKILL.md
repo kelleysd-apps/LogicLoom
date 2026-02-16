@@ -2,7 +2,7 @@
 name: frontend-operations
 version: 3.0.0
 category: domain
-description: Frontend development skill. Routes to implementation-specialist.
+description: Frontend development skill providing direct domain expertise.
 triggers: ["frontend", "UI component", "React", "CSS", "form", "responsive"]
 rl_metrics:
   success_rate: 0.5
@@ -26,15 +26,39 @@ Domain skill for frontend development including React components, UI layouts, CS
 - Responsive design
 - Client-side state management
 
+## Task Brief
+
+You are a frontend specialist working on a team task. Your expertise includes:
+- **Frameworks**: React, Next.js, Vue.js, Angular with deep hooks and patterns knowledge
+- **TypeScript**: Advanced types, generics, utility types, type-safe development
+- **State Management**: Redux Toolkit, Zustand, React Query, Context API patterns
+- **Styling**: Tailwind CSS, CSS Modules, Styled Components, responsive design
+- **Performance**: Code splitting, lazy loading, bundle optimization, Core Web Vitals
+- **Testing**: Jest, React Testing Library, Cypress, visual regression testing
+- **Build Tools**: Vite, Webpack, Turbopack, development workflow optimization
+- **Accessibility**: WCAG compliance, screen reader support, keyboard navigation
+- **Component Patterns**: Compound patterns, render props, custom hooks, form handling (React Hook Form)
+- **Data Fetching**: SWR, React Query, error boundaries, loading states
+- **Animation**: Framer Motion, CSS animations with performance considerations
+
+**Quality Standards**:
+- Mobile-first responsive design approach
+- Semantic HTML with proper accessibility attributes (WCAG)
+- Performance budgets and Core Web Vitals monitoring
+- Comprehensive error handling and loading states
+- Component reusability and consistent naming conventions
+- Test-First Development (Principle II): tests required for all components
+
+**File Ownership**: You own files matching: `src/components/**`, `src/pages/**`, `src/styles/**`, `src/hooks/**`, `*.tsx`, `*.css`, `*.scss`
+
 ## Configuration
 
 ### Allowed Tools
 Read, Write, Edit, MultiEdit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-agent: implementation-specialist
 context-subset:
   - ui-requirements
   - design-system
@@ -69,9 +93,9 @@ context-subset:
   - styling-guidelines: CSS approach
 ```
 
-### Step 3: Invoke Implementation Specialist
+### Step 3: Execute Frontend Work
 
-Delegate to `implementation-specialist` with:
+Implement frontend work with:
 - Clear component specifications
 - Expected props and events
 - Styling requirements
@@ -88,7 +112,7 @@ Delegate to `implementation-specialist` with:
 ## Constitutional Compliance
 
 - **Principle II**: Tests required for components
-- **Principle X**: Routes to implementation-specialist
+- **Principle X**: This skill provides frontend domain expertise directly
 - **Principle XII**: Follows project design system
 
 

@@ -11,4 +11,4 @@ SDD specification lifecycle plugin providing the unified `/specification` comman
 | `/tasks` | Generate task list (legacy) |
 
 ## Skills: sdd-specification, sdd-planning, sdd-tasks, unified-specification
-## Agents: specification-agent, planning-agent, tasks-agent, specification-orchestrator
+## Agents: (none — specification lifecycle powered via skills)

@@ -123,13 +123,13 @@ if [ "$JSON_MODE" = false ]; then
     echo ""
     echo -e "1. ${YELLOW}Open PRD in Claude Code${NC}"
     echo -e "   - Review and complete all sections"
-    echo -e "   - Use prd-specialist agent for guidance"
+    echo -e "   - Use prd-specialist agent for guidance (one of the 11 remaining agents)"
     echo ""
     echo -e "2. ${YELLOW}Focus on these key sections${NC}:"
     echo -e "   • Executive Summary (vision, problem, success metrics)"
     echo -e "   • User Personas & Journeys"
     echo -e "   • Core Features & Requirements"
-    echo -e "   • System Architecture Principles (customize 14 constitutional principles)"
+    echo -e "   • System Architecture Principles (customize 16 constitutional principles)"
     echo -e "   • Release Strategy (define MVP)"
     echo ""
     echo -e "3. ${YELLOW}After PRD completion${NC}:"
@@ -137,7 +137,7 @@ if [ "$JSON_MODE" = false ]; then
     echo -e "   • Get stakeholder approval"
     echo -e "   • Update ${GREEN}.specify/memory/constitution.md${NC} with customizations"
     echo -e "   • Create custom agents identified in PRD"
-    echo -e "   • Begin feature specifications with ${GREEN}/specify${NC}"
+    echo -e "   • Begin feature specifications with ${GREEN}/specification${NC}"
     echo ""
     echo -e "${BLUE}========================================${NC}"
     echo -e "${BLUE}   PRD-Driven Workflow${NC}"
@@ -145,8 +145,8 @@ if [ "$JSON_MODE" = false ]; then
     echo ""
     echo -e "${YELLOW}The PRD serves as Single Source of Truth (SSOT) for:${NC}"
     echo ""
-    echo -e "  📋 ${GREEN}/specify${NC} → Pulls user stories, personas, acceptance criteria from PRD"
-    echo -e "  📐 ${GREEN}/plan${NC}    → References technical constraints, architecture principles from PRD"
+    echo -e "  📋 ${GREEN}/specification${NC} → Pulls user stories, personas, acceptance criteria from PRD"
+    echo -e "     (combines /specify, /plan, /tasks into unified workflow)"
     echo -e "  ⚙️  ${GREEN}Constitution${NC} → Customized with project-specific guidance from PRD"
     echo -e "  🤖 ${GREEN}Custom Agents${NC} → Created based on specialized needs in PRD"
     echo ""
@@ -167,7 +167,7 @@ else
     echo '    "Run PRD Review Checklist",'
     echo '    "Update constitution.md with customizations",'
     echo '    "Create custom agents from PRD",'
-    echo '    "Begin feature specs with /specify"'
+    echo '    "Begin feature specs with /specification"'
     echo '  ]'
     echo '}'
 fi
@@ -205,7 +205,7 @@ For each feature:
 - Priority: High/Medium/Low
 
 ### 4. Constitutional Customization (Required)
-**CRITICAL**: Customize all 14 principles for your project:
+**CRITICAL**: Customize all 16 principles for your project:
 
 1. **Library-First** - How does this apply to you?
 2. **Test-First** - Your testing philosophy?
@@ -230,14 +230,14 @@ For each feature:
 ## Using the PRD
 
 ### When Running /specify
-The specification-agent will:
+The unified-specification skill will:
 - Pull user stories from your PRD
 - Reference personas for context
 - Use acceptance criteria patterns
 - Align with release phases
 
 ### When Running /plan
-The planning-agent will:
+The sdd-planning skill will:
 - Read constitutional customizations
 - Apply technical constraints
 - Use integration requirements
@@ -259,7 +259,7 @@ The planning-agent will:
 3. **Begin Features**:
    ```bash
    # For each MVP feature
-   /specify "Feature description"
+   /specification "Feature description"
    ```
 
 ## PRD Review Checklist
@@ -267,7 +267,7 @@ The planning-agent will:
 Before finalizing, verify:
 - [ ] Vision is clear and compelling
 - [ ] Success metrics are quantifiable
-- [ ] All 14 constitutional principles customized
+- [ ] All 16 constitutional principles customized
 - [ ] MVP is truly minimal
 - [ ] User personas are specific and realistic
 - [ ] All features have acceptance criteria

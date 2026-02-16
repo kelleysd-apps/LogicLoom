@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v1.6.0 - Principle VI (Git Operation Approval)
+**Authority**: Constitution v3.0.0 - Principle VI (Git Operation Approval)
 **Review Cycle**: Quarterly
 
 ---
@@ -798,7 +798,7 @@ Track these branching metrics:
 
 ## References
 
-- Constitution v1.6.0: `.specify/memory/constitution.md` (Principle VI)
+- Constitution v3.0.0: `.specify/memory/constitution.md` (Principle VI)
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Deployment Policy: `.docs/policies/deployment-policy.md`
 - Release Management: `.docs/policies/release-management-policy.md`

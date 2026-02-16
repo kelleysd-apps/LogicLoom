@@ -4,7 +4,7 @@
   "schema_version": "1.0",
 
   "skill_name": "core-loop",
-  "_comment_skill_name": "Name of the skill being tracked. MUST match a registered skill in the plugin's skills/ directory or .claude/skill-index.json.",
+  "_comment_skill_name": "Name of the skill being tracked. MUST match a registered skill in the plugin's skills/ directory or plugin manifest (plugins/*/plugin.json).",
 
   "model_name": "claude-opus-4-6",
   "_comment_model_name": "AI model used during skill execution. Tracks per-model performance for model selection optimization (Principle XIV).",
@@ -134,10 +134,10 @@
   ],
 
   "_integration_points": {
-    "skill_index": ".claude/skill-index.json — selection_weight synced here for framework-wide routing",
+    "plugin_manifests": "plugins/*/plugin.json — selection_weight synced here for framework-wide routing",
     "rl_metrics_store": ".docs/rl-metrics/skill-performance.json — detailed history persisted here",
     "collect_feedback_script": ".specify/scripts/bash/rl/collect-feedback.sh — CLI for recording outcomes",
-    "sync_metrics_script": ".specify/scripts/bash/rl/sync-metrics.sh — syncs metrics to skill-index.json",
+    "sync_metrics_script": ".specify/scripts/bash/rl/sync-metrics.sh — syncs metrics to plugin manifests",
     "dashboard_script": ".specify/scripts/bash/rl/dashboard.sh — human-readable metrics view"
   }
 }

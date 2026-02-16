@@ -12,7 +12,7 @@ for arg in "$@"; do
             echo ""
             echo "DS-STAR Compliance Finalizer - Pre-commit validation"
             echo ""
-            echo "Validates implementation against all 14 constitutional principles:"
+            echo "Validates implementation against all 16 constitutional principles:"
             echo "  - Tests passing and coverage >80%"
             echo "  - No linting errors"
             echo "  - Code style compliance"

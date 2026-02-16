@@ -63,17 +63,17 @@ rl_metrics:
 
 ### Step 1: Constitution Acknowledgment
 
-**Action**: Confirm awareness of the 15 constitutional principles (v1.6.0).
+**Action**: Confirm awareness of the 16 constitutional principles (v3.0.0).
 
 **Key Principles to Remember**:
 - **Principle II (Test-First)**: TDD is mandatory, >80% coverage
 - **Principle VI (Git Approval)**: NO autonomous git operations - CRITICAL
-- **Principle X (Agent Delegation)**: Now routes to SKILLS which invoke agents
+- **Principle X (Skill-First Routing)**: Routes to specialist skills which invoke agents as needed
 - **Principle XV (File Organization)**: Verify before creating files/folders
 
 **Mental Checklist**:
 ```
-[ ] I am aware of the 15 constitutional principles
+[ ] I am aware of the 16 constitutional principles
 [ ] I know Principles I-III are IMMUTABLE
 [ ] I know Principle VI prohibits autonomous git operations
 [ ] I know Principle X requires skill-first routing (skills -> agents)
@@ -84,21 +84,21 @@ rl_metrics:
 
 **Action**: Scan the user message for domain trigger keywords.
 
-**Skills-First Domain Mapping (v3)**:
+**Skill-First Domain Mapping (v5)**:
 
-| Domain | Trigger Keywords | Route To Skill | Skill Invokes |
-|--------|------------------|----------------|---------------|
-| Frontend | UI, component, React, CSS, form | domain/frontend-operations | implementation-specialist |
-| Backend | API, endpoint, server, auth, service | domain/backend-operations | backend-architect |
-| Database | schema, migration, query, RLS, SQL | domain/database-operations | database-specialist |
-| Testing | test, TDD, E2E, coverage, QA | domain/testing-operations | quality-specialist |
-| Security | auth, encryption, XSS, secrets | domain/security-operations | quality-specialist |
-| Performance | optimize, cache, benchmark | domain/performance-operations | operations-specialist |
-| DevOps | deploy, CI/CD, Docker, pipeline | domain/devops-operations | operations-specialist |
-| Specification | /specify, requirements, spec | sdd-workflow/sdd-specification | specification-orchestrator |
-| Planning | /plan, research, contract | sdd-workflow/sdd-planning | specification-orchestrator |
-| Tasks | /tasks, task list, dependencies | sdd-workflow/sdd-tasks | specification-orchestrator |
-| Multi-Domain | 2+ domains detected | orchestration/multi-skill-workflow | workflow-coordinator |
+| Domain | Trigger Keywords | Route To Skill | Plugin |
+|--------|------------------|----------------|--------|
+| Frontend | UI, component, React, CSS, form | frontend-operations | sdd-domain-frontend |
+| Backend | API, endpoint, server, auth, service | api-design, service-architecture | sdd-domain-backend |
+| Database | schema, migration, query, RLS, SQL | schema-design | sdd-domain-database |
+| Testing | test, TDD, E2E, coverage, QA | testing-operations | sdd-domain-testing |
+| Security | auth, encryption, XSS, secrets | security-operations | sdd-domain-security |
+| Performance | optimize, cache, benchmark | performance-operations | sdd-domain-performance |
+| DevOps | deploy, CI/CD, Docker, pipeline | monitoring | sdd-domain-devops |
+| Specification | /specify, requirements, spec | unified-specification | sdd-specification |
+| Planning | /plan, research, contract | sdd-planning | sdd-specification |
+| Tasks | /tasks, task list, dependencies | sdd-tasks | sdd-specification |
+| Multi-Domain | 2+ domains detected | team-orchestration | sdd-orchestrator |
 
 **Scan Process**:
 1. Read the user message
@@ -110,7 +110,7 @@ rl_metrics:
 
 **Action**: Make an explicit decision based on domain analysis.
 
-**Skills-First Decision Logic (v3)**:
+**Skill-First Decision Logic (v5)**:
 ```
 IF 0 domains detected:
   -> May execute directly (simple/informational task)
@@ -120,7 +120,7 @@ IF 1 domain detected:
   -> Skill will invoke consolidated agent as needed
 
 IF 2+ domains detected:
-  -> MUST activate orchestration/multi-skill-workflow
+  -> MUST activate team-orchestration skill
   -> Orchestration skill coordinates multiple domain skills
 ```
 
@@ -173,18 +173,18 @@ Constitutional Compliance Check:
 Constitutional Compliance Check:
 - Timestamp: 2026-01-13T10:05:00Z
 - Domain(s): single: database
-- Delegation: domain/database-operations
+- Delegation: schema-design
 - Git operations: none planned
-- Proceeding with: activating database skill for schema design
+- Proceeding with: activating schema-design skill for database work
 ```
 
 ```
 Constitutional Compliance Check:
 - Timestamp: 2026-01-13T10:10:00Z
 - Domain(s): multi: frontend, backend, database
-- Delegation: orchestration/multi-skill-workflow
+- Delegation: team-orchestration
 - Git operations: will request approval
-- Proceeding with: coordinating full-stack feature via orchestration skill
+- Proceeding with: coordinating full-stack feature via team-orchestration skill
 ```
 
 ## Audit Trail (FR-707 Requirement)
@@ -196,7 +196,7 @@ Every compliance check MUST log to `.docs/audit/message-preflight.log`:
   "timestamp": "2026-01-13T10:00:00Z",
   "message_hash": "abc12345",
   "domains_detected": ["backend", "database"],
-  "delegation_target": "orchestration/multi-skill-workflow",
+  "delegation_target": "team-orchestration",
   "git_operations_planned": false,
   "compliance_status": "PASS",
   "duration_ms": 125
@@ -272,7 +272,7 @@ If another skill/agent attempts to bypass this check:
 ## Common Violations to Avoid
 
 1. **Skipping to implementation** without domain analysis
-2. **Invoking agents directly** without going through skills (v3)
+2. **Invoking agents directly** without going through skills (v5)
 3. **Running git commands** without user approval
 4. **Ignoring multi-domain** complexity (treating as single domain)
 5. **Bypassing compliance check** on "simple" tasks (NO exceptions)
@@ -281,10 +281,10 @@ If another skill/agent attempts to bypass this check:
 
 This skill directly implements:
 - **FR-707**: Compliance check as FIRST step after user message
-- **Principle X**: Work Session Initiation Protocol (skills-first in v3)
+- **Principle X**: Work Session Initiation Protocol (skill-first routing in v5)
 - **Principle VI**: Git operation approval enforcement
 
-**From Constitution v1.6.0**:
+**From Constitution v3.0.0**:
 
 > **Work Session Initiation Protocol (MANDATORY for EVERY task)**:
 >
@@ -377,11 +377,11 @@ VERIFIER_CHECK:
 
 - **domain-detection**: Detailed domain analysis
 - **constitutional-compliance**: Full compliance validation (post-work)
-- **orchestration/multi-skill-workflow**: Multi-domain coordination
+- **team-orchestration**: Multi-domain coordination
 
 ## References
 
-- Constitution v1.6.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
 - Skill Activation Triggers: `.specify/memory/skill-activation-triggers.md` (Phase 3)
 - Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md` (legacy)
 - Domain Detection Skill: `plugins/sdd-governance/skills/domain-detection/SKILL.md`

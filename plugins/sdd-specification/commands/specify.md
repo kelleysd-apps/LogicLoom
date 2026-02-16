@@ -6,16 +6,9 @@ model: opus
 
 # /specify Command
 
-**AGENT REQUIREMENT**: This command should be executed by the specification-agent.
+**SKILL**: This command uses the sdd-specification skill.
 
-**If you are NOT the specification-agent**, delegate immediately:
-```
-Use the Task tool to invoke specification-agent:
-- description: "Execute /specify command"
-- prompt: "Execute the /specify command for this feature. Arguments: $ARGUMENTS"
-```
-
-## Execution Instructions (for specification-agent)
+## Execution Instructions
 
 ### Step 1: Branch Management
 Ask user: "Would you like to create a new feature branch, or work on the current branch?"

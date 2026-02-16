@@ -111,9 +111,9 @@ if $LIBS_SOURCED; then
     assert "L0 op '${op}' is permitted (allowed=true)" \
       "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"allowed\"] == True, f\"got {d}\"'"
     assert "L0 op '${op}' has tier=L0" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L0\", f\"got {d.get(\\\"tier\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L0\", f\"got {d}\"'"
     assert "L0 op '${op}' has approval=implicit" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"implicit\", f\"got {d.get(\\\"approval\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"implicit\", f\"got {d}\"'"
   done
 
   # L0 ops require no approval even with no session approvals
@@ -146,9 +146,9 @@ if $LIBS_SOURCED; then
     assert "L1 op '${op}' is permitted by default (allowed=true)" \
       "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"allowed\"] == True, f\"got {d}\"'"
     assert "L1 op '${op}' has tier=L1" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L1\", f\"got {d.get(\\\"tier\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L1\", f\"got {d}\"'"
     assert "L1 op '${op}' has approval=default_granted" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"default_granted\", f\"got {d.get(\\\"approval\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"default_granted\", f\"got {d}\"'"
   done
 
   # L1 write ops MUST be within workspace directory
@@ -205,9 +205,9 @@ if $LIBS_SOURCED; then
     assert "L2 op '${op}' DENIED without session approval" \
       "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"allowed\"] == False, f\"got {d}\"'"
     assert "L2 op '${op}' has tier=L2" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L2\", f\"got {d.get(\\\"tier\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L2\", f\"got {d}\"'"
     assert "L2 op '${op}' requires approval=per_session" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"per_session\", f\"got {d.get(\\\"approval\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"per_session\", f\"got {d}\"'"
     assert "L2 op '${op}' denied returns APPROVAL_REQUIRED" \
       "echo '${PERM_RESULT}' | grep -q 'APPROVAL_REQUIRED'"
   done
@@ -263,9 +263,9 @@ if $LIBS_SOURCED; then
     assert "L3 op '${op}' DENIED without per-action approval" \
       "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"allowed\"] == False, f\"got {d}\"'"
     assert "L3 op '${op}' has tier=L3" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L3\", f\"got {d.get(\\\"tier\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"tier\"] == \"L3\", f\"got {d}\"'"
     assert "L3 op '${op}' requires approval=per_action_always" \
-      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"per_action_always\", f\"got {d.get(\\\"approval\\\")}\"'"
+      "python3 -c 'import json; d=json.loads(\"\"\"${PERM_RESULT}\"\"\"); assert d[\"approval\"] == \"per_action_always\", f\"got {d}\"'"
   done
 
   # L3 ops denied even if session has L2 approval (session approval is NOT enough)

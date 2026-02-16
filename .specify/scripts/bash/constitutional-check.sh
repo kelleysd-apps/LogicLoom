@@ -1,7 +1,7 @@
 #!/bin/bash
 # Constitutional Compliance Checker for SDD Framework
 # Validates adherence to Constitutional Principles
-# Authority: Constitution v1.6.0
+# Authority: Constitution v3.0.0
 
 # Don't exit on error - we want to run all checks
 set +e
@@ -21,7 +21,7 @@ echo -e "${BLUE}  Constitutional Compliance Check${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 echo "Repository: $REPO_ROOT"
-echo "Constitution: v1.6.0"
+echo "Constitution: v3.0.0"
 echo ""
 
 PASS_COUNT=0
@@ -49,7 +49,7 @@ record_warn() {
 # Principle I: Library-First Architecture
 # ============================================
 #
-echo -e "${BLUE}[1/15] Principle I: Library-First Architecture${NC}"
+echo -e "${BLUE}[1/16] Principle I: Library-First Architecture${NC}"
 echo "Checking for library structure..."
 
 # Check if project has a libs or packages directory
@@ -67,7 +67,7 @@ echo ""
 # Principle II: Test-First Development
 # ============================================
 #
-echo -e "${BLUE}[2/15] Principle II: Test-First Development (TDD)${NC}"
+echo -e "${BLUE}[2/16] Principle II: Test-First Development (TDD)${NC}"
 echo "Checking for test infrastructure..."
 
 # Check for test directories or files
@@ -95,7 +95,7 @@ echo ""
 # Principle III: Contract-First Design
 # ============================================
 #
-echo -e "${BLUE}[3/15] Principle III: Contract-First Design${NC}"
+echo -e "${BLUE}[3/16] Principle III: Contract-First Design${NC}"
 echo "Checking for contract definitions..."
 
 # Check for contracts directory in specs
@@ -125,7 +125,7 @@ echo ""
 # Principle IV: Idempotent Operations
 # ============================================
 #
-echo -e "${BLUE}[4/15] Principle IV: Idempotent Operations${NC}"
+echo -e "${BLUE}[4/16] Principle IV: Idempotent Operations${NC}"
 echo "Checking scripts for idempotency patterns..."
 
 # Check if scripts handle "already exists" scenarios
@@ -154,7 +154,7 @@ echo ""
 # Principle V: Progressive Enhancement
 # ============================================
 #
-echo -e "${BLUE}[5/15] Principle V: Progressive Enhancement${NC}"
+echo -e "${BLUE}[5/16] Principle V: Progressive Enhancement${NC}"
 echo "Checking for feature flags or gradual rollout..."
 
 # Look for feature flag patterns
@@ -177,7 +177,7 @@ echo ""
 # Principle VI: Git Operation Approval
 # ============================================
 #
-echo -e "${BLUE}[6/15] Principle VI: Git Operation Approval (CRITICAL)${NC}"
+echo -e "${BLUE}[6/16] Principle VI: Git Operation Approval (CRITICAL)${NC}"
 echo "Checking for git approval mechanisms..."
 
 # Check if scripts have git approval
@@ -212,7 +212,7 @@ echo ""
 # Principle VII: Observability & Logging
 # ============================================
 #
-echo -e "${BLUE}[7/15] Principle VII: Observability & Structured Logging${NC}"
+echo -e "${BLUE}[7/16] Principle VII: Observability & Structured Logging${NC}"
 echo "Checking for logging infrastructure..."
 
 # Check for logging patterns
@@ -235,7 +235,7 @@ echo ""
 # Principle VIII: Documentation Synchronization
 # ============================================
 #
-echo -e "${BLUE}[8/15] Principle VIII: Documentation Synchronization${NC}"
+echo -e "${BLUE}[8/16] Principle VIII: Documentation Synchronization${NC}"
 echo "Checking documentation structure..."
 
 # Check for key documentation files
@@ -259,7 +259,7 @@ echo ""
 # Principle IX: Dependency Management
 # ============================================
 #
-echo -e "${BLUE}[9/15] Principle IX: Dependency Management${NC}"
+echo -e "${BLUE}[9/16] Principle IX: Dependency Management${NC}"
 echo "Checking for dependency declarations..."
 
 # Check for package/dependency files
@@ -282,13 +282,13 @@ echo ""
 # Principle X: Agent Delegation Protocol
 # ============================================
 #
-echo -e "${BLUE}[10/15] Principle X: Agent Delegation Protocol (CRITICAL)${NC}"
+echo -e "${BLUE}[10/16] Principle X: Agent Delegation Protocol (CRITICAL)${NC}"
 echo "Checking for agent infrastructure..."
 
-# Check for agent context files
+# Check for agent context files (Plugin-First Architecture v4.0)
 AGENT_COUNT=0
-if [ -d "$REPO_ROOT/.claude/agents" ]; then
-    AGENT_COUNT=$(find "$REPO_ROOT/.claude/agents" -name "*.md" -type f 2>/dev/null | wc -l)
+if [ -d "$REPO_ROOT/plugins" ]; then
+    AGENT_COUNT=$(find "$REPO_ROOT/plugins" -path "*/agents/*.md" -type f 2>/dev/null | wc -l)
 fi
 
 # Check for agent collaboration triggers
@@ -317,7 +317,7 @@ echo ""
 # Principle XI: Input Validation & Output Sanitization
 # ============================================
 #
-echo -e "${BLUE}[11/15] Principle XI: Input Validation & Output Sanitization${NC}"
+echo -e "${BLUE}[11/16] Principle XI: Input Validation & Output Sanitization${NC}"
 echo "Checking for validation patterns..."
 
 # Check for validation patterns in code
@@ -354,7 +354,7 @@ echo ""
 # Principle XII: Design System Compliance
 # ============================================
 #
-echo -e "${BLUE}[12/15] Principle XII: Design System Compliance${NC}"
+echo -e "${BLUE}[12/16] Principle XII: Design System Compliance${NC}"
 echo "Checking for design system..."
 
 # Check for design system files
@@ -377,7 +377,7 @@ echo ""
 # Principle XIII: Feature Access Control
 # ============================================
 #
-echo -e "${BLUE}[13/15] Principle XIII: Feature Access Control${NC}"
+echo -e "${BLUE}[13/16] Principle XIII: Feature Access Control${NC}"
 echo "Checking for access control patterns..."
 
 # Check for access control patterns
@@ -400,7 +400,7 @@ echo ""
 # Principle XIV: AI Model Selection Protocol
 # ============================================
 #
-echo -e "${BLUE}[14/15] Principle XIV: AI Model Selection Protocol${NC}"
+echo -e "${BLUE}[14/16] Principle XIV: AI Model Selection Protocol${NC}"
 echo "Checking for AI model configuration..."
 
 # Check for model selection documentation or configuration
@@ -423,7 +423,7 @@ echo ""
 # Principle XV: File and Folder Organization
 # ============================================
 #
-echo -e "${BLUE}[15/15] Principle XV: File and Folder Organization${NC}"
+echo -e "${BLUE}[15/16] Principle XV: File and Folder Organization${NC}"
 echo "Checking for proper file organization..."
 
 # Check spec directory naming convention (###-feature-name)
@@ -465,6 +465,36 @@ echo ""
 
 #
 # ============================================
+# Principle XVI: Plugin-First Architecture
+# ============================================
+#
+echo -e "${BLUE}[16/16] Principle XVI: Plugin-First Architecture${NC}"
+echo "Checking for plugin-based capability structure..."
+
+# Check for plugins directory with proper structure
+PLUGIN_FOUND=false
+if [ -d "$REPO_ROOT/plugins" ]; then
+    PLUGIN_COUNT=$(find "$REPO_ROOT/plugins" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | xargs)
+    if [ "$PLUGIN_COUNT" -gt 0 ]; then
+        # Check at least some plugins have plugin.json
+        MANIFEST_COUNT=$(find "$REPO_ROOT/plugins" -maxdepth 2 -name "plugin.json" -type f 2>/dev/null | wc -l | xargs)
+        if [ "$MANIFEST_COUNT" -gt 0 ]; then
+            PLUGIN_FOUND=true
+        fi
+    fi
+fi
+
+if [ "$PLUGIN_FOUND" = true ]; then
+    echo -e "   ${GREEN}✅ PASS${NC}: Plugin architecture found ($PLUGIN_COUNT plugins, $MANIFEST_COUNT manifests)"
+    ((PASS_COUNT++))
+else
+    echo -e "   ${YELLOW}⚠${NC}  WARNING: No plugin architecture found"
+    record_warn "Capabilities should be organized as plugins in plugins/ directory"
+fi
+echo ""
+
+#
+# ============================================
 # Results Summary
 # ============================================
 #
@@ -472,8 +502,8 @@ echo -e "${BLUE}============================================${NC}"
 echo -e "${BLUE}  Compliance Results${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
-echo -e "${GREEN}✅ Passed:${NC} $PASS_COUNT/15"
-echo -e "${RED}❌ Failed:${NC} $FAIL_COUNT/15"
+echo -e "${GREEN}✅ Passed:${NC} $PASS_COUNT/16"
+echo -e "${RED}❌ Failed:${NC} $FAIL_COUNT/16"
 echo -e "${YELLOW}⚠  Warnings:${NC} $WARN_COUNT"
 echo ""
 

@@ -2,7 +2,7 @@
 name: performance-operations
 version: 3.0.0
 category: domain
-description: Performance optimization and caching. Routes to operations-specialist.
+description: Performance optimization and caching providing direct domain expertise.
 triggers: ["performance", "optimize", "cache", "benchmark", "latency", "profiling"]
 rl_metrics:
   success_rate: 0.5
@@ -16,8 +16,7 @@ rl_metrics:
 ## Overview
 
 This skill handles all performance operations including optimization, caching
-strategies, benchmarking, profiling, and latency reduction. Routes to
-`operations-specialist` agent.
+strategies, benchmarking, profiling, and latency reduction.
 
 ## When to Use
 
@@ -30,15 +29,38 @@ Activate this skill when the user request involves:
 - Load testing
 - Profiling
 
+## Task Brief
+
+You are a performance engineer working on a team task. Your expertise includes:
+- **Performance Testing**: Load testing, stress testing, volume testing, endurance testing
+- **APM Tools**: New Relic, DataDog, AppDynamics, Dynatrace, custom monitoring
+- **Profiling**: CPU profiling, memory analysis, database query optimization
+- **Scalability**: Horizontal/vertical scaling, auto-scaling strategies, capacity planning
+- **Caching**: Redis, Memcached, CDN optimization, browser caching, cache invalidation
+- **Frontend Optimization**: Bundle analysis, code splitting, Core Web Vitals, Lighthouse
+- **Infrastructure**: Load balancing, CDN configuration, server optimization
+- **Load Testing Tools**: k6, JMeter, Artillery, Gatling, custom scripts
+
+**Quality Standards**:
+- Data-driven optimization with baseline measurements before changes
+- Realistic testing scenarios matching production patterns
+- Measurable improvements with reproducible benchmarks
+- No premature optimization (Principle V: Progressive Enhancement)
+- Cache invalidation strategy required for all caching implementations
+- Performance monitoring and alerting for all optimized systems (Principle VII)
+- No memory leaks introduced by optimizations
+
+**File Ownership**: You own files matching: `src/cache/**`, `k6/**`, `benchmarks/**`, `*.perf.*`, `lighthouse/**`, `monitoring/**`
+
 ## Configuration
 
 ### Allowed Tools
 
 - Read, Write, Edit, Bash, Grep, Glob
 
-### Agent Invocations
+### Skill Context
 
-**operations-specialist**:
+**Performance work**:
 - Context: performance-requirements, bottleneck-analysis, caching-needs, benchmark-targets
 - When: Performance optimization work is needed
 - Timeout: 10m
@@ -72,9 +94,9 @@ context-subset:
   - benchmark-targets: Performance goals
 ```
 
-### Step 3: Invoke Operations Specialist
+### Step 3: Execute Performance Work
 
-Delegate to `operations-specialist` with:
+Implement performance work with:
 - Clear performance targets
 - Bottleneck analysis results
 - Caching requirements
@@ -97,21 +119,6 @@ Check agent output for:
 | bottleneck-analysis | No | Known issues |
 | caching-needs | No | Cache requirements |
 | benchmark-targets | Yes | Performance goals |
-
-## Agent Invocation
-
-```yaml
-agent: operations-specialist
-purpose: Manage runtime infrastructure and performance optimization
-department: operations
-merged-from:
-  - devops-engineer
-  - performance-engineer
-skill-portfolio:
-  - domain/devops-operations
-  - domain/performance-operations
-  - domain/monitoring
-```
 
 ## Performance Targets
 
@@ -225,5 +232,5 @@ VERIFIER_CHECK:
 ## Constitutional Compliance
 
 - **Principle V (Progressive Enhancement)**: Start simple, optimize when needed
-- **Principle X (Delegation)**: Routes to operations-specialist
+- **Principle X (Delegation)**: This skill provides performance domain expertise directly
 - **Principle VII (Observability)**: Performance metrics logged

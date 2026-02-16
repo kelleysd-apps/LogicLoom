@@ -143,7 +143,8 @@ EVTEOF
 {"event_id":"evt-lc-7","session_id":"${SESSION_ID}","timestamp":"${TS}","iteration":2,"event_type":"grade","content":"Quality grade computed","metadata":{"composite_grade":0.72}}
 EVTEOF2
 
-  assert "Session event log created with 7 events" "[ $(wc -l < '$EVENT_LOG' | tr -d ' ') -eq 7 ]"
+  event_count=$(wc -l < "$EVENT_LOG" | tr -d ' ')
+  assert "Session event log created with 7 events" "[ $event_count -eq 7 ]"
 
   echo ""
 

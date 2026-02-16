@@ -58,6 +58,23 @@ run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridg
 run_suite "Orchestration Hook" "bash tests/contract/test_orchestration_hook.sh"
 run_suite "Memory Search" "bash tests/contract/test_memory_search.sh"
 run_suite "Update Framework" "bash tests/contract/test_update_framework.sh"
+run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.sh"
+
+# Dev-Loop Contract Tests (plugin-hosted)
+run_suite "Dev-Loop: Event Sourcing" "bash plugins/sdd-dev-loop/tests/contract/test_event_sourcing.sh"
+run_suite "Dev-Loop: Quality Grading" "bash plugins/sdd-dev-loop/tests/contract/test_quality_grading.sh"
+run_suite "Dev-Loop: RL Feedback" "bash plugins/sdd-dev-loop/tests/contract/test_rl_feedback.sh"
+run_suite "Dev-Loop: Scope Detection" "bash plugins/sdd-dev-loop/tests/contract/test_scope_detection.sh"
+run_suite "Dev-Loop: Lifecycle" "bash plugins/sdd-dev-loop/tests/contract/test_dev_loop_lifecycle.sh"
+run_suite "Dev-Loop: Self-Extension" "bash plugins/sdd-dev-loop/tests/contract/test_self_extension.sh"
+run_suite "Dev-Loop: Termination Engine" "bash plugins/sdd-dev-loop/tests/contract/test_termination_engine.sh"
+run_suite "Dev-Loop: Tribunal Voting" "bash plugins/sdd-dev-loop/tests/contract/test_tribunal_voting.sh"
+run_suite "Dev-Loop: Permissions Sandbox" "bash plugins/sdd-dev-loop/tests/contract/test_permissions_sandbox.sh"
+
+# Dev-Loop Integration Tests (plugin-hosted)
+run_suite "Dev-Loop: Full Loop (E2E)" "bash plugins/sdd-dev-loop/tests/integration/test_full_loop.sh"
+run_suite "Dev-Loop: Tribunal E2E" "bash plugins/sdd-dev-loop/tests/integration/test_tribunal_end_to_end.sh"
+run_suite "Dev-Loop: Self-Extension Lifecycle" "bash plugins/sdd-dev-loop/tests/integration/test_self_extension_lifecycle.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .specify/tests/test-git-safety.sh"

@@ -41,7 +41,7 @@ This repository serves as the **framework source** that downstream projects sync
 
 ### Responsibilities
 
-1. **Maintain constitutional integrity** (15 principles)
+1. **Maintain constitutional integrity** (16 principles)
 2. **Provide stable, tested framework updates**
 3. **Document breaking changes clearly**
 4. **Version framework releases** (semantic versioning)

@@ -56,7 +56,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Purpose**: Create detailed feature specification with user stories and acceptance criteria
 
-**Agent**: Executed by `specification-agent` (auto-delegated per Principle X)
+**Skill**: Executed by `sdd-specification` skill (auto-delegated per Principle X)
 
 **Script**: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
 
@@ -101,7 +101,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Purpose**: Generate implementation plan with technical research, API contracts, and data models
 
-**Agent**: Executed by `planning-agent` (auto-delegated per Principle X)
+**Skill**: Executed by `sdd-planning` skill (auto-delegated per Principle X)
 
 **Script**: `.specify/scripts/bash/setup-plan.sh --json`
 
@@ -152,7 +152,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Purpose**: Create dependency-ordered task list from design artifacts
 
-**Agent**: Executed by `tasks-agent` (auto-delegated per Principle X)
+**Skill**: Executed by `sdd-tasks` skill (auto-delegated per Principle X)
 
 **Script**: `.specify/scripts/bash/check-task-prerequisites.sh --json`
 
@@ -280,7 +280,7 @@ Phase 0: Project Initialization
 Phase 1: Feature Specification
    ↓
 ┌──────────────────────────────────┐
-│ /specify                         │ ← specification-agent
+│ /specify                         │ ← sdd-specification skill
 │ - User stories                   │
 │ - Acceptance criteria            │
 │ - Constraints                    │
@@ -291,7 +291,7 @@ Phase 1: Feature Specification
 Phase 2: Implementation Planning
    ↓
 ┌──────────────────────────────────┐
-│ /plan                            │ ← planning-agent
+│ /plan                            │ ← sdd-planning skill
 │ Phase 0: Technical Research      │
 │ - Library evaluation             │
 │ - Best practices                 │
@@ -309,7 +309,7 @@ Phase 2: Implementation Planning
 Phase 3: Task Generation
    ↓
 ┌──────────────────────────────────┐
-│ /tasks                           │ ← tasks-agent
+│ /tasks                           │ ← sdd-tasks skill
 │ - Task breakdown                 │
 │ - Dependency analysis            │
 │ - Parallel markers [P]           │
@@ -319,11 +319,11 @@ Phase 3: Task Generation
 Phase 4: Implementation
    ↓
 ┌──────────────────────────────────┐
-│ Execute Tasks                    │ ← Domain specialists
-│ - TDD: Tests first               │   (frontend-specialist,
-│ - Implement features             │    backend-architect,
-│ - Integration tests              │    database-specialist,
-│ - Documentation                  │    etc.)
+│ Execute Tasks                    │ ← Domain skills
+│ - TDD: Tests first               │   (frontend-operations,
+│ - Implement features             │    api-design,
+│ - Integration tests              │    schema-design,
+│ - Documentation                  │    testing-operations, etc.)
 └──────────────────────────────────┘
    ↓
 Phase 5: Finalization & Commit
@@ -368,7 +368,7 @@ Manual Git Operations (User Approval Required)
 
 **Usage**:
 ```bash
-/create-agent backend-engineer "API and database specialist"
+/create-agent custom-integration-agent "Custom integration specialist"
 ```
 
 **Output**: New agent file at `plugins/<plugin>/agents/<agent-name>.md`

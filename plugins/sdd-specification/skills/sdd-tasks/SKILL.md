@@ -264,7 +264,7 @@ Write: $FEATURE_DIR/tasks.md
 **Identify agents needed** for task execution:
 - Specialist agents by domain
 - Delegation strategy (single vs multi-agent)
-- task-orchestrator if multi-domain
+- team-orchestration skill (sdd-orchestrator) if multi-domain
 
 ### Step 9: Report Completion
 
@@ -326,7 +326,7 @@ Next Step: Execute tasks sequentially or delegate to specialized agents
 
 ### Principle X: Agent Delegation Protocol
 - Tasks identify which agents/domains are needed
-- Multi-domain features routed to task-orchestrator
+- Multi-domain features routed to team-orchestration skill (sdd-orchestrator)
 - Single-domain features routed to specialist
 - Domain detection guides delegation
 
@@ -381,8 +381,8 @@ Total: 18 tasks (8 parallel)
 
 **Validation**: 12/12 checks passing
 **Domains**: backend, database, security
-**Agents**: backend-architect, database-specialist, security-specialist
-**Delegation**: multi-agent via task-orchestrator
+**Domain Skills**: api-design skill (sdd-domain-backend), schema-design skill (sdd-domain-database), security-operations skill (sdd-domain-security)
+**Delegation**: multi-skill via team-orchestration skill
 
 ### Example 2: React Component Task Generation
 
@@ -423,23 +423,18 @@ Total: 12 tasks (6 parallel)
 
 **Validation**: 11/12 checks passing (no integration tasks needed)
 **Domains**: frontend
-**Agents**: frontend-specialist
-**Delegation**: single-agent
+**Domain Skills**: frontend-operations skill
+**Delegation**: single-skill
 
-## Agent Collaboration
+## Skill Collaboration
 
-### tasks-agent
-**When to delegate**: Complex task breakdown, dependency analysis
+### team-orchestration skill
+**When to use**: Multi-domain tasks (3+ domains)
 
-**What they handle**: Creating task lists, identifying dependencies, task sequencing
+**What they handle**: Coordinating multiple domain skills to execute tasks
 
-### task-orchestrator
-**When to delegate**: Multi-domain tasks (3+ domains)
-
-**What they handle**: Coordinating multiple specialists to execute tasks
-
-### Domain Specialists
-**When to notify**: Report which specialists needed based on domains
+### Domain Skills
+**When to notify**: Report which domain skills needed based on domains
 
 **What they handle**: Executing tasks in their domain
 
@@ -587,6 +582,39 @@ VERIFIER_CHECK:
 - Log failure reason
 - Update rl_metrics with failure
 - Report to user with remediation options
+
+## Task Brief
+
+You are a Senior Task Management Specialist for SDD task decomposition. You convert
+technical plans into granular, dependency-ordered tasks optimized for AI agent execution.
+
+**Atomic task principles**:
+1. Single Responsibility: one specific concern per task
+2. Time-Bounded: completable in 1-4 hours of focused work
+3. Clearly Defined: unambiguous description with specific deliverables
+4. Testable: acceptance criteria that can be objectively validated
+5. Independent: minimal dependencies on concurrent tasks
+6. Actionable: specific enough for immediate implementation without extra research
+
+**Task sizing**: Small (1-2h, single file), Medium (2-4h, feature/endpoint),
+Large (4-8h, complex feature), X-Large (8h+, must be broken down further).
+
+**Dependency types**: Sequential (B waits for A), Resource (same developer/infra),
+Integration (coordinated system integration), External (third-party/stakeholder).
+
+**Resolution strategies**: Critical path analysis, parallel track planning,
+buffer management for high-risk deps, fallback options for blocked tasks.
+
+**AI-friendly tasks**: Provide sufficient context for AI agents, include code examples
+or patterns when helpful, clearly specify constraints, define objective success validation.
+
+**Risk management**: Score each risk by probability and impact, create specific
+mitigation tasks, define contingency plans for high-risk items.
+
+**Ordering rule**: Setup -> Tests (TDD) -> Models -> Services -> Endpoints ->
+Integration -> Polish. Mark parallel-safe tasks with [P].
+
+---
 
 ## Related Skills
 

@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-29
-**Authority**: Constitution v1.6.0
+**Authority**: Constitution v3.0.0
 **Review Cycle**: Quarterly
 
 ---
@@ -88,25 +88,21 @@ project-root/
 ```
 .claude/agents/
 ├── architecture/               # System design agents
-│   ├── backend-architect.md
 │   └── subagent-architect.md
-├── data/                       # Data management agents
-│   └── database-specialist.md
-├── engineering/                # Development agents
-│   ├── frontend-specialist.md
-│   └── full-stack-developer.md
-├── operations/                 # DevOps agents
-│   ├── devops-engineer.md
-│   └── performance-engineer.md
+├── governance/                 # Governance agents
+│   └── constitutional-governance-agent.md
+├── orchestration/              # Multi-agent coordination
+│   ├── team-synthesizer.md
+│   ├── dev-loop-orchestrator.md
+│   └── memory-context-agent.md
 ├── product/                    # Product agents
-│   ├── prd-specialist.md
-│   ├── planning-agent.md
-│   ├── specification-agent.md
-│   ├── tasks-agent.md
-│   └── task-orchestrator.md
-└── quality/                    # QA agents
-    ├── security-specialist.md
-    └── testing-specialist.md
+│   └── prd-specialist.md
+├── quality/                    # QA agents
+│   ├── debug-analyst.md
+│   ├── quality-assessor.md
+│   └── tribunal-judge.md
+└── operations/                 # Framework operations
+    └── framework-sync-agent.md
 ```
 
 **Rules**:
@@ -281,7 +277,7 @@ Before creating ANY file:
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| Agent | `[role]-[function].md` | `backend-architect.md` |
+| Agent | `[role]-[function].md` | `subagent-architect.md` |
 | Skill folder | `[skill-name]/` | `domain-detection/` |
 | Skill file | `SKILL.md` | `SKILL.md` |
 | Policy | `[topic]-policy.md` | `testing-policy.md` |

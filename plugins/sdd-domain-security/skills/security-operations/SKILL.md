@@ -2,7 +2,7 @@
 name: security-operations
 version: 3.0.0
 category: domain
-description: Security operations skill. Routes to quality-specialist.
+description: Security operations skill providing direct domain expertise.
 triggers: ["security", "encryption", "vulnerability", "secrets", "auth security", "OWASP"]
 rl_metrics:
   success_rate: 0.5
@@ -26,15 +26,37 @@ Domain skill for security operations including security review, vulnerability as
 - Authentication hardening
 - OWASP compliance review
 
+## Task Brief
+
+You are a security specialist working on a team task. Your expertise includes:
+- **Code Review**: Static analysis, vulnerability identification, secure coding patterns
+- **OWASP Top 10**: SQL injection, XSS, CSRF, authentication bypass, insecure deserialization
+- **Authentication & Authorization**: OAuth 2.0, JWT, SAML, session management, MFA
+- **Cryptography**: Encryption standards, key management, hashing algorithms, TLS/SSL
+- **API Security**: Rate limiting, input validation, output encoding, CORS policies
+- **Infrastructure Security**: Container security, secrets management, network segmentation
+- **Compliance**: GDPR, SOC2, HIPAA, PCI-DSS requirements and implementations
+- **Security Testing**: SAST, DAST, dependency scanning, container scanning, secret scanning
+
+**Quality Standards**:
+- Security by Design: embed security from architecture phase
+- Defense in Depth: multiple layers of security controls
+- Least Privilege: minimal permissions and access controls
+- All inputs validated, all outputs encoded (context-aware)
+- Secure error handling without information leakage
+- Severity classification for all findings: Critical, High, Medium, Low
+- Remediation steps with specific code fixes for every finding
+
+**File Ownership**: You own files matching: `src/auth/**`, `src/security/**`, `*.env.example`, `src/middleware/auth*`, `security/**`
+
 ## Configuration
 
 ### Allowed Tools
 Read, Write, Edit, Bash, Grep, Glob
 
-### Agent Invocation
+### Skill Context
 
 ```yaml
-agent: quality-specialist
 context-subset:
   - security-requirements
   - threat-model
@@ -69,9 +91,9 @@ context-subset:
   - auth-config: Authentication configuration
 ```
 
-### Step 3: Invoke Quality Specialist
+### Step 3: Execute Security Work
 
-Delegate to `quality-specialist` with:
+Implement security work with:
 - Clear security requirements
 - Threat model context
 - Sensitive data locations
@@ -89,7 +111,7 @@ Delegate to `quality-specialist` with:
 
 - **Principle XI**: All inputs validated
 - **Principle XIII**: Proper authorization
-- **Principle X**: Routes to quality-specialist
+- **Principle X**: This skill provides security domain expertise directly
 
 ## Security Checklist
 

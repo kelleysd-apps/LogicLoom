@@ -3,13 +3,13 @@
 #
 # Provides functions for tracking skill and model performance metrics across
 # dev-loop sessions using EMA-weighted success rates and UCB1 exploration scores.
-# Updates RLMetrics entities and syncs with the framework-wide skill-index.json.
+# Updates RLMetrics entities and syncs with plugin manifests (plugins/*/plugin.json).
 #
 # This file is designed to be sourced, not executed directly.
 #
 # Dependencies: bc (floating-point arithmetic), jq (JSON parsing)
 # Constitutional Principle VII: Observability — all metrics tracked and auditable
-# Constitutional Principle VIII: Documentation Sync — metrics synced with skill-index.json
+# Constitutional Principle VIII: Documentation Sync — metrics synced with plugin manifests
 # Constitutional Principle XIV: AI Model Selection — per-model tracking informs selection
 
 set -euo pipefail

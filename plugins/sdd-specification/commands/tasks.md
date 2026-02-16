@@ -6,16 +6,9 @@ model: opus
 
 # /tasks Command
 
-**AGENT REQUIREMENT**: This command should be executed by the tasks-agent.
+**SKILL**: This command uses the sdd-tasks skill.
 
-**If you are NOT the tasks-agent**, delegate immediately:
-```
-Use the Task tool to invoke tasks-agent:
-- description: "Execute /tasks command"
-- prompt: "Execute the /tasks command for this feature. Arguments: $ARGUMENTS"
-```
-
-## Execution Instructions (for tasks-agent)
+## Execution Instructions
 
 ### Step 1: Validate Prerequisites
 Run: `.specify/scripts/bash/check-task-prerequisites.sh --json`

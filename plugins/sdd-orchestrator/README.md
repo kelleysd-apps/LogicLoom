@@ -48,5 +48,5 @@ Requires `OPENAI_API_KEY` and `GEMINI_API_KEY` in `.env`. Run `/initialize-proje
   confidence-table.md, supplementary-research.md (conditional), final-report.md
 ```
 
-## Agents: swarm-coordinator, team-synthesizer, task-orchestrator, workflow-coordinator
+## Agents: team-synthesizer, tribunal-judge
 ## Skills: multi-skill-workflow, full-stack-feature, migration-workflow, tribunal-review, team-orchestration

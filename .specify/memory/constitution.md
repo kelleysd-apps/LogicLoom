@@ -9,7 +9,7 @@
 
 ## Overview
 
-This is the draft Constitution v2.0.0 with Principle X rewritten for skills-first architecture. This document will be ratified in Phase 4 after successful validation of the skills-first approach during the 12-month hybrid mode period.
+This is the ratified Constitution v3.0.0 with 16 enforceable principles including Plugin-First Architecture (Principle XVI). The constitution governs all agents, skills, and workflows within the SDD Agentic Framework.
 
 ## Changes Summary
 
@@ -18,7 +18,7 @@ This is the draft Constitution v2.0.0 with Principle X rewritten for skills-firs
 | Principle X | Skills-First Delegation Protocol | *(unchanged)* | Skills are primary orchestration |
 | **Principle XVI** | *(new)* | **Plugin-First Architecture** | Modular, installable capabilities |
 | Architecture | Monolithic .claude/ | Plugin-based plugins/ | Hot-swap, RL metrics, governance |
-| Routing | skill-index.json | Plugin auto-discovery | Eliminate centralized manifest |
+| Routing | Plugin manifests (plugins/*/plugin.json) | Plugin auto-discovery | Eliminate centralized manifest |
 
 ---
 

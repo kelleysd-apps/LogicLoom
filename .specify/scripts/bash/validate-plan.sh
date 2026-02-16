@@ -1,6 +1,5 @@
 #!/bin/bash
 # Implementation Plan Validation Script
-# Part of Phase 3: Workflow Automation
 #
 # Validates implementation plan files for completeness and alignment
 # with constitutional principles (Library-First, Test-First, Contract-First)

@@ -1,6 +1,5 @@
 #!/bin/bash
 # Task List Validation Script
-# Part of Phase 3: Workflow Automation
 #
 # Validates task lists for completeness, dependencies, and executability
 

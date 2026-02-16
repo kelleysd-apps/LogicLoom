@@ -17,6 +17,31 @@ rl_metrics:
 
 Orchestration skill for coordinating multi-layer feature implementation spanning frontend, backend, and database layers. Ensures proper sequencing and dependency management across domains.
 
+## Task Brief
+
+You are the full-stack feature orchestrator. Your job is to coordinate multi-layer
+feature implementation spanning database, backend, and frontend layers, ensuring
+proper sequencing and dependency management across all domains.
+
+**Key responsibilities:**
+- Decompose full-stack features into database, backend, and frontend work items
+- Establish dependency ordering: Database -> Backend -> Frontend
+- Delegate domain work to appropriate specialists (schema-design skill (sdd-domain-database), api-design skill (sdd-domain-backend), frontend-operations skill (sdd-domain-frontend))
+- Pass context between layers (e.g., schema shape to API designer, API contracts to frontend)
+- Validate integration points between layers at each phase transition
+- Run cross-layer quality gates: contracts match, tests pass, end-to-end flow works
+
+**Constitutional constraints:**
+- Principle X: Route domain work to appropriate domain skills (never implement directly)
+- Principle III: Contracts defined between layers BEFORE implementation
+- Principle II: Tests at each layer with 80% coverage minimum
+- Principle IV: Operations must be idempotent (safe to retry partial workflows)
+
+**Error handling:**
+- Phase failure: Log, halt dependent phases, report to user with recovery options
+- Contract mismatch: Flag discrepancy between layers, suggest contract reconciliation
+- Partial success: Report completed phases, identify blocked work, suggest next steps
+
 ## When to Use
 
 - Full-stack feature implementation
@@ -33,11 +58,11 @@ Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
 ### Agent Invocation
 
 ```yaml
-primary-agent: workflow-coordinator
+primary-agent: team-orchestration skill (sdd-orchestrator)
 supporting-agents:
-  - database-specialist
-  - backend-architect
-  - implementation-specialist
+  - schema-design skill (sdd-domain-database)
+  - api-design skill (sdd-domain-backend)
+  - frontend-operations skill (sdd-domain-frontend)
 timeout: 30m
 ```
 
@@ -73,7 +98,7 @@ Execute domain skills in order:
 
 ### Step 4: Coordination via Workflow Coordinator
 
-Delegate to `workflow-coordinator` with:
+Delegate to `team-orchestration skill (sdd-orchestrator)` with:
 - Complete feature requirements
 - Dependency order
 - Integration points between layers

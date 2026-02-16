@@ -4,7 +4,7 @@ version: 0.1.0
 description: |
   RL (Reinforcement Learning) feedback skill — tracks skill and model performance metrics
   across dev-loop sessions using EMA-weighted success rates and UCB1 exploration scores.
-  Updates RLMetrics entities and syncs with the framework-wide skill-index.json for
+  Updates RLMetrics entities and syncs with plugin manifests (plugins/*/plugin.json) for
   adaptive routing decisions.
 allowed-tools: Read, Write, Bash, Grep
 triggers:
@@ -13,7 +13,7 @@ triggers:
 category: analytics
 constitutional_principles:
   - VII   # Observability: all metrics tracked and auditable
-  - VIII  # Documentation Sync: metrics synced with skill-index.json
+  - VIII  # Documentation Sync: metrics synced with plugin manifests
   - XIV   # AI Model Selection: per-model tracking informs selection
   - XVI   # Plugin-First: capability organized as installable plugin
 rl_metrics:
@@ -34,7 +34,7 @@ for all skills and models used during the session, update their EMA-weighted suc
 rates, and compute UCB1 exploration scores for future routing decisions.
 
 This skill bridges the dev-loop's session-level outcomes to the framework's existing
-RL feedback system (`.docs/rl-metrics/` and `.claude/skill-index.json`), ensuring that
+RL feedback system (`.docs/rl-metrics/` and plugin manifests at `plugins/*/plugin.json`), ensuring that
 autonomous loop performance data feeds back into the global skill routing.
 
 ## Invocation
@@ -68,7 +68,7 @@ The rl-feedback skill requires the following inputs from the session context:
 | Output | Type | Destination | Description |
 |--------|------|-------------|-------------|
 | Updated RLMetrics | JSON | `plugins/sdd-dev-loop/templates/rl-metrics.json` instances | Per-skill, per-model metric updates |
-| Synced skill-index | JSON | `.claude/skill-index.json` | Updated selection_weight values |
+| Synced plugin manifests | JSON | `plugins/*/plugin.json` | Updated selection_weight values |
 | Synced performance store | JSON | `.docs/rl-metrics/skill-performance.json` | Detailed history persisted |
 | Feedback summary | text | Session report | Human-readable summary of metric changes |
 
@@ -162,7 +162,7 @@ Record all updates to the persistent stores:
 # Record outcome via existing framework RL scripts
 .specify/scripts/bash/rl/collect-feedback.sh <skill_name> <success|failure> <tokens>
 
-# Sync updated metrics to skill-index.json
+# Sync updated metrics to plugin manifests
 .specify/scripts/bash/rl/sync-metrics.sh
 ```
 
@@ -194,8 +194,8 @@ This skill integrates with the framework's existing RL feedback infrastructure:
 | Component | Path | Integration |
 |-----------|------|-------------|
 | Collect script | `.specify/scripts/bash/rl/collect-feedback.sh` | Called to record each skill outcome |
-| Sync script | `.specify/scripts/bash/rl/sync-metrics.sh` | Called to push updated weights to skill-index |
-| Skill index | `.claude/skill-index.json` | Updated `selection_weight` for framework-wide routing |
+| Sync script | `.specify/scripts/bash/rl/sync-metrics.sh` | Called to push updated weights to plugin manifests |
+| Plugin manifests | `plugins/*/plugin.json` | Updated `selection_weight` for framework-wide routing |
 | Performance store | `.docs/rl-metrics/skill-performance.json` | Detailed history persistence |
 | Dashboard | `.specify/scripts/bash/rl/dashboard.sh` | Human-readable metric view |
 
@@ -243,6 +243,6 @@ Properties:
 | Principle | Enforcement |
 |-----------|-------------|
 | **VII (Observability)** | All metric updates logged with before/after values in session event log. Full history maintained for audit. |
-| **VIII (Documentation Sync)** | Metrics synced to `.claude/skill-index.json` after every session, keeping the skill registry current. |
+| **VIII (Documentation Sync)** | Metrics synced to plugin manifests (`plugins/*/plugin.json`) after every session, keeping the skill registry current. |
 | **XIV (AI Model Selection)** | Per-model tracking enables data-driven model selection for future sessions. |
 | **XVI (Plugin-First)** | RL feedback is a discrete, installable skill within the sdd-dev-loop plugin. |

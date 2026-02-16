@@ -1,7 +1,7 @@
 {
   "name": "sdd-creation",
   "version": "2.0.0",
-  "description": "Entity creation plugin \u2014 create plugins, agents, PRDs, and templates with constitutional compliance. Plugin-First Architecture v4.0.",
+  "description": "Entity creation plugin -- create plugins, agents, PRDs, and templates with constitutional compliance. Plugin-First Architecture v4.1.",
   "author": "kelleysd-apps",
   "license": "MIT",
   "keywords": [
@@ -14,6 +14,27 @@
   "dependencies": [
     "sdd-governance"
   ],
+  "agents": {
+    "count": 2,
+    "list": [
+      "prd-specialist",
+      "subagent-architect"
+    ]
+  },
+  "skills": {
+    "count": 5,
+    "list": [
+      "create-agent",
+      "create-plugin",
+      "create-prd",
+      "create-skill",
+      "create-template"
+    ]
+  },
+  "commands": {
+    "count": 4,
+    "list": ["create-agent", "create-plugin", "create-prd", "create-skill"]
+  },
   "rl_metrics": {
     "success_rate": 0.5,
     "selection_weight": 0.5,

@@ -28,6 +28,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 PERFORMANCE_FILE="$ROOT_DIR/.docs/rl-metrics/skill-performance.json"
+# Note: Plugin manifests at plugins/*/plugin.json are the authoritative source for RL metrics
 SKILL_INDEX_FILE="$ROOT_DIR/.claude/skill-index.json"
 
 # =============================================================================

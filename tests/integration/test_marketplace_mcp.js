@@ -129,7 +129,7 @@ async function runTest() {
         const spec = plugins.find(p => p.name === "sdd-specification");
         assert("Specification plugin found", !!spec);
         assert("Spec has 5 skills", spec?.skills === 5);
-        assert("Spec has 4 agents", spec?.agents === 4);
+        assert("Spec has 0 agents (converted to skills)", spec?.agents === 0);
         assert("Spec has 4 commands", spec?.commands === 4);
         
         const orch = plugins.find(p => p.name === "sdd-orchestrator");

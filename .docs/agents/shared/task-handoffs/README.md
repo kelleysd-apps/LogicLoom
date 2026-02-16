@@ -38,7 +38,7 @@ When transferring a task to another agent:
    - **Remaining Work**: [what's left]
    ```
 
-3. **Update TodoWrite**
+3. **Update via TaskUpdate**
    - Mark your task as completed (if your part is done)
    - Note the handoff in the task description
 
@@ -50,7 +50,7 @@ When transferring a task to another agent:
 This directory is part of the SSOT Task Architecture:
 
 - **Level 1**: `specs/###-feature/tasks.md` (Project SSOT)
-- **Level 2**: TodoWrite (Session SSOT)
+- **Level 2**: Task Tools (Session SSOT)
 - **Level 3**: `.docs/agents/*/decisions/tasks/` (Agent history)
 - **Shared**: This directory (Cross-agent coordination)
 

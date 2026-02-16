@@ -1,5 +1,5 @@
 # Core Context Module
-<!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
+<!-- Auto-generated from CLAUDE.md - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->
 <!-- Module: Essential instructions, constitutional principles, project overview -->
 
 ## MANDATORY: Message Pre-Flight Compliance Check
@@ -23,7 +23,7 @@ STEP 2: DOMAIN ANALYSIS
 STEP 3: DELEGATION DECISION
        └─ 0 domains → may execute directly
        └─ 1 domain → MUST delegate to specialist agent
-       └─ 2+ domains → MUST delegate to task-orchestrator
+       └─ 2+ domains → MUST delegate to team-orchestration skill
 
 STEP 4: EXECUTION AUTHORIZATION
        └─ Confirm all steps complete

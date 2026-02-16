@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # =============================================================================
-# Template Sanitization Script
+# Template Sanitization Script (v5.0)
 # Purpose: Remove project-specific artifacts to prepare branch for cloning
 # Usage: bash .specify/scripts/bash/sanitize-for-template.sh
 # =============================================================================
@@ -9,7 +9,7 @@
 set -e
 
 echo "============================================"
-echo "  SDD Framework Template Sanitization"
+echo "  SDD Framework Template Sanitization v5.0"
 echo "============================================"
 echo ""
 
@@ -27,17 +27,14 @@ ITEMS_REMOVED=0
 
 echo -e "${BLUE}[1/8] Removing feature specification directories...${NC}"
 
-if [ -d "specs/001-ds-star-multi" ]; then
-  rm -rf specs/001-ds-star-multi
-  echo -e "${GREEN}  ✅ Removed specs/001-ds-star-multi${NC}"
-  ((ITEMS_REMOVED++))
-fi
-
-if [ -d "specs/002-skills-first-architecture" ]; then
-  rm -rf specs/002-skills-first-architecture
-  echo -e "${GREEN}  ✅ Removed specs/002-skills-first-architecture${NC}"
-  ((ITEMS_REMOVED++))
-fi
+# Remove all implementation feature specs (001-006)
+for spec_dir in specs/001-* specs/002-* specs/003-* specs/004-* specs/005-* specs/006-*; do
+  if [ -d "$spec_dir" ]; then
+    rm -rf "$spec_dir"
+    echo -e "${GREEN}  ✅ Removed $spec_dir${NC}"
+    ((ITEMS_REMOVED++))
+  fi
+done
 
 # Keep specs/ directory structure but add .gitkeep
 mkdir -p specs
@@ -52,17 +49,14 @@ fi
 
 echo -e "${BLUE}[2/8] Removing implementation reports...${NC}"
 
-if [ -f ".docs/reports/migration-completion-report.md" ]; then
-  rm -f .docs/reports/migration-completion-report.md
-  echo -e "${GREEN}  ✅ Removed migration-completion-report.md${NC}"
-  ((ITEMS_REMOVED++))
-fi
-
-if [ -f ".docs/reports/phase-3-4-completion-report.md" ]; then
-  rm -f .docs/reports/phase-3-4-completion-report.md
-  echo -e "${GREEN}  ✅ Removed phase-3-4-completion-report.md${NC}"
-  ((ITEMS_REMOVED++))
-fi
+# Remove all project-specific reports
+for report in .docs/reports/*-report.md .docs/reports/*-completion-*.md; do
+  if [ -f "$report" ] && [ "$report" != ".docs/reports/.gitkeep" ]; then
+    rm -f "$report"
+    echo -e "${GREEN}  ✅ Removed $(basename "$report")${NC}"
+    ((ITEMS_REMOVED++))
+  fi
+done
 
 # Keep .docs/reports/ directory but add .gitkeep
 if [ ! -f ".docs/reports/.gitkeep" ]; then
@@ -175,22 +169,22 @@ if [ -f "README.md" ]; then
   cp README.md README.md.backup
 
   cat > README.md <<'EOF'
-# SDD Agentic Framework v3.0.0
+# SDD Agentic Framework v4.1.1
 
-**Skills-First Architecture with Reinforcement Learning and DS-STAR Integration**
+**Plugin-First Architecture with Constitutional Governance and Multi-Agent Orchestration**
 
-A constitutional AI framework for specification-driven development with intelligent skill-based routing, multi-agent orchestration, and continuous learning.
+A constitutional AI framework for specification-driven development with plugin-based capabilities, skill-based delegation, and continuous learning.
 
 ## Features
 
-- **Skills-First Architecture**: Skills invoke agents (not vice versa)
-- **Reinforcement Learning**: EMA-based skill selection with 26.9% improvement
-- **Progressive Disclosure**: 50% token reduction through 3-layer loading
-- **DS-STAR Integration**: 5 specialized agents (Router, Verifier, Auto-Debug, Finalizer, Context Analyzer)
-- **Constitutional Governance**: 15 enforceable principles (v2.0.0)
-- **13 Specialized Agents**: 8 domain + 5 DS-STAR
-- **28 Active Skills**: Across 8 categories
-- **Test-First Development**: >80% coverage requirement
+- **Plugin-First Architecture v4.1**: All capabilities as installable plugins (18 plugins)
+- **Constitutional Governance v3.0.0**: 16 enforceable principles with hook-based preflight checks
+- **Skill-Based Delegation v5.0**: Skills defined in plugin manifests with agent recommendations
+- **Multi-Agent Orchestration**: 11 specialized agents across 18 plugins
+- **RL Feedback System**: EMA-based skill selection with performance tracking
+- **Test-First Development**: >80% coverage requirement (1,322 tests across 27 suites)
+- **Docker MCP Toolkit**: Access to 310+ containerized MCP servers
+- **Unified Workflows**: `/specification` for spec+plan+tasks, `/git-push` for complete git workflow
 
 ## Quick Start
 
@@ -199,6 +193,7 @@ A constitutional AI framework for specification-driven development with intellig
 - Node.js >=18.0.0
 - npm >=9.0.0
 - Git
+- Docker (for MCP servers)
 
 ### Installation
 
@@ -218,46 +213,58 @@ npm test
 
 1. **Read the Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
 2. **Review CLAUDE.md**: Framework guidance for Claude Code
-3. **Check AGENTS.md**: Complete agent registry and capabilities
-4. **Explore Skills**: [.claude/skill-index.json](.claude/skill-index.json)
+3. **Explore Plugins**: Check `plugins/` directory for available capabilities
+4. **Check Agent Registry**: [.docs/agents/agent-registry.json](.docs/agents/agent-registry.json)
 
 ## Architecture
 
-### Skills-First Workflow
+### Plugin-First Workflow
 
 ```
-User Message → FR-707 Compliance Check → Router Agent →
-Skill Selection (RL) → Skill Activation (progressive) →
-Agent Invocation (minimal context) → Verifier (DS-STAR) →
-Auto-Debug (if needed) → Output + RL Feedback
+User Message → Constitutional Preflight Check → Domain Detection →
+Agent Recommendation (Principle X) → Plugin Skill Execution →
+Verifier Validation → RL Feedback → Output
 ```
 
-### Core Principles
+### Core Principles (v3.0.0)
 
-1. **Test-First Development** (Principle II): TDD mandatory, >80% coverage
-2. **Git Operation Approval** (Principle VI): NO autonomous git operations
-3. **Skills-First Delegation** (Principle X): Skills orchestrate agents
+1. **Library-First** (Principle I): Prefer existing solutions
+2. **Test-First Development** (Principle II): TDD mandatory, >80% coverage
+3. **Contract-First Design** (Principle III): API contracts before implementation
+4. **Git Operation Approval** (Principle VI): NO autonomous git operations
+5. **Agent Delegation** (Principle X): Specialized work → specialists
+6. **Plugin-First** (Principle XVI): All features as installable plugins
 
-## Workflow Commands
+## Slash Commands
 
-### Feature Development
+### Core Workflows
 
+- **`/specification`** - Unified SDD workflow (spec, plan, tasks in one command)
+- **`/git-push`** - Complete git workflow (commit, push, PR)
 - `/create-prd` - Create Product Requirements Document
-- `/initialize-project` - Customize framework based on PRD
-- `/specify` - Create feature specification
-- `/plan` - Generate implementation plan
-- `/tasks` - Generate dependency-ordered task list
+- `/create-agent` - Create specialized subagent
+- `/create-plugin` - Create new SDD plugin
+- `/debug` - Debug deployment/runtime issues
 - `/finalize` - Pre-commit compliance validation
 
-### Agent/Skill Management
+### Orchestration
 
-- `/create-agent` - Create specialized subagent
-- `/create-skill` - Create new skill
+- `/research` - Multi-LLM tribunal research (Claude, OpenAI, Gemini)
+- `/swarm` - Multi-agent swarm execution
+- `/build-team` - Sequential architect→implementor→reviewer
+- `/fullstack-team` - Parallel full-stack team
+- `/review-team` - Parallel security+quality+performance review
+
+### Maintenance
+
+- `/update-framework` - Check and apply upstream enhancements
+- `/initialize-project` - Post-PRD project customization
 
 ## Configuration
 
-- **Architecture Mode**: `skills-first` (Phase 4)
-- **Constitution**: v2.0.0 (ratified 2026-01-13)
+- **Architecture**: Plugin-First (v4.1) with Command Bridge
+- **Constitution**: v3.0.0 (16 principles)
+- **Framework Version**: v4.1.1
 - **RL Algorithm**: EMA (Exponential Moving Average)
 - **Test Framework**: Jest
 
@@ -267,23 +274,14 @@ See [.specify/config/architecture.conf](.specify/config/architecture.conf) for c
 
 - **Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
 - **Framework Guide**: [CLAUDE.md](CLAUDE.md)
-- **Agent Registry**: [AGENTS.md](AGENTS.md)
-- **Skill Registry**: [.claude/skill-index.json](.claude/skill-index.json)
+- **Agent Registry**: [.docs/agents/agent-registry.json](.docs/agents/agent-registry.json)
+- **Plugin Registry**: Check `plugins/*/plugin.json` manifests
 - **Policies**: `.docs/policies/` directory
-
-## Performance Metrics
-
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| Token Efficiency | 40-50% ↓ | 50% ✅ |
-| Agent Consolidation | 35% ↓ | 53% ✅ |
-| RL Improvement | 15-25% ↑ | 26.9% ✅ |
-| Test Coverage | >80% | 95.4% ✅ |
 
 ## Testing
 
 ```bash
-# Run all tests
+# Run all tests (27 suites, 1,322 tests)
 npm test
 
 # Run specific test suites
@@ -295,20 +293,37 @@ npm run test:validation
 ## Project Structure
 
 ```
+plugins/                      # 18 plugins with manifests
+├── sdd-governance/          # Protected - constitutional enforcement
+├── sdd-specification/       # /specification, /plan, /tasks
+├── sdd-orchestrator/        # /swarm, /research, team commands
+├── sdd-orchestrator-hook/   # Domain detection + preflight hooks
+├── sdd-memory/              # Automatic memory context injection
+├── sdd-creation/            # /create-agent, /create-plugin, /create-prd
+├── sdd-git/                 # /git-push, /finalize
+├── sdd-debug/               # /debug
+├── sdd-maintenance/         # /update-framework, /initialize-project
+└── sdd-domain-*/            # 7 domain specialist plugins
+
 .claude/
-├── skill-index.json          # 28 skills with RL
-├── agent-index.json          # 13 agents
-├── skills/                   # 8 categories
-└── agents/                   # consolidated/ + ds-star/
+├── commands/                # Slash commands (bridged from plugins)
+├── context/                 # Modular context loading (5 modules)
+└── hooks/                   # Constitutional preflight hooks
 
 .specify/
-├── memory/constitution.md    # v2.0.0 principles
-├── scripts/bash/rl/          # RL infrastructure
-├── config/                   # Architecture configuration
-└── templates/                # Skill/agent templates
+├── memory/constitution.md   # v3.0.0 - 16 principles
+├── scripts/bash/            # Workflow automation + plugin bridge
+├── config/                  # Architecture configuration
+└── templates/               # Document templates
 
-specs/                        # Feature specifications (created per project)
-tests/                        # Contract, integration, validation tests
+.docs/
+├── agents/agent-registry.json  # 11 agents
+├── rl-metrics/              # RL performance tracking
+├── policies/                # Framework policies
+└── reports/                 # Implementation documentation
+
+specs/                       # Feature specifications (created per project)
+tests/                       # 27 test suites, 1,322 tests
 ```
 
 ## License
@@ -317,9 +332,12 @@ MIT
 
 ## Version
 
-**Framework**: v3.0.0
-**Constitution**: v2.0.0 (ratified 2026-01-13)
-**Architecture Mode**: skills-first (Phase 4)
+**Framework**: v4.1.1
+**Constitution**: v3.0.0
+**Architecture**: Plugin-First (v4.1) + Skill-Based Delegation (v5.0)
+**Agents**: 11 agents across 18 plugins
+**Commands**: 19 slash commands
+**Tests**: 27 suites, 1,322 tests
 EOF
 
   echo -e "${GREEN}  ✅ Updated README.md for template${NC}"
@@ -336,7 +354,7 @@ echo -e "${BLUE}[8/8] Creating template initialization guide...${NC}"
 cat > TEMPLATE_INIT.md <<'EOF'
 # Template Initialization Guide
 
-This is a clean template of the SDD Agentic Framework v3.0.0. Follow these steps to initialize for a new project.
+This is a clean template of the SDD Agentic Framework v4.1.1 with Plugin-First Architecture. Follow these steps to initialize for a new project.
 
 ## Initialization Steps
 
@@ -390,33 +408,30 @@ This will:
 
 ### 4. Create Your First Feature
 
+Use the unified `/specification` workflow (replaces separate /specify, /plan, /tasks):
+
 ```bash
-# Create feature specification
-/specify
-
-# Generate implementation plan
-/plan
-
-# Generate task list
-/tasks
+# Create spec, plan, and tasks in one command
+/specification
 
 # ... implement tasks ...
 
-# Pre-commit validation
-/finalize
+# Complete git workflow (commit, push, PR)
+/git-push
 ```
 
 ## What's Included
 
 This template includes:
 
-✅ **Framework v3.0.0**: Skills-first architecture
-✅ **Constitution v2.0.0**: 15 enforceable principles
-✅ **28 Active Skills**: Ready to use
-✅ **13 Specialized Agents**: 8 domain + 5 DS-STAR
-✅ **RL Infrastructure**: EMA algorithm with 50% token reduction
-✅ **Test Framework**: Jest with >80% coverage requirement
-✅ **Migration Tools**: Scripts and templates
+✅ **Framework v4.1.1**: Plugin-First Architecture with Command Bridge
+✅ **Constitution v3.0.0**: 16 enforceable principles
+✅ **18 Plugins**: Complete plugin ecosystem (sdd-governance, sdd-specification, sdd-orchestrator, etc.)
+✅ **11 Specialized Agents**: Across 18 plugins
+✅ **19 Slash Commands**: Bridged from plugin manifests
+✅ **RL Infrastructure**: EMA algorithm with performance tracking
+✅ **Test Framework**: Jest with >80% coverage requirement (27 suites, 1,322 tests)
+✅ **Docker MCP Toolkit**: Access to 310+ containerized MCP servers
 ✅ **Documentation**: Complete framework guides
 
 ## What's NOT Included (Project-Specific)
@@ -433,9 +448,10 @@ The following will be created during your project:
 
 Key configuration files to review:
 
-- `.specify/config/architecture.conf` - Architecture mode, RL settings
-- `.specify/memory/constitution.md` - Constitutional principles
+- `.specify/config/architecture.conf` - Architecture configuration
+- `.specify/memory/constitution.md` - Constitutional principles (v3.0.0)
 - `package.json` - Project metadata (update name, version, description)
+- `plugins/*/plugin.json` - Plugin manifests with skill definitions
 - `.gitignore` - Already configured
 
 ## Customization
@@ -465,11 +481,11 @@ cat .specify/memory/constitution.md
 cat .specify/memory/constitution_update_checklist.md
 ```
 
-### Create Custom Skills/Agents
+### Create Custom Plugins/Agents
 
 ```bash
-# Create project-specific skill
-/create-skill
+# Create project-specific plugin
+/create-plugin
 
 # Create project-specific agent
 /create-agent
@@ -483,30 +499,133 @@ After initialization, verify the setup:
 # Run constitutional compliance check
 bash .specify/scripts/bash/constitutional-check.sh
 
-# Run tests
+# Run all tests (27 suites, 1,322 tests)
 npm test
 
-# Check configuration
-cat .specify/config/architecture.conf
+# Check plugin command bridge
+bash .specify/scripts/bash/sync-plugin-commands.sh list
+
+# View agent registry
+cat .docs/agents/agent-registry.json
+```
+
+## Plugin Architecture
+
+The framework uses **Plugin-First Architecture v4.1** where all capabilities are organized as discrete plugins:
+
+### Core Plugins
+
+- `sdd-governance` - Constitutional enforcement
+- `sdd-specification` - `/specification`, `/plan`, `/tasks`
+- `sdd-orchestrator` - `/swarm`, `/research`, team commands
+- `sdd-orchestrator-hook` - Domain detection + preflight hooks
+- `sdd-memory` - Automatic memory context injection
+- `sdd-creation` - `/create-agent`, `/create-plugin`, `/create-prd`
+- `sdd-git` - `/git-push`, `/finalize`
+- `sdd-debug` - `/debug`
+- `sdd-maintenance` - `/update-framework`, `/initialize-project`
+
+### Domain Specialist Plugins
+
+- `sdd-domain-frontend` - UI/React/CSS specialist
+- `sdd-domain-backend` - API/server specialist
+- `sdd-domain-database` - Schema/query specialist
+- `sdd-domain-testing` - TDD/QA specialist
+- `sdd-domain-security` - Security/auth specialist
+- `sdd-domain-performance` - Optimization specialist
+- `sdd-domain-devops` - CI/CD/deployment specialist
+
+### Command Bridge
+
+Commands are automatically synced from plugin manifests to `.claude/commands/`:
+
+```bash
+# Sync plugin commands (runs automatically on setup)
+.specify/scripts/bash/sync-plugin-commands.sh sync
+
+# View command→plugin mapping
+.specify/scripts/bash/sync-plugin-commands.sh list
 ```
 
 ## Next Steps
 
-1. **Create PRD**: Document your project vision
-2. **Initialize Project**: Customize framework for your needs
-3. **Create Features**: Use specification workflow
-4. **Iterate**: Use skills-first routing for all development
+1. **Create PRD**: Document your project vision with `/create-prd`
+2. **Initialize Project**: Customize framework with `/initialize-project`
+3. **Create Features**: Use `/specification` workflow
+4. **Iterate**: Use plugin-based delegation for all development
+
+## Key Workflows
+
+### Unified Specification Workflow
+
+```bash
+# Single command for spec, plan, and tasks
+/specification
+```
+
+### Complete Git Workflow
+
+```bash
+# Commit, push, and create PR
+/git-push
+```
+
+### Multi-LLM Research
+
+```bash
+# Research with Claude, OpenAI, and Gemini
+/research
+```
+
+### Multi-Agent Orchestration
+
+```bash
+# Swarm execution
+/swarm
+
+# Sequential team
+/build-team
+
+# Parallel teams
+/fullstack-team
+/review-team
+```
 
 ## Support
 
 - **Framework Guide**: [CLAUDE.md](CLAUDE.md)
-- **Agent Registry**: [AGENTS.md](AGENTS.md)
+- **Agent Registry**: [.docs/agents/agent-registry.json](.docs/agents/agent-registry.json)
 - **Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
+- **Plugin Manifests**: `plugins/*/plugin.json`
 - **Policies**: `.docs/policies/` directory
+
+## Directory Structure
+
+```
+plugins/                      # 18 plugins with manifests
+.claude/
+├── commands/                # 19 slash commands (bridged from plugins)
+├── context/                 # Modular context loading (5 modules)
+└── hooks/                   # Constitutional preflight hooks
+.specify/
+├── memory/constitution.md   # v3.0.0 - 16 principles
+├── scripts/bash/            # Workflow automation + plugin bridge
+├── config/                  # Architecture configuration
+└── templates/               # Document templates
+.docs/
+├── agents/agent-registry.json  # 11 agents
+├── rl-metrics/              # RL performance tracking
+├── policies/                # Framework policies
+└── reports/                 # Implementation documentation
+specs/                       # Feature specifications (created per project)
+tests/                       # 27 test suites, 1,322 tests
+```
 
 ---
 
 **This template is ready to use!** Start by creating your PRD with `/create-prd`.
+
+**Framework**: v4.1.1 | **Constitution**: v3.0.0 | **Architecture**: Plugin-First (v4.1) + Skill-Based Delegation (v5.0)
 EOF
 
 echo -e "${GREEN}  ✅ Created TEMPLATE_INIT.md${NC}"

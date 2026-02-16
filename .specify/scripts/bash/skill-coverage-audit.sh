@@ -4,7 +4,7 @@
 # FR: FR-503
 # Purpose: Audit skill coverage per agent, identify gaps in portfolios
 # Version: 1.0.0
-# Constitutional Compliance: Principle VII (Observability), X (Skills-First)
+# Constitutional Compliance: Principle VII (Observability), X (Agent Delegation)
 
 set -euo pipefail
 
@@ -14,6 +14,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+# Note: Plugin manifests at plugins/*/plugin.json are the authoritative source for RL metrics
 SKILL_INDEX="${ROOT_DIR}/.claude/skill-index.json"
 AGENT_INDEX="${ROOT_DIR}/.claude/agent-index.json"
 SKILLS_DIR="${ROOT_DIR}/.claude/skills"
@@ -507,6 +508,7 @@ Examples:
 Requirements:
   - .claude/skill-index.json must exist
   - .claude/agent-index.json must exist
+  - Plugin manifests at plugins/*/plugin.json contain authoritative skill metadata
 
 EOF
 }

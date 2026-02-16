@@ -6,16 +6,9 @@ model: opus
 
 # /plan Command
 
-**AGENT REQUIREMENT**: This command should be executed by the planning-agent.
+**SKILL**: This command uses the sdd-planning skill.
 
-**If you are NOT the planning-agent**, delegate immediately:
-```
-Use the Task tool to invoke planning-agent:
-- description: "Execute /plan command"
-- prompt: "Execute the /plan command for this feature. Arguments: $ARGUMENTS"
-```
-
-## Execution Instructions (for planning-agent)
+## Execution Instructions
 
 ### Step 1: Initialize
 Run: `.specify/scripts/bash/setup-plan.sh --json` — parse JSON for FEATURE_SPEC, IMPL_PLAN, SPECS_DIR, BRANCH.

@@ -2,9 +2,9 @@
 # Migrate Agent to Skill Script
 # Task: T049
 # FR: FR-503
-# Purpose: Convert legacy agent workflow to skills-first skill definition
+# Purpose: Convert legacy agent workflow to skill-based delegation skill definition
 # Version: 1.0.0
-# Constitutional Compliance: Principle X (Skills-First), I (Library-First)
+# Constitutional Compliance: Principle X (Agent Delegation), I (Library-First), XVI (Plugin-First)
 
 set -euo pipefail
 
@@ -236,7 +236,7 @@ This skill was migrated from the ${agent_name} agent to follow the skills-first 
 
 ## Constitutional Compliance
 
-- **Principle X (Skills-First)**: Skill orchestrates, ${consolidated_agent} executes
+- **Principle X (Agent Delegation)**: Skill orchestrates, ${consolidated_agent} executes
 - **Principle II (Test-First)**: TDD required for implementations
 - **Principle VI (Git Approval)**: NEVER execute git commands autonomously
 
@@ -244,7 +244,7 @@ This skill was migrated from the ${agent_name} agent to follow the skills-first 
 
 ### Prerequisites
 
-- FR-707 compliance check must pass
+- Constitutional preflight check must pass
 - Required context must be provided
 
 ### Execution Steps
@@ -269,7 +269,7 @@ expected:
 
 ## DS-STAR Integration
 
-- **Pre-execution**: FR-707 compliance check required
+- **Pre-execution**: Constitutional preflight check required
 - **Post-verification**: Verifier validates output quality
 - **Auto-debug**: Triggered on quality failure
 
@@ -308,7 +308,7 @@ expected:
 ---
 
 *Migrated from: ${agent_name}*
-*Skills-first architecture: v3.0.0*
+*Plugin-First Architecture: v4.1*
 EOF
 
     log_info "Skill generated: $output_file"
@@ -536,10 +536,10 @@ Examples:
   $(basename "$0") validate plugins/sdd-domain-frontend/skills/frontend-operations/SKILL.md
 
 Migration Notes:
-  - Skills use v3.0.0 format with RL metrics
+  - Skills use plugin-based format with RL metrics
   - Agent invocations reference consolidated agents (8 domain + 5 DS-STAR)
   - Progressive disclosure layers generated automatically
-  - DS-STAR integration includes pre-execution check
+  - DS-STAR integration includes constitutional preflight check
 
 EOF
 }

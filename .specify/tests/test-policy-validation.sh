@@ -347,6 +347,8 @@ main() {
     echo -e "Tests passed: ${GREEN}$TESTS_PASSED${NC}"
     echo -e "Tests failed: ${RED}$TESTS_FAILED${NC}"
     echo "========================================"
+    echo ""
+    echo "Results: ${TESTS_PASSED}/${TESTS_RUN} passed, ${TESTS_FAILED} failed"
 
     if [[ $TESTS_FAILED -gt 0 ]]; then
         exit 1

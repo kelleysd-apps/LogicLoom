@@ -1,7 +1,7 @@
 ---
 name: dev-loop-orchestrator
 description: Main loop controller for /dev-loop — manages session lifecycle, iteration execution, quality evaluation, and termination decisions across the recursive autonomous development loop.
-tools: Read, Write, Edit, Bash, Grep, Glob, Task, TodoWrite
+tools: Read, Write, Edit, Bash, Grep, Glob, Task, TaskCreate, TaskUpdate
 model: opus
 ---
 
@@ -37,7 +37,8 @@ state management, and coordination across iterations.
 | Grep | Search codebase for patterns during diagnosis |
 | Glob | Discover files by pattern for scope detection |
 | Task | Spawn specialist agents for delegation |
-| TodoWrite | Track implementation tasks within iterations |
+| TaskCreate | Create implementation tasks within iterations |
+| TaskUpdate | Update task status within iterations |
 
 ## Delegation Protocol
 

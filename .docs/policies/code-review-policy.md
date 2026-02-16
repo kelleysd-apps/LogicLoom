@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v1.6.0 - Principle VIII (Documentation Synchronization)
+**Authority**: Constitution v3.0.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
 ---
@@ -47,8 +47,8 @@ All code changes require review before merging to main branches, including:
 | Feature code | 1 | Must include domain expert |
 | Bug fix | 1 | Original author if available |
 | Refactoring | 1 | Architect review if major |
-| Security-related | 2 | security-specialist must review |
-| Infrastructure | 1 | devops-engineer must review |
+| Security-related | 2 | security-operations skill or quality-assessor agent |
+| Infrastructure | 1 | monitoring skill or framework-sync-agent |
 | Breaking change | 2 | Team consensus required |
 
 ### Reviewer Qualifications
@@ -237,7 +237,7 @@ Requirements for merge:
 ### Security Review
 
 For security-related changes:
-1. **Mandatory**: security-specialist review
+1. **Mandatory**: security-operations skill or quality-assessor agent review
 2. **Threat Model**: Document attack vectors
 3. **Security Tests**: Include security-specific tests
 4. **Penetration Test**: For major changes
@@ -380,10 +380,10 @@ Why: [Specific reason]
 
 ## References
 
-- Constitution v1.6.0: `.specify/memory/constitution.md`
-- Testing Policy: `.docs/policies/testing-policy.md`
-- Security Policy: `.docs/policies/security-policy.md`
-- Deployment Policy: `.docs/policies/deployment-policy.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Testing Operations Skill: `plugins/sdd-domain-testing/skills/testing-operations/SKILL.md`
+- Security Operations Skill: `plugins/sdd-domain-security/skills/security-operations/SKILL.md`
+- Quality Assessor Agent: `plugins/sdd-specification/agents/quality-assessor.md`
 
 ---
 

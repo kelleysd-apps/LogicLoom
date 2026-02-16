@@ -115,7 +115,7 @@
 
   "metadata": {
     "created_by_agent": "constitutional-governance-agent",
-    "framework_version": "4.1.0",
+    "framework_version": "5.0.0",
     "plugin_version": "0.1.0",
     "git_commit_sha": null,
     "_comment": "Additional session metadata for auditing and debugging"

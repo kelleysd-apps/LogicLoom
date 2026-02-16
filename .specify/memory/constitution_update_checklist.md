@@ -136,20 +136,18 @@ For EACH agent in `plugins/*/agents/**/*.md`:
 - [ ] Update delegation triggers if Principle X changed
 - [ ] Verify no outdated principle references
 
-**Affected Agent Files** (check all):
-- [ ] frontend-specialist.md
-- [ ] backend-architect.md
-- [ ] database-specialist.md
-- [ ] testing-specialist.md
-- [ ] security-specialist.md
-- [ ] performance-engineer.md
-- [ ] devops-engineer.md
-- [ ] specification-agent.md
-- [ ] tasks-agent.md
-- [ ] task-orchestrator.md
-- [ ] subagent-architect.md
-- [ ] full-stack-developer.md
-- [ ] Any other custom agents
+**Affected Agent Files** (check all 11 agents):
+- [ ] constitutional-governance-agent.md (sdd-governance)
+- [ ] team-synthesizer.md (sdd-orchestrator)
+- [ ] prd-specialist.md (sdd-creation)
+- [ ] subagent-architect.md (sdd-creation)
+- [ ] auto-debug-agent.md (sdd-debug)
+- [ ] framework-sync-agent.md (sdd-maintenance)
+- [ ] memory-context-agent.md (sdd-memory)
+- [ ] dev-loop-orchestrator.md (sdd-dev-loop)
+- [ ] debug-analyst.md (sdd-dev-loop)
+- [ ] quality-assessor.md (sdd-dev-loop)
+- [ ] tribunal-judge.md (sdd-dev-loop)
 
 ### Step 4: Update Workflow Scripts
 

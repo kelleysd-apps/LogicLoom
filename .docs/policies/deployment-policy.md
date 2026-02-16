@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v1.6.0 - Principle VII (Observability)
+**Authority**: Constitution v3.0.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
 
 ---
@@ -655,7 +655,7 @@ Deployment logs retained for:
 
 ## References
 
-- Constitution v1.6.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`
@@ -664,6 +664,6 @@ Deployment logs retained for:
 
 ---
 
-**Policy Owner**: Operations Department (devops-engineer)
+**Policy Owner**: Operations Department (monitoring skill)
 **Last Reviewed**: 2025-11-07
 **Next Review**: 2026-02-07

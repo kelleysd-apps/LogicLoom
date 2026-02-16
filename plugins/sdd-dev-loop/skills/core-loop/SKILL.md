@@ -5,7 +5,7 @@ description: |
   Main recursive dev-loop skill. Orchestrates the full autonomous edit-test-debug cycle —
   parses arguments, detects scope, initializes session, iterates (implement, test, grade,
   evaluate termination), and produces a final session report with RL feedback.
-allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, TodoWrite
+allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Task, TaskCreate, TaskUpdate
 triggers:
   - /dev-loop
 category: orchestration
@@ -131,8 +131,8 @@ log_event "$session_id" "iteration_start" "iteration=$iteration"
 
 #### 5b. Execute Implementation Changes
 
-Apply code changes according to the current plan and task list. Use the TodoWrite tool
-to track active tasks within the iteration.
+Apply code changes according to the current plan and task list. Use the TaskCreate tool
+to create tasks and TaskUpdate to track active tasks within the iteration.
 
 #### 5c. Run Test Suite
 

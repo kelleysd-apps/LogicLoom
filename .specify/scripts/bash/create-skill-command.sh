@@ -46,7 +46,7 @@ generate_skill_template() {
     local default_tools="Read, Write, Bash, Grep, Glob"
     case "$department" in
         product)
-            default_tools="Read, Write, Bash, Grep, Glob, TodoWrite"
+            default_tools="Read, Write, Bash, Grep, Glob, TaskCreate, TaskUpdate"
             ;;
         operations)
             default_tools="Read, Bash, Grep, Glob"

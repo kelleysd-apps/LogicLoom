@@ -29,6 +29,6 @@ Show: skill path, RL metrics, usage instructions.
 ## Usage
 ```
 /create-skill api-design
-/create-skill api-design --agent backend-architect
+/create-skill api-design --category sdd-domain-backend
 /create-skill api-design --category sdd-workflow
 ```

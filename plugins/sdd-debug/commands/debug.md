@@ -39,4 +39,4 @@ Document root cause, fix applied, verification results.
 
 ### Step 10: Iteration Handling
 Max 5 cycles. If persists, escalate with summary and recommendations.
-Delegate to specialists as needed (Principle X): backend-architect, database-specialist, security-specialist, devops-engineer.
+Delegate to specialist skills as needed (Principle X): backend-operations, database-operations, security-operations, devops-operations.

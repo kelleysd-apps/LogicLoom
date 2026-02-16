@@ -99,70 +99,70 @@ echo "TEXT_TO_ANALYZE" | .specify/scripts/bash/detect-phase-domain.sh --text
     "database": 5
   },
   "significant_domains": ["frontend", "backend", "database"],
-  "delegation_strategy": "multi-agent",
-  "suggested_agents": [
-    "frontend-specialist",
-    "backend-architect",
-    "database-specialist",
-    "task-orchestrator"
+  "delegation_strategy": "multi-skill",
+  "suggested_skills": [
+    "frontend-operations (sdd-domain-frontend)",
+    "api-design (sdd-domain-backend)",
+    "schema-design (sdd-domain-database)",
+    "team-orchestration (sdd-orchestrator)"
   ],
   "confidence": "high"
 }
 ```
 
 **Domain Count Rules**:
-- **0 domains**: Generic work, no specialist needed
-- **1 domain**: Single-agent delegation
-- **2 domains**: Single or dual-agent delegation (evaluate complexity)
-- **3+ domains**: Multi-agent delegation via task-orchestrator
+- **0 domains**: Generic work, no specialist skill needed
+- **1 domain**: Single-skill activation
+- **2 domains**: Single or dual-skill activation (evaluate complexity)
+- **3+ domains**: Multi-skill coordination via team-orchestration
 
 ### Step 4: Determine Delegation Strategy
 
-**Single-Agent Delegation**:
+**Single-Skill Activation**:
 - One significant domain detected
 - Work is contained within domain
 - No cross-domain dependencies
 
 **Example**: "Implement user profile card component"
 - Domain: frontend
-- Agent: frontend-specialist
-- Strategy: single-agent
+- Skill: frontend-operations (sdd-domain-frontend)
+- Strategy: single-skill
 
-**Multi-Agent Delegation**:
+**Multi-Skill Coordination**:
 - Multiple significant domains (3+)
 - Work spans domain boundaries
 - Requires coordination
 
 **Example**: "Implement user registration with email verification"
 - Domains: backend, database, security, integration
-- Agents: backend-architect, database-specialist, security-specialist, task-orchestrator
-- Strategy: multi-agent (orchestrator coordinates)
+- Skills: api-design (backend), schema-design (database), security-operations (security), team-orchestration (orchestrator)
+- Strategy: multi-skill (orchestration coordinates)
 
-**task-orchestrator Required When**:
+**team-orchestration Required When**:
 - 3+ significant domains detected
 - Complex cross-domain coordination needed
-- Multiple specialists must work together
+- Multiple specialist skills must work together
 
 ### Step 5: Map Domains to Agents
 
-**Agent Mapping** (from agent collaboration reference):
+**Skill Mapping** (from skill registry):
 
-| Domain | Specialist Agent | Department |
-|--------|-----------------|------------|
-| Frontend | frontend-specialist | Engineering |
-| Backend | backend-architect | Architecture |
-| Database | database-specialist | Data |
-| Testing | testing-specialist | Quality |
-| Security | security-specialist | Quality |
-| Performance | performance-engineer | Operations |
-| DevOps | devops-engineer | Operations |
-| Architecture | backend-architect, subagent-architect | Architecture |
-| Specification | specification-agent | Product |
-| Tasks | tasks-agent | Product |
-| Integration | backend-architect, devops-engineer | Multiple |
+| Domain | Enhanced Skill | Plugin |
+|--------|----------------|--------|
+| Frontend | frontend-operations | sdd-domain-frontend |
+| Backend | api-design, service-architecture | sdd-domain-backend |
+| Database | schema-design | sdd-domain-database |
+| Testing | testing-operations | sdd-domain-testing |
+| Security | security-operations | sdd-domain-security |
+| Performance | performance-operations | sdd-domain-performance |
+| DevOps | monitoring | sdd-domain-devops |
+| Architecture | service-architecture (backend), subagent-architect (agent design) | Multiple |
+| Specification | unified-specification | sdd-specification |
+| Tasks | sdd-tasks | sdd-specification |
+| Integration | api-design, monitoring | Multiple |
 
-**Coordination Agent**:
-- **task-orchestrator** (Product dept): Coordinates multi-agent workflows
+**Coordination Skill**:
+- **team-orchestration** (sdd-orchestrator): Coordinates multi-skill workflows
 
 ### Step 6: Report Detection Results
 
@@ -181,25 +181,25 @@ Detected Domains (X total):
 
 Significant Domains: frontend, backend, database
 
-Delegation Strategy: multi-agent
+Delegation Strategy: multi-skill
 
-Suggested Agents:
-- frontend-specialist (Engineering) - UI components
-- backend-architect (Architecture) - API design
-- database-specialist (Data) - Schema design
-- task-orchestrator (Product) - Coordinate workflow
+Suggested Skills:
+- frontend-operations (sdd-domain-frontend) - UI components
+- api-design (sdd-domain-backend) - API design
+- schema-design (sdd-domain-database) - Schema design
+- team-orchestration (sdd-orchestrator) - Coordinate workflow
 
 Confidence: High
 
 Rationale:
 - 3 significant domains detected (frontend, backend, database)
 - Cross-domain work requires coordination
-- task-orchestrator recommended to manage specialists
+- team-orchestration recommended to manage specialist skills
 
 Next Step:
-- Delegate to task-orchestrator
-- task-orchestrator will route work to specialists
-- Specialists collaborate on implementation
+- Activate team-orchestration skill
+- team-orchestration will route work to specialist skills
+- Skills collaborate on implementation
 ```
 
 ## Constitutional Compliance
@@ -219,13 +219,13 @@ Next Step:
 4. EXECUTION (agent executes)
 
 **Critical Triggers** from Principle X:
-- "test" → testing-specialist
-- "database" → database-specialist
-- "API" → backend-architect
-- "component" → frontend-specialist
-- "security" → security-specialist
-- "deploy" → devops-engineer
-- "optimize" → performance-engineer
+- "test" → testing-operations (sdd-domain-testing)
+- "database" → schema-design (sdd-domain-database)
+- "API" → api-design (sdd-domain-backend)
+- "component" → frontend-operations (sdd-domain-frontend)
+- "security" → security-operations (sdd-domain-security)
+- "deploy" → monitoring (sdd-domain-devops)
+- "optimize" → performance-operations (sdd-domain-performance)
 
 ## Examples
 
@@ -234,22 +234,22 @@ Next Step:
 **User Request**: "Implement a loading spinner component for React"
 
 **Skill Execution**:
-1. Load agent collaboration reference
+1. Load skill registry reference
 2. Analyze text: "loading spinner component React"
 3. Detect keywords: component (frontend), React (frontend), UI (frontend)
 4. Results:
    - Domains: frontend (score: 5)
    - Significant: frontend
-   - Strategy: single-agent
-   - Agents: frontend-specialist
+   - Strategy: single-skill
+   - Skills: frontend-operations
 
 **Output**:
 ```
 🔍 Domain Detection Results
 
 Detected Domains: frontend
-Delegation Strategy: single-agent
-Suggested Agent: frontend-specialist (Engineering)
+Delegation Strategy: single-skill
+Suggested Skill: frontend-operations (sdd-domain-frontend)
 
 Rationale: Pure frontend UI component work
 ```
@@ -268,20 +268,20 @@ Rationale: Pure frontend UI component work
 4. Results:
    - Domains: backend (12), database (6), security (8)
    - Significant: backend, database, security
-   - Strategy: multi-agent
-   - Agents: backend-architect, database-specialist, security-specialist, task-orchestrator
+   - Strategy: multi-skill
+   - Skills: api-design, schema-design, security-operations, team-orchestration
 
 **Output**:
 ```
 🔍 Domain Detection Results
 
 Detected Domains: backend, database, security
-Delegation Strategy: multi-agent
-Suggested Agents:
-- backend-architect - API design, JWT handling
-- database-specialist - User schema, sessions
-- security-specialist - Password hashing, auth security
-- task-orchestrator - Coordinate workflow
+Delegation Strategy: multi-skill
+Suggested Skills:
+- api-design (sdd-domain-backend) - API design, JWT handling
+- schema-design (sdd-domain-database) - User schema, sessions
+- security-operations (sdd-domain-security) - Password hashing, auth security
+- team-orchestration (sdd-orchestrator) - Coordinate workflow
 
 Rationale: 3 domains require specialist coordination
 ```
@@ -297,37 +297,37 @@ Rationale: 3 domains require specialist coordination
 4. Results:
    - Domains: none significant
    - Strategy: no delegation needed
-   - Can be handled without specialist
+   - Can be handled without specialist skill
 
 **Output**:
 ```
 🔍 Domain Detection Results
 
 Detected Domains: None significant
-Delegation Strategy: No specialist needed
+Delegation Strategy: No specialist skill needed
 Suggestion: Handle directly (simple documentation update)
 
 Rationale: No specialized domain work detected
 ```
 
-## Agent Collaboration
+## Skill Collaboration
 
-### task-orchestrator
+### team-orchestration
 **When to suggest**: 3+ significant domains detected
 
-**What they do**: Coordinate multiple specialists, manage workflow, ensure integration
+**What it does**: Coordinate multiple specialist skills, manage workflow, ensure integration
 
-### All Specialist Agents
+### All Specialist Skills
 **When to suggest**: Domain detected matches their specialty
 
-**What they do**: Execute specialized work in their domain
+**What they do**: Execute specialized work in their domain (may invoke consolidated agents)
 
 ### Work Session Initiation Protocol
 **This skill supports Step 2** of the mandatory 4-step protocol:
 1. READ CONSTITUTION (required before this skill)
 2. **ANALYZE TASK DOMAIN** ← THIS SKILL
 3. DELEGATION DECISION (based on this skill's output)
-4. EXECUTION (execute directly or delegate)
+4. EXECUTION (execute directly or activate skill)
 
 ## Validation
 
@@ -376,24 +376,24 @@ Verify the skill executed correctly:
   - Complex coordination → use multi-agent with orchestrator
 - Default to multi-agent if unsure (safer)
 
-### Issue: Multiple agents from same department
+### Issue: Multiple skills from same domain
 
-**Cause**: Domain maps to multiple specialists
+**Cause**: Domain maps to multiple specialist skills
 
 **Solution**:
-- Choose most specific agent
-- Example: "system architecture" could be backend-architect or subagent-architect
-  - For implementation architecture → backend-architect
-  - For agent/constitutional architecture → subagent-architect
+- Choose most specific skill
+- Example: "system architecture" could be service-architecture or subagent-architect
+  - For implementation architecture → service-architecture (sdd-domain-backend)
+  - For agent/constitutional architecture → subagent-architect (agent)
 
 ## Notes
 
 - Domain detection is keyword-based (fast but not perfect)
 - High domain scores indicate stronger presence of that domain
-- task-orchestrator is "coordinator" not a domain specialist
-- Single-agent delegation is simpler and faster (prefer when possible)
-- Multi-agent delegation provides better quality for complex work
-- Principle X makes delegation MANDATORY for specialized work
+- team-orchestration is "coordinator" not a domain specialist skill
+- Single-skill activation is simpler and faster (prefer when possible)
+- Multi-skill coordination provides better quality for complex work
+- Principle X makes skill-first routing MANDATORY for specialized work
 - This skill automates Step 2 of Work Session Initiation Protocol
 - Detection runs automatically in /specify, /plan, /tasks workflows
 - Can be run standalone on any text/file
@@ -473,6 +473,6 @@ VERIFIER_CHECK:
 ## References
 
 - Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md`
-- Constitution v1.5.0: `.specify/memory/constitution.md` (Principle X)
+- Constitution v3.0.0: `.specify/memory/constitution.md` (Principle X - 16 principles)
 - Detection Script: `.specify/scripts/bash/detect-phase-domain.sh`
-- Agent Directory: `plugins/*/agents/` (all specialist agents across plugins)
+- Skill Registry: `plugins/*/skills/` (all specialist skills across plugins)

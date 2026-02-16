@@ -1,7 +1,7 @@
 {
   "name": "sdd-memory",
-  "version": "1.0.0",
-  "description": "Memory context injection for Claude Code sessions. Searches tiered project memory (working/recall/archival) and injects relevant context via preflight hook. Uses keyword-based retrieval with relevance scoring.",
+  "version": "2.0.0",
+  "description": "Memory context injection with pluggable search backends. Supports keyword (v1.0), BM25, vector, and hybrid search modes. Features retention policies, scoped retrieval, and memory flush for context preservation.",
   "category": "orchestration",
   "author": "sdd-agentic-framework",
   "skills": [
@@ -27,7 +27,14 @@
   ],
   "commands": [],
   "config": {
-    "memory_conf": "config/memory.conf"
+    "memory_conf": "config/memory.conf",
+    "memory_v2_conf": "config/memory-v2.conf"
+  },
+  "backends": {
+    "keyword": "lib/keyword-backend.sh",
+    "bm25": "lib/bm25-search.sh",
+    "vector": "lib/vector-search.sh",
+    "hybrid": "lib/hybrid-search.sh"
   },
   "dependencies": [],
   "constitutional_principles": ["VII", "XVI"]

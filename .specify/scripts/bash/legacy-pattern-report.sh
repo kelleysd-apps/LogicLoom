@@ -4,7 +4,7 @@
 # FR: FR-503
 # Purpose: Report direct agent invocations (legacy pattern), track migration progress
 # Version: 1.0.0
-# Constitutional Compliance: Principle VII (Observability), X (Skills-First)
+# Constitutional Compliance: Principle VII (Observability), X (Agent Delegation)
 
 set -euo pipefail
 
@@ -16,6 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 ARCHITECTURE_CONF="${ROOT_DIR}/.specify/config/architecture.conf"
 MIGRATION_LOG="${ROOT_DIR}/.docs/rl-metrics/migration-tracking.json"
+# Note: Plugin manifests at plugins/*/plugin.json are the authoritative source for RL metrics
 SKILL_INDEX="${ROOT_DIR}/.claude/skill-index.json"
 AGENT_INDEX="${ROOT_DIR}/.claude/agent-index.json"
 
@@ -33,7 +34,8 @@ SKILLS_FIRST_PATTERNS=(
     "activate skill"
     "invoke skill"
     "skill orchestrat"
-    "skills-first"
+    "skill-based delegation"
+    "plugin-first"
     "skill-index"
     "SKILL.md"
 )
@@ -71,7 +73,7 @@ init_migration_log() {
         cat > "$MIGRATION_LOG" << 'EOF'
 {
   "version": "1.0.0",
-  "description": "Migration tracking from legacy agent patterns to skills-first",
+  "description": "Migration tracking from legacy agent patterns to skill-based delegation",
   "created": null,
   "updated": null,
   "config": {

@@ -265,7 +265,7 @@ Next Step: Run /tasks to generate implementation task list
 5. Verify all artifacts generated
 6. Run validation → 16/16 checks passing
 7. Run domain detection → backend, database domains
-8. Report completion with suggested agents: backend-architect, database-specialist
+8. Report completion with suggested agents: api-design skill (sdd-domain-backend), schema-design skill (sdd-domain-database)
 
 **Generated Artifacts**:
 ```
@@ -297,51 +297,26 @@ specs/001-user-list-api/
 5. Verify artifacts
 6. Run validation → 15/16 passing (missing deployment for component)
 7. Run domain detection → frontend domain
-8. Report completion with suggested agent: frontend-specialist
+8. Report completion with suggested agent: frontend-operations skill (sdd-domain-frontend)
 
 ## Agent Collaboration
 
-### planning-agent (PRIMARY)
-**When to delegate**: ALL /plan command executions - this is the designated autonomous agent for implementation planning
-
-**What they handle**: Complete autonomous execution of the planning workflow including:
-- Phase 0: Technical research, library evaluation, technology stack selection
-- Phase 1: API contract design (OpenAPI/GraphQL), data model creation, test scenario extraction
-- Phase 2: Constitutional compliance validation (14 principles)
-- Quality gates: Pre-research and post-design compliance checks
-- Artifact generation: plan.md, research.md, data-model.md, contracts/, quickstart.md
-- Readiness validation for task generation phase
-
-**How to invoke**:
-```
-Use the Task tool to delegate to planning-agent:
-- subagent_type: "planning-agent"
-- description: "Execute /plan command"
-- prompt: "Execute the /plan command for this feature"
-```
-
-**Agent Location**: `plugins/sdd-specification/agents/planning-agent.md`
-
-**Note**: This skill provides procedural guidance for the planning workflow. For autonomous execution, always delegate to the planning-agent which has specialized tools and constitutional compliance built-in.
-
----
-
-### backend-architect
+### api-design skill (sdd-domain-backend)
 **When to delegate**: Multi-service architecture, complex backend systems (for specialized research during Phase 0)
 
 **What they handle**: Backend system design, API architecture, service patterns
 
-### frontend-specialist
+### frontend-operations skill (sdd-domain-frontend)
 **When to delegate**: UI components, user interactions, client-side logic
 
 **What they handle**: Component design, state management, UI patterns
 
-### database-specialist
+### schema-design skill (sdd-domain-database)
 **When to delegate**: Complex data models, query optimization, schema design
 
 **What they handle**: Database schema, relationships, indexing, query patterns
 
-### task-orchestrator
+### team-orchestration skill (sdd-orchestrator)
 **When to delegate**: Multi-domain feature (3+ domains detected)
 
 **What they handle**: Coordinating multiple specialists during implementation
@@ -413,7 +388,7 @@ Verify the skill executed correctly:
 - quickstart.md test scenarios drive TDD implementation
 - Use absolute paths to avoid path resolution issues
 - Domain detection may reveal domains not apparent in specification
-- Multi-domain features benefit from task-orchestrator coordination
+- Multi-domain features benefit from team-orchestration skill (sdd-orchestrator) coordination
 
 
 
@@ -479,6 +454,38 @@ VERIFIER_CHECK:
 - Log failure reason
 - Update rl_metrics with failure
 - Report to user with remediation options
+
+## Task Brief
+
+You are a Senior Implementation Planning Specialist for SDD. You bridge the gap
+between feature specifications and actionable task lists by creating comprehensive
+technical plans that guide AI-driven implementation.
+
+**Pipeline position**: Receives spec.md, produces plan.md + research.md +
+data-model.md + contracts/ + quickstart.md. Downstream: tasks-agent consumes these.
+
+**Research methodology** (Phase 0):
+- For each technology decision: evaluate 2-3 options, compare on maturity/community/
+  performance/team-skill, document decision + rationale + alternatives in research.md
+- For library evaluation: assess stars, maintenance, license, compatibility
+- Resolve ALL "NEEDS CLARIFICATION" items before moving to design
+
+**Contract design** (Phase 1):
+- REST: standard HTTP verbs, resource-oriented URLs, proper status codes, OpenAPI 3.0
+- GraphQL: schema-first, type definitions, query/mutation separation
+- Every user action must have a corresponding contract
+- Generate failing contract tests (TDD-first)
+
+**Data model design**: Define entities with fields, types, constraints, relationships,
+validation rules, state transitions, and indexes.
+
+**Quality gates**: Pre-research constitution check (16 principles) and post-design
+constitution check. Refactor if violations found. Validate plan score >= 80%.
+
+**Output standards**: All NEEDS CLARIFICATION resolved, each decision has rationale,
+contracts are valid OpenAPI/GraphQL, quickstart.md is executable without extra context.
+
+---
 
 ## Related Skills
 
