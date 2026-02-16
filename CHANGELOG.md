@@ -5,6 +5,51 @@ All notable changes to the SDD Agent Framework will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-02-16
+
+**Major release**: Agent Architecture Simplification + pre-release sanitization. 1,322/1,322 tests passing across 27 suites.
+
+### Added
+
+- **Spec 006**: Agent Architecture Simplification + Memory Enhancement specification
+- **13 new contract test suites**: dev-loop (8 suites), plugin lifecycle, deprecation, marketplace (unit + E2E) — total 27 suites, 1,322 tests
+- **Dev-loop libraries**: lifecycle.sh, tribunal-engine.sh, self-extension.sh — completing dev-loop plugin implementation
+- **Multi-LLM tribunal research**: `/research` command with Claude, OpenAI, and Gemini independent research + tribunal voting
+
+### Changed - Agent Architecture Simplification
+
+- **22 agents reduced to 11**: Eliminated redundant "Claude talking to Claude" custom agents
+- **14 agents converted to enhanced plugin SKILLS**: Domain knowledge moved from agent `.md` files to plugin `SKILL.md` files with Task Briefs
+  - 7 domain specialists (frontend, backend, database, security, testing, performance, devops) → plugin skills
+  - 4 orchestrators (task-orchestrator, swarm-coordinator, workflow-coordinator, specification-orchestrator) → orchestration skills
+  - 3 specification agents (specification, planning, tasks) → unified specification skill
+- **11 agents retained**: constitutional-governance-agent, team-synthesizer, prd-specialist, subagent-architect, auto-debug-agent, framework-sync-agent, memory-context-agent, dev-loop-orchestrator, debug-analyst, quality-assessor, tribunal-judge
+- **Plugin manifests** now authoritative source for RL metrics (replaces deprecated `.claude/skill-index.json`)
+- **Agent registry** at `.docs/agents/agent-registry.json` (replaces deprecated `.claude/agent-index.json`)
+
+### Changed - Pre-Release Sanitization
+
+- **All policies** updated from Constitution v1.6.0 to v3.0.0 (8 files)
+- **architecture.conf** rewritten for v5.0: skill-based-delegation mode, correct counts (11 agents, 18 plugins, 19 commands)
+- **sanitize-for-template.sh** rewritten for v5.0: accurate README/TEMPLATE_INIT generation
+- **RL feedback system** updated: all `skill-index.json` references replaced with plugin manifests
+- **Constitutional compliance skill** updated from v1.5.0 to v3.0.0 (added Principles XV-XVI)
+- **All "14 principles" references** updated to "16 principles" across ~20 files
+
+### Removed
+
+- **14 custom agent definitions**: Replaced by enhanced plugin skills with Task Briefs
+- **3 obsolete scripts**: `generate-skill-index.sh`, `discover-skills.sh`, `update-agents-to-constitution-v1.5.0.sh`
+- **TEMPLATE_INIT.md**: Now generated dynamically by sanitize script
+- **Empty `sdd-orchestrator-hook/agents/` directory**
+
+### Fixed
+
+- Agent-collaboration-triggers: removed references to non-existent agents (full-stack-developer, structure-architect, theme-designer)
+- Governance knowledge base: domain-agent mapping updated to domain-skill mapping
+- Plugin manifests: specification plugin agents count 4→0 (converted to skills)
+- Bridge manifest: command count consistency
+
 ## [4.1.1] - 2026-02-09
 
 **Patch**: Tag-aware update framework. 266/266 tests passing.
