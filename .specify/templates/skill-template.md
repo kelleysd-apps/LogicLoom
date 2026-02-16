@@ -292,7 +292,7 @@ Does this provide procedural "how-to" knowledge?
 
 ## References
 
-- Constitution v1.5.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
 - Agent Template: `.specify/templates/agent-template.md`
 - Skills Integration Analysis: `.docs/skills-integration-analysis.md`
 - Skills Executive Summary: `.docs/skills-integration-executive-summary.md`

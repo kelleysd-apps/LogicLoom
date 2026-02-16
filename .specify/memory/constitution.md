@@ -18,7 +18,7 @@ This is the ratified Constitution v3.0.0 with 16 enforceable principles includin
 | Principle X | Skills-First Delegation Protocol | *(unchanged)* | Skills are primary orchestration |
 | **Principle XVI** | *(new)* | **Plugin-First Architecture** | Modular, installable capabilities |
 | Architecture | Monolithic .claude/ | Plugin-based plugins/ | Hot-swap, RL metrics, governance |
-| Routing | skill-index.json | Plugin auto-discovery | Eliminate centralized manifest |
+| Routing | Plugin manifests (plugins/*/plugin.json) | Plugin auto-discovery | Eliminate centralized manifest |
 
 ---
 

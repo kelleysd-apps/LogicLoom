@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v1.6.0 - Principle II (Test-First Development)
+**Authority**: Constitution v3.0.0 - Principle II (Test-First Development)
 **Review Cycle**: Quarterly
 
 ---
@@ -712,7 +712,7 @@ Even emergency hotfixes require:
 
 ## References
 
-- Constitution v1.6.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.specify/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`
 

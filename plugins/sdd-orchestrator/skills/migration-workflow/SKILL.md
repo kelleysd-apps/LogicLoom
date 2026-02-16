@@ -140,8 +140,8 @@ For agent-to-skill migration:
 
 1. **Create skill** if not exists
 2. **Update agent** to consolidated version
-3. **Update routing** in skill-index.json
-4. **Update consolidation map** in agent-index.json
+3. **Update routing** in plugin manifest (plugins/*/plugin.json)
+4. **Update agent registry** at .docs/agents/agent-registry.json
 5. **Test** new pattern works
 6. **Mark legacy** as deprecated
 

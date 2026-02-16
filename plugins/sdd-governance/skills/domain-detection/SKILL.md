@@ -473,6 +473,6 @@ VERIFIER_CHECK:
 ## References
 
 - Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md`
-- Constitution v1.5.0: `.specify/memory/constitution.md` (Principle X)
+- Constitution v3.0.0: `.specify/memory/constitution.md` (Principle X - 16 principles)
 - Detection Script: `.specify/scripts/bash/detect-phase-domain.sh`
 - Skill Registry: `plugins/*/skills/` (all specialist skills across plugins)

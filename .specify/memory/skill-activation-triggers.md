@@ -218,7 +218,7 @@ Exact matches for slash commands:
 
 When multiple skills match:
 
-1. **Check selection weights** from skill-index.json
+1. **Check selection weights** from plugin manifests (plugins/*/plugin.json)
 2. **Apply softmax** with configured temperature
 3. **Select skill** probabilistically (or deterministically in testing)
 4. **Log selection** for RL feedback

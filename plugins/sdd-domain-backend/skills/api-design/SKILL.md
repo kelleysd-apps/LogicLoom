@@ -134,7 +134,7 @@ skill-portfolio:
 
 ### Principle III Compliance
 
-From Constitution v1.6.0:
+From Constitution v3.0.0:
 > **Contract-First Design**: Define contracts BEFORE implementation
 > - API contracts (OpenAPI/GraphQL)
 > - Data models

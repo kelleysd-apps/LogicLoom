@@ -164,7 +164,7 @@ RL learning improves selection over time based on:
 ## Related Files
 
 - `contracts/skill-definition.yaml` - Schema for validation
-- `.claude/skill-index.json` - Skill registry
+- `plugins/*/plugin.json` - Plugin manifests (RL metrics in plugin manifests)
 - `.specify/scripts/bash/rl/` - RL scripts
 - `.docs/rl-metrics/skill-performance.json` - Performance tracking
 

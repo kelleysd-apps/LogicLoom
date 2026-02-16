@@ -2,6 +2,7 @@
 
 **Version**: 1.0.0
 **Feature**: DS-STAR Multi-Agent Enhancements
+**Constitution**: v3.0.0
 **Status**: Active
 
 ---
@@ -283,6 +284,7 @@ VERIFIER_CHECK:
 
 ## Related
 
-- Constitution v2.0.0 - Principle X (Skills-First)
+- Constitution v3.0.0 - Principle X (Agent Delegation Protocol)
 - Router Agent - `.claude/agents/ds-star/router-agent.md`
 - Verifier Agent - `.claude/agents/ds-star/verifier-agent.md`
+- Skill-Based Delegation - Plugin-First Architecture v4.1

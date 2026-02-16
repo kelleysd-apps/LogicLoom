@@ -10,7 +10,7 @@ model: {{AGENT_MODEL}}
 ## Constitutional Adherence
 
 This agent operates under the constitutional principles defined in:
-- **Primary Authority**: `.specify/memory/constitution.md`
+- **Primary Authority**: `.specify/memory/constitution.md` (v3.0.0 - 16 principles)
 - **Governance Framework**: `.specify/memory/agent-governance.md`
 
 ### Critical Mandates

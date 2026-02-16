@@ -1,6 +1,5 @@
 #!/bin/bash
 # Specification Validation Script
-# Part of Phase 3: Workflow Automation
 #
 # Validates specification files for completeness, structure, and quality
 # based on constitutional requirements and best practices
