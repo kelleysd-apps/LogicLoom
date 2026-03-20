@@ -178,6 +178,17 @@ else
     echo -e "${YELLOW}ℹ${NC}  Git repository already exists"
 fi
 
+# Configure upstream remote for /update-framework
+UPSTREAM_URL="https://github.com/kelleysd-apps/sdd-agentic-framework.git"
+if git remote get-url upstream &>/dev/null 2>&1; then
+    echo -e "${GREEN}✓${NC} Upstream remote already configured"
+else
+    echo -e "${BLUE}Configuring upstream remote for framework updates...${NC}"
+    git remote add upstream "$UPSTREAM_URL" 2>/dev/null && \
+        echo -e "${GREEN}✓${NC} Upstream remote added: $UPSTREAM_URL" || \
+        echo -e "${YELLOW}⚠${NC}  Could not add upstream remote (not a git repo yet)"
+fi
+
 # ====================================
 # Docker MCP Toolkit Installation
 # ====================================
@@ -284,8 +295,13 @@ echo -e "   → Ask Claude: ${GREEN}\"Add the supabase MCP server\"${NC} (uses m
 echo -e "   → Or browse: ${GREEN}docker mcp catalog show docker-mcp${NC}"
 echo -e "   → 310+ servers available: database, cloud, testing, search, docs"
 echo ""
-echo -e "${YELLOW}4. Begin Feature Development${NC}"
-echo -e "   Use: ${GREEN}/specify${NC}, ${GREEN}/plan${NC}, ${GREEN}/tasks${NC}"
+echo -e "${YELLOW}4. Optional: Subscription Usage Tracking (Pro/Max)${NC}"
+echo -e "   Install: ${GREEN}npm install -g ccstatusline${NC}"
+echo -e "   → Adds session usage %, weekly usage %, block reset timer to status line"
+echo -e "   → See: ${GREEN}https://github.com/sirmalloc/ccstatusline${NC}"
+echo ""
+echo -e "${YELLOW}5. Begin Feature Development${NC}"
+echo -e "   Use: ${GREEN}/specification${NC} (unified spec+plan+tasks workflow)"
 echo -e "   → All commands will reference PRD as SSOT"
 echo -e "   → Features align with PRD goals and constraints"
 echo ""
