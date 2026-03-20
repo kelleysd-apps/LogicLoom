@@ -173,8 +173,6 @@ EXEC_TOTAL=0
 EXEC_MISSING=""
 
 for plugin_dir in plugins/*/; do
-  plugin_name=$(basename "$plugin_dir")
-  [ "$plugin_name" = "sdd-domain-template" ] && continue
   [ -d "${plugin_dir}commands" ] || continue
 
   for cmd_file in "${plugin_dir}commands/"*.md; do
