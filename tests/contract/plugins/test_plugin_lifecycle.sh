@@ -41,7 +41,7 @@ assert "All 13+ plugins have manifests" "[ $PLUGIN_COUNT -ge 13 ]"
 
 echo ""
 echo "═══ Core Plugin Contract Tests (T2.1.1-T2.1.4) ═══"
-for plugin in sdd-specification sdd-git sdd-debug sdd-creation; do
+for plugin in sdd-specification sdd-git sdd-creation; do
   echo ""
   echo "Testing: ${plugin}"
   assert "${plugin} has plugin.json" "[ -f plugins/${plugin}/.claude-plugin/plugin.json ]"
@@ -78,9 +78,10 @@ echo ""
 echo "═══ Specification Skill Consolidation Tests ═══"
 echo ""
 echo "Specification agent-to-skill conversion"
-assert "sdd-specification skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/sdd-specification/SKILL.md"
-assert "sdd-planning skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/sdd-planning/SKILL.md"
-assert "sdd-tasks skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/sdd-tasks/SKILL.md"
+# sdd-specification, sdd-planning, sdd-tasks consolidated into unified-specification (v2.0.0)
+assert "deprecated sdd-specification skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-specification ]"
+assert "deprecated sdd-planning skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-planning ]"
+assert "deprecated sdd-tasks skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-tasks ]"
 assert "unified-specification skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/unified-specification/SKILL.md"
 assert "specification agents directory removed" "[ ! -d plugins/sdd-specification/agents ]"
 assert "plugin.json has empty agents array" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-specification/.claude-plugin/plugin.json\")); agents=d.get(\"agents\",{}); lst=agents.get(\"list\",agents) if isinstance(agents,dict) else agents; assert lst==[]'"
