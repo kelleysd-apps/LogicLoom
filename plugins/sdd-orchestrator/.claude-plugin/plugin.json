@@ -26,13 +26,12 @@
     ]
   },
   "skills": {
-    "count": 5,
+    "count": 4,
     "list": [
       "full-stack-feature",
       "migration-workflow",
       "multi-skill-workflow",
-      "team-orchestration",
-      "tribunal-review"
+      "team-orchestration"
     ]
   },
   "commands": {

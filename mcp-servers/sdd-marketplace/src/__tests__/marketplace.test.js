@@ -62,10 +62,11 @@ describe("Registry", () => {
     assert.strictEqual(gov.category, "governance", "should be governance category");
   });
 
-  it("all non-governance plugins depend on sdd-governance", () => {
+  it("core/domain plugins depend on sdd-governance", () => {
     const data = JSON.parse(fs.readFileSync(registryPath, "utf-8"));
+    const infraPlugins = ["sdd-governance", "sdd-memory", "sdd-orchestrator-hook"];
     for (const plugin of data.plugins) {
-      if (plugin.name === "sdd-governance") continue;
+      if (infraPlugins.includes(plugin.name)) continue;
       assert.ok(
         plugin.dependencies.includes("sdd-governance"),
         `${plugin.name} should depend on sdd-governance`
@@ -82,7 +83,7 @@ describe("Registry", () => {
     assert.strictEqual(cats.governance, 1, "should have 1 governance plugin");
     assert.ok(cats.core >= 4, `should have 4+ core plugins, got ${cats.core}`);
     assert.ok(cats.domain >= 7, `should have 7+ domain plugins, got ${cats.domain}`);
-    assert.strictEqual(cats.orchestration, 1, "should have 1 orchestration plugin");
+    assert.ok(cats.orchestration >= 1, `should have 1+ orchestration plugins, got ${cats.orchestration}`);
   });
 
   it("template plugin is excluded from registry", () => {
@@ -137,9 +138,10 @@ describe("Plugin Validation (live plugins/)", () => {
     assert.strictEqual(manifest.required, true);
   });
 
-  it("non-governance plugins depend on sdd-governance", () => {
+  it("core/domain plugins depend on sdd-governance", () => {
+    const infraPlugins = ["sdd-governance", "sdd-memory", "sdd-orchestrator-hook"];
     for (const name of fs.readdirSync(PLUGINS_DIR)) {
-      if (name === "sdd-governance") continue;
+      if (infraPlugins.includes(name)) continue;
       const manifestPath = path.join(PLUGINS_DIR, name, ".claude-plugin", "plugin.json");
       if (!fs.existsSync(manifestPath)) continue;
 

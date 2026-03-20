@@ -30,20 +30,19 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Agent Reduction ---"
 
-# Count remaining agent files across all plugins (excluding template)
-AGENT_COUNT=$(find "$ROOT_DIR/plugins" -path "*/agents/*.md" ! -path "*/sdd-domain-template/*" | wc -l | tr -d ' ')
-assert "Agent count reduced to ~11 (found ${AGENT_COUNT})" "[ ${AGENT_COUNT} -le 12 ]"
+# Count remaining agent files across all plugins
+AGENT_COUNT=$(find "$ROOT_DIR/plugins" -path "*/agents/*.md" | wc -l | tr -d ' ')
+assert "Agent count reduced to ~6 (found ${AGENT_COUNT})" "[ ${AGENT_COUNT} -le 7 ]"
 
 # Verify essential agents are KEPT
 assert "constitutional-governance-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-governance/agents/constitutional-governance-agent.md' ]"
-assert "auto-debug-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-debug/agents/auto-debug-agent.md' ]"
 assert "memory-context-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-memory/agents/memory-context-agent.md' ]"
 assert "framework-sync-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-maintenance/agents/framework-sync-agent.md' ]"
 assert "prd-specialist kept" "[ -f '$ROOT_DIR/plugins/sdd-creation/agents/prd-specialist.md' ]"
 assert "subagent-architect kept" "[ -f '$ROOT_DIR/plugins/sdd-creation/agents/subagent-architect.md' ]"
 assert "team-synthesizer kept" "[ -f '$ROOT_DIR/plugins/sdd-orchestrator/agents/team-synthesizer.md' ]"
-assert "dev-loop-orchestrator kept" "[ -f '$ROOT_DIR/plugins/sdd-dev-loop/agents/dev-loop-orchestrator.md' ]"
-assert "tribunal-judge kept" "[ -f '$ROOT_DIR/plugins/sdd-dev-loop/agents/tribunal-judge.md' ]"
+# dev-loop agents removed (converted to core-loop skill)
+assert "dev-loop agents directory removed" "[ ! -d '$ROOT_DIR/plugins/sdd-dev-loop/agents' ]"
 
 # Verify domain specialist agents are REMOVED (converted to skills)
 assert "No frontend-specialist agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-frontend/agents/frontend-specialist.md' ]"
@@ -86,9 +85,11 @@ assert "devops-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/p
 # Orchestrator/specification skill consolidations
 assert "team-orchestration skill exists" "[ -f '$ROOT_DIR/plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md' ]"
 assert "multi-skill-workflow skill exists" "[ -f '$ROOT_DIR/plugins/sdd-orchestrator/skills/multi-skill-workflow/SKILL.md' ]"
-assert "sdd-specification skill exists" "[ -f '$ROOT_DIR/plugins/sdd-specification/skills/sdd-specification/SKILL.md' ]"
-assert "sdd-planning skill exists" "[ -f '$ROOT_DIR/plugins/sdd-specification/skills/sdd-planning/SKILL.md' ]"
-assert "sdd-tasks skill exists" "[ -f '$ROOT_DIR/plugins/sdd-specification/skills/sdd-tasks/SKILL.md' ]"
+# sdd-specification, sdd-planning, sdd-tasks consolidated into unified-specification (v2.0.0)
+assert "unified-specification skill exists" "[ -f '$ROOT_DIR/plugins/sdd-specification/skills/unified-specification/SKILL.md' ]"
+assert "deprecated sdd-specification skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-specification' ]"
+assert "deprecated sdd-planning skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-planning' ]"
+assert "deprecated sdd-tasks skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-tasks' ]"
 
 echo ""
 
@@ -237,10 +238,10 @@ MANIFEST="$ROOT_DIR/.claude/commands/.bridge-manifest.json"
 
 assert "Bridge manifest exists" "[ -f '$MANIFEST' ]"
 BRIDGE_COUNT=$(python3 -c "import json; d=json.load(open('$MANIFEST')); print(len(d.get('bridged',{})))" 2>/dev/null || echo "0")
-assert "19 bridged commands (found ${BRIDGE_COUNT})" "[ '${BRIDGE_COUNT}' = '19' ]"
+assert "15 bridged commands (found ${BRIDGE_COUNT})" "[ '${BRIDGE_COUNT}' = '15' ]"
 
-# Verify key commands are bridged
-for cmd in specification plan tasks research swarm build-team fullstack-team review-team debug finalize git-push dev-loop update-framework; do
+# Verify key commands are bridged (specify/plan/tasks removed — use /specification)
+for cmd in specification research swarm build-team fullstack-team review-team finalize git-push dev-loop update-framework; do
   assert "${cmd} is bridged" "python3 -c \"import json; d=json.load(open('$MANIFEST')); assert '${cmd}' in d['bridged']\""
 done
 

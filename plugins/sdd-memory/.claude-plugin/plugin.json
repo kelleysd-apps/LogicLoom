@@ -1,0 +1,32 @@
+{
+  "name": "sdd-memory",
+  "version": "2.0.0",
+  "category": "orchestration",
+  "description": "Memory context injection plugin -- 3-tier memory search (working/recall/archival) with pluggable backends (keyword/BM25/vector/hybrid).",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "dependencies": [],
+  "agents": {
+    "count": 1,
+    "list": [
+      "memory-context-agent"
+    ]
+  },
+  "skills": {
+    "count": 1,
+    "list": [
+      "context-injection"
+    ]
+  },
+  "commands": {
+    "count": 0,
+    "list": []
+  },
+  "rl_metrics": {
+    "success_rate": 0.5,
+    "selection_weight": 0.5,
+    "invocation_count": 0,
+    "avg_tokens": 0,
+    "last_updated": null
+  }
+}

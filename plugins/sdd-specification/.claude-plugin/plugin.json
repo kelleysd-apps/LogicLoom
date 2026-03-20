@@ -1,6 +1,6 @@
 {
   "name": "sdd-specification",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "SDD specification lifecycle plugin -- unified spec, plan, tasks workflow with quality gates and DS-STAR refinement.",
   "author": "kelleysd-apps",
   "license": "MIT",
@@ -11,18 +11,14 @@
     "list": []
   },
   "skills": {
-    "count": 5,
+    "count": 1,
     "list": [
-      "planning-agent",
-      "sdd-planning",
-      "sdd-specification",
-      "sdd-tasks",
       "unified-specification"
     ]
   },
   "commands": {
-    "count": 4,
-    "list": ["plan", "specification", "specify", "tasks"]
+    "count": 1,
+    "list": ["specification"]
   },
   "rl_metrics": {
     "success_rate": 0.5,

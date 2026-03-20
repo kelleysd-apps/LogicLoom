@@ -4,8 +4,8 @@
 **Last Updated**: 2026-02-15
 **Constitution**: v3.0.0 (16 Principles)
 **Architecture**: Plugin-First (v4.1) + Skill-Based Delegation
-**Total Agents**: 11
-**Plugins**: 18
+**Total Agents**: 6
+**Plugins**: 16
 
 ---
 
@@ -73,12 +73,6 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 | **prd-specialist** | PRD creation, product strategy | opus |
 | **subagent-architect** | Agent creation, SDD compliance | inherit |
 
-### sdd-debug (1 agent)
-
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| **auto-debug-agent** | Self-healing error resolution | opus |
-
 ### sdd-maintenance (1 agent)
 
 | Agent | Purpose | Model |
@@ -91,14 +85,9 @@ This file is the **Single Source of Truth (SSOT)** for agent information in the 
 |-------|---------|-------|
 | **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku |
 
-### sdd-dev-loop (4 agents)
+### sdd-dev-loop (0 agents — skill-based)
 
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| **dev-loop-orchestrator** | Recursive autonomous dev-loop with edit-test-debug cycles | opus |
-| **debug-analyst** | Analyzes test failures and proposes targeted fixes | sonnet |
-| **quality-assessor** | Multi-model tribunal voting and composite quality grading | sonnet |
-| **tribunal-judge** | Independent quality judgment for tribunal cross-validation | sonnet |
+> All 4 dev-loop agents (dev-loop-orchestrator, debug-analyst, quality-assessor, tribunal-judge) have been removed. The rewritten `core-loop` skill handles all dev-loop functionality directly.
 
 ---
 
@@ -148,11 +137,10 @@ Quick reference for delegation based on task domain:
 | **Planning** | /plan, research, contracts | sdd-planning skill | skill | sdd-specification |
 | **Tasks** | /tasks, task list, breakdown | sdd-tasks skill | skill | sdd-specification |
 | **Orchestration** | /specification (unified) | unified-specification skill | skill | sdd-specification |
-| **Debugging** | debug, error, fix, crash | auto-debug-agent | agent | sdd-debug |
 | **Agent Creation** | create agent, new agent | subagent-architect | agent | sdd-creation |
 | **Multi-Domain** | 2+ domains detected | team-orchestration skill | skill | sdd-orchestrator |
 | **Swarm** | swarm, team, parallel agents | team-orchestration skill | skill | sdd-orchestrator |
-| **Dev Loop** | /dev-loop, autonomous cycle | dev-loop-orchestrator | agent | sdd-dev-loop |
+| **Dev Loop** | /dev-loop, autonomous cycle | core-loop skill | skill | sdd-dev-loop |
 
 ---
 
@@ -167,7 +155,6 @@ Quick reference for delegation based on task domain:
 | `/tasks` | sdd-tasks skill | sdd-specification | Generate task list |
 | `/create-agent` | subagent-architect | sdd-creation | Create new agent |
 | `/create-plugin` | subagent-architect | sdd-creation | Create new plugin |
-| `/debug` | auto-debug-agent | sdd-debug | Debug deployment/runtime issues |
 | `/finalize` | - | sdd-git | Pre-commit compliance validation |
 | `/git-push` | - | sdd-git | Complete git workflow |
 | `/research` | team-synthesizer | sdd-orchestrator | Multi-LLM tribunal research (Claude, OpenAI, Gemini) |
@@ -255,17 +242,12 @@ plugins/
 ├── sdd-creation/agents/
 │   ├── prd-specialist.md
 │   └── subagent-architect.md
-├── sdd-debug/agents/
-│   └── auto-debug-agent.md
 ├── sdd-maintenance/agents/
 │   └── framework-sync-agent.md
 ├── sdd-memory/agents/
 │   └── memory-context-agent.md
-├── sdd-dev-loop/agents/
-│   ├── dev-loop-orchestrator.md
-│   ├── debug-analyst.md
-│   ├── quality-assessor.md
-│   └── tribunal-judge.md
+├── sdd-dev-loop/skills/
+│   └── core-loop/SKILL.md
 └── sdd-domain-*/skills/
     └── *-operations/SKILL.md  (7 domain skills with Task Briefs)
 ```
@@ -312,11 +294,10 @@ Writing tests? ─────────────────────�
 Security concerns? ────────────────────────→ security-operations skill (via team command)
 Performance issues? ───────────────────────→ performance-operations skill (via team command)
 Deploying/CI-CD? ──────────────────────────→ devops-operations skill (via team command)
-Debugging errors? ─────────────────────────→ auto-debug-agent
 Creating new agent? ───────────────────────→ subagent-architect (agent)
 Multi-agent swarm? ────────────────────────→ team-orchestration skill (/swarm)
 Deep research? ────────────────────────────→ /research command
-Autonomous dev loop? ──────────────────────→ dev-loop-orchestrator (agent)
+Autonomous dev loop? ──────────────────────→ core-loop skill (/dev-loop)
 Multiple domains (2+)? ───────────────────→ team-orchestration skill
 ```
 
@@ -348,6 +329,7 @@ Multiple domains (2+)? ───────────────────
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 5.1.0 | 2026-03-20 | Dead code cleanup — removed 4 orphaned dev-loop agents, sdd-debug plugin, sdd-domain-template; 6 agents, 16 plugins |
 | 5.0.0 | 2026-02-15 | Full skill-based delegation — 3 orchestrator + 4 specification agents converted to skills, added sdd-dev-loop agents, 11 agents |
 | 4.0.0 | 2026-02-15 | Skill-based domain delegation — 7 domain agents converted to skills, model mixing (Opus/Sonnet) |
 | 3.0.0 | 2026-02-07 | Plugin-First Architecture rewrite — 22 agents across 15 plugins, command bridge, marketplace |

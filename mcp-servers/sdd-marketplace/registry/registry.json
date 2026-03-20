@@ -34,34 +34,6 @@
       "avg_success_rate": 0.5
     },
     {
-      "name": "sdd-debug",
-      "version": "1.0.0",
-      "description": "Debug and troubleshooting plugin \u2014 10-step debugging workflow with auto-debug agent.",
-      "category": "core",
-      "keywords": [
-        "sdd",
-        "debug",
-        "troubleshoot",
-        "auto-debug"
-      ],
-      "dependencies": [
-        "sdd-governance"
-      ],
-      "protected": false,
-      "components": {
-        "skills": 1,
-        "agents": 1,
-        "commands": 1
-      },
-      "source": {
-        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
-        "path": "plugins/sdd-debug",
-        "type": "github-subdirectory"
-      },
-      "downloads": 0,
-      "avg_success_rate": 0.5
-    },
-    {
       "name": "sdd-domain-backend",
       "version": "1.0.0",
       "description": "SDD domain plugin for backend development workflows.",
@@ -308,7 +280,7 @@
     },
     {
       "name": "sdd-orchestrator",
-      "version": "1.0.0",
+      "version": "3.0.0",
       "description": "Multi-agent swarm orchestration plugin \u2014 /swarm command, agent team templates, cost controls, and parallel execution coordination.",
       "category": "orchestration",
       "keywords": [
@@ -324,9 +296,9 @@
       ],
       "protected": false,
       "components": {
-        "skills": 5,
-        "agents": 4,
-        "commands": 6
+        "skills": 4,
+        "agents": 1,
+        "commands": 5
       },
       "source": {
         "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
@@ -338,7 +310,7 @@
     },
     {
       "name": "sdd-specification",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "description": "SDD specification lifecycle plugin \u2014 unified spec \u2192 plan \u2192 tasks workflow with quality gates and DS-STAR refinement.",
       "category": "core",
       "keywords": [
@@ -353,9 +325,9 @@
       ],
       "protected": false,
       "components": {
-        "skills": 5,
-        "agents": 4,
-        "commands": 4
+        "skills": 1,
+        "agents": 0,
+        "commands": 1
       },
       "source": {
         "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
@@ -390,6 +362,91 @@
       "source": {
         "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
         "path": "plugins/sdd-maintenance",
+        "type": "github-subdirectory"
+      },
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-dev-loop",
+      "version": "0.1.0",
+      "description": "Recursive autonomous dev-loop plugin -- edit-test-debug cycles with multi-model tribunal voting and composite quality grading.",
+      "category": "core",
+      "keywords": [
+        "sdd",
+        "dev-loop",
+        "autonomous",
+        "tribunal",
+        "quality"
+      ],
+      "dependencies": [
+        "sdd-governance",
+        "sdd-specification",
+        "sdd-git"
+      ],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 0,
+        "commands": 1
+      },
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-dev-loop",
+        "type": "github-subdirectory"
+      },
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-memory",
+      "version": "2.0.0",
+      "description": "Memory context injection plugin -- 3-tier memory search (working/recall/archival) with pluggable backends (keyword/BM25/vector/hybrid).",
+      "category": "orchestration",
+      "keywords": [
+        "sdd",
+        "memory",
+        "context",
+        "search",
+        "hybrid"
+      ],
+      "dependencies": [],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 1,
+        "commands": 0
+      },
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-memory",
+        "type": "github-subdirectory"
+      },
+      "downloads": 0,
+      "avg_success_rate": 0.5
+    },
+    {
+      "name": "sdd-orchestrator-hook",
+      "version": "1.0.0",
+      "description": "Hook-based orchestration plugin -- domain detection, agent recommendations, governance reminders via UserPromptSubmit hook.",
+      "category": "orchestration",
+      "keywords": [
+        "sdd",
+        "orchestration",
+        "hook",
+        "domain-detection",
+        "preflight"
+      ],
+      "dependencies": [],
+      "protected": false,
+      "components": {
+        "skills": 1,
+        "agents": 0,
+        "commands": 0
+      },
+      "source": {
+        "repo": "https://github.com/kelleysd-apps/sdd-plugins-marketplace",
+        "path": "plugins/sdd-orchestrator-hook",
         "type": "github-subdirectory"
       },
       "downloads": 0,

@@ -247,19 +247,3 @@ run, regardless of which proposals were accepted.
 ## Agent Collaboration
 
 **Primary Agent**: `framework-sync-agent`
-
-## Version History
-
-| Version | Date | Changes |
-|---------|------|---------|
-| 3.0.0 | 2026-02-09 | Upstream-history-only approach, proposal-based adoption, .sdd-sync-ref tracking |
-| 2.0.0 | 2026-02-06 | Enhancement-first philosophy, 4-tier classification, additive merge |
-| 1.0.0 | 2026-01-09 | Initial framework-updater skill creation |
-
----
-
-**Skill Location**: `plugins/sdd-maintenance/skills/framework-updater/SKILL.md`
-**Command**: `/update-framework`
-**Agent**: `framework-sync-agent`
-**Category**: Integration (External framework synchronization)
-**Status**: Active

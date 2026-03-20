@@ -180,59 +180,6 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ## Technical Skills
 
-### debug
-
-**Location**: `plugins/sdd-debug/skills/sdd-debug/SKILL.md`
-
-**Purpose**: Interactive debugging workflow for Vercel deployment issues, API endpoint failures, and production runtime errors
-
-**When to Use**:
-- Vercel deployment fails (build errors, function deployment issues, 404 endpoints)
-- API endpoint errors (500 errors, timeout issues, missing routes)
-- Production runtime issues (silent failures, incorrect behavior)
-- Local vs production discrepancies (works locally but fails on Vercel)
-- TypeScript compilation errors blocking deployments
-- Serverless function issues (cold starts, memory limits, timeouts)
-- Database connection problems
-- Environment variable issues
-
-**Workflow Steps** (10-step systematic diagnosis):
-1. **Issue Identification**: Gather context, check deployment status
-2. **Local Verification**: TypeScript compilation, client build, Vercel build
-3. **Vercel-Specific Diagnostics**: Function count, config, env vars, platform dependencies
-4. **API Endpoint Diagnosis**: 404/500 analysis, routing patterns, function structure
-5. **TypeScript Error Resolution**: exactOptionalPropertyTypes, index signatures, type issues
-6. **Fix Implementation**: Apply targeted fixes based on diagnosis
-7. **Verification Process**: Clean build, test, document changes
-8. **Regression Check**: Ensure no new issues introduced
-9. **Completion Report**: Document root cause, fixes applied, verification results
-10. **Iteration Handling**: Max 5 diagnostic cycles before user escalation
-
-**Delegates To** (when specialized work identified):
-- `api-design` / `service-architecture` skills - API redesign, system architecture issues
-- `schema-design` skill - Query performance, schema-related errors
-- `security-operations` skill - Auth/authorization failures, security vulnerabilities
-- `monitoring` skill - CI/CD failures, infrastructure configuration
-
-**Specialized In**:
-- Vercel deployment failures (build errors, function limits, 404s)
-- TypeScript compilation errors (exactOptionalPropertyTypes, index signatures)
-- Platform-specific dependency issues (package-lock.json, native modules)
-- API endpoint errors (500 errors, timeouts, missing routes)
-- Production runtime issues (silent failures, environment variables)
-
-**Iteration Limit**: Maximum 5 diagnostic cycles before user escalation
-
-**Trigger Keywords**: debug, fix, broken, not working, failing, deployment failed, build error, 404, 500 error, investigate, troubleshoot, diagnose
-
-**Constitutional Compliance**:
-- **Principle II**: Verify/add tests for bug fixes
-- **Principle VI**: NO automatic git operations
-- **Principle VIII**: Update docs if debugging reveals new patterns
-- **Principle X**: Delegate to specialists when architecture/security/performance issues found
-
-**Usage**: `/debug` command or automatic invocation when error keywords detected
-
 ---
 
 ## Validation Skills

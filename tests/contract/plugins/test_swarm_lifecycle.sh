@@ -54,7 +54,7 @@ assert "agent-stop-notification.sh exists" "[ -f plugins/sdd-orchestrator/hooks/
 
 echo ""
 echo "T4.4: Orchestrator skills"
-for skill in multi-skill-workflow full-stack-feature migration-workflow tribunal-review team-orchestration; do
+for skill in multi-skill-workflow full-stack-feature migration-workflow team-orchestration; do
   assert "Skill ${skill} exists" "[ -f plugins/sdd-orchestrator/skills/${skill}/SKILL.md ]"
 done
 
