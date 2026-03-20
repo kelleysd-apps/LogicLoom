@@ -53,9 +53,8 @@ MISSING_CMDS=""
 
 for plugin_dir in plugins/*/; do
   plugin_name=$(basename "$plugin_dir")
-  [ "$plugin_name" = "sdd-domain-template" ] && continue
   [ -d "${plugin_dir}commands" ] || continue
-  
+
   for cmd_file in "${plugin_dir}commands/"*.md; do
     [ -f "$cmd_file" ] || continue
     cmd_name=$(basename "$cmd_file" .md)
@@ -118,7 +117,7 @@ done
 
 assert "All commands are bridge-generated (${BRIDGE_VALID}/${BRIDGE_TOTAL}, non-bridge=${NON_BRIDGE})" \
   "[ $NON_BRIDGE -eq 0 ] && [ $BRIDGE_VALID -eq $BRIDGE_TOTAL ]"
-assert "At least 19 bridge commands exist" "[ $BRIDGE_TOTAL -ge 19 ]"
+assert "At least 15 bridge commands exist" "[ $BRIDGE_TOTAL -ge 15 ]"
 
 # ── No Orphaned Bridge Commands ──
 echo ""
@@ -144,24 +143,6 @@ for cmd_file in .claude/commands/*.md; do
 done
 
 assert "No orphaned bridge commands" "[ $ORPHAN_COUNT -eq 0 ]"
-
-# ── Template Plugin Excluded ──
-echo ""
-echo "Template exclusion"
-TEMPLATE_BRIDGED=0
-if [ -d "plugins/sdd-domain-template/commands" ]; then
-  for cmd_file in plugins/sdd-domain-template/commands/*.md; do
-    [ -f "$cmd_file" ] || continue
-    cmd_name=$(basename "$cmd_file" .md)
-    if [ -f ".claude/commands/${cmd_name}.md" ] && head -10 ".claude/commands/${cmd_name}.md" | grep -q "$BRIDGE_MARKER"; then
-      if grep -q "sdd-domain-template" ".claude/commands/${cmd_name}.md"; then
-        TEMPLATE_BRIDGED=$((TEMPLATE_BRIDGED + 1))
-        echo "  ⚠️  Template command bridged: ${cmd_name}"
-      fi
-    fi
-  done
-fi
-assert "Template plugin commands not bridged" "[ $TEMPLATE_BRIDGED -eq 0 ]"
 
 # ── Specific Commands Exist ──
 echo ""

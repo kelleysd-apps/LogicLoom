@@ -36,15 +36,6 @@
       "status": "active",
       "file": "plugins/sdd-creation/agents/subagent-architect.md"
     },
-    "auto-debug-agent": {
-      "department": "debug",
-      "description": "Self-healing error resolution for /debug command.",
-      "created": "2025-12-01T00:00:00Z",
-      "tools": "Read, Write, Edit, Bash, Grep, Glob, TaskCreate, TaskUpdate",
-      "model": "opus",
-      "status": "active",
-      "file": "plugins/sdd-debug/agents/auto-debug-agent.md"
-    },
     "framework-sync-agent": {
       "department": "maintenance",
       "description": "Framework updates from upstream for /update-framework command.",
@@ -63,53 +54,15 @@
       "status": "active",
       "file": "plugins/sdd-memory/agents/memory-context-agent.md"
     },
-    "dev-loop-orchestrator": {
-      "department": "dev-loop",
-      "description": "Recursive autonomous dev-loop with edit-test-debug cycles.",
-      "created": "2026-02-01T00:00:00Z",
-      "tools": "Read, Write, Edit, Bash, Grep, Glob, Task, TaskCreate, TaskUpdate",
-      "model": "opus",
-      "status": "active",
-      "file": "plugins/sdd-dev-loop/agents/dev-loop-orchestrator.md"
-    },
-    "debug-analyst": {
-      "department": "dev-loop",
-      "description": "Test failure analysis and fix proposals for dev-loop.",
-      "created": "2026-02-01T00:00:00Z",
-      "tools": "Read, Grep, Glob, Bash",
-      "model": "sonnet",
-      "status": "active",
-      "file": "plugins/sdd-dev-loop/agents/debug-analyst.md"
-    },
-    "quality-assessor": {
-      "department": "dev-loop",
-      "description": "Multi-model tribunal voting, quality grading for dev-loop.",
-      "created": "2026-02-01T00:00:00Z",
-      "tools": "Read, Grep, Glob",
-      "model": "sonnet",
-      "status": "active",
-      "file": "plugins/sdd-dev-loop/agents/quality-assessor.md"
-    },
-    "tribunal-judge": {
-      "department": "dev-loop",
-      "description": "Independent quality judgment for cross-validation in dev-loop.",
-      "created": "2026-02-01T00:00:00Z",
-      "tools": "Read, Grep, Glob",
-      "model": "sonnet",
-      "status": "active",
-      "file": "plugins/sdd-dev-loop/agents/tribunal-judge.md"
-    }
   },
   "departments": {
     "governance": 1,
     "orchestration": 1,
     "creation": 2,
-    "debug": 1,
     "maintenance": 1,
-    "memory": 1,
-    "dev-loop": 4
+    "memory": 1
   },
-  "total_agents": 11,
+  "total_agents": 6,
   "architecture": "Skill-Based Delegation v5.0 + Plugin-First v4.1",
   "last_updated": "2026-02-15"
 }

@@ -148,18 +148,6 @@ marketplace-validate --plugin-name <name>
 - plugin.json
 - skills/slack-notifications/SKILL.md
 - scripts/slack-webhook.sh
-
-## RL Feedback Loop
-
-After skill execution completes:
-```
-ON SKILL COMPLETION:
-  1. Capture execution result (success/failure)
-  2. Record token usage
-  3. Update rl_metrics via EMA
-  4. Log to .docs/rl-metrics/skill-performance.json
-```
-
 ## Related Skills
 
 - **creation/create-agent**: Create agents within plugins

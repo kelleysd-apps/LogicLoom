@@ -6,7 +6,7 @@
 
 **Constitutional Principle X** requires specialized work be delegated to specialized agents or skills.
 
-**Architecture (v5.0.0)**: 11 custom agents + 14 enhanced skills with Task Briefs. Domain and workflow expertise lives in plugin SKILL.md files, injected as Task tool briefs when spawning workers.
+**Architecture (v5.1.0)**: 6 custom agents + 14 enhanced skills with Task Briefs. Domain and workflow expertise lives in plugin SKILL.md files, injected as Task tool briefs when spawning workers.
 
 **Quick Rule**: Domain keywords → skill delegation (via team commands). Non-domain work → agent delegation.
 
@@ -48,13 +48,12 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 | Multi-Domain | 2+ domains | team-orchestration skill | skill |
 | Swarm | /swarm, parallel agents | team-orchestration skill | skill |
 | PRD/Product | PRD, product, vision | prd-specialist | agent |
-| Debugging | debug, error, crash | auto-debug-agent | agent |
 | Agent Creation | create agent/plugin | subagent-architect | agent |
-| Dev Loop | /dev-loop, autonomous cycle | dev-loop-orchestrator | agent |
+| Dev Loop | /dev-loop, autonomous cycle | core-loop skill | skill |
 
 ---
 
-## Agent Registry (11 agents)
+## Agent Registry (6 agents)
 
 ### sdd-governance (1)
 - **constitutional-governance-agent** — Primary entry point, governance enforcement (opus)
@@ -67,20 +66,14 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 - **prd-specialist** — PRD creation, product strategy (opus)
 - **subagent-architect** — Agent/plugin creation, SDD compliance (inherit)
 
-### sdd-debug (1)
-- **auto-debug-agent** — Self-healing error resolution (opus)
-
 ### sdd-maintenance (1)
 - **framework-sync-agent** — Framework updates from upstream (opus)
 
 ### sdd-memory (1)
 - **memory-context-agent** — Memory search + context injection via preflight hook (haiku)
 
-### sdd-dev-loop (4)
-- **dev-loop-orchestrator** — Recursive autonomous dev-loop (opus)
-- **debug-analyst** — Test failure analysis and fix proposals (sonnet)
-- **quality-assessor** — Multi-model tribunal voting, quality grading (sonnet)
-- **tribunal-judge** — Independent quality judgment for cross-validation (sonnet)
+### sdd-dev-loop (0 — skill-based)
+> All dev-loop agents removed. The `core-loop` skill handles all dev-loop functionality.
 
 ---
 
@@ -111,13 +104,12 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 | `/plan` | sdd-planning skill | sdd-specification |
 | `/tasks` | sdd-tasks skill | sdd-specification |
 | `/create-agent` | subagent-architect (agent) | sdd-creation |
-| `/debug` | auto-debug-agent (agent) | sdd-debug |
 | `/research` | team-synthesizer (agent) | sdd-orchestrator |
 | `/swarm` | team-orchestration skill | sdd-orchestrator |
 | `/build-team` | team-orchestration skill | sdd-orchestrator |
 | `/fullstack-team` | team-orchestration skill | sdd-orchestrator |
 | `/review-team` | team-orchestration skill | sdd-orchestrator |
-| `/dev-loop` | dev-loop-orchestrator (agent) | sdd-dev-loop |
+| `/dev-loop` | core-loop skill | sdd-dev-loop |
 | `/update-framework` | framework-sync-agent (agent) | sdd-maintenance |
 
 ---
@@ -132,8 +124,6 @@ START → Analyze task keywords
 1 domain keyword? → YES → Load domain skill brief via team command
   ↓ NO
 Specification work? → YES → appropriate spec skill
-  ↓ NO
-Debugging? → YES → auto-debug-agent
   ↓ NO
 Execute directly (simple task, no domain specialization needed)
 ```

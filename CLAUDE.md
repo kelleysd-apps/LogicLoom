@@ -17,7 +17,7 @@ This framework uses **modular context loading** for 37% token efficiency improve
 |--------|---------|--------------|
 | **core.md** | Pre-flight protocol, MCP toolkit, constitution reference | Every session (redundant with this file) |
 | **agents.md** | Agent registry, delegation protocol, multi-agent workflows | Multi-agent tasks, delegation |
-| **skills.md** | Skill documentation, slash commands, workflows | Using /specify, /plan, /tasks |
+| **skills.md** | Skill documentation, slash commands, workflows | Using /specification |
 | **workflows.md** | SDD workflows, feature development lifecycle | Feature work |
 | **governance.md** | Constitutional principles, git operations, compliance | Git operations, quality gates |
 
@@ -81,9 +81,7 @@ Constitutional Compliance Check:
 | Security | encryption, XSS, secrets, vulnerability | sdd-domain-security:security-operations skill |
 | Performance | optimize, cache, benchmark, latency | sdd-domain-performance:performance-operations skill |
 | DevOps | deploy, CI/CD, Docker, pipeline | sdd-domain-devops:devops-operations skill |
-| Specification | spec, requirements, user story | sdd-specification skill |
-| Planning | /plan, research, contract design | sdd-planning skill |
-| Tasks | /tasks, task list, dependencies | sdd-tasks skill |
+| Specification | spec, requirements, user story, /plan, /tasks | unified-specification skill |
 | Multi-Domain | 2+ domains detected | team-orchestration skill |
 
 ### Violation Self-Correction
@@ -153,7 +151,6 @@ This is a specification-driven development framework that uses structured templa
 | `/create-prd` | Create Product Requirements Document | sdd-creation |
 | `/create-agent` | Create specialized subagent | sdd-creation |
 | `/create-plugin` | Create new SDD plugin | sdd-creation |
-| `/debug` | Debug deployment/runtime issues | sdd-debug |
 | `/finalize` | Pre-commit compliance validation | sdd-git |
 | `/research` | Multi-LLM tribunal research (Claude, OpenAI, Gemini) | sdd-orchestrator |
 | `/swarm` | Multi-agent swarm execution | sdd-orchestrator |
@@ -162,9 +159,6 @@ This is a specification-driven development framework that uses structured templa
 | `/review-team` | Parallel security+quality+performance review | sdd-orchestrator |
 | `/update-framework` | Check and apply upstream enhancements | sdd-maintenance |
 | `/initialize-project` | Post-PRD project customization | sdd-maintenance |
-| `/specify` | Create feature spec *(deprecated — use /specification)* | sdd-specification |
-| `/plan` | Generate plan *(deprecated — use /specification)* | sdd-specification |
-| `/tasks` | Generate tasks *(deprecated — use /specification)* | sdd-specification |
 
 For detailed workflow documentation, load the workflows module:
 ```bash
@@ -212,7 +206,7 @@ The framework uses **Docker MCP Toolkit** as the primary MCP orchestration metho
 **Constitutional Principle X** requires specialized work be delegated to specialized agents.
 
 **See `AGENTS.md`** for complete agent registry including:
-- All 11 agents across 18 plugins (14 agents converted to enhanced skills)
+- All 6 agents across 16 plugins (14 agents converted to enhanced skills)
 - Agent capabilities and tools
 - Domain -> agent mapping (detailed)
 - Slash command -> agent mapping
@@ -268,11 +262,10 @@ and orchestration guidance are injected via the `UserPromptSubmit` preflight hoo
 
 plugins/                               # Plugin-First Architecture (v4.1)
   sdd-governance/                      # Protected — constitutional enforcement
-  sdd-specification/                   # /specification, /plan, /tasks
+  sdd-specification/                   # /specification (unified workflow)
   sdd-orchestrator/                    # /swarm, /research, team commands
   sdd-creation/                        # /create-agent, /create-plugin, /create-prd
   sdd-git/                             # /git-push, /finalize
-  sdd-debug/                           # /debug
   sdd-maintenance/                     # /update-framework, /initialize-project
   sdd-domain-*/                        # 7 domain specialist plugins
 
@@ -430,15 +423,14 @@ All framework capabilities are organized as **discrete installable plugins** at 
 | Plugin | Category | Skills | Agents | Commands |
 |--------|----------|--------|--------|----------|
 | `sdd-governance` | governance | 6 | 1 | 0 |
-| `sdd-specification` | core | 5 | 0 | 4 |
-| `sdd-orchestrator` | orchestration | 7 | 1 | 6 |
+| `sdd-specification` | core | 1 | 0 | 1 |
+| `sdd-orchestrator` | orchestration | 4 | 1 | 5 |
 | `sdd-orchestrator-hook` | orchestration | 1 | 0 | 0 |
 | `sdd-memory` | orchestration | 1 | 1 | 0 |
 | `sdd-creation` | core | 5 | 2 | 4 |
 | `sdd-git` | core | 2 | 0 | 2 |
-| `sdd-debug` | core | 1 | 1 | 1 |
 | `sdd-maintenance` | core | 3 | 1 | 2 |
-| `sdd-dev-loop` | core | 1 | 4 | 1 |
+| `sdd-dev-loop` | core | 1 | 0 | 1 |
 | `sdd-domain-*` | domain | 1-4 | 0 | 0 |
 
 ### Plugin Command Bridge
