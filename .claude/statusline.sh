@@ -3,6 +3,12 @@
 # Modernized Status Line Script for Claude Code
 # Supports stdin JSON (primary) + session file fallback
 # Handles all git states, expanded model/tool detection
+#
+# Optional upgrade for Pro/Max subscribers:
+#   npm install -g ccstatusline
+#   Then update .claude/settings.json statusLine to use ccstatusline for
+#   subscription usage tracking (session %, weekly %, block reset timer).
+#   See: https://github.com/sirmalloc/ccstatusline
 
 set -euo pipefail
 

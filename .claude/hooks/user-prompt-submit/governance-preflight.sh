@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # UserPromptSubmit Hook: Orchestration Guidance + Memory Context Injection
-# Version: 3.0.0 (Feature 005 - Agent Architecture Refactor)
+# Version: 3.1.0 (Compact injection — governance in CLAUDE.md, hook only adds new info)
+# Constitution: v3.0.0 (16 principles)
 #
 # Provides Claude Code with orchestration guidance and memory context via
 # additionalContext injection. Does NOT override Claude Code's native capabilities.
@@ -112,6 +113,9 @@ CMDEOF
 }
 
 # Generate orchestration guidance
+# v3.1.0: Compact injection — governance protocol is already in CLAUDE.md,
+# so only inject NEW information (domain detection, command routing, memory).
+# Skip injection entirely when no domains and no commands detected.
 generate_orchestration_guidance() {
     local message="$1"
     local domain_result="$2"
@@ -128,7 +132,6 @@ generate_orchestration_guidance() {
     if [ "$domain_count" -eq 0 ]; then
         delegation="direct execution"
     elif [ "$domain_count" -eq 1 ]; then
-        # Check if skill-based (contains :) or agent-based
         if echo "$delegates" | grep -q ':'; then
             delegation="delegate to $delegates skill (load Task Brief via extract_skill_brief)"
         else
@@ -138,53 +141,13 @@ generate_orchestration_guidance() {
         delegation="team-orchestration (multi-domain: $domains)"
     fi
 
-    cat <<EOF
+    # Skip injection entirely if no domains and no command detected
+    if [ "$domain_count" -eq 0 ] && [ -z "$command_name" ]; then
+        return
+    fi
 
----
-
-**CONSTITUTIONAL GOVERNANCE REMINDER**
-
-You are operating under the Specification-Driven Development Constitution v3.0.0 with 16 enforceable principles.
-
-**MANDATORY PRE-FLIGHT CHECK (4 Steps):**
-
-1. **CONSTITUTION ACKNOWLEDGMENT**
-   - Confirm awareness of all 16 principles (I-XVI)
-   - Key principles: II (Test-First), VI (Git Approval), X (Agent Delegation)
-
-2. **DOMAIN ANALYSIS**
-   - Scan message for domain keywords
-   - Identify: frontend, backend, database, testing, security, performance, etc.
-
-3. **DELEGATION DECISION**
-   - 0 domains -> may execute directly
-   - 1 domain -> MUST activate specialist skill
-   - 2+ domains -> MUST activate team-orchestration skill
-
-4. **EXECUTION AUTHORIZATION**
-   - Confirm all steps complete
-   - Output compliance summary
-   - Proceed with action
-
-**CRITICAL PRINCIPLES:**
-- **Principle VI (IMMUTABLE)**: NO autonomous git operations without explicit user approval
-- **Principle X (CRITICAL)**: Specialized work -> specialist skills
-- **Principle II (IMMUTABLE)**: TDD mandatory, >80% coverage
-- **Principle XVI**: Plugin-First Architecture -- all capabilities as plugins
-
-**Compliance Summary Format:**
-\`\`\`
-Constitutional Compliance Check:
-- Domain(s): [none | single: <domain> | multi: <domains>]
-- Delegation: [direct execution | <skill-name>]
-- Git operations: [none planned | will request approval]
-- Proceeding with: [action description]
-\`\`\`
-
-EOF
-
-    # Add domain detection results if any domains found
-    if [ -n "$domains" ] && [ "$domains" != "" ]; then
+    # Compact output — only domain detection + command routing (no governance boilerplate)
+    if [ "$domain_count" -gt 0 ]; then
         cat <<EOF
 
 **DOMAIN DETECTION** (auto-detected from message):

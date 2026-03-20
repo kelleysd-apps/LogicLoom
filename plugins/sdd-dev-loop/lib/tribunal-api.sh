@@ -31,10 +31,14 @@ _TRIBUNAL_CLAUDE_MODEL="${TRIBUNAL_CLAUDE_MODEL:-claude-sonnet-4-5-20250929}"
 _TRIBUNAL_OPENAI_MODEL="${TRIBUNAL_OPENAI_MODEL:-gpt-4o}"
 _TRIBUNAL_GEMINI_MODEL="${TRIBUNAL_GEMINI_MODEL:-gemini-2.5-pro}"
 
+# Shared fallback model (Mistral Large — fills any single failed primary slot)
+_TRIBUNAL_MISTRAL_MODEL="${TRIBUNAL_MISTRAL_MODEL:-mistral-large-latest}"
+
 # API endpoints
 _ANTHROPIC_API_URL="https://api.anthropic.com/v1/messages"
 _OPENAI_API_URL="https://api.openai.com/v1/chat/completions"
 _GEMINI_API_BASE="https://generativelanguage.googleapis.com/v1beta/models"
+_MISTRAL_API_URL="https://api.mistral.ai/v1/chat/completions"
 
 # Timeouts and limits
 _API_TIMEOUT_SECONDS="${TRIBUNAL_API_TIMEOUT:-60}"
@@ -45,6 +49,7 @@ _MAX_TOKENS="${TRIBUNAL_MAX_TOKENS:-2048}"
 _CLAUDE_COST_PER_1K=0.003
 _OPENAI_COST_PER_1K=0.005
 _GEMINI_COST_PER_1K=0.00125
+_MISTRAL_COST_PER_1K=0.002
 
 # ==============================================================================
 # Module State
@@ -54,6 +59,7 @@ _GEMINI_COST_PER_1K=0.00125
 _ANTHROPIC_API_KEY=""
 _OPENAI_API_KEY=""
 _GEMINI_API_KEY=""
+_MISTRAL_API_KEY=""
 
 # Cost accumulator for the session
 _TRIBUNAL_TOTAL_COST="0"
@@ -140,6 +146,7 @@ load_api_keys() {
                 ANTHROPIC_API_KEY) _ANTHROPIC_API_KEY="$value" ;;
                 OPENAI_API_KEY)    _OPENAI_API_KEY="$value" ;;
                 GEMINI_API_KEY)    _GEMINI_API_KEY="$value" ;;
+                MISTRAL_API_KEY)   _MISTRAL_API_KEY="$value" ;;
             esac
         done < "$env_file"
     fi
@@ -148,6 +155,7 @@ load_api_keys() {
     [[ -n "${ANTHROPIC_API_KEY:-}" ]] && _ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY"
     [[ -n "${OPENAI_API_KEY:-}" ]]    && _OPENAI_API_KEY="$OPENAI_API_KEY"
     [[ -n "${GEMINI_API_KEY:-}" ]]    && _GEMINI_API_KEY="$GEMINI_API_KEY"
+    [[ -n "${MISTRAL_API_KEY:-}" ]]   && _MISTRAL_API_KEY="$MISTRAL_API_KEY"
 
     # Count loaded keys
     local loaded=0
@@ -460,6 +468,70 @@ call_gemini_api() {
 }
 
 # ==============================================================================
+# call_mistral_api — Mistral API wrapper (OpenAI-compatible Chat Completions)
+# ==============================================================================
+# Usage: call_mistral_api <system_prompt> <user_message> [max_tokens]
+#
+# Shared fallback for any single failed primary provider. Uses Mistral's
+# OpenAI-compatible chat completions endpoint.
+#
+# Arguments:
+#   system_prompt — System-level instruction text
+#   user_message  — User message content
+#   max_tokens    — Optional max tokens (default: $_MAX_TOKENS)
+#
+# Outputs: Raw JSON response from the Mistral API
+# Returns: 0 on success, 1 on failure
+call_mistral_api() {
+    local system_prompt="$1"
+    local user_message="$2"
+    local max_tokens="${3:-$_MAX_TOKENS}"
+
+    if [[ -z "$_MISTRAL_API_KEY" ]]; then
+        echo '{"error":"MISTRAL_API_KEY not set","provider":"mistral"}' >&2
+        return 1
+    fi
+
+    local request_body
+    request_body=$(jq -n \
+        --arg model "$_TRIBUNAL_MISTRAL_MODEL" \
+        --argjson max_tokens "$max_tokens" \
+        --arg system "$system_prompt" \
+        --arg user "$user_message" \
+        '{
+            model: $model,
+            max_tokens: $max_tokens,
+            messages: [
+                { role: "system", content: $system },
+                { role: "user", content: $user }
+            ]
+        }')
+
+    local response
+    response=$(curl -s --max-time "$_API_TIMEOUT_SECONDS" \
+        -H "Authorization: Bearer $_MISTRAL_API_KEY" \
+        -H "Content-Type: application/json" \
+        -d "$request_body" \
+        "$_MISTRAL_API_URL" 2>/dev/null)
+
+    if [[ -z "$response" ]]; then
+        echo '{"error":"Empty response from Mistral API","provider":"mistral"}' >&2
+        return 1
+    fi
+
+    # Check for API error
+    local error_msg
+    error_msg=$(echo "$response" | jq -r '.error.message // empty' 2>/dev/null)
+    if [[ -n "$error_msg" ]]; then
+        echo "$response" >&2
+        return 1
+    fi
+
+    echo "$response"
+    return 0
+}
+
+# ==============================================================================
 # normalize_response — Convert provider-specific response to common schema
 # ==============================================================================
 # Usage: normalize_response <provider> <raw_response>
@@ -511,6 +583,17 @@ normalize_response() {
             candidates_token_count=$(echo "$raw_response" | jq -r '.usageMetadata.candidatesTokenCount // 0' 2>/dev/null)
             tokens_used=$((prompt_token_count + candidates_token_count))
             cost=$(_estimate_cost "$tokens_used" "$_GEMINI_COST_PER_1K")
+            ;;
+
+        mistral)
+            # Mistral OpenAI-compatible Chat Completions response format
+            content=$(echo "$raw_response" | jq -r '.choices[0].message.content // ""' 2>/dev/null)
+            model=$(echo "$raw_response" | jq -r '.model // ""' 2>/dev/null)
+            local m_prompt_tokens m_completion_tokens
+            m_prompt_tokens=$(echo "$raw_response" | jq -r '.usage.prompt_tokens // 0' 2>/dev/null)
+            m_completion_tokens=$(echo "$raw_response" | jq -r '.usage.completion_tokens // 0' 2>/dev/null)
+            tokens_used=$((m_prompt_tokens + m_completion_tokens))
+            cost=$(_estimate_cost "$tokens_used" "$_MISTRAL_COST_PER_1K")
             ;;
 
         *)
@@ -672,6 +755,39 @@ call_all_models_parallel() {
             parallel: $parallel,
             timestamp: $timestamp
         }'
+
+    # Mistral fallback: if exactly 1 primary failed and Mistral key is available,
+    # fill the failed slot with Mistral Large
+    local failed_count
+    failed_count=$(echo "$failed_providers" | jq 'length')
+
+    if [[ "$failed_count" -eq 1 && -n "$_MISTRAL_API_KEY" ]]; then
+        local failed_provider
+        failed_provider=$(echo "$failed_providers" | jq -r '.[0]')
+        echo "FALLBACK: $failed_provider failed, attempting Mistral Large fill..." >&2
+
+        local mistral_raw mistral_norm
+        mistral_raw=$(call_mistral_api "$system_prompt" "$user_message" "$max_tokens" 2>/dev/null) || true
+
+        if [[ -n "$mistral_raw" ]]; then
+            mistral_norm=$(normalize_response "mistral" "$mistral_raw" 2>/dev/null) || true
+            local mistral_content
+            mistral_content=$(echo "$mistral_norm" | jq -r '.content // empty' 2>/dev/null)
+
+            if [[ -n "$mistral_content" ]]; then
+                results=$(echo "$results" | jq --argjson item "$mistral_norm" '. + [$item]')
+                succeeded=$((succeeded + 1))
+                failed_providers="[]"
+                echo "FALLBACK: Mistral Large filled $failed_provider slot successfully" >&2
+            else
+                echo "HALT: Mistral fallback returned empty content — all backups exhausted" >&2
+            fi
+        else
+            echo "HALT: Mistral fallback failed — all backups exhausted" >&2
+        fi
+    elif [[ "$failed_count" -ge 2 ]]; then
+        echo "HALT: $failed_count primaries failed — backups exhausted, check API keys before retrying" >&2
+    fi
 
     # Apply graceful degradation rules
     if [[ $succeeded -lt 2 ]]; then
