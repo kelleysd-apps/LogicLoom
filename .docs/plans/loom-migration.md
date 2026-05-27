@@ -1,10 +1,10 @@
 # Loom Migration Plan
 
 **From**: `sdd-agentic-framework` v5.0.0 (SDD specification waterfall)
-**To**: `loom` — vision → PRD → plan → swarm dev workflow
-**Style**: Hard cutover, single migration branch, ~17 staged commits with verification between each
+**To**: `logic-loom` (brand: **LogicLoom**) — vision → PRD → plan → swarm primary path, with SDD waterfall preserved as legacy
+**Style**: Supplementary on workflow (no SDD tool deletions), hard cutover on rename, ~13 staged commits with verification between each
 **Authored**: 2026-05-01
-**Amended**: 2026-05-01 (v2 — gstack cross-research integrated; 4 patterns folded in: office-hours forcing questions, `/plan-review`, `/retro`, `/freeze` write-scope; swarm-style parallel authoring callouts at Stages 11/13/14)
+**Amended**: 2026-05-01 (v2 — gstack patterns); 2026-05-27 (v3 — supplementary-not-subtractive pivot, project name `logic-loom`, cut only marketplace overbuild + RL telemetry, keep all user-facing tools as legacy alternatives, defer to Anthropic Claude Code marketplace + Docker MCP Toolkit for 3rd-party discovery)
 
 ---
 
@@ -12,8 +12,11 @@
 
 | Decision | Locked value |
 |---|---|
-| Project name | **`loom`** |
-| `.specify/` folder rename | **`.loom/`** |
+| Project name (technical) | **`logic-loom`** (was `loom` — collision with loom.com) |
+| Brand (human-facing) | **LogicLoom** |
+| `.specify/` folder rename | **`.logic-loom/`** |
+| Marketplace strategy (v3) | Cut our `sdd-marketplace` MCP entirely; defer to Anthropic Claude Code Plugin Marketplace + Docker MCP Toolkit for 3rd-party discovery; bundle LogicLoom plugins in repo |
+| Workflow strategy (v3) | **Supplementary**: keep `/specification`, `/build-team`, `/fullstack-team`, `/dev-loop`, `/finalize`, validators, DS-STAR, domain plugins, templates, `specs/` — all as **legacy alternatives**. Add vision/PRD/plan/swarm as **primary documented path** |
 | Token cap | **800K of 1M default context** |
 | Phase 7 (test failure) recovery | Direct debug loop with agent (no formal re-plan trigger) |
 | Evaluator placement | Folded into `/review-team` |
@@ -39,10 +42,10 @@
 | # | Stage | Risk | Reversible? | Parallel? |
 |---|---|---|---|---|
 | 0 | Pre-flight (snapshot, branch, baseline) | Low | Trivial | No |
-| 1 | DELETE leaf items (4 plugins, 4 commands, marketplace) | Low | Yes (revert commit) | No |
-| 2 | DELETE 7 sdd-domain-* plugins | Low | Yes | No |
-| 3 | DELETE `/specification` waterfall + validators + DS-STAR | Medium | Yes | No |
-| 4 | DELETE RL infrastructure + remove rl-metrics-capture hook | Medium | Yes | No |
+| 1 | DELETE **marketplace overbuild only** (mcp-servers/sdd-marketplace + .mcp.json entry) — v3 scope | Low | Yes (revert commit) | No |
+| ~~2~~ | ~~DELETE 7 sdd-domain-* plugins~~ — **DROPPED v3**: keep as legacy per supplementary principle | — | — | — |
+| ~~3~~ | ~~DELETE /specification waterfall + validators + DS-STAR~~ — **DROPPED v3**: keep as legacy per supplementary principle | — | — | — |
+| 4 | DELETE RL telemetry only (internal): .specify/scripts/bash/rl/ + rl-metrics-capture hook + rl_metrics manifest fields + .docs/rl-metrics/ + src/sdd/feedback,metrics/ | Medium | Yes | No |
 | 5 | ADD `features/` folder convention + templates | Low | Trivial | No |
 | 6 | MODIFY `/swarm` — add `explore` and `implement` modes | Medium | Yes | No |
 | 7 | MODIFY `/create-prd` — retarget + add office-hours forcing gate (gstack-A) | Medium | Yes | No |

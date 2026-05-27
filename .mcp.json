@@ -23,18 +23,6 @@
         "chrome-devtools-mcp@latest"
       ],
       "description": "Chrome DevTools debugging via MCP"
-    },
-    "sdd-marketplace": {
-      "type": "stdio",
-      "command": "node",
-      "args": [
-        "mcp-servers/sdd-marketplace/src/index.js"
-      ],
-      "description": "SDD Plugin Marketplace \u2014 search, install, update, and validate plugins",
-      "env": {
-        "SDD_PLUGINS_DIR": "./plugins",
-        "SDD_REGISTRY_URL": "https://github.com/kelleysd-apps/sdd-plugins-marketplace"
-      }
     }
   }
 }
