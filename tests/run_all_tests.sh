@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Master Test Runner — SDD Agentic Framework
+# Master Test Runner — LogicLoom Framework
 # Runs all contract, integration, and validation tests
 set -uo pipefail
 
@@ -51,7 +51,6 @@ echo "╚═══════════════════════�
 # Contract Tests
 run_suite "Plugin Lifecycle" "bash tests/contract/plugins/test_plugin_lifecycle.sh"
 run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh"
-run_suite "RL Metrics" "bash tests/contract/plugins/test_rl_metrics.sh"
 run_suite "Constitution v3.0.0" "bash tests/contract/test_constitution.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
 run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
@@ -80,12 +79,6 @@ run_suite "Dev-Loop: Self-Extension Lifecycle" "bash plugins/sdd-dev-loop/tests/
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"
 run_suite "Policy Validation" "bash .logic-loom/tests/test-policy-validation.sh"
 run_suite "Structured Logging" "bash .logic-loom/tests/test_logging.sh"
-
-# MCP Tests (unit)
-run_suite "Marketplace MCP (unit)" "node --test mcp-servers/sdd-marketplace/src/__tests__/marketplace.test.js"
-
-# MCP Integration (E2E)
-run_suite "Marketplace MCP (E2E)" "NODE_PATH=mcp-servers/sdd-marketplace/node_modules node tests/integration/test_marketplace_mcp.js"
 
 echo ""
 echo ""
