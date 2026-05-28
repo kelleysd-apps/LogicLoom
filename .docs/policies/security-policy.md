@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy establishes security standards and practices for the SDD Framework, ensuring all applications built with this framework follow security-by-default principles.
+This policy establishes security standards and practices for the LogicLoom framework, ensuring all applications built with this framework follow security-by-default principles.
 
 ---
 

@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy establishes Git branching standards and workflows for the SDD Framework, ensuring clean history, collaborative development, and safe integration following constitutional principles.
+This policy establishes Git branching standards and workflows for the LogicLoom framework, ensuring clean history, collaborative development, and safe integration following constitutional principles.
 
 ---
 
@@ -24,7 +24,7 @@ This policy enforces:
 
 ## Scope
 
-All Git repositories using the SDD Framework must follow this branching strategy, including:
+All Git repositories using the LogicLoom framework must follow this branching strategy, including:
 - Application repositories
 - Library repositories
 - Infrastructure repositories
@@ -96,7 +96,7 @@ All Git repositories using the SDD Framework must follow this branching strategy
 - `042-pagination-api`
 - `123-fix-memory-leak`
 
-**SDD Framework Convention** (when user approves):
+**LogicLoom Convention** (when user approves):
 - User specifies feature description
 - System generates: `###-feature-name`
 - Format: 3-digit number + kebab-case description
@@ -250,7 +250,7 @@ main
 - Continuous deployment
 - Simple release process
 
-**SDD Framework Default**: GitHub Flow
+**LogicLoom Default**: GitHub Flow
 
 ### Git Flow (Optional for Large Teams)
 
@@ -372,7 +372,7 @@ fix bug
 WIP
 ```
 
-### SDD Framework Commits
+### LogicLoom Commits
 
 Include framework attribution:
 
@@ -611,12 +611,12 @@ fi
 
 **Scripts**: All automation scripts must request approval before git operations
 
-### SDD Framework Branch Creation
+### Framework Branch Creation
 
-When user invokes `/specify` command:
+When user invokes a feature-bootstrapping command (`/create-prd`, `/swarm explore`, or legacy `/specification`):
 
 1. **Ask user**: "Would you like to create a new feature branch?"
-2. **If yes**, ask: "What branch name format? (###-feature-name suggested)"
+2. **If yes**, ask: "What branch name format? (feature-name for LogicLoom, ###-feature-name for legacy SDD)"
 3. **User approves**: Create branch
 4. **User denies**: Use current branch
 
@@ -756,23 +756,37 @@ npm test || exit 1
 
 ---
 
-## Integration with SDD Framework
+## Integration with LogicLoom Framework
 
-### /specify Command
+### LogicLoom Flow (primary)
 
-Respects Principle VI:
-1. User invokes: `/specify "User authentication feature"`
+`/create-prd` and `/swarm explore` respect Principle VI:
+1. User invokes: `/create-prd "User authentication feature"` (or `/swarm explore ...`)
 2. System asks: "Create new feature branch?"
 3. User approves: "Yes"
-4. System asks: "Branch name format? (suggest: 001-user-authentication)"
-5. User confirms: "001-user-authentication"
-6. System creates: `git checkout -b 001-user-authentication main`
-7. System creates: `specs/001-user-authentication/spec.md`
+4. System asks: "Branch name? (suggest: user-authentication)"
+5. User confirms: "user-authentication"
+6. System creates: `git checkout -b user-authentication main`
+7. System creates: `features/user-authentication/vision.md` (and later `plan.md`)
+
+### Legacy SDD Flow (preserved)
+
+`/specification` respects Principle VI:
+1. User invokes: `/specification "User authentication feature"`
+2. System creates branch `001-user-authentication` and `specs/001-user-authentication/spec.md`
 
 ### Feature Directories
 
-Branch name matches specs directory:
+Branch name matches feature directory:
 ```
+LogicLoom:
+Branch: user-authentication
+Features: features/user-authentication/
+          ├── vision.md
+          ├── plan.md
+          └── retro.md
+
+Legacy SDD:
 Branch: 001-user-authentication
 Specs:  specs/001-user-authentication/
         ├── spec.md

@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy defines the relationship, responsibilities, and tandem update rules for the two primary AI instruction files in the SDD Framework:
+This policy defines the relationship, responsibilities, and tandem update rules for the two primary AI instruction files in the LogicLoom framework:
 - `CLAUDE.md` - Workflow rules and compliance protocols
 - `AGENTS.md` - Agent registry and selection guidance
 

@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy establishes comprehensive rules for file creation, folder organization, and directory structure management across the SDD Framework. It ensures consistency, discoverability, and maintainability as projects scale.
+This policy establishes comprehensive rules for file creation, folder organization, and directory structure management across the LogicLoom framework. It ensures consistency, discoverability, and maintainability as projects scale.
 
 ---
 
@@ -56,14 +56,17 @@ project-root/
 │   ├── policies/               # Framework policies
 │   └── prd/                    # Product Requirements Documents
 │
-├── .logic-loom/                   # SDD Framework core
+├── .logic-loom/                   # LogicLoom framework core
 │   ├── config/                 # Framework configuration
 │   ├── memory/                 # Constitutional documents
 │   ├── scripts/                # Automation scripts
 │   └── templates/              # Document templates
 │
-├── specs/                      # Feature specifications
-│   └── ###-feature-name/       # Per-feature spec directory
+├── features/                   # LogicLoom per-feature folders (primary)
+│   └── <name>/                 # e.g., user-auth/ — vision, plan, retro
+│
+├── specs/                      # Legacy SDD feature specifications
+│   └── ###-feature-name/       # Per-feature spec directory (legacy SDD)
 │
 ├── src/                        # Source code
 │   └── [project-specific]      # Application code
@@ -175,7 +178,24 @@ project-root/
 - Include version, date, and authority header
 - Reference constitutional principles
 
-### specs/ - Feature Specifications
+### features/ - LogicLoom Feature Folders (Primary)
+
+**Structure**:
+```
+features/
+└── <feature-name>/             # e.g., user-auth/ (kebab-case, no number prefix)
+    ├── vision.md               # Feature vision (PRD-lite, intent + acceptance)
+    ├── plan.md                 # DAG plan from /swarm explore
+    ├── retro.md                # Post-completion retrospective (/retro)
+    └── notes/                  # Optional working notes, research, artifacts
+```
+
+**Rules**:
+- Directory name: `<feature-name>` (kebab-case, no sequential prefix)
+- Created via `/create-prd` or `/swarm explore` workflow
+- Coexists with legacy `specs/` per v3 supplementary principle
+
+### specs/ - Legacy SDD Feature Specifications
 
 **Structure**:
 ```
@@ -192,11 +212,11 @@ specs/
         └── auth.yaml
 ```
 
-**Rules**:
+**Rules** (legacy SDD workflow, preserved per v3 supplementary principle):
 - Feature number prefix (###) is sequential
 - Directory name: `###-feature-name` (kebab-case)
 - All files use templates from `.logic-loom/templates/`
-- Created via `/specify` command, not manually
+- Created via `/specification` command (legacy SDD waterfall)
 
 ### src/ - Source Code
 
@@ -452,7 +472,8 @@ All agents MUST:
 | Skill | `.claude/skills/[category]/[skill]/SKILL.md` |
 | Command | `.claude/commands/[command].md` |
 | Policy | `.docs/policies/[topic]-policy.md` |
-| Feature spec | `specs/###-[name]/` |
+| LogicLoom feature | `features/<name>/` (primary) |
+| Legacy SDD spec | `specs/###-[name]/` (legacy) |
 | Template | `.logic-loom/templates/[name]-template.md` |
 
 ### Creation Commands
@@ -464,8 +485,12 @@ All agents MUST:
 # Create skill folder
 mkdir -p .claude/skills/[category]/[skill-name]
 
-# Create feature (use command)
-/specify [feature-name]
+# Create LogicLoom feature (primary)
+/create-prd [feature-name]      # bootstraps features/<name>/vision.md
+/swarm explore [feature-name]   # produces features/<name>/plan.md
+
+# Create legacy SDD feature spec (legacy waterfall)
+/specification [feature-name]   # bootstraps specs/###-<name>/
 ```
 
 ---

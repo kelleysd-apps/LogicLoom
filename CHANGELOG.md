@@ -1,9 +1,61 @@
 # Changelog
 
-All notable changes to the SDD Agent Framework will be documented in this file.
+All notable changes to LogicLoom (formerly the SDD Agent Framework) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [6.0.0] - 2026-05-27
+
+**Major release**: LogicLoom rename + workflow modernization. Project renamed `sdd-agentic-framework` → `logic-loom` (brand: **LogicLoom**); `.specify/` → `.logic-loom/`. The rename disambiguates from the loom.com video platform.
+
+### Renamed
+
+- Project package: `sdd-agentic-framework` → `logic-loom`
+- Brand: **LogicLoom**
+- Framework directory: `.specify/` → `.logic-loom/` (all script and config paths updated)
+
+### Added — LogicLoom primary workflow
+
+- **`features/<feature-name>/` layout**: vision → exploration → research → PRD → plan → plan-review → sprints → retro (see `features/README.md`)
+- **`/plan-review` skill** (sdd-orchestrator): CEO + Eng reviewer verdict on `plan.md` — gates `/swarm implement`
+- **`/retro` skill** (sdd-orchestrator): post-feature learning capture
+- **Vision-driven `/create-prd`**: auto-detects whether `vision.md` exists and routes to vision-driven or legacy PRD mode; office-hours forcing-questions gate
+- **3 new hooks**:
+  - `worktree-port-namespace` — deterministic per-worktree dev-server port ranges (no collision across parallel branches)
+  - `context-cap-warn` — flags sessions approaching 800K of the 1M context window
+  - `freeze-write-scope` — rejects swarm worker writes outside declared file ownership
+
+### Changed — Workflow commands
+
+- **`/swarm` — 3 modes**: `explore` (read-only investigations), `implement [sprint]` (per-sprint scope-bounded workers, file-ownership DAG enforced), `generic-legacy` (pre-LogicLoom behavior preserved)
+- **`/review-team` — 4 reviewers** (was 3): added a **behavioral evaluator** that drives Playwright via chrome-devtools MCP to exercise actual UI/API behavior alongside security + quality + performance
+- **`/research` — jury-on-demand**: picks 1-3 LLM judges per query type instead of always running the full tribunal. Pass `--judges all` for legacy 3-judge cross-validation
+- **`/create-prd`** auto-detects vision-driven vs legacy mode
+
+### Removed
+
+- `mcp-servers/sdd-marketplace/` — LogicLoom no longer runs its own plugin marketplace
+- RL telemetry infrastructure: `.logic-loom/scripts/bash/rl/`, `src/sdd/feedback/`, `src/sdd/metrics/`, `.docs/rl-metrics/`
+- 5 stale internal scripts: `migrate-agent-to-skill`, `legacy-pattern-report`, `skill-coverage-audit`, `analyze-logs`, and `.specify/memory/agent-collaboration.md`
+
+### Defers (third-party discovery)
+
+LogicLoom is not in the marketplace business. External skill and plugin discovery defers to:
+
+- **Anthropic Claude Code Plugin Marketplace** — canonical source for installable skills/plugins
+- **Docker MCP Toolkit** — 310+ containerized MCP servers via `mcp-find`, `mcp-add`, `mcp-config-set`, `mcp-exec`
+
+### v3 supplementary principle — Legacy-Tool Coexistence
+
+Legacy SDD tools remain as alternative paths alongside the LogicLoom workflow:
+
+- `/specification` (unified waterfall), `/specify`, `/plan`, `/tasks`
+- DS-STAR verifiers and validators
+- 7 domain plugins (frontend, backend, database, testing, security, devops, performance)
+- `/build-team`, `/fullstack-team`, `/dev-loop`, `/finalize`
+
+Pick the workflow that matches the problem shape.
 
 ## [5.0.0] - 2026-02-16
 

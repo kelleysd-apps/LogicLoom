@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy establishes deployment standards, procedures, and safeguards for the SDD Framework, ensuring reliable, observable, and reversible deployments following constitutional principles.
+This policy establishes deployment standards, procedures, and safeguards for the LogicLoom framework, ensuring reliable, observable, and reversible deployments following constitutional principles.
 
 ---
 

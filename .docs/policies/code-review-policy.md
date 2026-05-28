@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy establishes standards and procedures for code review within the SDD Framework, ensuring all code changes meet quality, security, and constitutional compliance requirements before merging.
+This policy establishes standards and procedures for code review within the LogicLoom framework, ensuring all code changes meet quality, security, and constitutional compliance requirements before merging.
 
 ---
 

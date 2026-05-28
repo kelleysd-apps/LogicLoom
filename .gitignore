@@ -108,3 +108,4 @@ __pycache__/
 *$py.class
 *.pyc
 *.pyo
+.loom-worktree-env

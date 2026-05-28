@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This policy establishes comprehensive testing standards for the SDD Framework, enforcing Test-First Development (TDD) as a non-negotiable constitutional requirement.
+This policy establishes comprehensive testing standards for the LogicLoom framework, enforcing Test-First Development (TDD) as a non-negotiable constitutional requirement.
 
 ---
 
