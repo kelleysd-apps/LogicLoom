@@ -8,20 +8,61 @@
 
 ---
 
-## 📋 Executive Summary
+## Template Philosophy
+
+This PRD declares **product context, deliverables, design language, success criteria, and answers to forcing questions** — NOT tight implementation specs.
+
+> "If the planner tried to specify granular technical details upfront and got something wrong, the errors in the spec would cascade." — Anthropic harness-design article
+
+Downstream planning agents need reasoning room. Keep this document broad and product-focused. Implementation specifics belong in plan-mode and task-level documents.
+
+---
+
+## Forcing Questions
+
+**Answer these 6 questions FIRST, before any product detail below.** Each answer should cite source inputs inline (e.g., *per `vision.md` §Goals*, *per `research/competitive-landscape.md`*). If an answer is genuinely unknown from available inputs, write `UNKNOWN — needs user input` and surface it to the user during PRD review.
+
+### 1. Who exactly is this for?
+*(Concrete user / persona. Avoid "everyone" or vague segments. Name the specific role, context, and how they currently solve the problem.)*
+
+[Answer]
+
+### 2. What is the smallest valuable thing we could ship?
+*(MVP scope. What is the minimum surface area that delivers real user value? What would you cut if forced to ship in half the time?)*
+
+[Answer]
+
+### 3. What does "done" look like at the user-visible level?
+*(Describe the user-observable outcome. Not technical milestones — what the user sees, feels, or accomplishes when this works.)*
+
+[Answer]
+
+### 4. What are we explicitly NOT doing in this iteration?
+*(Bullet list of scope cuts. The act of writing these prevents downstream scope creep.)*
+
+- [Not-doing 1]
+- [Not-doing 2]
+- [Not-doing 3]
+
+### 5. What is the riskiest assumption?
+*(The single thing most likely to be wrong. If this assumption fails, what breaks? How would you validate it cheaply before committing to build?)*
+
+[Answer]
+
+### 6. What does success look like quantitatively (or qualitatively if metrics aren't tractable)?
+*(Prefer numbers — adoption rate, latency target, error reduction. If the work isn't measurable yet, state the qualitative signal you'll watch and acknowledge the gap.)*
+
+[Answer]
+
+---
+
+## Executive Summary
 
 ### Vision Statement
-[One paragraph describing the product vision - what you're building and why it matters]
+[One paragraph describing the product vision — what you're building and why it matters. Pull from `vision.md` if available.]
 
 ### Problem Statement
 [What problem does this product solve? Who has this problem?]
-
-### Success Metrics
-- **Primary Metric**: [Key metric that defines success]
-- **Secondary Metrics**:
-  - [Metric 1]
-  - [Metric 2]
-  - [Metric 3]
 
 ### Target Audience
 - **Primary Users**: [Who will use this daily?]
@@ -30,12 +71,11 @@
 
 ---
 
-## 🎯 Product Goals & Objectives
+## Product Goals & Objectives
 
 ### Short-term Goals (0-3 months)
 1. [Goal 1]
 2. [Goal 2]
-3. [Goal 3]
 
 ### Medium-term Goals (3-6 months)
 1. [Goal 1]
@@ -46,358 +86,156 @@
 2. [Goal 2]
 
 ### Non-Goals
-- [Explicitly state what this product will NOT do]
-- [What's out of scope?]
+*(Already partially captured in Forcing Question 4. Restate here for downstream agents.)*
+- [Out of scope]
+- [Out of scope]
 
 ---
 
-## 👥 User Personas
+## User Personas
 
 ### Primary Persona: [Name/Title]
 - **Background**: [Role, experience level, context]
 - **Goals**: [What they want to achieve]
 - **Pain Points**: [Current challenges]
-- **Behaviors**: [How they work, tools they use]
 - **Success Criteria**: [What makes them successful?]
 
 ### Secondary Persona: [Name/Title]
 - **Background**: [Role, experience level, context]
 - **Goals**: [What they want to achieve]
 - **Pain Points**: [Current challenges]
-- **Behaviors**: [How they work, tools they use]
 
 ---
 
-## 🗺️ User Journey Maps
+## User Journeys (High-Level)
 
 ### Journey 1: [Primary User Flow Name]
 **Persona**: [Which persona uses this?]
 
-1. **Discovery**: [How do they find/start using the product?]
-2. **Onboarding**: [First-time experience]
-3. **Core Usage**: [Main workflow steps]
-4. **Advanced Usage**: [Power user capabilities]
-5. **Exit/Completion**: [How does the journey end?]
+1. **Discovery**: [How do they find/start?]
+2. **Core Usage**: [Main workflow — broad strokes only]
+3. **Exit/Completion**: [How does the journey end?]
 
-**Pain Points**:
-- [Pain point 1 at specific step]
-- [Pain point 2 at specific step]
+**Key Friction Points**: [What hurts today?]
+**Desired Improvement**: [What should feel different?]
 
-**Opportunities**:
-- [Opportunity to improve step X]
-- [Opportunity to enhance step Y]
+*(Keep journeys high-level. Step-by-step UX choreography belongs in design/plan documents, not PRD.)*
 
 ---
 
-## ⚙️ Core Features & Requirements
+## Core Deliverables
 
-### Feature Category 1: [Category Name]
-**Priority**: High | Medium | Low
-**Timeline**: [When should this be built?]
+List the **product-level deliverables** — not features as implementation units. Group by user-visible capability.
 
-#### Feature 1.1: [Feature Name]
-**User Story**: As a [persona], I want to [action] so that [benefit].
+### Deliverable 1: [Capability Name]
+**Priority**: Must | Should | Could
+**User-visible outcome**: [What the user can now do that they couldn't before]
+**Success signal**: [How we know it landed]
 
-**Acceptance Criteria**:
-- [ ] Given [context], when [action], then [result]
-- [ ] Given [context], when [action], then [result]
-- [ ] [Specific requirement]
+### Deliverable 2: [Capability Name]
+*(Repeat structure)*
 
-**Dependencies**: [Other features or systems required]
-**Constraints**: [Technical, business, or regulatory limits]
-**Success Metrics**: [How to measure this feature's impact]
-
-#### Feature 1.2: [Feature Name]
-[Repeat structure above]
-
-### Feature Category 2: [Category Name]
-[Repeat structure above]
+*(Avoid acceptance criteria here — those belong in plan/task docs where downstream agents will derive them with full context.)*
 
 ---
 
-## 🏗️ System Architecture Principles
-
-### Constitutional Principles (from `.specify/memory/constitution.md`)
-
-**CRITICAL: These principles guide ALL development decisions**
-
-#### Immutable Principles
-1. **Library-First Architecture** (Principle I)
-   - How does this apply to your project? [Customize]
-   - Exceptions for this project: [If any]
-
-2. **Test-First Development (TDD)** (Principle II)
-   - Minimum test coverage: 80%
-   - Testing philosophy for this project: [Customize]
-
-3. **Contract-First Design** (Principle III)
-   - API contract standards: [OpenAPI, GraphQL, etc.]
-   - Contract versioning approach: [Customize]
-
-#### Quality & Safety Principles
-4. **Idempotent Operations** (Principle IV)
-   - Critical operations requiring idempotency: [List]
-
-5. **Progressive Enhancement** (Principle V)
-   - Feature flag strategy: [Describe]
-   - Rollout approach: [Customize]
-
-6. **Git Operation Approval** (Principle VI)
-   - CRITICAL: NO automatic git operations without approval
-   - Branch strategy: [main, develop, feature branches]
-
-7. **Observability & Structured Logging** (Principle VII)
-   - Logging standards: [Format, tools]
-   - Monitoring approach: [Tools, dashboards]
-
-8. **Documentation Synchronization** (Principle VIII)
-   - Documentation strategy: [How to maintain]
-   - Update triggers: [When docs must be updated]
-
-9. **Dependency Management** (Principle IX)
-   - Approved dependencies: [List or approval process]
-   - Version pinning strategy: [Exact, caret, tilde]
-
-#### Workflow & Delegation Principles
-10. **Agent Delegation Protocol** (Principle X)
-    - Agent usage policy: [When to use which agents]
-    - Custom agents for this project: [List planned agents]
-
-11. **Input Validation & Output Sanitization** (Principle XI)
-    - Validation standards: [Required validations]
-    - Sanitization requirements: [XSS, SQL injection, etc.]
-
-12. **Design System Compliance** (Principle XII)
-    - Design system: [Name/link or "To be created"]
-    - UI/UX principles: [Consistency requirements]
-
-13. **Feature Access Control** (Principle XIII)
-    - Access tiers: [Free, Premium, Enterprise, etc.]
-    - Feature gating approach: [How features are locked/unlocked]
-
-14. **AI Model Selection Protocol** (Principle XIV)
-    - Default model: Sonnet 4.5
-    - When to use Haiku: [Criteria]
-    - When to use Opus: [Criteria]
-
----
-
-## 🔧 Technical Constraints
-
-### Technology Stack (High-level Constraints Only)
-**Note**: Specific implementation details belong in feature specs, not here.
-
-- **Required Technologies**: [Technologies you MUST use - e.g., existing APIs]
-- **Prohibited Technologies**: [Technologies you CANNOT use - e.g., licensing issues]
-- **Platform Requirements**: [Web, Mobile, Desktop, etc.]
-
-### Performance Requirements
-- **Response Time**: [Max acceptable latency]
-- **Throughput**: [Requests per second, concurrent users]
-- **Availability**: [Uptime SLA - e.g., 99.9%]
-- **Scalability**: [User/data growth expectations]
-
-### Security & Compliance
-- **Authentication**: [Required auth method]
-- **Authorization**: [RBAC, ABAC, etc.]
-- **Data Privacy**: [GDPR, CCPA, HIPAA compliance]
-- **Encryption**: [At rest, in transit requirements]
-- **Audit Logging**: [What must be logged?]
-
-### Integration Requirements
-- **External Systems**: [APIs, services to integrate with]
-- **Data Import/Export**: [Formats, frequency]
-- **Webhooks/Events**: [Real-time requirements]
-
----
-
-## 📊 Data & Analytics
-
-### Core Entities
-List the main data objects your product manages:
-
-1. **[Entity Name]** (e.g., User, Product, Order)
-   - **Purpose**: [Why this entity exists]
-   - **Key Attributes**: [Critical fields - high level only]
-   - **Relationships**: [How it relates to other entities]
-   - **Lifecycle**: [Created when? Deleted when?]
-   - **Access Control**: [Who can view/modify?]
-
-2. **[Entity Name]**
-   [Repeat above]
-
-### Analytics & Reporting
-- **Key Reports**: [What reports do users need?]
-- **Dashboard Requirements**: [Real-time metrics to display]
-- **Export Capabilities**: [CSV, PDF, API access?]
-
----
-
-## 🚀 Release Strategy
-
-### MVP (Minimum Viable Product)
-**Target Date**: [Date]
-**Core Features**:
-- [Feature 1 - absolute must-have]
-- [Feature 2 - absolute must-have]
-- [Feature 3 - absolute must-have]
-
-**Success Criteria**: [How do we know MVP succeeded?]
-
-### Phase 2: [Phase Name]
-**Target Date**: [Date]
-**Features**:
-- [Feature 1]
-- [Feature 2]
-
-### Phase 3: [Phase Name]
-**Target Date**: [Date]
-**Features**:
-- [Feature 1]
-- [Feature 2]
-
----
-
-## 🎨 Design Principles & UX Guidelines
+## Design Language & UX Principles
 
 ### Design Philosophy
-[Describe your product's design philosophy - e.g., minimalist, data-dense, playful]
+[Describe the product's design philosophy in 2-3 sentences — e.g., minimalist, data-dense, playful, terminal-native.]
 
-### Accessibility Requirements
-- **WCAG Compliance**: [Level A, AA, or AAA]
-- **Keyboard Navigation**: [Required? Exceptions?]
-- **Screen Reader Support**: [Required features]
-- **Color Contrast**: [Minimum ratios]
+### Tone & Voice
+[How the product talks to the user. Examples or anchor brands if helpful.]
 
-### Responsive Design
-- **Supported Devices**: [Desktop, Tablet, Mobile]
-- **Breakpoints**: [If specific breakpoints required]
-- **Progressive Enhancement**: [Core functionality on all devices]
+### Accessibility Floor
+- **WCAG Compliance**: [Level — typically AA]
+- **Keyboard Navigation**: [Required?]
+- **Screen Reader Support**: [Required?]
 
----
-
-## 🔄 Workflow Integration
-
-### SDD Framework Integration
-This PRD serves as the **Single Source of Truth (SSOT)** for:
-
-1. **Specification Agent** (`/specify` command)
-   - References this PRD for: [What spec agent pulls from here]
-   - User stories source: [Section to reference]
-   - Requirements source: [Section to reference]
-
-2. **Planning Agent** (`/plan` command)
-   - Technical constraints from: [Section]
-   - Architecture principles from: [Section]
-   - Integration requirements from: [Section]
-
-3. **Custom Agents**
-   - Agents planned: [List from Principle X section]
-   - Agent purposes: [Brief description of each]
-
-4. **Constitutional Customization**
-   - This PRD's constitutional principles override framework defaults
-   - Review `.specify/memory/constitution.md` after PRD creation
-   - Update constitution with project-specific rules from this PRD
+### Responsive / Multi-surface Behavior
+- **Supported surfaces**: [Web, mobile, CLI, etc.]
+- **Progressive enhancement stance**: [Core capability must work where?]
 
 ---
 
-## ❓ Open Questions & Risks
+## Constraints (High-level only)
+
+*(Specific tech choices belong in plan docs. List only constraints that are non-negotiable inputs to planning.)*
+
+### Required
+- [Technology / system / API that MUST be used]
+
+### Prohibited
+- [Technology / approach that CANNOT be used and why]
+
+### Non-functional Constraints
+- **Latency floor**: [Max acceptable response time, if known]
+- **Availability**: [Uptime expectation]
+- **Privacy / compliance**: [GDPR, HIPAA, etc.]
+- **Security floor**: [Auth, encryption, audit requirements]
+
+---
+
+## Success Metrics
+
+*(Forcing Question 6 captures the headline. Expand here if multiple metrics apply.)*
+
+| Metric | Target | Measurement source | Cadence |
+|--------|--------|--------------------|---------|
+| [Primary metric] | [Target] | [Where it's measured] | [How often] |
+| [Secondary] | [Target] | [Source] | [Cadence] |
+
+---
+
+## Inputs Consumed
+
+*(Vision-driven mode only — list which input files informed this PRD so downstream agents can trace provenance.)*
+
+- `features/<feature-name>/vision.md`
+- `features/<feature-name>/research/[...]` *(if present)*
+- `features/<feature-name>/exploration/[...]` *(if present)*
+- `.docs/architecture/[...]` *(if relevant)*
+
+---
+
+## Open Questions & Risks
 
 ### Open Questions
-1. **[Question 1]**
-   - **Impact**: [What's affected if unanswered?]
-   - **Owner**: [Who should answer?]
-   - **Deadline**: [When do we need answer?]
+1. **[Question]**
+   - **Impact if unanswered**: [What's blocked]
+   - **Owner**: [Who should answer]
 
-2. **[Question 2]**
-   [Repeat above]
-
-### Risks & Mitigation
-1. **Risk**: [Describe risk]
+### Risks
+1. **Risk**: [Describe]
    - **Likelihood**: High | Medium | Low
    - **Impact**: High | Medium | Low
-   - **Mitigation**: [How to reduce/eliminate]
-   - **Owner**: [Who manages this risk?]
-
-2. **Risk**: [Describe risk]
-   [Repeat above]
+   - **Mitigation stance**: [Approach — not detailed plan]
 
 ### Assumptions
-- [Assumption 1 - what we're assuming is true]
-- [Assumption 2 - what we're assuming is true]
-- [Assumption 3 - needs validation?]
+- [Assumption — link to Forcing Question 5 if this is the riskiest one]
 
 ---
 
-## 📚 Appendices
+## PRD Review Checklist
 
-### Appendix A: Glossary
-- **[Term]**: [Definition]
-- **[Term]**: [Definition]
+Before handing off to plan-mode:
 
-### Appendix B: References
-- [Link to competitive analysis]
-- [Link to user research]
-- [Link to technical research]
+- [ ] All 6 Forcing Questions answered (or explicitly marked `UNKNOWN — needs user input`)
+- [ ] User has reviewed and approved the PRD (this is the real quality gate)
+- [ ] Personas are concrete (no "all users")
+- [ ] Deliverables describe user-visible outcomes, not implementation tasks
+- [ ] Non-goals are explicit
+- [ ] At least one quantitative or honestly-qualitative success metric
+- [ ] Input provenance (vision.md, research, etc.) is cited
+- [ ] No granular technical implementation specs (those come later, in plan docs)
 
-### Appendix C: Revision History
+---
+
+## Revision History
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0.0 | [Date] | [Name] | Initial PRD |
 
 ---
 
-## ✅ PRD Review Checklist
-
-Before finalizing this PRD, ensure:
-
-**Completeness**:
-- [ ] Executive summary clearly states vision, problem, and success metrics
-- [ ] All user personas documented with goals and pain points
-- [ ] Core features have acceptance criteria and success metrics
-- [ ] All 16 constitutional principles addressed with project-specific guidance
-- [ ] Technical constraints documented (what's required vs prohibited)
-- [ ] Release strategy with MVP clearly defined
-- [ ] Open questions identified with owners and deadlines
-
-**Clarity**:
-- [ ] No ambiguous requirements (all testable and measurable)
-- [ ] Success metrics are quantifiable
-- [ ] Personas are specific and realistic
-- [ ] Feature priorities clearly marked
-- [ ] No implementation details (HOW) - only requirements (WHAT/WHY)
-
-**Alignment**:
-- [ ] Goals align with vision and problem statement
-- [ ] Features support defined user journeys
-- [ ] Success metrics measure stated goals
-- [ ] Constitutional principles don't conflict with requirements
-- [ ] Release phases are achievable given constraints
-
-**Actionability**:
-- [ ] Specification agent can extract clear user stories
-- [ ] Planning agent has sufficient constraints and principles
-- [ ] Each feature can be broken into tasks
-- [ ] Dependencies are identified
-- [ ] Risks have mitigation plans
-
-**Stakeholder Review**:
-- [ ] Product owner approved
-- [ ] Key stakeholders reviewed
-- [ ] Technical feasibility validated
-- [ ] Legal/compliance reviewed (if applicable)
-- [ ] Budget/resources confirmed
-
----
-
-**Next Steps After PRD Approval**:
-1. Update `.specify/memory/constitution.md` with project-specific principles
-2. Run `/specify` for each core MVP feature
-3. Create custom agents identified in Principle X
-4. Set up design system (if Principle XII requires one)
-5. Configure CI/CD for quality gates (Principles II, III, VIII)
-
----
-
-*This PRD is a living document. Update it as the product evolves, but maintain version history.*
+*This PRD is a living document. Update it as the product evolves; maintain version history.*
