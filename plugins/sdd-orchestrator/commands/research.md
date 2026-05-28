@@ -1,228 +1,226 @@
 ---
 name: research
-description: Multi-LLM triplicate research with tribunal cross-validation. Uses Claude, OpenAI, and Gemini for independent research and voting.
+description: Multi-LLM research with jury-on-demand tribunal. Query-type classifier picks 1-3 judges (Claude always present; OpenAI / Gemini added selectively). Use --judges all for the legacy 3-LLM panel.
 model: opus
 ---
 
-# /research Command — Multi-LLM Tribunal Research
+# /research Command — Jury-On-Demand Multi-LLM Research
 
-Three independent LLMs research the same topic, then a multi-LLM tribunal votes on extracted claims to produce a confidence-scored final report.
+A query-type classifier picks **1-3 judges** for tribunal voting based on the kind of question being asked. Claude is always present; OpenAI and Gemini are added only where their independent perspective improves the answer.
 
 **AGENT REQUIREMENT**: This command requires the swarm-coordinator agent for parallel agent spawning.
 
 **If you are NOT the swarm-coordinator**, delegate immediately:
 ```
 Use the Task tool to invoke swarm-coordinator:
-- description: "Execute /research command with multi-LLM tribunal"
-- prompt: "Execute the multi-LLM tribunal research flow for: $ARGUMENTS"
+- description: "Execute /research command with jury-on-demand tribunal"
+- prompt: "Execute the multi-LLM research flow for: $ARGUMENTS"
 ```
 
-**API KEY REQUIREMENT**: This command requires `OPENAI_API_KEY` and `GEMINI_API_KEY` in `.env`.
-If keys are missing, warn the user and reference `/initialize-project` for setup guidance.
+**API KEY REQUIREMENT**: `OPENAI_API_KEY` and `GEMINI_API_KEY` in `.env` are required only when those judges are selected. With `--judges all`, both are mandatory.
 
 ---
 
-## Phase 1: Multi-LLM Triplicate Research
+## Design Rationale (Stage 9 — jury-on-demand)
 
-### Step 1: Initialize Research Directory
+The previous version of `/research` ran a static 3-LLM tribunal (Claude + OpenAI + Gemini) on every query, regardless of whether the extra perspectives added value. This burned tokens on questions where Claude alone is already strongest (e.g. coding) and on factual lookups where a single judge suffices.
+
+**Jury-on-demand** classifies the query first, then picks the judge panel:
+
+- Cheap queries -> 1 judge (Claude)
+- Most queries -> 2 judges (Claude + one peer)
+- Taste/strategy queries -> 3 judges (full panel)
+
+**Aggregation is simple majority** — no weighted aggregation, no predicted-agreement weights, no learned models. If the panel is 2 judges, a 1-1 split is escalated to "Conflicting"; if 3 judges, 2-1 wins.
+
+**`--judges all`** forces the full 3-judge panel for backward compatibility with any caller that depends on the legacy behavior.
+
+---
+
+## Phase 0: Query Classification + Judge Selection
+
+### Step 0a: Parse Flags
+
+Extract `--judges` from `$ARGUMENTS`:
+
+```
+--judges all           -> force full 3-judge panel (Claude + OpenAI + Gemini)
+--judges <none>        -> run classifier (default)
+```
+
+The topic is `$ARGUMENTS` with the `--judges <value>` flag stripped out.
+
+### Step 0b: Classify the Query (Heuristic, Not Learned)
+
+Inspect the topic and assign it to **one** category. Match keywords case-insensitively; use the first category that matches. If nothing matches, fall back to `other`.
+
+| Category | Trigger keywords (representative) | Judges | Rationale |
+|---|---|---|---|
+| **factual** | "what is", "definition of", "history of", "when did", "who is" | Claude (1) | Single authoritative judge is sufficient |
+| **architectural** | "architecture", "system design", "scalability", "microservices", "distributed", "database design" | Claude + OpenAI (2) | Different reasoning styles surface different trade-offs |
+| **design** | "UX", "UI", "user experience", "aesthetics", "design system", "visual" | Claude + OpenAI + Gemini (3) | Taste varies — three judges reduce single-model bias |
+| **security** | "security", "vulnerability", "auth", "authentication", "encryption", "XSS", "CSRF", "threat model" | Claude + OpenAI (2) | Both have safety RLHF; independent review is valuable |
+| **performance** | "performance", "optimization", "latency", "throughput", "benchmark", "profiling" | Claude + OpenAI (2) | Two judges catch model-specific blind spots |
+| **coding** | "implement", "code", "function", "refactor", "language", "framework", "library", "syntax" | Claude (1) | Opus 4.7 is strongest at code; extra judges add noise |
+| **strategy** | "strategy", "business", "market", "pricing", "go-to-market", "roadmap", "competitive" | Claude + OpenAI + Gemini (3) | Divergent views are the point — keep all three |
+| **other** | (fallback when no category matches) | Claude + OpenAI (2) | Safe default |
+
+Record the result as:
+```
+QUERY_CATEGORY=<category>
+JUDGES=<comma-separated list of: claude,openai,gemini>
+```
+
+If `--judges all` was passed, override to:
+```
+QUERY_CATEGORY=forced-all
+JUDGES=claude,openai,gemini
+```
+
+### Step 0c: Verify Selected API Keys
+
+```bash
+if [ -z "$JUDGES" ]; then echo "ERROR: empty judge panel"; exit 1; fi
+
+# Only enforce keys for judges that were actually selected
+case ",$JUDGES," in
+  *,openai,*)
+    [ -f .env ] && grep -q OPENAI_API_KEY .env || {
+      echo "ERROR: OPENAI_API_KEY required (openai is in judge panel)"; exit 1; }
+    ;;
+esac
+case ",$JUDGES," in
+  *,gemini,*)
+    [ -f .env ] && grep -q GEMINI_API_KEY .env || {
+      echo "ERROR: GEMINI_API_KEY required (gemini is in judge panel)"; exit 1; }
+    ;;
+esac
+```
+
+If a required key is missing for a selected judge, stop and tell the user. Reference `/initialize-project` for setup.
+
+### Step 0d: Initialize Research Directory
+
 ```bash
 RESEARCH_ID=$(date +%Y%m%d-%H%M%S)
 TOPIC_SLUG=$(echo "$TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | cut -c1-40)
 RESEARCH_DIR=".docs/research/${RESEARCH_ID}-${TOPIC_SLUG}"
 mkdir -p "$RESEARCH_DIR"
+
+# Persist the classification decision for reproducibility
+cat > "$RESEARCH_DIR/jury.json" <<EOF
+{
+  "topic": "$TOPIC",
+  "category": "$QUERY_CATEGORY",
+  "judges": "$JUDGES",
+  "forced": $([ "$QUERY_CATEGORY" = "forced-all" ] && echo true || echo false)
+}
+EOF
 ```
 
-### Step 2: Verify API Keys
-```bash
-# Check .env exists and has required keys
-if [ ! -f .env ]; then
-  echo "ERROR: .env file not found. Run /initialize-project for setup."
-  exit 1
-fi
-# Subagents will source .env to get OPENAI_API_KEY and GEMINI_API_KEY
-```
+---
 
-If either key is missing, report to user and stop. Do NOT proceed with partial LLM coverage.
+## Phase 1: Multi-LLM Triplicate Research
 
-### Step 3: Spawn 3 Multi-LLM Researchers (parallel)
+**The research phase always runs with all available LLMs that have keys present**, because researcher diversity (different training data, different RLHF) is the cheapest way to surface non-overlapping evidence. The classifier governs **voting**, not research.
 
-All 3 researchers get the **SAME topic**. Each uses a different LLM to ensure truly independent perspectives from different model families.
+If a researcher's API key is missing, skip that researcher and note the gap in `jury.json`. Claude (via Perplexity / WebSearch) is always available.
 
-**Researcher A — Claude Opus 4.6 via Perplexity**:
+### Researcher A — Claude Opus via Perplexity (always runs)
 ```
 Use the Task tool:
 - description: "R-Claude: Research via Perplexity"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are Researcher A (Claude). Research the following topic using the
-    Perplexity MCP research tool for current, citation-backed information.
+    You are Researcher A (Claude). Use perplexity_research (mcp__MCP_DOCKER__perplexity_research)
+    for current, citation-backed research on the topic. Fall back to perplexity_ask /
+    perplexity_reason / WebSearch if needed.
 
     TOPIC: $TOPIC
 
-    INSTRUCTIONS:
-    1. Use the perplexity_research MCP tool (mcp__MCP_DOCKER__perplexity_research)
-       to conduct deep research on the topic. Pass a comprehensive research prompt
-       as a user message.
+    Compile findings: key findings + evidence + source URLs, best practices, trade-offs,
+    implementation notes, areas of uncertainty.
 
-    2. If the perplexity_research tool is not available, fall back to using
-       perplexity_ask or perplexity_reason MCP tools.
-
-    3. Supplement with WebSearch if needed for additional sources.
-
-    4. Compile ALL findings into a comprehensive research report covering:
-       - Key findings with supporting evidence and source URLs
-       - Best practices and recommendations
-       - Trade-offs, risks, and limitations
-       - Practical implementation considerations
-       - Areas of uncertainty (flag what you're less confident about)
-
-    Save your complete findings to: $RESEARCH_DIR/researcher-a-claude.md
-
-    IMPORTANT: Be thorough. Include all citation URLs from Perplexity responses.
-    State what you found with the evidence you have.
+    Save to: $RESEARCH_DIR/researcher-a-claude.md
 ```
 
-**Researcher B — OpenAI GPT-4o**:
+### Researcher B — OpenAI GPT-4o (runs if OPENAI_API_KEY present)
 ```
 Use the Task tool:
 - description: "R-OpenAI: Research via GPT-4o API"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are Researcher B (OpenAI proxy). Your job is to send the research topic
-    to OpenAI's GPT-4o model via API and compile the response into a report.
+    You are Researcher B (OpenAI proxy). Send the topic to GPT-4o via the API
+    and compile the response into a structured research report.
 
     TOPIC: $TOPIC
 
-    INSTRUCTIONS:
-    1. Read the OPENAI_API_KEY from .env:
-       source .env 2>/dev/null || export OPENAI_API_KEY=$(grep OPENAI_API_KEY .env | cut -d= -f2-)
-
-    2. Call the OpenAI API with a comprehensive research prompt:
-
-       curl -s https://api.openai.com/v1/chat/completions \
-         -H "Authorization: Bearer $OPENAI_API_KEY" \
-         -H "Content-Type: application/json" \
-         -d '{
-           "model": "gpt-4o",
-           "messages": [
-             {"role": "system", "content": "You are a research analyst. Provide comprehensive, evidence-based research with specific citations and URLs where possible."},
-             {"role": "user", "content": "Research the following topic thoroughly. Cover: key findings with evidence, best practices, trade-offs and risks, implementation considerations, and areas of uncertainty. Topic: $TOPIC"}
-           ],
-           "max_tokens": 16000,
-           "temperature": 0.7
-         }'
-
-    3. Parse the JSON response to extract the content:
-       - Use jq or python to extract .choices[0].message.content
-       - If the API call fails, log the error and report it
-
-    4. Format the extracted content into a structured research report.
-
-    5. Add a header noting this research was produced by OpenAI GPT-4o.
-
-    Save the compiled report to: $RESEARCH_DIR/researcher-b-openai.md
-
-    IMPORTANT: If the API call fails (bad key, rate limit, etc.), save an error
-    report explaining what happened so the synthesizer knows this researcher failed.
+    1. Source OPENAI_API_KEY from .env.
+    2. POST to https://api.openai.com/v1/chat/completions with model gpt-4o,
+       max_tokens 16000, temperature 0.7. System: research analyst with
+       evidence-based output and citations. User: thorough research on the topic.
+    3. Extract .choices[0].message.content. On error, save an error report.
+    4. Save formatted report to: $RESEARCH_DIR/researcher-b-openai.md
 ```
 
-**Researcher C — Google Gemini 2.5 Pro**:
+### Researcher C — Google Gemini 2.5 Pro (runs if GEMINI_API_KEY present)
 ```
 Use the Task tool:
 - description: "R-Gemini: Research via Gemini API"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are Researcher C (Gemini proxy). Your job is to send the research topic
-    to Google's Gemini 2.5 Pro model via API and compile the response into a report.
+    You are Researcher C (Gemini proxy). Send the topic to Gemini 2.5 Pro via the
+    API and compile the response into a structured research report.
 
     TOPIC: $TOPIC
 
-    INSTRUCTIONS:
-    1. Read the GEMINI_API_KEY from .env:
-       source .env 2>/dev/null || export GEMINI_API_KEY=$(grep GEMINI_API_KEY .env | cut -d= -f2-)
-
-    2. Call the Gemini API with a comprehensive research prompt:
-
-       curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent?key=$GEMINI_API_KEY" \
-         -H "Content-Type: application/json" \
-         -d '{
-           "contents": [{
-             "parts": [{
-               "text": "You are a research analyst. Research the following topic thoroughly. Cover: key findings with evidence and citations, best practices, trade-offs and risks, implementation considerations, and areas of uncertainty. Provide specific URLs and references where possible.\n\nTopic: $TOPIC"
-             }]
-           }],
-           "generationConfig": {
-             "maxOutputTokens": 16000,
-             "temperature": 0.7
-           }
-         }'
-
-    3. Parse the JSON response to extract the content:
-       - Use jq or python to extract .candidates[0].content.parts[0].text
-       - If the API call fails, log the error and report it
-
-    4. Format the extracted content into a structured research report.
-
-    5. Add a header noting this research was produced by Google Gemini 2.5 Pro.
-
-    Save the compiled report to: $RESEARCH_DIR/researcher-c-gemini.md
-
-    IMPORTANT: If the API call fails (bad key, rate limit, etc.), save an error
-    report explaining what happened so the synthesizer knows this researcher failed.
+    1. Source GEMINI_API_KEY from .env.
+    2. POST to https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent
+       with maxOutputTokens 16000, temperature 0.7.
+    3. Extract .candidates[0].content.parts[0].text. On error, save an error report.
+    4. Save formatted report to: $RESEARCH_DIR/researcher-c-gemini.md
 ```
 
-### Step 4: Wait for All 3 Researchers
-
-Monitor Task tool completion for all 3 researchers. Report any API failures to user.
+Wait for all spawned researchers to complete. Note any failures in the final report.
 
 ---
 
 ## Phase 2: Claim Extraction
 
-### Step 5: Extract Claims from Triplicate Research
-
-Reference the tribunal-review skill at `plugins/sdd-orchestrator/skills/tribunal-review/SKILL.md` for the full claim extraction protocol and JSON schema.
+### Step 5: Extract Claims from Research Reports
 
 ```
 Use the Task tool:
-- description: "Tribunal: Extract claims from multi-LLM research"
+- description: "Extract claims from research reports"
 - subagent_type: "general-purpose"
 - model: "haiku"
 - prompt: |
-    You are a Claim Extractor. Read all 3 research reports produced by different
-    LLMs and extract discrete, testable claims into structured JSON.
+    Read every researcher-*.md file in $RESEARCH_DIR and extract 20-40 discrete,
+    testable claims.
 
-    Read these 3 reports:
-    - $RESEARCH_DIR/researcher-a-claude.md (refer to as "Report A — Claude")
-    - $RESEARCH_DIR/researcher-b-openai.md (refer to as "Report B — OpenAI")
-    - $RESEARCH_DIR/researcher-c-gemini.md (refer to as "Report C — Gemini")
-
-    RULES:
-    - Extract 20-40 claims total
-    - Deduplicate: if multiple LLMs independently found the same claim, note which
+    Rules:
+    - Deduplicate: if multiple LLMs found the same claim, list all models that did.
     - Categorize each: factual | recommendation | trade-off | opinion
-    - Track convergence: how many of the 3 LLMs independently found each claim
-      (cross-model convergence is a STRONG confidence signal)
-    - Include evidence summary from source report(s)
-    - Note which LLM(s) produced each claim
+    - Track convergence: how many researchers independently found each claim
+    - Include short evidence summary
 
-    OUTPUT: Save as $RESEARCH_DIR/claims.json with this schema:
+    Save as $RESEARCH_DIR/claims.json:
     {
       "research_topic": "<topic>",
       "extraction_date": "<YYYY-MM-DD>",
-      "models_used": ["Claude Opus 4.6", "OpenAI GPT-4o", "Gemini 2.5 Pro"],
+      "models_used": [<list of researchers that ran>],
       "total_claims": <N>,
       "claims": [
         {
           "id": "C01",
           "claim": "Specific testable statement",
           "category": "factual",
-          "found_by_models": ["Claude", "OpenAI", "Gemini"],
-          "convergence": "3/3",
-          "evidence_summary": "Brief summary of supporting evidence",
+          "found_by_models": ["Claude", "OpenAI"],
+          "convergence": "2/3",
+          "evidence_summary": "Brief summary",
           "related_claims": ["C04"]
         }
       ]
@@ -231,235 +229,144 @@ Use the Task tool:
 
 ---
 
-## Phase 3: Multi-LLM Tribunal Voting
+## Phase 3: Jury-On-Demand Tribunal Voting
 
-### Step 6: Spawn 3 Multi-LLM Tribunal Reviewers (parallel)
+Spawn **only the judges listed in `$JUDGES`** (set by Phase 0). Each judge votes on every claim with vote (approve|challenge) + confidence (0.50-0.99) + reasoning.
 
-Each reviewer uses a **different LLM** and has a different evaluation focus. No Perplexity — only Claude, OpenAI, and Gemini for voting.
-
-**Tribunal Reviewer 1 — Claude Sonnet 4.5 (Accuracy Focus)**:
+### Judge: Claude (always runs)
 ```
 Use the Task tool:
-- description: "Tribunal-Claude: Accuracy voting"
+- description: "Tribunal-Claude: vote on claims"
 - subagent_type: "general-purpose"
 - model: "sonnet"
 - prompt: |
-    You are Tribunal Reviewer 1 (Claude) with focus on ACCURACY.
+    You are Tribunal Judge — Claude. Focus: accuracy.
 
-    Read the claims file: $RESEARCH_DIR/claims.json
-    Read the research reports for evidence checking:
-    - $RESEARCH_DIR/researcher-a-claude.md
-    - $RESEARCH_DIR/researcher-b-openai.md
-    - $RESEARCH_DIR/researcher-c-gemini.md
+    Read $RESEARCH_DIR/claims.json and the researcher-*.md files for evidence.
+    For each claim, vote approve or challenge with confidence 0.50-0.99 and
+    1-2 sentence reasoning. Be honest about uncertainty.
 
-    For EACH claim, evaluate ACCURACY:
-    - Is the claim factually correct based on the evidence provided?
-    - Are there any factual errors or unsupported assertions?
-    - Does the evidence actually support the claim as stated?
-
-    Vote "approve" if accurate, "challenge" if not.
-    Express genuine confidence: 0.50 = guessing, 0.90 = strong evidence.
-
-    Save your votes as JSON to: $RESEARCH_DIR/tribunal-votes-1-claude.json
-    Schema:
+    Save as JSON to: $RESEARCH_DIR/tribunal-votes-1-claude.json
     {
       "reviewer_id": "tribunal-1-claude",
       "model": "Claude Sonnet 4.5",
       "review_focus": "accuracy",
       "review_date": "<YYYY-MM-DD>",
-      "votes": [
-        {
-          "claim_id": "C01",
-          "vote": "approve",
-          "confidence": 0.85,
-          "reasoning": "1-2 sentences",
-          "suggested_improvement": null
-        }
-      ]
+      "votes": [{"claim_id": "C01", "vote": "approve", "confidence": 0.85, "reasoning": "...", "suggested_improvement": null}]
     }
 ```
 
-**Tribunal Reviewer 2 — OpenAI GPT-4o (Sourcing Focus)**:
+### Judge: OpenAI (runs only if `openai` in `$JUDGES`)
 ```
 Use the Task tool:
-- description: "Tribunal-OpenAI: Sourcing voting"
+- description: "Tribunal-OpenAI: vote on claims"
 - subagent_type: "general-purpose"
 - model: "sonnet"
 - prompt: |
-    You are the proxy for Tribunal Reviewer 2 (OpenAI) with focus on SOURCING.
+    You are the proxy for Tribunal Judge — OpenAI. Focus: sourcing.
 
-    INSTRUCTIONS:
-    1. Read: $RESEARCH_DIR/claims.json
-    2. Read all 3 research reports for context
-    3. Format the claims into a voting prompt for OpenAI
+    1. Read $RESEARCH_DIR/claims.json and the researcher-*.md files.
+    2. Source OPENAI_API_KEY from .env.
+    3. POST to https://api.openai.com/v1/chat/completions with model gpt-4o,
+       max_tokens 8000, temperature 0.3, response_format json_object.
+       System: tribunal reviewer evaluating source quality.
+       User: vote approve/challenge with confidence 0.50-0.99 on each claim.
 
-    4. Read the API key: source .env 2>/dev/null || export OPENAI_API_KEY=$(grep OPENAI_API_KEY .env | cut -d= -f2-)
+    4. Save parsed JSON to: $RESEARCH_DIR/tribunal-votes-2-openai.json
+       (same schema as tribunal-1; reviewer_id "tribunal-2-openai",
+        model "OpenAI GPT-4o", review_focus "sourcing")
 
-    5. Call OpenAI API to vote on claims:
-
-       Build a prompt that includes ALL claims from claims.json and asks GPT-4o to:
-       - Evaluate SOURCING for each claim:
-         - Are the cited sources credible and authoritative?
-         - Is the evidence sufficient to support the claim?
-         - Are sources current and not outdated?
-       - For each claim, provide: vote (approve/challenge), confidence (0.50-0.99),
-         reasoning (1-2 sentences), suggested_improvement (optional)
-       - Output as JSON matching the tribunal vote schema
-
-       curl -s https://api.openai.com/v1/chat/completions \
-         -H "Authorization: Bearer $OPENAI_API_KEY" \
-         -H "Content-Type: application/json" \
-         -d '{
-           "model": "gpt-4o",
-           "messages": [
-             {"role": "system", "content": "You are a tribunal reviewer evaluating research claims for source quality. Vote approve or challenge on each claim with a confidence score."},
-             {"role": "user", "content": "<formatted claims and context>"}
-           ],
-           "max_tokens": 8000,
-           "temperature": 0.3,
-           "response_format": {"type": "json_object"}
-         }'
-
-    6. Parse the response and save as: $RESEARCH_DIR/tribunal-votes-2-openai.json
-       Ensure it matches the schema:
-       {
-         "reviewer_id": "tribunal-2-openai",
-         "model": "OpenAI GPT-4o",
-         "review_focus": "sourcing",
-         "review_date": "<YYYY-MM-DD>",
-         "votes": [...]
-       }
-
-    IMPORTANT: If API call fails, save error report so aggregation knows this reviewer failed.
+    On API failure, save an error report.
 ```
 
-**Tribunal Reviewer 3 — Gemini 2.5 Pro (Relevance Focus)**:
+### Judge: Gemini (runs only if `gemini` in `$JUDGES`)
 ```
 Use the Task tool:
-- description: "Tribunal-Gemini: Relevance voting"
+- description: "Tribunal-Gemini: vote on claims"
 - subagent_type: "general-purpose"
 - model: "sonnet"
 - prompt: |
-    You are the proxy for Tribunal Reviewer 3 (Gemini) with focus on RELEVANCE.
+    You are the proxy for Tribunal Judge — Gemini. Focus: relevance.
 
-    INSTRUCTIONS:
-    1. Read: $RESEARCH_DIR/claims.json
-    2. Read all 3 research reports for context
-    3. Format the claims into a voting prompt for Gemini
+    1. Read $RESEARCH_DIR/claims.json and the researcher-*.md files.
+    2. Source GEMINI_API_KEY from .env.
+    3. POST to https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent
+       with maxOutputTokens 8000, temperature 0.3, responseMimeType application/json.
+       Prompt: tribunal reviewer evaluating relevance, vote approve/challenge
+       with confidence 0.50-0.99 on each claim.
 
-    4. Read the API key: source .env 2>/dev/null || export GEMINI_API_KEY=$(grep GEMINI_API_KEY .env | cut -d= -f2-)
+    4. Save parsed JSON to: $RESEARCH_DIR/tribunal-votes-3-gemini.json
+       (reviewer_id "tribunal-3-gemini", model "Gemini 2.5 Pro",
+        review_focus "relevance")
 
-    5. Call Gemini API to vote on claims:
-
-       Build a prompt that includes ALL claims from claims.json and asks Gemini to:
-       - Evaluate RELEVANCE for each claim:
-         - Is this claim directly relevant to the research question?
-         - Is the claim actionable and useful for decision-making?
-         - Does it answer what was actually asked?
-       - For each claim, provide: vote (approve/challenge), confidence (0.50-0.99),
-         reasoning (1-2 sentences), suggested_improvement (optional)
-       - Output as JSON matching the tribunal vote schema
-
-       curl -s "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent?key=$GEMINI_API_KEY" \
-         -H "Content-Type: application/json" \
-         -d '{
-           "contents": [{
-             "parts": [{
-               "text": "You are a tribunal reviewer evaluating research claims for relevance. For each claim, vote approve or challenge with confidence (0.50-0.99) and reasoning. Output as JSON.\n\n<formatted claims and context>"
-             }]
-           }],
-           "generationConfig": {
-             "maxOutputTokens": 8000,
-             "temperature": 0.3,
-             "responseMimeType": "application/json"
-           }
-         }'
-
-    6. Parse the response and save as: $RESEARCH_DIR/tribunal-votes-3-gemini.json
-       Ensure it matches the schema:
-       {
-         "reviewer_id": "tribunal-3-gemini",
-         "model": "Gemini 2.5 Pro",
-         "review_focus": "relevance",
-         "review_date": "<YYYY-MM-DD>",
-         "votes": [...]
-       }
-
-    IMPORTANT: If API call fails, save error report so aggregation knows this reviewer failed.
+    On API failure, save an error report.
 ```
 
-### Step 7: Wait for All 3 Tribunal Reviewers
-
-Monitor Task tool completion. Report any API failures.
+Wait for all selected judges to finish.
 
 ---
 
-## Phase 4: Vote Aggregation + Quality Gate
+## Phase 4: Simple-Majority Vote Aggregation
 
-### Step 8: Aggregate Votes
-
-Read all vote files and compute confidence scores.
+### Step 8: Aggregate Votes — Simple Majority
 
 ```
-Read: $RESEARCH_DIR/claims.json
-Read: $RESEARCH_DIR/tribunal-votes-1-claude.json
-Read: $RESEARCH_DIR/tribunal-votes-2-openai.json
-Read: $RESEARCH_DIR/tribunal-votes-3-gemini.json
+Inputs:
+  - $RESEARCH_DIR/claims.json
+  - $RESEARCH_DIR/tribunal-votes-*.json (one file per judge that ran)
+  - $RESEARCH_DIR/jury.json (judge count N)
 
 For each claim:
-  1. Count approve votes across all 3 LLMs (0-3)
-  2. Compute vote_confidence = approves / 3
-  3. Get convergence_score from claims.json:
-     - 3/3 models found it = 0.90
-     - 2/3 models found it = 0.65
-     - 1/3 models found it = 0.35
-  4. combined_confidence = (0.3 * convergence_score) + (0.7 * vote_confidence)
-  5. Classify:
-     - >= 0.80: Confirmed
-     - 0.55 - 0.79: Likely
-     - 0.30 - 0.54: Conflicting
-     - < 0.30: Refuted
+  1. Count approve votes A across the N judges that ran.
+  2. vote_confidence = A / N
+  3. status (simple majority):
+       N=1:
+         approve  -> Confirmed
+         challenge -> Refuted
+       N=2:
+         2 approve  -> Confirmed
+         1-1 split  -> Conflicting (no majority)
+         2 challenge -> Refuted
+       N=3:
+         3 approve  -> Confirmed
+         2-1 approve -> Likely
+         2-1 challenge -> Conflicting
+         3 challenge -> Refuted
 
-Save confidence table to: $RESEARCH_DIR/confidence-table.md
+  4. Convergence is reported for transparency but does NOT change the
+     status assignment. (Aggregation is voting-only, not weighted.)
 
-Include a cross-model agreement summary:
-- Which claims did ALL 3 LLMs (Claude+OpenAI+Gemini) independently find AND approve?
-- Which claims showed model-specific bias (found/approved by only 1 LLM)?
+Save to: $RESEARCH_DIR/confidence-table.md
+Include:
+  - Judge panel composition (which judges ran, why — from jury.json)
+  - Per-claim table: id, claim, judges who approved, judges who challenged, status
+  - Convergence reported as context, not as a confidence multiplier
 ```
 
 ### Step 9: Quality Gate
 
 ```
-IF all claims are Confirmed or Likely:
-    → SKIP re-research, proceed to Phase 5 (synthesis)
-
-IF any claims are Conflicting or Refuted:
-    → Proceed to Step 10 (targeted re-research)
+IF all claims are Confirmed or Likely  -> proceed to Phase 5 (synthesis)
+IF any claim is Conflicting or Refuted -> proceed to Step 10 (targeted re-research)
 ```
 
-### Step 10: Targeted Re-Research (Conditional)
+### Step 10: Targeted Re-Research (Conditional, max 1 pass)
 
 ```
 Use the Task tool:
-- description: "Tribunal: Re-research low-confidence claims"
+- description: "Re-research low-confidence claims"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are a Targeted Re-Researcher. Some claims did not pass multi-LLM
-    tribunal review. Find additional evidence using Perplexity research.
-
-    Read: $RESEARCH_DIR/confidence-table.md
-    Read: $RESEARCH_DIR/claims.json
-    Read all tribunal vote files for reviewer critiques.
-
-    FOCUS ONLY on claims with status "Conflicting" or "Refuted".
-    Use perplexity_research MCP tool for each low-confidence claim.
-    Address specific reviewer critiques from all 3 LLMs.
+    Read $RESEARCH_DIR/confidence-table.md and tribunal-votes-*.json.
+    Focus only on claims with status Conflicting or Refuted.
+    Use perplexity_research to gather additional evidence addressing the
+    specific judge critiques.
 
     Save findings to: $RESEARCH_DIR/supplementary-research.md
-
-HARD LIMITS: Maximum 1 re-research pass. Circuit breaker if no improvement.
 ```
+
+HARD LIMIT: 1 re-research pass. Circuit breaker if no improvement.
 
 ---
 
@@ -469,133 +376,126 @@ HARD LIMITS: Maximum 1 re-research pass. Circuit breaker if no improvement.
 
 ```
 Use the Task tool:
-- description: "Tribunal: Multi-LLM confidence-scored synthesis"
+- description: "Final synthesis"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are the Research Synthesizer. Produce a final report incorporating
-    multi-LLM research and tribunal cross-validation results.
+    Read all inputs in $RESEARCH_DIR (researcher-*.md, claims.json,
+    confidence-table.md, tribunal-votes-*.json, jury.json,
+    supplementary-research.md if present).
 
-    Read ALL inputs:
-    - $RESEARCH_DIR/researcher-a-claude.md
-    - $RESEARCH_DIR/researcher-b-openai.md
-    - $RESEARCH_DIR/researcher-c-gemini.md
-    - $RESEARCH_DIR/claims.json
-    - $RESEARCH_DIR/confidence-table.md
-    - $RESEARCH_DIR/tribunal-votes-1-claude.json
-    - $RESEARCH_DIR/tribunal-votes-2-openai.json
-    - $RESEARCH_DIR/tribunal-votes-3-gemini.json
-    - $RESEARCH_DIR/supplementary-research.md (if it exists)
-
-    Produce: $RESEARCH_DIR/final-report.md
-
-    Report structure:
+    Produce $RESEARCH_DIR/final-report.md with:
 
     1. Executive Summary
-       - Topic and research scope
-       - Models used: Claude Opus 4.6, OpenAI GPT-4o, Gemini 2.5 Pro
-       - Claims extracted, voted on, confidence distribution
-
+       - Topic, classified category, judge panel composition, claim totals,
+         confidence distribution.
     2. Cross-Model Agreement Analysis
-       - Findings all 3 LLMs independently discovered (highest confidence)
-       - Findings with partial agreement (2/3 LLMs)
-       - Model-specific findings (only 1 LLM found this)
-       - Model-specific biases or blind spots observed
-
-    3. Confidence-Scored Findings Table
-       - Full table with convergence, tribunal votes, confidence, status
-       - Organized by confidence level (Confirmed first)
-
+       - Which findings ALL researchers found vs. only some.
+       - Model-specific findings + observed biases.
+    3. Findings Table by Status
+       - Confirmed / Likely / Conflicting / Refuted.
     4. High-Confidence Recommendations
-       - Only claims with >= 2/3 model convergence AND >= 2/3 tribunal approval
-       - These are findings you can act on with confidence
-
+       - Only Confirmed or Likely claims.
     5. Contested Findings
-       - Claims where LLMs or tribunal reviewers disagreed
-       - Preserve all perspectives with model attribution
-
+       - All judges' perspectives preserved.
     6. Dissenting Opinions
-       - Model-specific minority viewpoints
-       - Reasoning preserved for context
-
+       - Minority votes with reasoning.
     7. Methodology
-       - Multi-LLM triplicate research (Claude+Perplexity, OpenAI, Gemini)
-       - Claim extraction and anonymization
-       - Multi-LLM tribunal voting (Claude, OpenAI, Gemini)
-       - Confidence aggregation formula
-       - Re-research summary (if triggered)
-
+       - Jury-on-demand classifier + selected panel + simple-majority voting.
+       - Re-research summary if triggered.
     8. Source References
-       - 10+ source URLs with descriptions
-       - Cross-referenced across all 3 LLMs
-
-    9. Actionable Next Steps
-       - Prioritized by confidence level
-       - Only recommend actions backed by high-confidence findings
+    9. Actionable Next Steps (prioritized by status)
 ```
 
 ### Step 12: Report to User
-```
+
 Report:
 - Research directory path
-- Models used: Claude Opus 4.6, OpenAI GPT-4o, Gemini 2.5 Pro
-- Total claims extracted and voted on
-- Confidence distribution:
-  - X Confirmed (>= 0.80)
-  - Y Likely (0.55-0.79)
-  - Z Conflicting (0.30-0.54)
-  - W Refuted (< 0.30)
-- Cross-model agreement highlights
+- Query category + judge panel used (from `jury.json`)
+- Researchers that ran (may be fewer than the panel if a key was missing)
+- Total claims voted on
+- Confidence distribution (Confirmed / Likely / Conflicting / Refuted)
 - Re-research summary (if triggered)
-- Top 5 recommendations with confidence scores
-- List of all output files
-```
+- Top 5 recommendations
+- List of output files
 
 ---
 
-## Budget Allocation
+## Backward Compatibility
 
-| Phase | Model(s) | Budget % |
-|-------|----------|----------|
-| 3 Multi-LLM Researchers | Claude+Perplexity, OpenAI, Gemini | 35% |
-| Claim Extraction | Claude Haiku | 5% |
-| 3 Multi-LLM Tribunal Reviewers | Claude Sonnet, OpenAI, Gemini | 15% |
-| Targeted Re-Research (conditional) | Claude Opus + Perplexity | 10% |
-| Final Synthesizer | Claude Opus | 25% |
-| Buffer/overhead | — | 10% |
+| Caller invocation | Behavior |
+|---|---|
+| `/research "<topic>"` | Classifier picks 1-3 judges based on category |
+| `/research "<topic>" --judges all` | Forces full 3-judge panel (Claude + OpenAI + Gemini) — original behavior |
+
+Existing callers that rely on the 3-judge panel can add `--judges all` to preserve the legacy aggregation. The output schema (claims.json, tribunal-votes-*.json, confidence-table.md, final-report.md) is unchanged; only the **number** of `tribunal-votes-*.json` files varies with the panel size, and `confidence-table.md` reports panel composition explicitly.
+
+---
+
+## Budget Allocation (Variable by Panel Size)
+
+| Phase | 1 judge | 2 judges | 3 judges |
+|---|---|---|---|
+| Research (all available LLMs) | 35% | 35% | 35% |
+| Claim extraction (Haiku) | 5% | 5% | 5% |
+| Tribunal voting | 5% | 10% | 15% |
+| Re-research (conditional) | 10% | 10% | 10% |
+| Final synthesis (Opus) | 35% | 30% | 25% |
+| Buffer | 10% | 10% | 10% |
+
+Single-judge runs allocate more to synthesis because there is no inter-judge disagreement to reconcile.
+
+---
 
 ## API Requirements
 
-This command requires the following API keys in `.env`:
+| Key | Provider | Required When |
+|---|---|---|
+| Perplexity (Docker MCP, pre-configured) | Perplexity | Always — Claude researcher uses it |
+| `OPENAI_API_KEY` | OpenAI | Panel includes `openai`, or `--judges all` |
+| `GEMINI_API_KEY` | Google | Panel includes `gemini`, or `--judges all` |
 
-| Key | Provider | Used In |
-|-----|----------|---------|
-| `OPENAI_API_KEY` | OpenAI | Researcher B, Tribunal Reviewer 2 |
-| `GEMINI_API_KEY` | Google | Researcher C, Tribunal Reviewer 3 |
-| Perplexity | Docker MCP (pre-configured) | Researcher A, Re-Research |
+Run `/initialize-project` to configure missing keys.
 
-Run `/initialize-project` to configure API keys for a new project.
+---
 
-## Usage
+## Usage Examples
 
 ```
-/research "Evaluate GraphQL vs REST for our API layer"
-/research "Compare authentication strategies for SaaS applications"
-/research "Best practices for real-time data synchronization"
+# Classifier picks the panel:
+/research "Evaluate GraphQL vs REST for our API layer"           # architectural -> 2 judges
+/research "Best UX patterns for onboarding flows"                # design -> 3 judges
+/research "How do I implement a Rust trait for serde?"           # coding -> 1 judge
+/research "OWASP top 10 mitigations for Node.js APIs"            # security -> 2 judges
+/research "What is RAFT consensus?"                              # factual -> 1 judge
+
+# Force legacy 3-judge panel for backward compat:
+/research "Compare authentication strategies for SaaS" --judges all
 ```
+
+---
 
 ## Output Files
 
 ```
 .docs/research/YYYYMMDD-HHMMSS-topic/
-  researcher-a-claude.md       # Claude + Perplexity research
-  researcher-b-openai.md       # OpenAI GPT-4o research
-  researcher-c-gemini.md       # Gemini 2.5 Pro research
-  claims.json                  # Extracted claims with convergence
-  tribunal-votes-1-claude.json # Claude accuracy votes
-  tribunal-votes-2-openai.json # OpenAI sourcing votes
-  tribunal-votes-3-gemini.json # Gemini relevance votes
-  confidence-table.md          # Aggregated confidence scores
-  supplementary-research.md    # Re-research (if triggered)
-  final-report.md              # Confidence-scored final report
+  jury.json                           # Classifier decision (category + judge panel)
+  researcher-a-claude.md              # Claude + Perplexity research (always)
+  researcher-b-openai.md              # OpenAI GPT-4o research (if key present)
+  researcher-c-gemini.md              # Gemini 2.5 Pro research (if key present)
+  claims.json                         # Extracted claims with convergence
+  tribunal-votes-1-claude.json        # Claude votes (always)
+  tribunal-votes-2-openai.json        # OpenAI votes (only if openai in panel)
+  tribunal-votes-3-gemini.json        # Gemini votes (only if gemini in panel)
+  confidence-table.md                 # Simple-majority status per claim
+  supplementary-research.md           # Re-research (if triggered)
+  final-report.md                     # Final report
 ```
+
+---
+
+## Constitutional Compliance
+
+- **Principle X (Agent Delegation)**: All research and voting work is dispatched via the Task tool to general-purpose subagents; this command coordinates only.
+- **Principle VI (Git Approval)**: This command writes only to `.docs/research/...` and never invokes git.
+- **Principle VII (Observability)**: `jury.json` records the classification decision and panel composition for every run, enabling post-hoc audit of the jury-on-demand heuristic.

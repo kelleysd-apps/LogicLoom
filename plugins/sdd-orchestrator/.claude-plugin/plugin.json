@@ -26,13 +26,16 @@
     ]
   },
   "skills": {
-    "count": 6,
+    "count": 9,
     "list": [
       "full-stack-feature",
       "migration-workflow",
       "multi-skill-workflow",
       "plan-review",
       "retro",
+      "review-evaluator",
+      "swarm-explore",
+      "swarm-implement",
       "team-orchestration"
     ]
   },
