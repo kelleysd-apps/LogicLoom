@@ -335,6 +335,44 @@ test_policy() {
 # Export functions
 # ==============================================================================
 
+# ==============================================================================
+# Loom freeze-scope helper (Principle XI — Stage 11, gstack-D)
+# ==============================================================================
+
+# loom_check_freeze_scope <target_path> <owns_list>
+#   target_path: path relative to repo root (e.g. "features/foo/plan.md")
+#   owns_list:   newline-separated list of allowed path patterns
+#                (glob-style; trailing-slash or directory match grants children)
+#
+# Returns: 0 if target_path is within owns_list scope (allow)
+#          1 if target_path is outside owns_list scope (deny)
+#
+# Used by .claude/hooks/freeze-write-scope.sh during /swarm implement runs.
+loom_check_freeze_scope() {
+    local target="$1"
+    local owns="$2"
+
+    # Empty owns list means "no restriction declared" → allow
+    [ -n "$owns" ] || return 0
+    [ -n "$target" ] || return 1
+
+    local owned
+    while IFS= read -r owned; do
+        [ -z "$owned" ] && continue
+        # Strip leading "./" and trailing "/" for consistent matching
+        owned="${owned#./}"
+        owned="${owned%/}"
+        [ -z "$owned" ] && continue
+        case "$target" in
+            $owned|$owned/*)
+                return 0
+                ;;
+        esac
+    done <<< "$owns"
+
+    return 1
+}
+
 export -f load_policy
 export -f validate_tool_call
 export -f check_policy_category
@@ -344,6 +382,7 @@ export -f get_policy_stats
 export -f test_policy
 export -f parse_json
 export -f parse_json_file
+export -f loom_check_freeze_scope
 
 # Initialize on source
 load_policy || log_warn "Failed to load policy on initialization"
