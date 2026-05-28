@@ -1,6 +1,6 @@
 ---
 name: update-framework
-description: Monitor and apply updates from upstream sdd-agentic-framework using proposal-based selective adoption.
+description: Monitor and apply updates from upstream logic-loom using proposal-based selective adoption.
 model: opus
 ---
 
@@ -18,7 +18,7 @@ cat .sdd-sync-ref 2>/dev/null || echo "No sync ref found"
 
 ### Step 2: Fetch Upstream
 ```bash
-git remote -v | grep -q upstream || git remote add upstream https://github.com/kelleysd-apps/sdd-agentic-framework.git
+git remote -v | grep -q upstream || git remote add upstream https://github.com/kelleysd-apps/logic-loom.git
 git fetch upstream main
 ```
 

@@ -71,9 +71,9 @@ done
 
 echo ""
 echo "T5.2: RL feedback scripts"
-assert "collect-feedback.sh exists" "[ -f .specify/scripts/bash/rl/collect-feedback.sh ]"
-assert "sync-metrics.sh exists" "[ -f .specify/scripts/bash/rl/sync-metrics.sh ]"
-assert "dashboard.sh exists" "[ -f .specify/scripts/bash/rl/dashboard.sh ]"
+assert "collect-feedback.sh exists" "[ -f .logic-loom/scripts/bash/rl/collect-feedback.sh ]"
+assert "sync-metrics.sh exists" "[ -f .logic-loom/scripts/bash/rl/sync-metrics.sh ]"
+assert "dashboard.sh exists" "[ -f .logic-loom/scripts/bash/rl/dashboard.sh ]"
 
 echo ""
 echo "═══════════════════════════════════════"

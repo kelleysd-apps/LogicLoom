@@ -123,8 +123,8 @@ class ConstitutionalValidator:
 
     def __init__(
         self,
-        constitution_path: str = "/workspaces/sdd-agentic-framework/.specify/memory/constitution.md",
-        report_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/compliance-reports"
+        constitution_path: str = "/workspaces/logic-loom/.logic-loom/memory/constitution.md",
+        report_dir: str = "/workspaces/logic-loom/.docs/agents/shared/compliance-reports"
     ):
         """
         Initialize Constitutional Validator.

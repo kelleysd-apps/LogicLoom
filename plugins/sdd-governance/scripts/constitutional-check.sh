@@ -130,7 +130,7 @@ echo "Checking scripts for idempotency patterns..."
 
 # Check if scripts handle "already exists" scenarios
 IDEMPOTENT_PATTERNS=false
-for script in "$REPO_ROOT/.specify/scripts/bash/"*.sh "$REPO_ROOT/"*.sh; do
+for script in "$REPO_ROOT/.logic-loom/scripts/bash/"*.sh "$REPO_ROOT/"*.sh; do
     [ -f "$script" ] || continue
 
     # Look for idempotency patterns
@@ -182,7 +182,7 @@ echo "Checking for git approval mechanisms..."
 
 # Check if scripts have git approval
 GIT_APPROVAL_FOUND=false
-for script in "$REPO_ROOT/.specify/scripts/bash/"*.sh "$REPO_ROOT/"*.sh; do
+for script in "$REPO_ROOT/.logic-loom/scripts/bash/"*.sh "$REPO_ROOT/"*.sh; do
     [ -f "$script" ] || continue
     [[ "$script" == *"sanitization-audit.sh" ]] && continue
     [[ "$script" == *"constitutional-check.sh" ]] && continue
@@ -242,8 +242,8 @@ echo "Checking documentation structure..."
 DOC_COUNT=0
 [ -f "$REPO_ROOT/README.md" ] && ((DOC_COUNT++))
 [ -f "$REPO_ROOT/CLAUDE.md" ] || [ -f "$REPO_ROOT/.claude/CLAUDE.md" ] && ((DOC_COUNT++))
-[ -f "$REPO_ROOT/.specify/memory/constitution.md" ] && ((DOC_COUNT++))
-[ -f "$REPO_ROOT/.specify/memory/constitution_update_checklist.md" ] && ((DOC_COUNT++))
+[ -f "$REPO_ROOT/.logic-loom/memory/constitution.md" ] && ((DOC_COUNT++))
+[ -f "$REPO_ROOT/.logic-loom/memory/constitution_update_checklist.md" ] && ((DOC_COUNT++))
 
 if [ $DOC_COUNT -ge 3 ]; then
     echo -e "   ${GREEN}✅ PASS${NC}: Core documentation files exist ($DOC_COUNT/4)"
@@ -293,7 +293,7 @@ fi
 
 # Check for agent collaboration triggers
 TRIGGERS_EXIST=false
-if [ -f "$REPO_ROOT/.specify/memory/agent-collaboration-triggers.md" ]; then
+if [ -f "$REPO_ROOT/.logic-loom/memory/agent-collaboration-triggers.md" ]; then
     TRIGGERS_EXIST=true
 fi
 
@@ -302,7 +302,7 @@ if [ $AGENT_COUNT -gt 0 ] && [ "$TRIGGERS_EXIST" = true ]; then
     ((PASS_COUNT++))
 elif [ $AGENT_COUNT -gt 0 ]; then
     echo -e "   ${YELLOW}⚠${NC}  WARNING: Agents exist but no collaboration triggers defined"
-    record_warn "Create .specify/memory/agent-collaboration-triggers.md"
+    record_warn "Create .logic-loom/memory/agent-collaboration-triggers.md"
 elif [ "$TRIGGERS_EXIST" = true ]; then
     echo -e "   ${YELLOW}⚠${NC}  WARNING: Triggers defined but no agents created"
     record_warn "Create specialized agents in plugins/*/agents/"

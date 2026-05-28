@@ -56,7 +56,7 @@ project-root/
 │   ├── policies/               # Framework policies
 │   └── prd/                    # Product Requirements Documents
 │
-├── .specify/                   # SDD Framework core
+├── .logic-loom/                   # SDD Framework core
 │   ├── config/                 # Framework configuration
 │   ├── memory/                 # Constitutional documents
 │   ├── scripts/                # Automation scripts
@@ -109,7 +109,7 @@ project-root/
 - One agent per file
 - File name = agent name (kebab-case)
 - Department folder must exist before creating agent
-- Use `.specify/templates/agent-template.md` for new agents
+- Use `.logic-loom/templates/agent-template.md` for new agents
 
 ### .claude/skills/ - Skill Definitions
 
@@ -138,7 +138,7 @@ project-root/
 - Each skill gets its own folder
 - Main file MUST be named `SKILL.md`
 - Supporting files allowed: `reference.md`, `examples.md`
-- Use `.specify/templates/skill-template.md` for new skills
+- Use `.logic-loom/templates/skill-template.md` for new skills
 
 ### .docs/agents/ - Agent Memory
 
@@ -195,7 +195,7 @@ specs/
 **Rules**:
 - Feature number prefix (###) is sequential
 - Directory name: `###-feature-name` (kebab-case)
-- All files use templates from `.specify/templates/`
+- All files use templates from `.logic-loom/templates/`
 - Created via `/specify` command, not manually
 
 ### src/ - Source Code
@@ -263,7 +263,7 @@ Before creating ANY file:
    └─ If exists: Edit instead of Write
 
 4. USE TEMPLATE if available
-   └─ Check .specify/templates/ for applicable template
+   └─ Check .logic-loom/templates/ for applicable template
    └─ Copy and modify template content
 
 5. CREATE file with full absolute path
@@ -382,13 +382,13 @@ The framework provides validation tools:
 
 ```bash
 # Validate directory structure
-.specify/scripts/bash/validate-structure.sh
+.logic-loom/scripts/bash/validate-structure.sh
 
 # Check file naming conventions
-.specify/scripts/bash/check-naming.sh
+.logic-loom/scripts/bash/check-naming.sh
 
 # Audit file organization
-.specify/scripts/bash/file-audit.sh
+.logic-loom/scripts/bash/file-audit.sh
 ```
 
 ### Skill-Based Enforcement
@@ -453,13 +453,13 @@ All agents MUST:
 | Command | `.claude/commands/[command].md` |
 | Policy | `.docs/policies/[topic]-policy.md` |
 | Feature spec | `specs/###-[name]/` |
-| Template | `.specify/templates/[name]-template.md` |
+| Template | `.logic-loom/templates/[name]-template.md` |
 
 ### Creation Commands
 
 ```bash
 # Create agent (use script)
-.specify/scripts/bash/create-agent.sh [name] [description]
+.logic-loom/scripts/bash/create-agent.sh [name] [description]
 
 # Create skill folder
 mkdir -p .claude/skills/[category]/[skill-name]
@@ -474,8 +474,8 @@ mkdir -p .claude/skills/[category]/[skill-name]
 
 - Agent Naming: `.docs/policies/agent-file-naming-convention.md`
 - Agent Creation: `.docs/policies/agent-creation-policy.md`
-- Constitution: `.specify/memory/constitution.md`
-- Templates: `.specify/templates/`
+- Constitution: `.logic-loom/memory/constitution.md`
+- Templates: `.logic-loom/templates/`
 
 ---
 

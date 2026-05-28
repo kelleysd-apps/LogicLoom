@@ -798,7 +798,7 @@ Track these branching metrics:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md` (Principle VI)
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md` (Principle VI)
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Deployment Policy: `.docs/policies/deployment-policy.md`
 - Release Management: `.docs/policies/release-management-policy.md`

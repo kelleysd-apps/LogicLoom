@@ -137,8 +137,8 @@ class MetricsCollector:
 
     def __init__(
         self,
-        metrics_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/metrics",
-        baseline_file: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/metrics/baseline.json"
+        metrics_dir: str = "/workspaces/logic-loom/.docs/agents/shared/metrics",
+        baseline_file: str = "/workspaces/logic-loom/.docs/agents/shared/metrics/baseline.json"
     ):
         """
         Initialize Metrics Collector.

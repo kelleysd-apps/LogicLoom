@@ -4,7 +4,7 @@
 
 ## Constitutional Foundation
 
-**The constitution at `.specify/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
+**The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
 The constitution (v3.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
@@ -202,7 +202,7 @@ mkdir "$DIR"
 
 **Enforcement**: `/finalize` command validates documentation sync
 
-**Update Checklist**: `.specify/memory/constitution_update_checklist.md`
+**Update Checklist**: `.logic-loom/memory/constitution_update_checklist.md`
 
 ---
 
@@ -237,7 +237,7 @@ mkdir "$DIR"
 
 **Enforcement**: `message-preflight` skill (mandatory on every message)
 
-**Reference**: `.specify/memory/agent-collaboration-triggers.md`
+**Reference**: `.logic-loom/memory/agent-collaboration-triggers.md`
 
 **Skill**: `plugins/sdd-governance/skills/message-preflight/SKILL.md`
 
@@ -319,7 +319,7 @@ mkdir "$DIR"
 **Requirements**:
 - Verify parent directory exists before creating files
 - Edit existing files over creating new ones
-- Use templates from `.specify/templates/` when available
+- Use templates from `.logic-loom/templates/` when available
 - Always use absolute paths from repository root
 
 **Enforcement**: Pre-flight check, code review
@@ -471,7 +471,7 @@ Pre-command hook at `.claude/hooks/guard-dangerous-commands.sh` blocks dangerous
 Run before commits and releases:
 
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 ```
 
 Validates:
@@ -488,7 +488,7 @@ Use `/finalize` command for comprehensive pre-commit validation:
 
 ```bash
 # Run finalize command
-./.specify/scripts/bash/finalize-feature.sh
+./.logic-loom/scripts/bash/finalize-feature.sh
 
 # Review compliance report
 # If all checks pass, manually execute suggested git commands
@@ -498,7 +498,7 @@ Use `/finalize` command for comprehensive pre-commit validation:
 
 When updating the constitution:
 
-**MUST follow** `.specify/memory/constitution_update_checklist.md`
+**MUST follow** `.logic-loom/memory/constitution_update_checklist.md`
 
 Ensures all dependent documents updated:
 - CLAUDE.md
@@ -540,10 +540,10 @@ Load governance context when needed:
 
 ```bash
 # Load governance module
-./.specify/scripts/bash/load-context.sh load governance
+./.logic-loom/scripts/bash/load-context.sh load governance
 
 # Load based on request analysis
-./.specify/scripts/bash/load-context.sh analyze "commit these changes"
+./.logic-loom/scripts/bash/load-context.sh analyze "commit these changes"
 ```
 
 ---
@@ -553,7 +553,7 @@ Load governance context when needed:
 **Last Updated**: 2026-02-07
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.specify/memory/constitution.md` (v3.0.0)
-- `.specify/memory/constitution_update_checklist.md`
+- `.logic-loom/memory/constitution.md` (v3.0.0)
+- `.logic-loom/memory/constitution_update_checklist.md`
 - CLAUDE.md "Constitutional Foundation" and "Git Operations" sections
-- `.specify/scripts/bash/common.sh` (git approval functions)
+- `.logic-loom/scripts/bash/common.sh` (git approval functions)

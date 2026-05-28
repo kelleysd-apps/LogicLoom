@@ -185,8 +185,8 @@ If any termination layer triggers:
    termination reason, code changes summary).
 2. Record RL feedback for all skills and models used:
    ```bash
-   .specify/scripts/bash/rl/collect-feedback.sh core-loop success|failure $tokens
-   .specify/scripts/bash/rl/sync-metrics.sh
+   .logic-loom/scripts/bash/rl/collect-feedback.sh core-loop success|failure $tokens
+   .logic-loom/scripts/bash/rl/sync-metrics.sh
    ```
 3. Save final checkpoint.
 4. Exit loop with termination status.
@@ -212,7 +212,7 @@ After the loop exits (regardless of reason):
    - Termination reason
 3. Sync RL metrics:
    ```bash
-   .specify/scripts/bash/rl/sync-metrics.sh
+   .logic-loom/scripts/bash/rl/sync-metrics.sh
    ```
 4. Update session-state.json with `status: "terminated"` and `termination_reason`.
 

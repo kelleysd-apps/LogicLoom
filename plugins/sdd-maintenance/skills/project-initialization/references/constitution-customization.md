@@ -95,6 +95,6 @@ Review PRD requirements, resolve conflict manually, then re-run.
 
 ### Rollback
 ```bash
-cp .specify/memory/constitution.md.backup .specify/memory/constitution.md
+cp .logic-loom/memory/constitution.md.backup .logic-loom/memory/constitution.md
 ```
 Revert CLAUDE.md changes and delete incomplete agent files.

@@ -54,7 +54,7 @@ If pre-flight was skipped or violated:
 
 ## Constitutional Foundation
 
-**The constitution at `.specify/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
+**The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
 The constitution (v3.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
@@ -153,7 +153,7 @@ The correct Vercel project configuration is:
 
 ## Development Principles
 
-ALL development principles are defined in `.specify/memory/constitution.md`.
+ALL development principles are defined in `.logic-loom/memory/constitution.md`.
 
 The constitution supersedes all other practices and must be consulted for:
 - Architecture decisions and patterns
@@ -164,7 +164,7 @@ The constitution supersedes all other practices and must be consulted for:
 
 Never proceed with implementation without verifying constitutional compliance.
 
-**Note**: When updating the constitution, the `.specify/memory/constitution_update_checklist.md` MUST be followed to ensure all dependent documents are updated.
+**Note**: When updating the constitution, the `.logic-loom/memory/constitution_update_checklist.md` MUST be followed to ensure all dependent documents are updated.
 
 ---
 
@@ -181,12 +181,12 @@ This is a modular context system. Additional context modules available:
 
 Load additional modules using:
 ```bash
-./.specify/scripts/bash/load-context.sh load <module>
+./.logic-loom/scripts/bash/load-context.sh load <module>
 ```
 
 Or analyze request automatically:
 ```bash
-./.specify/scripts/bash/load-context.sh analyze "<request text>"
+./.logic-loom/scripts/bash/load-context.sh analyze "<request text>"
 ```
 
 ---
@@ -196,6 +196,6 @@ Or analyze request automatically:
 **Last Updated**: 2026-02-07
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.specify/memory/constitution.md` (v3.0.0)
+- `.logic-loom/memory/constitution.md` (v3.0.0)
 - CLAUDE.md core sections
 - `plugins/sdd-governance/skills/message-preflight/SKILL.md`

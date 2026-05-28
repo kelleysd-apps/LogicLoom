@@ -5,7 +5,7 @@
  * This hook runs before each user prompt is submitted to Claude Code.
  * It enforces the 4-step compliance protocol from FR-707.
  *
- * Constitutional Reference: .specify/memory/constitution.md
+ * Constitutional Reference: .logic-loom/memory/constitution.md
  * Output Contract: { blocked: false, hookSpecificOutput: { hookEventName: "UserPromptSubmit", additionalContext: string } }
  *
  * Audit Trail: Writes session logs to .docs/governance/audit/YYYY-MM-DD/

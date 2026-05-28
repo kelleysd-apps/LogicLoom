@@ -29,7 +29,7 @@ Usage:
         input_data={
             "task_description": "Implement authentication",
             "search_keywords": ["auth", "security", "user"],
-            "scan_paths": ["/workspaces/sdd-agentic-framework/src"],
+            "scan_paths": ["/workspaces/logic-loom/src"],
             "max_results": 10,
             "performance_target_ms": 2000
         },
@@ -73,8 +73,8 @@ class ContextAnalyzerAgent:
 
     def __init__(
         self,
-        summaries_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/context-summaries",
-        constitution_path: str = "/workspaces/sdd-agentic-framework/.specify/memory/constitution.md"
+        summaries_dir: str = "/workspaces/logic-loom/.docs/agents/shared/context-summaries",
+        constitution_path: str = "/workspaces/logic-loom/.logic-loom/memory/constitution.md"
     ):
         """
         Initialize Context Analyzer Agent.
@@ -247,12 +247,12 @@ class ContextAnalyzerAgent:
         Returns:
             List of default paths to scan
         """
-        base = Path("/workspaces/sdd-agentic-framework")
+        base = Path("/workspaces/logic-loom")
         return [
             str(base / "src"),
             str(base / "tests"),
             str(base / "specs"),
-            str(base / ".specify/memory"),
+            str(base / ".logic-loom/memory"),
             str(base / ".claude/agents")
         ]
 
@@ -445,7 +445,7 @@ class ContextAnalyzerAgent:
         Returns:
             List of related spec paths
         """
-        specs_dir = Path("/workspaces/sdd-agentic-framework/specs")
+        specs_dir = Path("/workspaces/logic-loom/specs")
         related = []
 
         if not specs_dir.exists():

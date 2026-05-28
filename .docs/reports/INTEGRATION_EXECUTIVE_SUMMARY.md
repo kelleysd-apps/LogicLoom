@@ -1,7 +1,7 @@
 # Framework Enhancements Integration - Executive Summary
 
 **Date**: 2026-01-09
-**Project**: sdd-agentic-framework v3.0.0 → v3.1.0
+**Project**: logic-loom v3.0.0 → v3.1.0
 **Source**: kelleysd.com Framework v2.0 Enhancements
 **Status**: ✅ **READY FOR INTEGRATION**
 
@@ -9,7 +9,7 @@
 
 ## Overview
 
-This package contains a complete analysis and integration plan for porting **6 production-ready enhancements** from kelleysd.com to sdd-agentic-framework, delivering:
+This package contains a complete analysis and integration plan for porting **6 production-ready enhancements** from kelleysd.com to logic-loom, delivering:
 
 - **37% token efficiency improvement**
 - **2-3x parallel execution speedup**
@@ -189,7 +189,7 @@ Phase 4 (Modular Context)
 ✅ Git approval workflow (Principle VI)
 
 ### Minor Conflicts (2 files)
-⚠️ **`.specify/scripts/bash/common.sh`**
+⚠️ **`.logic-loom/scripts/bash/common.sh`**
 - Current: 65 lines, basic git approval
 - Enhanced: 100+ lines, logging + 8 git functions
 - **Resolution**: Merge (no custom modifications detected)
@@ -321,7 +321,7 @@ git clean -fd
 git revert <phase-4-commit-hash>
 
 # Rollback specific files
-git checkout v3.0.0-pre-integration -- .specify/lib/logging.sh  # Phase 1
+git checkout v3.0.0-pre-integration -- .logic-loom/lib/logging.sh  # Phase 1
 git checkout v3.0.0-pre-integration -- CLAUDE.md  # Phase 4
 ```
 **Recovery Time**: <10 minutes per phase

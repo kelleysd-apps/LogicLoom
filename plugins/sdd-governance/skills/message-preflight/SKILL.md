@@ -315,7 +315,7 @@ Verify the skill executed correctly:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
-- Skill Activation Triggers: `.specify/memory/skill-activation-triggers.md` (Phase 3)
-- Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md` (legacy)
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
+- Skill Activation Triggers: `.logic-loom/memory/skill-activation-triggers.md` (Phase 3)
+- Agent Collaboration Triggers: `.logic-loom/memory/agent-collaboration-triggers.md` (legacy)
 - Domain Detection Skill: `plugins/sdd-governance/skills/domain-detection/SKILL.md`

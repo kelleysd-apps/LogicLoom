@@ -37,8 +37,8 @@ def test_context_retrieval_meets_performance_target():
             "task_description": "Implement quality verification system",
             "search_keywords": ["quality", "verification", "gate"],
             "scan_paths": [
-                "/workspaces/sdd-agentic-framework/.claude/agents",
-                "/workspaces/sdd-agentic-framework/.specify/memory",
+                "/workspaces/logic-loom/.claude/agents",
+                "/workspaces/logic-loom/.logic-loom/memory",
             ],
             "max_results": 10,
             "performance_target_ms": 2000,
@@ -76,7 +76,7 @@ def test_context_retrieval_identifies_relevant_files_accurately():
         input_data={
             "task_description": "Design authentication system with security best practices",
             "search_keywords": ["authentication", "security", "auth", "password"],
-            "scan_paths": ["/workspaces/sdd-agentic-framework"],
+            "scan_paths": ["/workspaces/logic-loom"],
             "max_results": 10,
             "performance_target_ms": 2000,
         },
@@ -113,7 +113,7 @@ def test_context_retrieval_gracefully_degrades_to_keyword_search():
         input_data={
             "task_description": "Quick lookup",
             "search_keywords": ["test"],
-            "scan_paths": ["/workspaces/sdd-agentic-framework"],
+            "scan_paths": ["/workspaces/logic-loom"],
             "max_results": 5,
             "performance_target_ms": 1,  # Unrealistic timeout
         },
@@ -150,7 +150,7 @@ def test_context_retrieval_provides_file_summaries_and_patterns():
         input_data={
             "task_description": "Understand agent framework patterns",
             "search_keywords": ["agent", "delegation", "constitution"],
-            "scan_paths": ["/workspaces/sdd-agentic-framework/.specify/memory"],
+            "scan_paths": ["/workspaces/logic-loom/.logic-loom/memory"],
             "max_results": 10,
             "performance_target_ms": 2000,
         },
@@ -188,7 +188,7 @@ def test_context_retrieval_tracks_latency_metrics():
         input_data={
             "task_description": "Metrics test",
             "search_keywords": ["test"],
-            "scan_paths": ["/workspaces/sdd-agentic-framework/.specify"],
+            "scan_paths": ["/workspaces/logic-loom/.specify"],
             "max_results": 5,
             "performance_target_ms": 2000,
         },

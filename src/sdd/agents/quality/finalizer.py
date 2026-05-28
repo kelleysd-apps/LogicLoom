@@ -85,8 +85,8 @@ class FinalizerAgent:
 
     def __init__(
         self,
-        constitution_path: str = "/workspaces/sdd-agentic-framework/.specify/memory/constitution.md",
-        reports_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/quality/finalizer/reports"
+        constitution_path: str = "/workspaces/logic-loom/.logic-loom/memory/constitution.md",
+        reports_dir: str = "/workspaces/logic-loom/.docs/agents/quality/finalizer/reports"
     ):
         """
         Initialize Compliance Finalizer Agent.

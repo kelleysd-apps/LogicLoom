@@ -76,7 +76,7 @@ class AutoDebugAgent:
 
     def __init__(
         self,
-        sessions_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/engineering/autodebug/sessions",
+        sessions_dir: str = "/workspaces/logic-loom/.docs/agents/engineering/autodebug/sessions",
         max_iterations: int = 5
     ):
         """

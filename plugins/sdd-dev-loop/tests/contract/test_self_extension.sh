@@ -689,13 +689,13 @@ if $LIBS_SOURCED; then
   mkdir -p "${REG_WORKDIR}/plugins"
 
   # Create mock sync script
-  mkdir -p "${REG_WORKDIR}/.specify/scripts/bash"
-  cat > "${REG_WORKDIR}/.specify/scripts/bash/sync-plugin-commands.sh" <<'SYNCSH'
+  mkdir -p "${REG_WORKDIR}/.logic-loom/scripts/bash"
+  cat > "${REG_WORKDIR}/.logic-loom/scripts/bash/sync-plugin-commands.sh" <<'SYNCSH'
 #!/usr/bin/env bash
 echo "Commands synced"
 exit 0
 SYNCSH
-  chmod +x "${REG_WORKDIR}/.specify/scripts/bash/sync-plugin-commands.sh"
+  chmod +x "${REG_WORKDIR}/.logic-loom/scripts/bash/sync-plugin-commands.sh"
 
   # Create mock RL metrics directory
   mkdir -p "${REG_WORKDIR}/.docs/rl-metrics"
@@ -894,14 +894,14 @@ if $LIBS_SOURCED; then
   mkdir -p "${SYNC_WORKDIR}/.docs/rl-metrics"
 
   # Create sync script that writes a marker file
-  mkdir -p "${SYNC_WORKDIR}/.specify/scripts/bash"
-  cat > "${SYNC_WORKDIR}/.specify/scripts/bash/sync-plugin-commands.sh" <<SYNCMARK
+  mkdir -p "${SYNC_WORKDIR}/.logic-loom/scripts/bash"
+  cat > "${SYNC_WORKDIR}/.logic-loom/scripts/bash/sync-plugin-commands.sh" <<SYNCMARK
 #!/usr/bin/env bash
 touch "${SYNC_WORKDIR}/.sync-marker"
 echo "Commands synced"
 exit 0
 SYNCMARK
-  chmod +x "${SYNC_WORKDIR}/.specify/scripts/bash/sync-plugin-commands.sh"
+  chmod +x "${SYNC_WORKDIR}/.logic-loom/scripts/bash/sync-plugin-commands.sh"
 
   # Create validated quarantine plugin
   SYNC_Q="${SYNC_WORKDIR}/.devloop/quarantine/sdd-tool-sync-test"

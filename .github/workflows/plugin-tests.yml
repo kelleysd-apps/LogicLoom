@@ -7,14 +7,14 @@ on:
       - 'tests/**'
       - 'mcp-servers/**'
       - '.claude/commands/**'
-      - '.specify/scripts/**'
+      - '.logic-loom/scripts/**'
   pull_request:
     paths:
       - 'plugins/**'
       - 'tests/**'
       - 'mcp-servers/**'
       - '.claude/commands/**'
-      - '.specify/scripts/**'
+      - '.logic-loom/scripts/**'
 
 jobs:
   contract-tests:
@@ -87,6 +87,6 @@ jobs:
       - name: Constitutional Compliance Check
         if: github.event_name == 'pull_request'
         run: |
-          if [ -f .specify/scripts/bash/constitutional-check.sh ]; then
-            bash .specify/scripts/bash/constitutional-check.sh || true
+          if [ -f .logic-loom/scripts/bash/constitutional-check.sh ]; then
+            bash .logic-loom/scripts/bash/constitutional-check.sh || true
           fi

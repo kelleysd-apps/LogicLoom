@@ -16,6 +16,6 @@ Pass the user's feature description as the primary argument. The skill handles a
 Read `plugins/sdd-specification/skills/unified-specification/SKILL.md` and follow its procedure.
 
 ### Step 2: Execute Phases
-The skill runs 3 phases sequentially: Specification, Planning, Tasks. Each phase uses validation scripts (`.specify/scripts/bash/validate-spec.sh`, etc.) and quality gates.
+The skill runs 3 phases sequentially: Specification, Planning, Tasks. Each phase uses validation scripts (`.logic-loom/scripts/bash/validate-spec.sh`, etc.) and quality gates.
 
 **Usage**: `/specification "Build user authentication with email and password"`

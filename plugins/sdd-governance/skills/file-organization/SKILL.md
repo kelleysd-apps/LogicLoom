@@ -118,7 +118,7 @@ Read: [full-file-path]
 **Check for template**:
 
 ```bash
-ls .specify/templates/
+ls .logic-loom/templates/
 ```
 
 **Available Templates**:
@@ -266,7 +266,7 @@ find plugins/*/agents -type f -name "*.md" | head -20
 ls -la .docs/agents/*/
 
 # Find templates
-ls .specify/templates/
+ls .logic-loom/templates/
 
 # Check for duplicates
 find . -name "[filename]" 2>/dev/null

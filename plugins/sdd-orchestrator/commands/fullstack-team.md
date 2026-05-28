@@ -14,6 +14,6 @@ model: opus
 Read `plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md` and follow its procedure in **parallel fullstack** mode (frontend + backend + database).
 
 ### Step 2: Execute Development
-Use the Task tool to spawn 3 parallel domain workers with skill briefs from `extract_skill_brief()` in `.specify/scripts/bash/common.sh`. Assign file ownership boundaries to prevent conflicts.
+Use the Task tool to spawn 3 parallel domain workers with skill briefs from `extract_skill_brief()` in `.logic-loom/scripts/bash/common.sh`. Assign file ownership boundaries to prevent conflicts.
 
 **Usage**: `/fullstack-team "Build user profile page with API and database schema"`

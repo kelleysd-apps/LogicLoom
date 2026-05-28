@@ -270,7 +270,7 @@ done
 assert "All plugin.json files are valid JSON (${INVALID_JSON} invalid)" "[ ${INVALID_JSON} -eq 0 ]"
 
 # Constitution still references 16 principles
-PRINCIPLE_COUNT=$(grep -c '^### Principle' "$ROOT_DIR/.specify/memory/constitution.md" 2>/dev/null || echo "0")
+PRINCIPLE_COUNT=$(grep -c '^### Principle' "$ROOT_DIR/.logic-loom/memory/constitution.md" 2>/dev/null || echo "0")
 assert "Constitution has 16 principles (found ${PRINCIPLE_COUNT})" "[ ${PRINCIPLE_COUNT} -eq 16 ]"
 
 echo ""

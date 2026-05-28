@@ -177,8 +177,8 @@ class FeedbackAccumulator:
 
     def __init__(
         self,
-        feedback_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/feedback",
-        archive_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/feedback/archive",
+        feedback_dir: str = "/workspaces/logic-loom/.docs/agents/shared/feedback",
+        archive_dir: str = "/workspaces/logic-loom/.docs/agents/shared/feedback/archive",
         archive_threshold: int = 1000
     ):
         """

@@ -20,7 +20,7 @@ Read-only multi-agent investigation. Used in LogicLoom Phase 1 + Phase 3 (codeba
 
 DAG-driven sprint execution. Used in LogicLoom Phase 7 (after `/plan-review` passes).
 
-**SKILL ACTIVATION**: Read and execute `plugins/sdd-orchestrator/skills/swarm-implement/SKILL.md`. Reads `features/<active-feature>/plan.md` (DAG format per `.specify/templates/plan-template.md`), validates file-ownership (no two tasks owning same path), topologically sorts within the sprint, dispatches workers with `LOOM_ACTIVE_FEATURE` / `LOOM_ACTIVE_TASK` env vars set so the freeze-write-scope hook (Stage 11) gates writes. Hard gate: refuses to proceed unless `features/<active-feature>/plan-review.md` contains `Overall verdict: go`.
+**SKILL ACTIVATION**: Read and execute `plugins/sdd-orchestrator/skills/swarm-implement/SKILL.md`. Reads `features/<active-feature>/plan.md` (DAG format per `.logic-loom/templates/plan-template.md`), validates file-ownership (no two tasks owning same path), topologically sorts within the sprint, dispatches workers with `LOOM_ACTIVE_FEATURE` / `LOOM_ACTIVE_TASK` env vars set so the freeze-write-scope hook (Stage 11) gates writes. Hard gate: refuses to proceed unless `features/<active-feature>/plan-review.md` contains `Overall verdict: go`.
 
 **Usage**: `/swarm implement` (next unstarted sprint) or `/swarm implement 02-feature-x`
 
@@ -28,7 +28,7 @@ DAG-driven sprint execution. Used in LogicLoom Phase 7 (after `/plan-review` pas
 
 Domain auto-detect + phased execution with budget controls. Preserved from v5.x for backward compatibility.
 
-**SKILL ACTIVATION**: Read and execute `plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md` in swarm mode. Analyzes task for domain keywords, loads relevant skill briefs via `extract_skill_brief()` from `.specify/scripts/bash/common.sh`, plans execution phases, spawns parallel workers per phase with budget tracking.
+**SKILL ACTIVATION**: Read and execute `plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md` in swarm mode. Analyzes task for domain keywords, loads relevant skill briefs via `extract_skill_brief()` from `.logic-loom/scripts/bash/common.sh`, plans execution phases, spawns parallel workers per phase with budget tracking.
 
 **Usage**: `/swarm "Build auth with React UI, Express API, PostgreSQL"`
 

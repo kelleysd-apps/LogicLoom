@@ -1,14 +1,14 @@
 # Framework Synchronization Guide
 
 **Version**: 1.0.0
-**Framework**: sdd-agentic-framework v3.1.0
+**Framework**: logic-loom v3.1.0
 **Date**: 2026-01-09
 
 ---
 
 ## Overview
 
-This guide explains how to use sdd-agentic-framework as an **upstream source** for your projects and keep them synchronized with framework updates using the `/update-framework` command.
+This guide explains how to use logic-loom as an **upstream source** for your projects and keep them synchronized with framework updates using the `/update-framework` command.
 
 ---
 
@@ -17,14 +17,14 @@ This guide explains how to use sdd-agentic-framework as an **upstream source** f
 ### Repository Relationship
 
 ```
-sdd-agentic-framework (UPSTREAM)
+logic-loom (UPSTREAM)
     ↓ (pulls updates from)
 kelleysd.com (DOWNSTREAM PROJECT)
     ↓ (pulls updates from)
 your-other-project (DOWNSTREAM PROJECT)
 ```
 
-**Key Concept**: sdd-agentic-framework is the **single source of truth** for:
+**Key Concept**: logic-loom is the **single source of truth** for:
 - Constitutional principles
 - Agent templates
 - Workflow scripts
@@ -33,7 +33,7 @@ your-other-project (DOWNSTREAM PROJECT)
 
 ---
 
-## For Upstream (sdd-agentic-framework)
+## For Upstream (logic-loom)
 
 ### Purpose
 
@@ -92,10 +92,10 @@ git push origin v3.2.0
 cd /path/to/your-project
 
 # Add upstream remote (if not already added)
-git remote add sdd-upstream https://github.com/yourusername/sdd-agentic-framework.git
+git remote add sdd-upstream https://github.com/yourusername/logic-loom.git
 
 # Or if using local path during development
-git remote add sdd-upstream file:///c:/Users/brian/Dev\ Apps/sdd-agentic-framework
+git remote add sdd-upstream file:///c:/Users/brian/Dev\ Apps/logic-loom
 
 # Verify remote
 git remote -v
@@ -105,8 +105,8 @@ You should see:
 ```
 origin          https://github.com/yourusername/your-project.git (fetch)
 origin          https://github.com/yourusername/your-project.git (push)
-sdd-upstream    https://github.com/yourusername/sdd-agentic-framework.git (fetch)
-sdd-upstream    https://github.com/yourusername/sdd-agentic-framework.git (push)
+sdd-upstream    https://github.com/yourusername/logic-loom.git (fetch)
+sdd-upstream    https://github.com/yourusername/logic-loom.git (push)
 ```
 
 ---
@@ -161,10 +161,10 @@ Changes:
 
 #### Step 3: Check SDD Framework Updates
 
-**What it does**: Fetches updates from sdd-agentic-framework upstream
+**What it does**: Fetches updates from logic-loom upstream
 ```bash
 git fetch sdd-upstream main
-git diff HEAD..sdd-upstream/main -- .specify/
+git diff HEAD..sdd-upstream/main -- .logic-loom/
 git diff HEAD..sdd-upstream/main -- .claude/
 ```
 
@@ -204,7 +204,7 @@ Changes:
 Impact Analysis:
 - Breaking Changes: 1 (removed old_function from common.sh)
 - Security Fixes: 1 (XSS patch in logging.sh)
-- Custom Files Affected: 2 (.specify/scripts/bash/common.sh, CLAUDE.md)
+- Custom Files Affected: 2 (.logic-loom/scripts/bash/common.sh, CLAUDE.md)
 - Predicted Conflicts: 0
 
 Risk Level: MEDIUM
@@ -292,11 +292,11 @@ git merge sdd-upstream/main --no-ff --no-commit
 ```
 
 **What gets updated**:
-- ✅ `.specify/lib/` (framework libraries)
-- ✅ `.specify/scripts/bash/` (workflow scripts)
+- ✅ `.logic-loom/lib/` (framework libraries)
+- ✅ `.logic-loom/scripts/bash/` (workflow scripts)
 - ✅ `.claude/agents/` (agent templates)
 - ✅ `.claude/skills/` (skills and commands)
-- ✅ `.specify/memory/constitution.md` (if updated)
+- ✅ `.logic-loom/memory/constitution.md` (if updated)
 - ⚠️ `CLAUDE.md` (manually merge to preserve customizations)
 
 **What stays yours**:
@@ -356,10 +356,10 @@ This is kelleysd.com - a personal website with blog and portfolio
 
 ```bash
 # Constitutional compliance
-./.specify/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 
 # Framework sanitization
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 
 # Run tests (if applicable)
 npm test  # or pytest, etc.
@@ -386,22 +386,22 @@ npm test  # or pytest, etc.
 **Test checklist**:
 ```bash
 # 1. Test logging
-source .specify/lib/logging.sh
+source .logic-loom/lib/logging.sh
 log_info "Test message"
 
 # 2. Test git safety
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 create_git_checkpoint "test"
 
 # 3. Test policy validation
-source .specify/lib/policy.sh
+source .logic-loom/lib/policy.sh
 validate_tool_call "bash" "echo hello"
 
 # 4. Test context loading
-./.specify/scripts/bash/load-context.sh list
+./.logic-loom/scripts/bash/load-context.sh list
 
 # 5. Test parallel execution (if used)
-source .specify/lib/parallel.sh
+source .logic-loom/lib/parallel.sh
 
 # 6. Test your project-specific features
 npm run dev  # or your startup command
@@ -424,7 +424,7 @@ npm run dev  # or your startup command
 ```markdown
 ## [2026-01-09] Framework Update
 
-### Updated from sdd-agentic-framework v3.1.0 → v3.2.0
+### Updated from logic-loom v3.1.0 → v3.2.0
 
 #### Framework Changes Applied
 - Enhanced logging.sh with trace support
@@ -442,7 +442,7 @@ npm run dev  # or your startup command
 
 2. **README.md** - Update version references
 ```markdown
-Framework: sdd-agentic-framework v3.2.0
+Framework: logic-loom v3.2.0
 Claude Code: v2.2.0
 ```
 
@@ -470,7 +470,7 @@ git diff --stat
 **Commit with descriptive message**:
 ```bash
 git add .
-git commit -m "chore(framework): Update to sdd-agentic-framework v3.2.0
+git commit -m "chore(framework): Update to logic-loom v3.2.0
 
 Framework Updates:
 - Enhanced logging.sh with trace support
@@ -517,7 +517,7 @@ npm run dev
 
 3. **Monitor logs**
 ```bash
-tail -f .specify/logs/operations/$(date +%Y-%m-%d).log
+tail -f .logic-loom/logs/operations/$(date +%Y-%m-%d).log
 ```
 
 4. **Verify metrics**
@@ -644,7 +644,7 @@ y
 r
 
 # Review detailed diff
-git diff HEAD..sdd-upstream/main -- .specify/scripts/bash/common.sh
+git diff HEAD..sdd-upstream/main -- .logic-loom/scripts/bash/common.sh
 
 # Plan migration
 # 1. Identify all usages of old_function()
@@ -829,7 +829,7 @@ git commit -m "fix: Restore customizations lost in merge"
 ┌─────────────────────────────────────────────────────────┐
 │ 2-3. Check for Updates                                  │
 │      • Claude Code CLI releases                         │
-│      • sdd-agentic-framework commits                    │
+│      • logic-loom commits                    │
 └────────────────────┬────────────────────────────────────┘
                      ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -903,7 +903,7 @@ git fetch sdd-upstream main
 git log HEAD..sdd-upstream/main --oneline
 
 # View framework changes
-git diff HEAD..sdd-upstream/main -- .specify/ .claude/
+git diff HEAD..sdd-upstream/main -- .logic-loom/ .claude/
 
 # Create backup
 git checkout -b backup/pre-update-$(date +%Y-%m-%d)
@@ -916,8 +916,8 @@ git cherry-pick abc123  # Specific commit
 git merge sdd-upstream/main --no-ff --no-commit
 
 # Validate
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 
 # Rollback
 git reset --hard pre-update-v20260109
@@ -927,11 +927,11 @@ git reset --hard pre-update-v20260109
 
 | File/Directory | Purpose |
 |----------------|---------|
-| `.specify/lib/` | Framework libraries (logging, policy, parallel) |
-| `.specify/scripts/bash/` | Workflow scripts (common.sh, etc.) |
+| `.logic-loom/lib/` | Framework libraries (logging, policy, parallel) |
+| `.logic-loom/scripts/bash/` | Workflow scripts (common.sh, etc.) |
 | `.claude/agents/` | Agent templates |
 | `.claude/skills/` | Skills and commands |
-| `.specify/memory/constitution.md` | Constitutional principles |
+| `.logic-loom/memory/constitution.md` | Constitutional principles |
 | `CLAUDE.md` | Project instructions (merge carefully) |
 | `.docs/framework-updates/` | Update logs and backups |
 
@@ -965,7 +965,7 @@ git commit -m "feat: Add <improvement description>"
 # Push to your fork
 git push origin feature/your-improvement
 
-# Create pull request to sdd-agentic-framework
+# Create pull request to logic-loom
 ```
 
 **Step 4: After Merge**
@@ -994,7 +994,7 @@ git push origin feature/your-improvement
 
 **Version**: 1.0.0
 **Last Updated**: 2026-01-09
-**Framework**: sdd-agentic-framework v3.1.0
+**Framework**: logic-loom v3.1.0
 **Maintained By**: Framework maintainers
 
 ---

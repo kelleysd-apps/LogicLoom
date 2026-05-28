@@ -4,7 +4,7 @@
 **Version:** 1.0  
 **Date:** November 10, 2025  
 **Framework:** Specification-Driven Development (SDD) Agentic Framework  
-**Repository:** https://github.com/kelleysd-apps/sdd-agentic-framework  
+**Repository:** https://github.com/kelleysd-apps/logic-loom  
 **Reference:** Google AI DS-STAR Multi-Agent System
 
 ---
@@ -161,7 +161,7 @@ State: Tests failing
 **Dependencies:** Phase 1 complete
 
 #### 2.1 Refinement Loop Engine
-**Location:** `.specify/scripts/bash/refinement-engine.sh`
+**Location:** `.logic-loom/scripts/bash/refinement-engine.sh`
 
 **Components:**
 - Iteration counter (configurable max: 20 rounds)
@@ -172,7 +172,7 @@ State: Tests failing
 
 **Configuration:**
 ```bash
-# .specify/config/refinement.conf
+# .logic-loom/config/refinement.conf
 MAX_REFINEMENT_ROUNDS=20
 EARLY_STOP_THRESHOLD=0.95  # Stop if quality score exceeds
 FEEDBACK_ACCUMULATION=true
@@ -318,7 +318,7 @@ Implementation:
 - Improves agent decision accuracy
 
 #### 3.2 Context Retrieval System
-**Location:** `.specify/scripts/python/context-retriever.py`
+**Location:** `.logic-loom/scripts/python/context-retriever.py`
 
 **Purpose:**
 - Semantic search over specifications and documentation
@@ -487,14 +487,14 @@ class ContextRetriever:
     ├── verifier-agent.md            # NEW
     └── finalizer-agent.md           # NEW
 
-.specify/scripts/
+.logic-loom/scripts/
 ├── bash/
 │   ├── refinement-engine.sh         # NEW
 │   └── create-agent.sh              # MODIFIED
 └── python/
     └── context-retriever.py         # NEW
 
-.specify/config/
+.logic-loom/config/
 └── refinement.conf                  # NEW
 
 .docs/agents/shared/
@@ -559,7 +559,7 @@ Each new agent requires:
 
 ### Configuration Management
 
-**New Config File:** `.specify/config/refinement.conf`
+**New Config File:** `.logic-loom/config/refinement.conf`
 
 ```bash
 # Refinement Engine Configuration
@@ -875,7 +875,7 @@ GENERATE_DOCS=true
 **Adebugger:** DS-STAR's debugging agent that repairs failures
 **Afinalyzer:** DS-STAR's output standardization agent
 
-**Constitutional Compliance:** Adherence to principles defined in `.specify/memory/constitution.md`
+**Constitutional Compliance:** Adherence to principles defined in `.logic-loom/memory/constitution.md`
 **Iterative Refinement:** Loop of plan → code → verify → refine until sufficient
 **Binary Quality Gate:** Pass/fail decision point that blocks progression
 **Context Grounding:** Using actual codebase state to inform agent decisions
@@ -887,9 +887,9 @@ GENERATE_DOCS=true
 
 - Google DS-STAR Paper: https://arxiv.org/pdf/2509.21825
 - GitHub spec-kit: https://github.com/github/spec-kit
-- SDD Agentic Framework: https://github.com/kelleysd-apps/sdd-agentic-framework
-- Framework Constitution: `.specify/memory/constitution.md`
-- Agent Collaboration Patterns: `.specify/memory/agent-collaboration.md`
+- SDD Agentic Framework: https://github.com/kelleysd-apps/logic-loom
+- Framework Constitution: `.logic-loom/memory/constitution.md`
+- Agent Collaboration Patterns: `.logic-loom/memory/agent-collaboration.md`
 
 ---
 

@@ -32,7 +32,7 @@ chmod +x ~/.docker/cli-plugins/docker-mcp
 
 Run the verification script:
 ```bash
-./.specify/scripts/bash/verify-mcp-toolkit.sh
+./.logic-loom/scripts/bash/verify-mcp-toolkit.sh
 ```
 
 Or test in conversation:

@@ -12,7 +12,7 @@ model: opus
 Extract skill name (kebab-case), optional `--agent` and `--category` flags.
 
 ### Step 2: Load Skill Template
-Read: `.specify/templates/skill-template.md`
+Read: `.logic-loom/templates/skill-template.md`
 
 ### Step 3: Generate Skill
 Create SKILL.md at appropriate location:

@@ -6,7 +6,7 @@ vision → exploration/research → PRD → plan → swarm implement → review 
 Each subdirectory under `features/` is one feature, owned end-to-end through the
 LogicLoom loop. This is the **primary documented path** for new work. The legacy
 `/specification` waterfall (`specs/###-feature/`) remains supported as an
-alternative — see `.specify/templates/spec-template.md`.
+alternative — see `.logic-loom/templates/spec-template.md`.
 
 ---
 
@@ -50,7 +50,7 @@ features/<feature-name>/
 
 | File / Dir | Purpose | Created by |
 |------------|---------|------------|
-| `vision.md` | One-sentence north star + persona + success shape + non-goals | Human (template at `.specify/templates/vision-template.md`) |
+| `vision.md` | One-sentence north star + persona + success shape + non-goals | Human (template at `.logic-loom/templates/vision-template.md`) |
 | `exploration/` | Read-only investigations into the existing codebase / surfaces | `/swarm explore <topic>` |
 | `research/` | External cross-validated research (libraries, prior art, tradeoffs) | `/research <question>` |
 | `prd.md` | Broad PRD — product context, deliverables, design language, forcing-question answers | `/create-prd <feature-name>` |
@@ -116,8 +116,8 @@ Both layouts are supported. Pick the one that matches the problem shape.
 
 ## Templates
 
-- Vision: `.specify/templates/vision-template.md`
-- PRD: `.specify/templates/prd-template.md` (retargeted in Stage 7)
+- Vision: `.logic-loom/templates/vision-template.md`
+- PRD: `.logic-loom/templates/prd-template.md` (retargeted in Stage 7)
 - Plan / sprints / retro: documented in their respective skill SKILL.md files
   (created in Stages 6, 7b, 10, 11b)
 

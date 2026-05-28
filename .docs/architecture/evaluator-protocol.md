@@ -180,7 +180,7 @@ These items are explicitly out of scope for v0.1 and tracked for v6.0+:
 
 - Anthropic, "How we built our multi-agent harness" — load-bearing source
   for the generator/grader split and the Concrete Grading Criteria rubric.
-  See `.specify/memory/MEMORY.md` →
+  See `.logic-loom/memory/MEMORY.md` →
   `reference_anthropic_harness_design.md` for the indexed notes.
 - `plugins/sdd-orchestrator/skills/review-evaluator/SKILL.md` — the
   procedural implementation of this protocol.

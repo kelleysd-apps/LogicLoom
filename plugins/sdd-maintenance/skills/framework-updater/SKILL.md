@@ -1,7 +1,7 @@
 ---
 name: framework-updater
 description: |
-  Monitors and applies updates from upstream sdd-agentic-framework repository.
+  Monitors and applies updates from upstream logic-loom repository.
   Uses upstream-history-only diffing: never compares downstream content against
   upstream. Extracts discrete enhancement proposals for selective adoption.
 
@@ -32,7 +32,7 @@ discrete, independently-adoptable enhancement proposals.
 
 Use `/update-framework` when:
 - You want to check for new Claude Code CLI releases
-- You need to pull enhancements from upstream sdd-agentic-framework
+- You need to pull enhancements from upstream logic-loom
 - A new constitutional principle or best practice has been published
 - You want to adopt new agent patterns or skills from the framework
 
@@ -71,8 +71,8 @@ Use `/update-framework` when:
 **Tasks**:
 1. Check upstream remote exists:
    ```bash
-   git remote -v | grep -q 'sdd-agentic-framework' || \
-     git remote add upstream https://github.com/kelleysd-apps/sdd-agentic-framework.git
+   git remote -v | grep -q 'logic-loom' || \
+     git remote add upstream https://github.com/kelleysd-apps/logic-loom.git
    ```
 
 2. Fetch upstream:
@@ -193,7 +193,7 @@ This ensures the next `/update-framework` run only shows NEW changes.
 ### Step 9: Run Validation Suite
 
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 bash tests/run_all_tests.sh
 ```
 

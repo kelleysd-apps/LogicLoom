@@ -2,7 +2,7 @@
 
 **Date**: 2026-01-09
 **Source**: kelleysd.com Framework v2.0 Enhancements
-**Target**: sdd-agentic-framework v3.0.0
+**Target**: logic-loom v3.0.0
 **Plan Type**: Phased Integration with Constitutional Compliance
 
 ---
@@ -11,7 +11,7 @@
 
 ### Integration Strategy: **4-PHASE STAGED ROLLOUT**
 
-This plan integrates all 6 production-ready enhancements from kelleysd.com into sdd-agentic-framework using a phased approach that:
+This plan integrates all 6 production-ready enhancements from kelleysd.com into logic-loom using a phased approach that:
 - Minimizes risk through incremental delivery
 - Validates each phase before proceeding
 - Maintains full rollback capability
@@ -56,8 +56,8 @@ wc -l CLAUDE.md > .docs/integration-baseline.txt
 echo "Baseline: $(wc -l < CLAUDE.md) lines" >> .docs/integration-baseline.txt
 
 # 6. ✅ Run pre-integration tests
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 
 # 7. ✅ Create rollback documentation
 cat > .docs/ROLLBACK_PLAN.md <<EOF
@@ -67,9 +67,9 @@ git reset --hard v3.0.0-pre-integration
 git clean -fd
 
 ## Partial Rollback (by phase)
-# Phase 1: git checkout v3.0.0-pre-integration -- .specify/lib/logging.sh
-# Phase 2: git checkout v3.0.0-pre-integration -- .specify/scripts/bash/common.sh
-# Phase 3: git checkout v3.0.0-pre-integration -- .specify/lib/parallel.sh
+# Phase 1: git checkout v3.0.0-pre-integration -- .logic-loom/lib/logging.sh
+# Phase 2: git checkout v3.0.0-pre-integration -- .logic-loom/scripts/bash/common.sh
+# Phase 3: git checkout v3.0.0-pre-integration -- .logic-loom/lib/parallel.sh
 # Phase 4: git checkout v3.0.0-pre-integration -- CLAUDE.md .claude/context/
 EOF
 ```
@@ -104,16 +104,16 @@ echo "✅ Environment ready for integration"
 
 ```bash
 # Directory structure
-mkdir -p .specify/lib
-mkdir -p .specify/logs/operations
-mkdir -p .specify/logs/git-checkpoints
-mkdir -p .specify/tests
+mkdir -p .logic-loom/lib
+mkdir -p .logic-loom/logs/operations
+mkdir -p .logic-loom/logs/git-checkpoints
+mkdir -p .logic-loom/tests
 
 # Files from kelleysd.com
-cp [kelleysd]/.specify/lib/logging.sh .specify/lib/logging.sh
-cp [kelleysd]/.specify/scripts/bash/analyze-logs.sh .specify/scripts/bash/analyze-logs.sh
-cp [kelleysd]/.specify/logs/README.md .specify/logs/README.md
-cp [kelleysd]/.specify/tests/test_logging.sh .specify/tests/test_logging.sh
+cp [kelleysd]/.logic-loom/lib/logging.sh .logic-loom/lib/logging.sh
+cp [kelleysd]/.logic-loom/scripts/bash/analyze-logs.sh .logic-loom/scripts/bash/analyze-logs.sh
+cp [kelleysd]/.logic-loom/logs/README.md .logic-loom/logs/README.md
+cp [kelleysd]/.logic-loom/tests/test_logging.sh .logic-loom/tests/test_logging.sh
 ```
 
 ### Implementation Steps
@@ -121,61 +121,61 @@ cp [kelleysd]/.specify/tests/test_logging.sh .specify/tests/test_logging.sh
 **Step 1.1: Copy Core Library (30 min)**
 ```bash
 # Navigate to target repo
-cd "C:\Users\brian\Dev Apps\sdd-agentic-framework"
+cd "C:\Users\brian\Dev Apps\logic-loom"
 
 # Create lib directory
-mkdir -p .specify/lib
+mkdir -p .logic-loom/lib
 
 # Copy logging library from kelleysd.com
-cp "../kelleysd.com/.specify/lib/logging.sh" ".specify/lib/logging.sh"
+cp "../kelleysd.com/.logic-loom/lib/logging.sh" ".logic-loom/lib/logging.sh"
 
 # Verify copy
-[ -f .specify/lib/logging.sh ] && echo "✅ logging.sh copied" || echo "❌ Copy failed"
+[ -f .logic-loom/lib/logging.sh ] && echo "✅ logging.sh copied" || echo "❌ Copy failed"
 ```
 
 **Step 1.2: Create Log Directory Structure (15 min)**
 ```bash
 # Create log directories
-mkdir -p .specify/logs/operations
-mkdir -p .specify/logs/git-checkpoints
-mkdir -p .specify/logs/parallel-sessions
+mkdir -p .logic-loom/logs/operations
+mkdir -p .logic-loom/logs/git-checkpoints
+mkdir -p .logic-loom/logs/parallel-sessions
 
 # Copy README
-cp "../kelleysd.com/.specify/logs/README.md" ".specify/logs/README.md"
+cp "../kelleysd.com/.logic-loom/logs/README.md" ".logic-loom/logs/README.md"
 
 # Update .gitignore
 cat >> .gitignore <<EOF
 
 # Structured Logging (ignore log files, keep structure)
-.specify/logs/operations/*.log
-.specify/logs/git-checkpoints/*.json
-.specify/logs/parallel-sessions/*
-!.specify/logs/README.md
+.logic-loom/logs/operations/*.log
+.logic-loom/logs/git-checkpoints/*.json
+.logic-loom/logs/parallel-sessions/*
+!.logic-loom/logs/README.md
 EOF
 ```
 
 **Step 1.3: Copy Analysis Tools (30 min)**
 ```bash
 # Copy log analysis script
-cp "../kelleysd.com/.specify/scripts/bash/analyze-logs.sh" ".specify/scripts/bash/analyze-logs.sh"
+cp "../kelleysd.com/.logic-loom/scripts/bash/analyze-logs.sh" ".logic-loom/scripts/bash/analyze-logs.sh"
 
 # Make executable
-chmod +x .specify/scripts/bash/analyze-logs.sh
+chmod +x .logic-loom/scripts/bash/analyze-logs.sh
 
 # Test analysis tool
-./.specify/scripts/bash/analyze-logs.sh --help
+./.logic-loom/scripts/bash/analyze-logs.sh --help
 ```
 
 **Step 1.4: Unit Tests (1 hour)**
 ```bash
 # Copy test file
-cp "../kelleysd.com/.specify/tests/test_logging.sh" ".specify/tests/test_logging.sh"
+cp "../kelleysd.com/.logic-loom/tests/test_logging.sh" ".logic-loom/tests/test_logging.sh"
 
 # Make executable
-chmod +x .specify/tests/test_logging.sh
+chmod +x .logic-loom/tests/test_logging.sh
 
 # Run tests
-./.specify/tests/test_logging.sh
+./.logic-loom/tests/test_logging.sh
 
 # Expected: 34/34 tests passing (100%)
 ```
@@ -183,9 +183,9 @@ chmod +x .specify/tests/test_logging.sh
 **Step 1.5: Integration Test (30 min)**
 ```bash
 # Create test script
-cat > .specify/tests/test_logging_integration.sh <<'EOF'
+cat > .logic-loom/tests/test_logging_integration.sh <<'EOF'
 #!/usr/bin/env bash
-source .specify/lib/logging.sh
+source .logic-loom/lib/logging.sh
 
 # Test basic logging
 log_info "Integration test started"
@@ -199,7 +199,7 @@ log_operation_end "$op_id" "test-operation" "success"
 
 # Verify log file created
 TODAY=$(date +%Y-%m-%d)
-LOG_FILE=".specify/logs/operations/$TODAY.log"
+LOG_FILE=".logic-loom/logs/operations/$TODAY.log"
 if [ -f "$LOG_FILE" ]; then
     echo "✅ Log file created: $LOG_FILE"
     echo "✅ Integration test passed"
@@ -210,8 +210,8 @@ else
 fi
 EOF
 
-chmod +x .specify/tests/test_logging_integration.sh
-./.specify/tests/test_logging_integration.sh
+chmod +x .logic-loom/tests/test_logging_integration.sh
+./.logic-loom/tests/test_logging_integration.sh
 ```
 
 **Step 1.6: Documentation (30 min)**
@@ -221,11 +221,11 @@ cat >> CLAUDE.md <<'EOF'
 
 ## Structured Logging (v2.0 Enhancement)
 
-The framework includes comprehensive structured logging via `.specify/lib/logging.sh`.
+The framework includes comprehensive structured logging via `.logic-loom/lib/logging.sh`.
 
 **Usage**:
 ```bash
-source .specify/lib/logging.sh
+source .logic-loom/lib/logging.sh
 
 log_info "Operation started"
 log_warn "Performance degraded"
@@ -239,11 +239,11 @@ log_operation_end "$op_id" "deploy" "success"
 
 **Log Analysis**:
 ```bash
-./.specify/scripts/bash/analyze-logs.sh
-./.specify/scripts/bash/analyze-logs.sh --level ERROR --export json
+./.logic-loom/scripts/bash/analyze-logs.sh
+./.logic-loom/scripts/bash/analyze-logs.sh --level ERROR --export json
 ```
 
-See `.specify/logs/README.md` for configuration and usage.
+See `.logic-loom/logs/README.md` for configuration and usage.
 EOF
 ```
 
@@ -265,10 +265,10 @@ echo ""
 read -p "Approve commit? (y/n): " APPROVAL
 
 if [[ "$APPROVAL" =~ ^[Yy]$ ]]; then
-    git add .specify/lib/logging.sh
-    git add .specify/logs/
-    git add .specify/scripts/bash/analyze-logs.sh
-    git add .specify/tests/test_logging*.sh
+    git add .logic-loom/lib/logging.sh
+    git add .logic-loom/logs/
+    git add .logic-loom/scripts/bash/analyze-logs.sh
+    git add .logic-loom/tests/test_logging*.sh
     git add .gitignore
     git add CLAUDE.md
 
@@ -293,21 +293,21 @@ fi
 
 ```bash
 # ✅ All files created
-[ -f .specify/lib/logging.sh ] && echo "✅" || echo "❌ logging.sh"
-[ -f .specify/scripts/bash/analyze-logs.sh ] && echo "✅" || echo "❌ analyze-logs.sh"
-[ -d .specify/logs/operations ] && echo "✅" || echo "❌ logs/operations"
-[ -f .specify/tests/test_logging.sh ] && echo "✅" || echo "❌ test_logging.sh"
+[ -f .logic-loom/lib/logging.sh ] && echo "✅" || echo "❌ logging.sh"
+[ -f .logic-loom/scripts/bash/analyze-logs.sh ] && echo "✅" || echo "❌ analyze-logs.sh"
+[ -d .logic-loom/logs/operations ] && echo "✅" || echo "❌ logs/operations"
+[ -f .logic-loom/tests/test_logging.sh ] && echo "✅" || echo "❌ test_logging.sh"
 
 # ✅ Unit tests passing
-./.specify/tests/test_logging.sh
+./.logic-loom/tests/test_logging.sh
 # Expected: 34/34 passing (100%)
 
 # ✅ Integration test passing
-./.specify/tests/test_logging_integration.sh
+./.logic-loom/tests/test_logging_integration.sh
 # Expected: ✅ Integration test passed
 
 # ✅ No existing functionality broken
-./.specify/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 # Expected: All checks passing
 
 # ✅ Documentation updated
@@ -336,16 +336,16 @@ git log -1 --oneline | grep -q "structured logging" && echo "✅ Committed" || e
 
 ```bash
 # Enhancement #2: Git Safety
-# MODIFY: .specify/scripts/bash/common.sh (add 8 git functions)
-# CREATE: .specify/logs/git-checkpoints/ (already created in Phase 1)
+# MODIFY: .logic-loom/scripts/bash/common.sh (add 8 git functions)
+# CREATE: .logic-loom/logs/git-checkpoints/ (already created in Phase 1)
 
 # Enhancement #3: Tool Policies
-# CREATE: .specify/lib/policy.sh (350 lines)
-# CREATE: .specify/lib/json-parse.cjs (Node.js fallback)
+# CREATE: .logic-loom/lib/policy.sh (350 lines)
+# CREATE: .logic-loom/lib/json-parse.cjs (Node.js fallback)
 # CREATE: .claude/policies/tool-restrictions.json (24 patterns)
 # MODIFY: .claude/hooks/guard-dangerous-commands.sh (integrate policy)
-# CREATE: .specify/tests/test-git-safety.sh
-# CREATE: .specify/tests/test-policy-validation.sh
+# CREATE: .logic-loom/tests/test-git-safety.sh
+# CREATE: .logic-loom/tests/test-policy-validation.sh
 ```
 
 ### Implementation Steps
@@ -353,21 +353,21 @@ git log -1 --oneline | grep -q "structured logging" && echo "✅ Committed" || e
 **Step 2.1: Enhance common.sh with Git Safety (2 hours)**
 ```bash
 # Backup current common.sh
-cp .specify/scripts/bash/common.sh .specify/scripts/bash/common.sh.v3.0.0.backup
+cp .logic-loom/scripts/bash/common.sh .logic-loom/scripts/bash/common.sh.v3.0.0.backup
 
 # Copy enhanced version from kelleysd.com
-cp "../kelleysd.com/.specify/scripts/bash/common.sh" ".specify/scripts/bash/common.sh"
+cp "../kelleysd.com/.logic-loom/scripts/bash/common.sh" ".logic-loom/scripts/bash/common.sh"
 
 # Verify logging integration
-grep -q "source.*logging.sh" .specify/scripts/bash/common.sh && echo "✅ Logging integrated" || echo "❌ Missing logging"
+grep -q "source.*logging.sh" .logic-loom/scripts/bash/common.sh && echo "✅ Logging integrated" || echo "❌ Missing logging"
 
 # Verify git safety functions added
-grep -q "create_git_checkpoint" .specify/scripts/bash/common.sh && echo "✅ Git checkpoints" || echo "❌ Missing checkpoints"
-grep -q "suggest_commit_message" .specify/scripts/bash/common.sh && echo "✅ Commit suggestions" || echo "❌ Missing suggestions"
-grep -q "request_git_approval_enhanced" .specify/scripts/bash/common.sh && echo "✅ Enhanced approval" || echo "❌ Missing enhanced approval"
+grep -q "create_git_checkpoint" .logic-loom/scripts/bash/common.sh && echo "✅ Git checkpoints" || echo "❌ Missing checkpoints"
+grep -q "suggest_commit_message" .logic-loom/scripts/bash/common.sh && echo "✅ Commit suggestions" || echo "❌ Missing suggestions"
+grep -q "request_git_approval_enhanced" .logic-loom/scripts/bash/common.sh && echo "✅ Enhanced approval" || echo "❌ Missing enhanced approval"
 
 # Test git checkpoint functionality
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 checkpoint_id=$(create_git_checkpoint "phase2-test")
 echo "Created checkpoint: $checkpoint_id"
 list_git_checkpoints | grep "$checkpoint_id" && echo "✅ Checkpoint created" || echo "❌ Checkpoint failed"
@@ -376,10 +376,10 @@ list_git_checkpoints | grep "$checkpoint_id" && echo "✅ Checkpoint created" ||
 **Step 2.2: Add Tool Policy Library (2 hours)**
 ```bash
 # Copy policy library
-cp "../kelleysd.com/.specify/lib/policy.sh" ".specify/lib/policy.sh"
+cp "../kelleysd.com/.logic-loom/lib/policy.sh" ".logic-loom/lib/policy.sh"
 
 # Copy JSON parser (Windows compatibility)
-cp "../kelleysd.com/.specify/lib/json-parse.cjs" ".specify/lib/json-parse.cjs"
+cp "../kelleysd.com/.logic-loom/lib/json-parse.cjs" ".logic-loom/lib/json-parse.cjs"
 
 # Create policies directory
 mkdir -p .claude/policies
@@ -409,19 +409,19 @@ chmod +x .claude/hooks/guard-dangerous-commands.sh
 **Step 2.4: Unit Tests (2 hours)**
 ```bash
 # Copy test files
-cp "../kelleysd.com/.specify/tests/test-git-safety.sh" ".specify/tests/test-git-safety.sh"
-cp "../kelleysd.com/.specify/tests/test-policy-validation.sh" ".specify/tests/test-policy-validation.sh"
+cp "../kelleysd.com/.logic-loom/tests/test-git-safety.sh" ".logic-loom/tests/test-git-safety.sh"
+cp "../kelleysd.com/.logic-loom/tests/test-policy-validation.sh" ".logic-loom/tests/test-policy-validation.sh"
 
 # Make executable
-chmod +x .specify/tests/test-git-safety.sh
-chmod +x .specify/tests/test-policy-validation.sh
+chmod +x .logic-loom/tests/test-git-safety.sh
+chmod +x .logic-loom/tests/test-policy-validation.sh
 
 # Run git safety tests
-./.specify/tests/test-git-safety.sh
+./.logic-loom/tests/test-git-safety.sh
 # Expected: 7/9 passing (78%)
 
 # Run policy validation tests
-./.specify/tests/test-policy-validation.sh
+./.logic-loom/tests/test-policy-validation.sh
 # Expected: 8/11 passing (73%)
 
 # Overall Phase 2: 15/20 passing (75%)
@@ -430,9 +430,9 @@ chmod +x .specify/tests/test-policy-validation.sh
 **Step 2.5: Integration Tests (1 hour)**
 ```bash
 # Test git safety integration
-cat > .specify/tests/test_phase2_integration.sh <<'EOF'
+cat > .logic-loom/tests/test_phase2_integration.sh <<'EOF'
 #!/usr/bin/env bash
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 
 echo "Testing Phase 2 Integration..."
 
@@ -449,13 +449,13 @@ fi
 # Test 2: Commit message suggestions
 echo "Test 2: Generating commit message suggestions..."
 # Make a dummy change
-touch .specify/tests/dummy-file.txt
-git add .specify/tests/dummy-file.txt
+touch .logic-loom/tests/dummy-file.txt
+git add .logic-loom/tests/dummy-file.txt
 suggestions=$(suggest_commit_message)
 if [ -n "$suggestions" ]; then
     echo "✅ Commit suggestions work"
-    git reset HEAD .specify/tests/dummy-file.txt
-    rm .specify/tests/dummy-file.txt
+    git reset HEAD .logic-loom/tests/dummy-file.txt
+    rm .logic-loom/tests/dummy-file.txt
 else
     echo "❌ Commit suggestions failed"
     exit 1
@@ -463,7 +463,7 @@ fi
 
 # Test 3: Policy validation
 echo "Test 3: Testing policy validation..."
-source .specify/lib/policy.sh
+source .logic-loom/lib/policy.sh
 result=$(validate_tool_call "bash" "echo hello")
 if [ "$result" == "ALLOWED" ]; then
     echo "✅ Policy allows safe commands"
@@ -483,8 +483,8 @@ fi
 echo "✅ All Phase 2 integration tests passed"
 EOF
 
-chmod +x .specify/tests/test_phase2_integration.sh
-./.specify/tests/test_phase2_integration.sh
+chmod +x .logic-loom/tests/test_phase2_integration.sh
+./.logic-loom/tests/test_phase2_integration.sh
 ```
 
 **Step 2.6: Documentation (30 min)**
@@ -501,7 +501,7 @@ Git operations now include:
 
 **Usage**:
 ```bash
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 
 # Enhanced approval with diff preview
 if request_git_approval_enhanced "commit changes"; then
@@ -527,7 +527,7 @@ Granular validation of dangerous commands via `.claude/policies/tool-restriction
 
 **Usage**:
 ```bash
-source .specify/lib/policy.sh
+source .logic-loom/lib/policy.sh
 validate_tool_call "bash" "pkill -f node"  # Returns: FORBIDDEN
 ```
 
@@ -553,14 +553,14 @@ echo ""
 read -p "Approve commit? (y/n): " APPROVAL
 
 if [[ "$APPROVAL" =~ ^[Yy]$ ]]; then
-    git add .specify/scripts/bash/common.sh
-    git add .specify/lib/policy.sh
-    git add .specify/lib/json-parse.cjs
+    git add .logic-loom/scripts/bash/common.sh
+    git add .logic-loom/lib/policy.sh
+    git add .logic-loom/lib/json-parse.cjs
     git add .claude/policies/tool-restrictions.json
     git add .claude/hooks/guard-dangerous-commands.sh
-    git add .specify/tests/test-git-safety.sh
-    git add .specify/tests/test-policy-validation.sh
-    git add .specify/tests/test_phase2_integration.sh
+    git add .logic-loom/tests/test-git-safety.sh
+    git add .logic-loom/tests/test-policy-validation.sh
+    git add .logic-loom/tests/test_phase2_integration.sh
     git add CLAUDE.md
 
     git commit -m "feat(framework): Add enhanced git safety and tool policies (Enhancements #2 & #3)
@@ -594,19 +594,19 @@ fi
 
 ```bash
 # ✅ All files created/modified
-[ -f .specify/lib/policy.sh ] && echo "✅" || echo "❌ policy.sh"
-[ -f .specify/lib/json-parse.cjs ] && echo "✅" || echo "❌ json-parse.cjs"
+[ -f .logic-loom/lib/policy.sh ] && echo "✅" || echo "❌ policy.sh"
+[ -f .logic-loom/lib/json-parse.cjs ] && echo "✅" || echo "❌ json-parse.cjs"
 [ -f .claude/policies/tool-restrictions.json ] && echo "✅" || echo "❌ tool-restrictions.json"
-grep -q "create_git_checkpoint" .specify/scripts/bash/common.sh && echo "✅" || echo "❌ common.sh enhanced"
+grep -q "create_git_checkpoint" .logic-loom/scripts/bash/common.sh && echo "✅" || echo "❌ common.sh enhanced"
 
 # ✅ Unit tests passing
-./.specify/tests/test-git-safety.sh
+./.logic-loom/tests/test-git-safety.sh
 # Expected: 7/9 passing (78%)
-./.specify/tests/test-policy-validation.sh
+./.logic-loom/tests/test-policy-validation.sh
 # Expected: 8/11 passing (73%)
 
 # ✅ Integration test passing
-./.specify/tests/test_phase2_integration.sh
+./.logic-loom/tests/test_phase2_integration.sh
 # Expected: ✅ All tests passed
 
 # ✅ Git commit successful
@@ -617,8 +617,8 @@ git log -1 --oneline | grep -q "git safety and tool policies" && echo "✅ Commi
 
 **If Phase 2 Fails**: Rollback Phase 2 only:
 ```bash
-git checkout HEAD~1 -- .specify/scripts/bash/common.sh
-git checkout HEAD~1 -- .specify/lib/policy.sh
+git checkout HEAD~1 -- .logic-loom/scripts/bash/common.sh
+git checkout HEAD~1 -- .logic-loom/lib/policy.sh
 git checkout HEAD~1 -- .claude/policies/
 ```
 
@@ -637,12 +637,12 @@ git checkout HEAD~1 -- .claude/policies/
 
 ```bash
 # Enhancement #5: Skill Auto-Discovery
-# CREATE: .specify/scripts/bash/discover-skills.sh (7.1KB)
-# CREATE: .specify/scripts/bash/generate-skill-index.sh (7.7KB)
+# CREATE: .logic-loom/scripts/bash/discover-skills.sh (7.1KB)
+# CREATE: .logic-loom/scripts/bash/generate-skill-index.sh (7.7KB)
 # GENERATE: .claude/skill-index.json (auto-generated)
 
 # Enhancement #4: Parallel Execution
-# CREATE: .specify/lib/parallel.sh (12KB)
+# CREATE: .logic-loom/lib/parallel.sh (12KB)
 # CREATE: .claude/agents/product/task-orchestrator-parallel-addon.md
 ```
 
@@ -651,15 +651,15 @@ git checkout HEAD~1 -- .claude/policies/
 **Step 3.1: Add Skill Auto-Discovery (2 hours)**
 ```bash
 # Copy skill discovery scripts
-cp "../kelleysd.com/.specify/scripts/bash/discover-skills.sh" ".specify/scripts/bash/discover-skills.sh"
-cp "../kelleysd.com/.specify/scripts/bash/generate-skill-index.sh" ".specify/scripts/bash/generate-skill-index.sh"
+cp "../kelleysd.com/.logic-loom/scripts/bash/discover-skills.sh" ".logic-loom/scripts/bash/discover-skills.sh"
+cp "../kelleysd.com/.logic-loom/scripts/bash/generate-skill-index.sh" ".logic-loom/scripts/bash/generate-skill-index.sh"
 
 # Make executable
-chmod +x .specify/scripts/bash/discover-skills.sh
-chmod +x .specify/scripts/bash/generate-skill-index.sh
+chmod +x .logic-loom/scripts/bash/discover-skills.sh
+chmod +x .logic-loom/scripts/bash/generate-skill-index.sh
 
 # Generate initial skill index
-./.specify/scripts/bash/generate-skill-index.sh
+./.logic-loom/scripts/bash/generate-skill-index.sh
 
 # Verify index created
 [ -f .claude/skill-index.json ] && echo "✅ Skill index generated" || echo "❌ Generation failed"
@@ -671,13 +671,13 @@ node -e "console.log(JSON.stringify(require('./.claude/skill-index.json'), null,
 **Step 3.2: Add Parallel Execution Library (2 hours)**
 ```bash
 # Copy parallel execution library
-cp "../kelleysd.com/.specify/lib/parallel.sh" ".specify/lib/parallel.sh"
+cp "../kelleysd.com/.logic-loom/lib/parallel.sh" ".logic-loom/lib/parallel.sh"
 
 # Create parallel session directory
-mkdir -p .specify/logs/parallel-sessions
+mkdir -p .logic-loom/logs/parallel-sessions
 
 # Test parallel library
-source .specify/lib/parallel.sh
+source .logic-loom/lib/parallel.sh
 
 # Simple test (echo commands in parallel)
 session_id=$(launch_agents_parallel \
@@ -718,7 +718,7 @@ The task-orchestrator now supports parallel agent execution for independent task
 
 **Usage**:
 ```bash
-source .specify/lib/parallel.sh
+source .logic-loom/lib/parallel.sh
 
 session=$(launch_agents_parallel \
     "research-agent:Research API patterns" \
@@ -736,14 +736,14 @@ EOF
 **Step 3.4: Integration Tests (2 hours)**
 ```bash
 # Test skill discovery integration
-cat > .specify/tests/test_phase3_integration.sh <<'EOF'
+cat > .logic-loom/tests/test_phase3_integration.sh <<'EOF'
 #!/usr/bin/env bash
 
 echo "Testing Phase 3 Integration..."
 
 # Test 1: Skill discovery
 echo "Test 1: Skill discovery..."
-./.specify/scripts/bash/generate-skill-index.sh
+./.logic-loom/scripts/bash/generate-skill-index.sh
 if [ -f .claude/skill-index.json ]; then
     skill_count=$(node -e "console.log(require('./.claude/skill-index.json').skills.length)")
     if [ "$skill_count" -gt 0 ]; then
@@ -759,7 +759,7 @@ fi
 
 # Test 2: Parallel execution
 echo "Test 2: Parallel execution..."
-source .specify/lib/parallel.sh
+source .logic-loom/lib/parallel.sh
 
 session=$(launch_agents_parallel \
     "test1:sleep 1 && echo 'Task 1 complete'" \
@@ -788,8 +788,8 @@ fi
 echo "✅ All Phase 3 integration tests passed"
 EOF
 
-chmod +x .specify/tests/test_phase3_integration.sh
-./.specify/tests/test_phase3_integration.sh
+chmod +x .logic-loom/tests/test_phase3_integration.sh
+./.logic-loom/tests/test_phase3_integration.sh
 ```
 
 **Step 3.5: Documentation (30 min)**
@@ -803,7 +803,7 @@ Skills are automatically discovered and indexed from `.claude/skills/`.
 
 **Generate Skill Index**:
 ```bash
-./.specify/scripts/bash/generate-skill-index.sh
+./.logic-loom/scripts/bash/generate-skill-index.sh
 # Output: .claude/skill-index.json
 ```
 
@@ -827,7 +827,7 @@ Execute multiple agents concurrently for 2-3x speedup.
 
 **Usage**:
 ```bash
-source .specify/lib/parallel.sh
+source .logic-loom/lib/parallel.sh
 
 session=$(launch_agents_parallel \
     "research-agent:Research API patterns" \
@@ -839,7 +839,7 @@ collect_parallel_results "$session"
 ```
 
 **Target Performance**: 2-3x speedup for 3+ independent agents.
-See `.specify/lib/parallel.sh` for full API.
+See `.logic-loom/lib/parallel.sh` for full API.
 EOF
 ```
 
@@ -861,13 +861,13 @@ echo ""
 read -p "Approve commit? (y/n): " APPROVAL
 
 if [[ "$APPROVAL" =~ ^[Yy]$ ]]; then
-    git add .specify/scripts/bash/discover-skills.sh
-    git add .specify/scripts/bash/generate-skill-index.sh
+    git add .logic-loom/scripts/bash/discover-skills.sh
+    git add .logic-loom/scripts/bash/generate-skill-index.sh
     git add .claude/skill-index.json
-    git add .specify/lib/parallel.sh
+    git add .logic-loom/lib/parallel.sh
     git add .claude/agents/product/task-orchestrator-parallel-addon.md
     git add .claude/agents/product/task-orchestrator.md
-    git add .specify/tests/test_phase3_integration.sh
+    git add .logic-loom/tests/test_phase3_integration.sh
     git add CLAUDE.md
 
     git commit -m "feat(framework): Add skill auto-discovery and parallel execution (Enhancements #4 & #5)
@@ -901,13 +901,13 @@ fi
 
 ```bash
 # ✅ All files created
-[ -f .specify/scripts/bash/discover-skills.sh ] && echo "✅" || echo "❌ discover-skills.sh"
-[ -f .specify/scripts/bash/generate-skill-index.sh ] && echo "✅" || echo "❌ generate-skill-index.sh"
+[ -f .logic-loom/scripts/bash/discover-skills.sh ] && echo "✅" || echo "❌ discover-skills.sh"
+[ -f .logic-loom/scripts/bash/generate-skill-index.sh ] && echo "✅" || echo "❌ generate-skill-index.sh"
 [ -f .claude/skill-index.json ] && echo "✅" || echo "❌ skill-index.json"
-[ -f .specify/lib/parallel.sh ] && echo "✅" || echo "❌ parallel.sh"
+[ -f .logic-loom/lib/parallel.sh ] && echo "✅" || echo "❌ parallel.sh"
 
 # ✅ Integration test passing
-./.specify/tests/test_phase3_integration.sh
+./.logic-loom/tests/test_phase3_integration.sh
 # Expected: ✅ All tests passed
 
 # ✅ Skill index valid
@@ -921,9 +921,9 @@ git log -1 --oneline | grep -q "skill auto-discovery and parallel" && echo "✅ 
 
 **If Phase 3 Fails**: Rollback Phase 3 only:
 ```bash
-git checkout HEAD~1 -- .specify/lib/parallel.sh
-git checkout HEAD~1 -- .specify/scripts/bash/discover-skills.sh
-git checkout HEAD~1 -- .specify/scripts/bash/generate-skill-index.sh
+git checkout HEAD~1 -- .logic-loom/lib/parallel.sh
+git checkout HEAD~1 -- .logic-loom/scripts/bash/discover-skills.sh
+git checkout HEAD~1 -- .logic-loom/scripts/bash/generate-skill-index.sh
 ```
 
 ---
@@ -940,7 +940,7 @@ git checkout HEAD~1 -- .specify/scripts/bash/generate-skill-index.sh
 ### Files to Create/Modify
 
 ```bash
-# CREATE: .specify/scripts/bash/load-context.sh (11KB)
+# CREATE: .logic-loom/scripts/bash/load-context.sh (11KB)
 # CREATE: .claude/context/core.md (~190 lines)
 # CREATE: .claude/context/agents.md (~337 lines)
 # CREATE: .claude/context/skills.md (~410 lines)
@@ -965,7 +965,7 @@ grep -E "^#{1,3} " CLAUDE.md > .docs/claude-md-sections-inventory.txt
 
 # Document unique content (governance agent, MCP toolkit, etc.)
 cat > .docs/claude-md-unique-content.txt <<EOF
-# Unique Content in sdd-agentic-framework CLAUDE.md
+# Unique Content in logic-loom CLAUDE.md
 
 ## To Preserve in Refactoring:
 1. Feature 003 - Governance Browser Enhancement
@@ -1013,7 +1013,7 @@ cat > .claude/context/core.md <<'EOF'
 # SDD Framework Core Instructions
 
 **Version**: 3.1.0 (Modular Context System)
-**Framework**: sdd-agentic-framework
+**Framework**: logic-loom
 **Constitution**: v1.6.0
 
 ---
@@ -1070,7 +1070,7 @@ Constitutional Compliance Check:
 
 ## Constitution Location
 
-**ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
+**ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
 The constitution (v1.6.0) contains **15 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
@@ -1109,13 +1109,13 @@ This framework uses modular context loading for token efficiency.
 
 **Load Additional Modules**:
 ```bash
-./.specify/scripts/bash/load-context.sh load agents
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load workflows
 ```
 
 **Intelligent Analysis**:
 ```bash
-./.specify/scripts/bash/load-context.sh analyze "your task description"
+./.logic-loom/scripts/bash/load-context.sh analyze "your task description"
 # Auto-loads relevant modules
 ```
 
@@ -1130,16 +1130,16 @@ EOF
 **Step 4.3.2: Create agents.md (1.5 hours)**
 ```bash
 # Extract agent registry and delegation content
-# Copy from kelleysd.com but add sdd-agentic-framework unique content
+# Copy from kelleysd.com but add logic-loom unique content
 
 cp "../kelleysd.com/.claude/context/agents.md" ".claude/context/agents.md"
 
-# Add sdd-agentic-framework specific agents
+# Add logic-loom specific agents
 cat >> .claude/context/agents.md <<'EOF'
 
 ---
 
-## sdd-agentic-framework Specific Agents
+## logic-loom Specific Agents
 
 ### constitutional-governance-agent (product)
 
@@ -1190,7 +1190,7 @@ Skills are automatically discovered and indexed at `.claude/skill-index.json`.
 
 **Regenerate Index**:
 ```bash
-./.specify/scripts/bash/generate-skill-index.sh
+./.logic-loom/scripts/bash/generate-skill-index.sh
 ```
 
 All skills follow frontmatter format with name, description, triggers, category, version, and author.
@@ -1228,7 +1228,7 @@ cat >> .claude/context/governance.md <<'EOF'
 The framework now includes 6 production-ready enhancements integrated in Phases 1-4:
 
 ### Phase 1: Structured Logging
-- `.specify/lib/logging.sh` - 6 logging functions
+- `.logic-loom/lib/logging.sh` - 6 logging functions
 - Implements Principle VII (Observability)
 
 ### Phase 2: Enhanced Safety & Policies
@@ -1258,16 +1258,16 @@ EOF
 **Step 4.4: Copy load-context.sh Script (30 min)**
 ```bash
 # Copy context loading script
-cp "../kelleysd.com/.specify/scripts/bash/load-context.sh" ".specify/scripts/bash/load-context.sh"
+cp "../kelleysd.com/.logic-loom/scripts/bash/load-context.sh" ".logic-loom/scripts/bash/load-context.sh"
 
 # Make executable
-chmod +x .specify/scripts/bash/load-context.sh
+chmod +x .logic-loom/scripts/bash/load-context.sh
 
 # Test module listing
-./.specify/scripts/bash/load-context.sh list
+./.logic-loom/scripts/bash/load-context.sh list
 
 # Test module loading
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 ```
 
 **Step 4.5: Refactor CLAUDE.md (2-3 hours)**
@@ -1304,13 +1304,13 @@ This framework uses **modular context loading** for 37% token efficiency improve
 
 ```bash
 # Load specific module
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 
 # Intelligent analysis (auto-loads relevant modules)
-./.specify/scripts/bash/load-context.sh analyze "your task description"
+./.logic-loom/scripts/bash/load-context.sh analyze "your task description"
 
 # List available modules
-./.specify/scripts/bash/load-context.sh list
+./.logic-loom/scripts/bash/load-context.sh list
 ```
 
 ---
@@ -1369,7 +1369,7 @@ Constitutional Compliance Check:
 
 ## CRITICAL: Read Constitution First
 
-**ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
+**ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
 The constitution (v1.6.0) contains **15 enforceable principles**. See `.claude/context/governance.md` for full details.
 
@@ -1387,7 +1387,7 @@ The constitution (v1.6.0) contains **15 enforceable principles**. See `.claude/c
 
 For detailed workflow documentation, load the workflows module:
 ```bash
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load workflows
 ```
 
 ### Quick Command Reference
@@ -1439,7 +1439,7 @@ Git operations now include:
 - Commit message suggestions
 
 ```bash
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 
 # Enhanced approval
 if request_git_approval_enhanced "commit changes"; then
@@ -1476,20 +1476,20 @@ For comprehensive documentation on agents, skills, workflows, and governance, lo
 
 ```bash
 # Agent delegation and registry
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 
 # Skill documentation
-./.specify/scripts/bash/load-context.sh load skills
+./.logic-loom/scripts/bash/load-context.sh load skills
 
 # SDD workflow details
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load workflows
 
 # Constitutional principles and compliance
-./.specify/scripts/bash/load-context.sh load governance
+./.logic-loom/scripts/bash/load-context.sh load governance
 ```
 
 **See Also**:
-- `.specify/memory/constitution.md` - Constitutional principles
+- `.logic-loom/memory/constitution.md` - Constitutional principles
 - `.claude/agents/` - Agent definitions
 - `.claude/skills/` - Skill documentation
 - `.docs/policies/` - Framework policies
@@ -1497,7 +1497,7 @@ For comprehensive documentation on agents, skills, workflows, and governance, lo
 
 ---
 
-**Framework**: sdd-agentic-framework v3.1.0
+**Framework**: logic-loom v3.1.0
 **Constitution**: v1.6.0
 **Context System**: Modular (v2.0)
 **Last Updated**: 2026-01-09
@@ -1526,11 +1526,11 @@ for module in core agents skills workflows governance; do
 done
 
 # Test 2: Test context loading
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 [ $? -eq 0 ] && echo "✅ Context loading works" || echo "❌ Context loading failed"
 
 # Test 3: Test intelligent analysis
-./.specify/scripts/bash/load-context.sh analyze "implement user authentication"
+./.logic-loom/scripts/bash/load-context.sh analyze "implement user authentication"
 [ $? -eq 0 ] && echo "✅ Intelligent analysis works" || echo "❌ Analysis failed"
 
 # Test 4: Verify CLAUDE.md reduction
@@ -1568,7 +1568,7 @@ echo "✅ All Phase 4 validation checks passed"
 
 **Step 4.7: Create Integration Test (1 hour)**
 ```bash
-cat > .specify/tests/test_phase4_integration.sh <<'EOF'
+cat > .logic-loom/tests/test_phase4_integration.sh <<'EOF'
 #!/usr/bin/env bash
 
 echo "Testing Phase 4 Integration (Modular Context)..."
@@ -1597,7 +1597,7 @@ fi
 
 # Test 3: Context loading functionality
 echo "Test 3: Testing context loading..."
-if ! ./.specify/scripts/bash/load-context.sh list > /dev/null 2>&1; then
+if ! ./.logic-loom/scripts/bash/load-context.sh list > /dev/null 2>&1; then
     echo "❌ Context listing failed"
     exit 1
 fi
@@ -1616,7 +1616,7 @@ echo "✅ All critical content preserved"
 
 # Test 5: Module loading test
 echo "Test 5: Testing module load..."
-if ! ./.specify/scripts/bash/load-context.sh load agents > /dev/null 2>&1; then
+if ! ./.logic-loom/scripts/bash/load-context.sh load agents > /dev/null 2>&1; then
     echo "❌ Module loading failed"
     exit 1
 fi
@@ -1628,8 +1628,8 @@ echo "✅ Token efficiency improvement achieved"
 echo "✅ Modular context system operational"
 EOF
 
-chmod +x .specify/tests/test_phase4_integration.sh
-./.specify/tests/test_phase4_integration.sh
+chmod +x .logic-loom/tests/test_phase4_integration.sh
+./.logic-loom/tests/test_phase4_integration.sh
 ```
 
 **Step 4.8: Git Commit (Constitutional Principle VI - USER APPROVAL REQUIRED)**
@@ -1653,11 +1653,11 @@ echo ""
 read -p "Approve commit? (y/n): " APPROVAL
 
 if [[ "$APPROVAL" =~ ^[Yy]$ ]]; then
-    git add .specify/scripts/bash/load-context.sh
+    git add .logic-loom/scripts/bash/load-context.sh
     git add .claude/context/
     git add CLAUDE.md
     git add CLAUDE.md.v3.0.0-before-refactor  # Keep backup in git history
-    git add .specify/tests/test_phase4_integration.sh
+    git add .logic-loom/tests/test_phase4_integration.sh
     git add .gitignore
 
     git commit -m "feat(framework): Add modular context loading system (Enhancement #6)
@@ -1703,10 +1703,10 @@ echo "CLAUDE.md reduction: $reduction% (target: ≥30%)"
 [ $reduction -ge 30 ] && echo "✅ Target met" || echo "❌ Below target"
 
 # ✅ Context loading works
-./.specify/scripts/bash/load-context.sh list && echo "✅ Context loading" || echo "❌ Loading failed"
+./.logic-loom/scripts/bash/load-context.sh list && echo "✅ Context loading" || echo "❌ Loading failed"
 
 # ✅ Integration test passing
-./.specify/tests/test_phase4_integration.sh
+./.logic-loom/tests/test_phase4_integration.sh
 # Expected: ✅ All tests passed
 
 # ✅ No content lost
@@ -1725,7 +1725,7 @@ git log -1 --oneline | grep -q "modular context" && echo "✅ Committed" || echo
 ```bash
 git checkout HEAD~1 -- CLAUDE.md
 rm -rf .claude/context/
-git checkout HEAD~1 -- .specify/scripts/bash/load-context.sh
+git checkout HEAD~1 -- .logic-loom/scripts/bash/load-context.sh
 echo "⚠️  Rolled back Phase 4 - investigate issues"
 ```
 
@@ -1740,23 +1740,23 @@ echo "⚠️  Rolled back Phase 4 - investigate issues"
 echo "Running comprehensive test suite..."
 
 # Phase 1 tests
-./.specify/tests/test_logging.sh
-./.specify/tests/test_logging_integration.sh
+./.logic-loom/tests/test_logging.sh
+./.logic-loom/tests/test_logging_integration.sh
 
 # Phase 2 tests
-./.specify/tests/test-git-safety.sh
-./.specify/tests/test-policy-validation.sh
-./.specify/tests/test_phase2_integration.sh
+./.logic-loom/tests/test-git-safety.sh
+./.logic-loom/tests/test-policy-validation.sh
+./.logic-loom/tests/test_phase2_integration.sh
 
 # Phase 3 tests
-./.specify/tests/test_phase3_integration.sh
+./.logic-loom/tests/test_phase3_integration.sh
 
 # Phase 4 tests
-./.specify/tests/test_phase4_integration.sh
+./.logic-loom/tests/test_phase4_integration.sh
 
 # Framework validation
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 
 echo "✅ All tests completed"
 ```
@@ -1816,7 +1816,7 @@ cat > .docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_SUMMARY.md <<'EOF'
 # Framework Enhancements Integration Summary
 
 **Date**: $(date +%Y-%m-%d)
-**Framework**: sdd-agentic-framework v3.1.0
+**Framework**: logic-loom v3.1.0
 **Source**: kelleysd.com v2.0 enhancements
 **Status**: INTEGRATION COMPLETE
 
@@ -1838,7 +1838,7 @@ cat > .docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_SUMMARY.md <<'EOF'
 ## Enhancements Integrated
 
 ### 1. Structured Logging Infrastructure ✅
-- `.specify/lib/logging.sh` (254 lines)
+- `.logic-loom/lib/logging.sh` (254 lines)
 - 100% test coverage (34/34 tests passing)
 - Constitutional Principle VII implemented
 
@@ -1849,12 +1849,12 @@ cat > .docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_SUMMARY.md <<'EOF'
 - 78% test coverage
 
 ### 3. Tool Restriction Policies ✅
-- `.specify/lib/policy.sh` (350 lines)
+- `.logic-loom/lib/policy.sh` (350 lines)
 - 24 restriction patterns
 - 73% test coverage
 
 ### 4. Parallel Agent Execution ✅
-- `.specify/lib/parallel.sh` (12KB)
+- `.logic-loom/lib/parallel.sh` (12KB)
 - 2-3x performance target
 - Manual validation passed
 
@@ -1884,16 +1884,16 @@ cat > .docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_SUMMARY.md <<'EOF'
 ## Files Created
 
 ### Libraries
-- .specify/lib/logging.sh
-- .specify/lib/policy.sh
-- .specify/lib/json-parse.cjs
-- .specify/lib/parallel.sh
+- .logic-loom/lib/logging.sh
+- .logic-loom/lib/policy.sh
+- .logic-loom/lib/json-parse.cjs
+- .logic-loom/lib/parallel.sh
 
 ### Scripts
-- .specify/scripts/bash/analyze-logs.sh
-- .specify/scripts/bash/discover-skills.sh
-- .specify/scripts/bash/generate-skill-index.sh
-- .specify/scripts/bash/load-context.sh
+- .logic-loom/scripts/bash/analyze-logs.sh
+- .logic-loom/scripts/bash/discover-skills.sh
+- .logic-loom/scripts/bash/generate-skill-index.sh
+- .logic-loom/scripts/bash/load-context.sh
 
 ### Context Modules
 - .claude/context/core.md
@@ -1907,13 +1907,13 @@ cat > .docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_SUMMARY.md <<'EOF'
 - .claude/skill-index.json
 
 ### Tests
-- .specify/tests/test_logging.sh
-- .specify/tests/test_logging_integration.sh
-- .specify/tests/test-git-safety.sh
-- .specify/tests/test-policy-validation.sh
-- .specify/tests/test_phase2_integration.sh
-- .specify/tests/test_phase3_integration.sh
-- .specify/tests/test_phase4_integration.sh
+- .logic-loom/tests/test_logging.sh
+- .logic-loom/tests/test_logging_integration.sh
+- .logic-loom/tests/test-git-safety.sh
+- .logic-loom/tests/test-policy-validation.sh
+- .logic-loom/tests/test_phase2_integration.sh
+- .logic-loom/tests/test_phase3_integration.sh
+- .logic-loom/tests/test_phase4_integration.sh
 
 ---
 
@@ -1960,36 +1960,36 @@ cat > .docs/QUICK_REFERENCE_V3.1.md <<'EOF'
 
 ### Structured Logging
 ```bash
-source .specify/lib/logging.sh
+source .logic-loom/lib/logging.sh
 log_info "message"
 ```
 
 ### Enhanced Git Safety
 ```bash
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 checkpoint=$(create_git_checkpoint "name")
 ```
 
 ### Tool Policies
 ```bash
-source .specify/lib/policy.sh
+source .logic-loom/lib/policy.sh
 validate_tool_call "bash" "command"
 ```
 
 ### Parallel Execution
 ```bash
-source .specify/lib/parallel.sh
+source .logic-loom/lib/parallel.sh
 session=$(launch_agents_parallel "agent1:task1" "agent2:task2")
 ```
 
 ### Skill Discovery
 ```bash
-./.specify/scripts/bash/generate-skill-index.sh
+./.logic-loom/scripts/bash/generate-skill-index.sh
 ```
 
 ### Context Loading
 ```bash
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 ```
 
 ## Token Efficiency
@@ -2020,12 +2020,12 @@ echo "Final Pre-Merge Validation"
 echo "=========================================="
 
 # Run all validators
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 
 # Check all tests
 echo "Running all tests..."
-find .specify/tests -name "test*.sh" -type f | while read test; do
+find .logic-loom/tests -name "test*.sh" -type f | while read test; do
     echo "Running $(basename $test)..."
     $test || echo "⚠️  $(basename $test) failed"
 done
@@ -2119,9 +2119,9 @@ git checkout main
 git revert <phase-4-commit-hash> <phase-3-commit-hash>
 
 # Manual file restoration
-git checkout v3.0.0-pre-integration -- .specify/lib/logging.sh  # Phase 1
-git checkout v3.0.0-pre-integration -- .specify/scripts/bash/common.sh  # Phase 2
-git checkout v3.0.0-pre-integration -- .specify/lib/parallel.sh  # Phase 3
+git checkout v3.0.0-pre-integration -- .logic-loom/lib/logging.sh  # Phase 1
+git checkout v3.0.0-pre-integration -- .logic-loom/scripts/bash/common.sh  # Phase 2
+git checkout v3.0.0-pre-integration -- .logic-loom/lib/parallel.sh  # Phase 3
 git checkout v3.0.0-pre-integration -- CLAUDE.md .claude/context/  # Phase 4
 ```
 
@@ -2141,13 +2141,13 @@ node --version  # Should be installed
 jq --version    # Optional but recommended
 
 # Check file permissions
-chmod +x .specify/lib/*.sh
-chmod +x .specify/scripts/bash/*.sh
-chmod +x .specify/tests/*.sh
+chmod +x .logic-loom/lib/*.sh
+chmod +x .logic-loom/scripts/bash/*.sh
+chmod +x .logic-loom/tests/*.sh
 
 # Re-run specific phase tests
-./.specify/tests/test_logging.sh  # Phase 1
-./.specify/tests/test_phase2_integration.sh  # Phase 2
+./.logic-loom/tests/test_logging.sh  # Phase 1
+./.logic-loom/tests/test_phase2_integration.sh  # Phase 2
 # etc.
 ```
 
@@ -2161,11 +2161,11 @@ chmod +x .specify/tests/*.sh
 ls -la .claude/context/
 
 # Check script permissions
-chmod +x .specify/scripts/bash/load-context.sh
+chmod +x .logic-loom/scripts/bash/load-context.sh
 
 # Test manually
-./.specify/scripts/bash/load-context.sh list
-./.specify/scripts/bash/load-context.sh load core
+./.logic-loom/scripts/bash/load-context.sh list
+./.logic-loom/scripts/bash/load-context.sh load core
 ```
 
 ### Issue: CLAUDE.md Content Missing
@@ -2192,11 +2192,11 @@ grep -rq "Git Approval" CLAUDE.md .claude/context/
 **Resolution**:
 ```bash
 # Check directory exists
-mkdir -p .specify/logs/git-checkpoints
+mkdir -p .logic-loom/logs/git-checkpoints
 
 # Verify logging library loaded
-source .specify/lib/logging.sh
-source .specify/scripts/bash/common.sh
+source .logic-loom/lib/logging.sh
+source .logic-loom/scripts/bash/common.sh
 
 # Test checkpoint manually
 checkpoint_id=$(create_git_checkpoint "test")
@@ -2247,7 +2247,7 @@ list_git_checkpoints
 
 ## Conclusion
 
-This integration plan provides a comprehensive, phased approach to porting all 6 framework enhancements from kelleysd.com to sdd-agentic-framework.
+This integration plan provides a comprehensive, phased approach to porting all 6 framework enhancements from kelleysd.com to logic-loom.
 
 **Key Features**:
 - ✅ Phased rollout minimizes risk

@@ -44,7 +44,7 @@ If no clear match, default to `sdd-creation`.
 
 ### Step 4: Create Agent File
 
-1. Read template: `.specify/templates/agent-template.md` (if exists) or generate from SDD agent format
+1. Read template: `.logic-loom/templates/agent-template.md` (if exists) or generate from SDD agent format
 2. Populate: name, description, model (default: claude-opus-4-6), tools, responsibilities
 3. Write to: `plugins/{target-plugin}/agents/{agent-name}.md`
 

@@ -41,7 +41,7 @@ Activate this skill when:
 
 **Read the agent collaboration triggers document**:
 ```bash
-Read: .specify/memory/agent-collaboration-triggers.md
+Read: .logic-loom/memory/agent-collaboration-triggers.md
 ```
 
 **Understand the 11 domains**:
@@ -61,12 +61,12 @@ Read: .specify/memory/agent-collaboration-triggers.md
 
 **If analyzing a file**:
 ```bash
-.specify/scripts/bash/detect-phase-domain.sh --file PATH_TO_FILE
+.logic-loom/scripts/bash/detect-phase-domain.sh --file PATH_TO_FILE
 ```
 
 **If analyzing user text**:
 ```bash
-echo "TEXT_TO_ANALYZE" | .specify/scripts/bash/detect-phase-domain.sh --text
+echo "TEXT_TO_ANALYZE" | .logic-loom/scripts/bash/detect-phase-domain.sh --text
 ```
 
 **Script performs keyword-based detection**:
@@ -352,7 +352,7 @@ Verify the skill executed correctly:
 **Cause**: Keywords not in detection dictionary
 
 **Solution**:
-- Review `.specify/scripts/bash/detect-phase-domain.sh` keyword lists
+- Review `.logic-loom/scripts/bash/detect-phase-domain.sh` keyword lists
 - Add missing keywords to appropriate domain
 - Re-run detection
 
@@ -406,7 +406,7 @@ Verify the skill executed correctly:
 
 ## References
 
-- Agent Collaboration Triggers: `.specify/memory/agent-collaboration-triggers.md`
-- Constitution v3.0.0: `.specify/memory/constitution.md` (Principle X - 16 principles)
-- Detection Script: `.specify/scripts/bash/detect-phase-domain.sh`
+- Agent Collaboration Triggers: `.logic-loom/memory/agent-collaboration-triggers.md`
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md` (Principle X - 16 principles)
+- Detection Script: `.logic-loom/scripts/bash/detect-phase-domain.sh`
 - Skill Registry: `plugins/*/skills/` (all specialist skills across plugins)

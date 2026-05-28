@@ -14,6 +14,6 @@ model: opus
 Read `plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md` and follow its procedure in **sequential** mode (architect → implementor → reviewer).
 
 ### Step 2: Execute Pipeline
-Use the Task tool to spawn 3 sequential workers with domain skill briefs extracted via `extract_skill_brief()` from `.specify/scripts/bash/common.sh`. Each worker's output feeds the next.
+Use the Task tool to spawn 3 sequential workers with domain skill briefs extracted via `extract_skill_brief()` from `.logic-loom/scripts/bash/common.sh`. Each worker's output feeds the next.
 
 **Usage**: `/build-team "Build user authentication with JWT tokens"`

@@ -38,8 +38,8 @@ assert "No .claude/agent-index.json" "[ ! -f .claude/agent-index.json ]"
 # ── Old constitution versions removed ──
 echo ""
 echo "Old constitution archives removed"
-assert "No constitution-v1.6.0-archive.md" "[ ! -f .specify/memory/constitution-v1.6.0-archive.md ]"
-assert "No constitution-v2.0.0-draft.md" "[ ! -f .specify/memory/constitution-v2.0.0-draft.md ]"
+assert "No constitution-v1.6.0-archive.md" "[ ! -f .logic-loom/memory/constitution-v1.6.0-archive.md ]"
+assert "No constitution-v2.0.0-draft.md" "[ ! -f .logic-loom/memory/constitution-v2.0.0-draft.md ]"
 
 # ── All commands are bridge-generated (no deprecated statics) ──
 echo ""
@@ -70,7 +70,7 @@ assert "sdd-maintenance plugin manifest exists" "[ -f plugins/sdd-maintenance/.c
 
 echo ""
 echo "Plugin Command Bridge (v4.1)"
-assert "Bridge script exists" "[ -x .specify/scripts/bash/sync-plugin-commands.sh ]"
+assert "Bridge script exists" "[ -x .logic-loom/scripts/bash/sync-plugin-commands.sh ]"
 assert "Bridge manifest exists" "[ -f .claude/commands/.bridge-manifest.json ]"
 assert "Bridge manifest is valid JSON" "python3 -c 'import json; json.load(open(\".claude/commands/.bridge-manifest.json\"))'"
 assert "Bridge manifest has no statics" "python3 -c 'import json,sys; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); sys.exit(0 if len(d.get(\"static\",[])) == 0 else 1)'"

@@ -14,7 +14,7 @@ Constitutional Compliance:
     - Principle VII: Observability - Complete audit trail of refinement iterations
 
 Configuration:
-    Loads settings from .specify/config/refinement.conf:
+    Loads settings from .logic-loom/config/refinement.conf:
     - MAX_REFINEMENT_ROUNDS (default: 20)
     - EARLY_STOP_THRESHOLD (default: 0.95)
     - Quality thresholds per phase
@@ -77,8 +77,8 @@ class RefinementEngine:
 
     def __init__(
         self,
-        config_path: str = "/workspaces/sdd-agentic-framework/.specify/config/refinement.conf",
-        state_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/refinement-state"
+        config_path: str = "/workspaces/logic-loom/.logic-loom/config/refinement.conf",
+        state_dir: str = "/workspaces/logic-loom/.docs/agents/shared/refinement-state"
     ):
         """
         Initialize Refinement Engine.

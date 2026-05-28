@@ -11,8 +11,8 @@ set -e
 
 # Source common functions for git approval
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/.specify/scripts/bash/common.sh" ]; then
-    source "$SCRIPT_DIR/.specify/scripts/bash/common.sh"
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/common.sh" ]; then
+    source "$SCRIPT_DIR/.logic-loom/scripts/bash/common.sh"
 fi
 
 BLUE='\033[0;34m'
@@ -109,7 +109,7 @@ npm run setup
 - **Framework Guide**: See \`FRAMEWORK_README.md\`
 - **Setup Instructions**: See \`SETUP.md\`
 - **Agent Documentation**: See \`AGENTS.md\`
-- **Development Principles**: See \`.specify/memory/constitution.md\`
+- **Development Principles**: See \`.logic-loom/memory/constitution.md\`
 
 ## 🤖 Available Commands
 
@@ -124,7 +124,7 @@ Execute these in Claude Code:
 
 \`\`\`
 $PROJECT_NAME/
-├── .specify/         # Framework core
+├── .logic-loom/         # Framework core
 ├── .claude/          # AI assistant config
 ├── .docs/            # Documentation
 ├── specs/            # Feature specifications
@@ -133,7 +133,7 @@ $PROJECT_NAME/
 
 ## 🤝 Contributing
 
-Follow the constitutional principles defined in \`.specify/memory/constitution.md\`.
+Follow the constitutional principles defined in \`.logic-loom/memory/constitution.md\`.
 
 ## 📝 License
 
@@ -141,7 +141,7 @@ Follow the constitutional principles defined in \`.specify/memory/constitution.m
 
 ---
 
-Built with [SDD Agentic Framework](https://github.com/kelleysd-apps/sdd-agentic-framework)
+Built with [SDD Agentic Framework](https://github.com/kelleysd-apps/logic-loom)
 EOF
 
 echo -e "${GREEN}✓${NC} Project README created"
@@ -179,7 +179,7 @@ else
 fi
 
 # Configure upstream remote for /update-framework
-UPSTREAM_URL="https://github.com/kelleysd-apps/sdd-agentic-framework.git"
+UPSTREAM_URL="https://github.com/kelleysd-apps/logic-loom.git"
 if git remote get-url upstream &>/dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} Upstream remote already configured"
 else
@@ -261,9 +261,9 @@ fi
 # Run the main setup script
 echo ""
 echo -e "${BLUE}Running framework setup...${NC}"
-if [ -f ".specify/scripts/setup.sh" ]; then
-    chmod +x .specify/scripts/setup.sh
-    ./.specify/scripts/setup.sh
+if [ -f ".logic-loom/scripts/setup.sh" ]; then
+    chmod +x .logic-loom/scripts/setup.sh
+    ./.logic-loom/scripts/setup.sh
 else
     echo -e "${RED}Warning: Setup script not found${NC}"
 fi
@@ -306,7 +306,7 @@ echo -e "   → All commands will reference PRD as SSOT"
 echo -e "   → Features align with PRD goals and constraints"
 echo ""
 echo -e "${YELLOW}Alternative: Manual Initialization (Advanced)${NC}"
-echo -e "   Edit: ${GREEN}.specify/memory/constitution.md${NC} manually"
+echo -e "   Edit: ${GREEN}.logic-loom/memory/constitution.md${NC} manually"
 echo -e "   Use: ${GREEN}/create-agent${NC} for each agent identified in PRD"
 echo ""
 echo -e "${BLUE}=====================================${NC}"

@@ -20,8 +20,8 @@ This is the **PRIMARY ENTRY POINT** agent for all Claude Code sessions when conf
 ## Constitutional Adherence
 
 This agent operates under the constitutional principles defined in:
-- **Primary Authority**: `.specify/memory/constitution.md`
-- **Governance Framework**: `.specify/memory/agent-governance.md`
+- **Primary Authority**: `.logic-loom/memory/constitution.md`
+- **Governance Framework**: `.logic-loom/memory/agent-governance.md`
 
 ### Critical Mandates
 - **NO Git operations without explicit user approval** (Principle VI - CRITICAL)
@@ -38,7 +38,7 @@ This agent operates under the constitutional principles defined in:
 ### Step 1: Constitution Acknowledgment
 
 ```
-ACTION: Read .specify/memory/constitution.md
+ACTION: Read .logic-loom/memory/constitution.md
 VERIFY: Awareness of all 16 principles
 KEY PRINCIPLES TO REMEMBER:
   - Principle II: Test-First (IMMUTABLE)
@@ -50,7 +50,7 @@ KEY PRINCIPLES TO REMEMBER:
 
 ```
 ACTION: Scan user message for domain trigger keywords
-REFERENCE: .specify/memory/agent-collaboration-triggers.md
+REFERENCE: .logic-loom/memory/agent-collaboration-triggers.md
 
 DOMAIN KEYWORDS:
   Frontend  -> UI, component, React, CSS, form, responsive
@@ -191,8 +191,8 @@ Users can reference this agent's governance protocols:
 - Decisions: `.docs/agents/product/constitutional-governance-agent/decisions/`
 
 ### Key References
-- Constitution: `.specify/memory/constitution.md`
-- Agent Triggers: `.specify/memory/agent-collaboration-triggers.md`
+- Constitution: `.logic-loom/memory/constitution.md`
+- Agent Triggers: `.logic-loom/memory/agent-collaboration-triggers.md`
 - Agent Registry: `.docs/agents/agent-registry.json`
 - CLAUDE.md: Main project instructions (tandem file)
 - AGENTS.md: Complete agent documentation (tandem file)

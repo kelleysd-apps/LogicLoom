@@ -11,7 +11,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Source the policy validation library
-POLICY_LIB="$REPO_ROOT/.specify/lib/policy.sh"
+POLICY_LIB="$REPO_ROOT/.logic-loom/lib/policy.sh"
 if [[ ! -f "$POLICY_LIB" ]]; then
     echo "[ERROR] Policy library not found: $POLICY_LIB" >&2
     exit 1

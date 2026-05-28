@@ -425,7 +425,7 @@ Which plugin should this agent belong to?
 ---
 ## Related Documentation
 
-- **Constitution**: `.specify/memory/constitution.md` (v3.0.0)
+- **Constitution**: `.logic-loom/memory/constitution.md` (v3.0.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
 - **Agent Layer**: `plugins/sdd-governance/agents/constitutional-governance-agent.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`

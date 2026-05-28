@@ -14,7 +14,7 @@ Open PowerShell or Command Prompt and run:
 
 ```powershell
 # Navigate to the framework directory
-cd path\to\sdd-agentic-framework
+cd path\to\logic-loom
 
 # Run automatic setup (installs everything for you)
 powershell -ExecutionPolicy Bypass -File .specify\scripts\setup-windows.ps1
@@ -35,10 +35,10 @@ Open Terminal and run:
 
 ```bash
 # Navigate to the framework directory
-cd path/to/sdd-agentic-framework
+cd path/to/logic-loom
 
 # Run automatic setup (installs everything for you)
-bash .specify/scripts/setup.sh
+bash .logic-loom/scripts/setup.sh
 ```
 
 **What this installs automatically:**
@@ -56,10 +56,10 @@ Open Terminal and run:
 
 ```bash
 # Navigate to the framework directory
-cd path/to/sdd-agentic-framework
+cd path/to/logic-loom
 
 # Run automatic setup (installs everything for you)
-bash .specify/scripts/setup.sh
+bash .logic-loom/scripts/setup.sh
 ```
 
 **What this installs automatically:**
@@ -163,7 +163,7 @@ docker mcp tools ls                 # List available tools
 ### Alternative: Manual Initialization (Advanced)
 
 If you prefer manual control, you can skip `/initialize-project` and instead:
-- Edit `.specify/memory/constitution.md` manually with PRD customizations
+- Edit `.logic-loom/memory/constitution.md` manually with PRD customizations
 - Use `/create-agent` for each agent identified in PRD Principle X
 - Configure MCP servers manually in Claude Code settings
 
@@ -303,8 +303,8 @@ Claude Code is your AI development assistant for this framework. It:
 **macOS/Linux:**
 - Make sure the script is executable:
   ```bash
-  chmod +x .specify/scripts/setup.sh
-  bash .specify/scripts/setup.sh
+  chmod +x .logic-loom/scripts/setup.sh
+  bash .logic-loom/scripts/setup.sh
   ```
 
 ### Line Ending Errors (CRLF Issues)
@@ -327,14 +327,14 @@ bash fix-line-endings.sh
 **Manual Fix:**
 ```bash
 # Remove carriage returns from all scripts
-find .specify/scripts -name "*.sh" -type f -exec sed -i 's/\r$//' {} \;
+find .logic-loom/scripts -name "*.sh" -type f -exec sed -i 's/\r$//' {} \;
 
 # Make scripts executable
-chmod +x .specify/scripts/*.sh
-chmod +x .specify/scripts/bash/*.sh
+chmod +x .logic-loom/scripts/*.sh
+chmod +x .logic-loom/scripts/bash/*.sh
 
 # Try setup again
-bash .specify/scripts/setup.sh
+bash .logic-loom/scripts/setup.sh
 ```
 
 **Why this happens:**
@@ -356,8 +356,8 @@ Missing expression after unary operator '--'
 ```powershell
 # Re-clone the repository
 cd ..
-git clone https://github.com/kelleysd-apps/sdd-agentic-framework.git
-cd sdd-agentic-framework
+git clone https://github.com/kelleysd-apps/logic-loom.git
+cd logic-loom
 
 # Try setup again
 powershell -ExecutionPolicy Bypass -File .specify\scripts\setup-windows.ps1
@@ -515,7 +515,7 @@ After setup, your project will have:
 
 ```
 your-project/
-├── .specify/              # Framework core
+├── .logic-loom/              # Framework core
 │   ├── memory/           # Constitution and agent triggers
 │   ├── scripts/          # Automation scripts
 │   ├── templates/        # Document templates
@@ -542,7 +542,7 @@ You'll know setup succeeded when:
 - ✅ No error messages during setup
 - ✅ Claude Code launches successfully
 - ✅ You can run `/create-prd` in Claude Code
-- ✅ Files exist in `.specify/`, `.claude/`, and `.docs/` directories
+- ✅ Files exist in `.logic-loom/`, `.claude/`, and `.docs/` directories
 - ✅ `npm install` completed without errors
 
 ---
@@ -579,7 +579,7 @@ You'll know setup succeeded when:
 
 - **Always start with a PRD** - It saves time by providing clear direction
 - **Use Claude Code for everything** - It's your co-pilot, not just a tool
-- **Read the constitution** - `.specify/memory/constitution.md` explains the rules
+- **Read the constitution** - `.logic-loom/memory/constitution.md` explains the rules
 - **Follow the workflow** - PRD → Initialize → Spec → Plan → Tasks → Implement → Finalize
 - **Ask Claude when stuck** - "How do I [task]?" works great
 - **Trust the quality gates** - They prevent bugs and enforce best practices
@@ -592,7 +592,7 @@ After completing setup, explore these files:
 
 - **CLAUDE.md** - Complete AI assistant instructions
 - **README.md** - Framework features and architecture
-- **.specify/memory/constitution.md** - 16 development principles (v3.0.0)
+- **.logic-loom/memory/constitution.md** - 16 development principles (v3.0.0)
 - **AGENTS.md** - Specialized agent documentation
 - **.claude/commands/** - Custom command documentation
 

@@ -138,7 +138,7 @@
 
 ---
 
-## 5. Bash scripts `.specify/scripts/bash/` — 28 + 8 RL
+## 5. Bash scripts `.logic-loom/scripts/bash/` — 28 + 8 RL
 
 ### Top-level (28)
 
@@ -173,7 +173,7 @@
 | validate-tasks.sh | ✓ KEEP | Same |
 | verify-mcp-toolkit.sh | ✓ KEEP | MCP toolkit health check |
 
-### `.specify/scripts/bash/rl/` (8)
+### `.logic-loom/scripts/bash/rl/` (8)
 
 | Script | Status |
 |---|---|
@@ -190,7 +190,7 @@
 
 ---
 
-## 6. Python scripts `.specify/scripts/python/` — 3
+## 6. Python scripts `.logic-loom/scripts/python/` — 3
 
 | File | Status |
 |---|---|
@@ -226,7 +226,7 @@
 
 ---
 
-## 8. Templates `.specify/templates/` — 7 files + subdirs
+## 8. Templates `.logic-loom/templates/` — 7 files + subdirs
 
 | File | Status |
 |---|---|
@@ -272,7 +272,7 @@
 
 ---
 
-## 11. `.specify/memory/` — 6 files
+## 11. `.logic-loom/memory/` — 6 files
 
 | File | Status |
 |---|---|
@@ -285,7 +285,7 @@
 
 ---
 
-## 12. `.specify/lib/` — 5 files
+## 12. `.logic-loom/lib/` — 5 files
 
 | File | Status |
 |---|---|
@@ -297,7 +297,7 @@
 
 ---
 
-## 13. `.specify/config/` — 2 files
+## 13. `.logic-loom/config/` — 2 files
 
 | File | Status |
 |---|---|
@@ -340,7 +340,7 @@
 - `.mcp.json` sdd-marketplace entry
 
 ### Currently slated for cut (Stage 4 — RL telemetry)
-- `.specify/scripts/bash/rl/` (8 scripts)
+- `.logic-loom/scripts/bash/rl/` (8 scripts)
 - `plugins/sdd-governance/hooks/scripts/rl-metrics-capture.sh`
 - `plugins/sdd-governance/hooks/hooks.json` PostToolUse entry (surgical)
 - `rl_metrics` blocks in all `plugins/*/.claude-plugin/plugin.json` (script-driven)
@@ -349,16 +349,16 @@
 - `.docs/architecture/RL-FEEDBACK-ARCHITECTURE.md`
 
 ### Recommend adding to cleanup scope (proposed Stage 4b)
-- `.specify/scripts/bash/migrate-agent-to-skill.sh` (one-time v4→v5 migration tool, complete)
-- `.specify/scripts/bash/legacy-pattern-report.sh` (stale audit)
-- `.specify/scripts/bash/skill-coverage-audit.sh` (internal audit, not invoked)
+- `.logic-loom/scripts/bash/migrate-agent-to-skill.sh` (one-time v4→v5 migration tool, complete)
+- `.logic-loom/scripts/bash/legacy-pattern-report.sh` (stale audit)
+- `.logic-loom/scripts/bash/skill-coverage-audit.sh` (internal audit, not invoked)
 - Move `.docs/feature-003-implementation-plan.md` + `feature-003-upstream-sync-report.md` to `.docs/archive/`
 - Verify and possibly cut:
-  - `.specify/scripts/bash/analyze-logs.sh`
-  - `.specify/scripts/bash/create-agent-command.sh` and `create-skill-command.sh`
-  - `.specify/scripts/bash/update-agent-context.sh`
-  - `.specify/memory/agent-collaboration.md` (possible duplicate)
-  - `.specify/memory/skill-activation-triggers.md` (possible RL-only — fold into Stage 4)
+  - `.logic-loom/scripts/bash/analyze-logs.sh`
+  - `.logic-loom/scripts/bash/create-agent-command.sh` and `create-skill-command.sh`
+  - `.logic-loom/scripts/bash/update-agent-context.sh`
+  - `.logic-loom/memory/agent-collaboration.md` (possible duplicate)
+  - `.logic-loom/memory/skill-activation-triggers.md` (possible RL-only — fold into Stage 4)
 
 ### Defer (architectural decisions for later stages)
 - Plugin-local script duplication across sdd-{git,specification,orchestrator,governance} (Stage 13 architecture pickup)
@@ -371,7 +371,7 @@
 | plugins/sdd-orchestrator/skills/ | swarm-explore, swarm-implement, review-evaluator, plan-review, retro (5 new skills) | 6, 7b, 8, 10, 11b |
 | plugins/sdd-orchestrator/commands/ | plan-review.md, retro.md (2 new commands) | 7b, 11b |
 | .claude/hooks/ | worktree-port-namespace.sh, context-cap-warn.sh, freeze-write-scope.sh (3 hooks) | 11 |
-| .specify/templates/ | vision-template.md | 5 |
+| .logic-loom/templates/ | vision-template.md | 5 |
 | features/ | New top-level dir + README.md | 5 |
 | .docs/architecture/ | loom-architecture.md, evaluator-protocol.md, freeze-scope-protocol.md | 13 |
 
@@ -392,7 +392,7 @@
 | Templates | 8 (incl skill-prototypes/) | 9 (+vision-template) |
 | MCP servers | 3 (post Stage 1) | 3 |
 | src/sdd/ subdirs | 7 | 5 (-2 RL) |
-| .specify/memory/ | 6 | 5-6 (possibly -1 if dupe) |
+| .logic-loom/memory/ | 6 | 5-6 (possibly -1 if dupe) |
 | .docs/ entries | ~14 | ~14 (+3 new arch docs, -1 RL dir, -2 historical moved to archive) |
 
 Net: Framework gains 5 skills + 2 commands + 3 hooks + 1 template + 1 dir convention; cuts ~10-15 files of internal overbuild + 7 historical/audit scripts.

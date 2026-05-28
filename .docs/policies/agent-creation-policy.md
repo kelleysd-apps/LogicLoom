@@ -108,7 +108,7 @@ model: inherit               # Usually inherit, specify when needed
 ### System Prompt Structure
 
 1. **Constitutional Adherence** (mandatory)
-   - Reference to `.specify/memory/constitution.md`
+   - Reference to `.logic-loom/memory/constitution.md`
    - Git operations restrictions
 
 2. **Core Responsibilities**

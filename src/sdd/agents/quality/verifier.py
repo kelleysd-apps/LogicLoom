@@ -73,8 +73,8 @@ class VerificationAgent:
 
     def __init__(
         self,
-        config_path: str = "/workspaces/sdd-agentic-framework/.specify/config/refinement.conf",
-        decisions_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/quality/verifier/decisions"
+        config_path: str = "/workspaces/logic-loom/.logic-loom/config/refinement.conf",
+        decisions_dir: str = "/workspaces/logic-loom/.docs/agents/quality/verifier/decisions"
     ):
         """
         Initialize Verification Agent.

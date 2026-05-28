@@ -13,7 +13,7 @@ Constitutional Compliance:
     - FR-031: Context retrieval must return in <2 seconds
 
 Configuration:
-    Loads settings from .specify/config/refinement.conf:
+    Loads settings from .logic-loom/config/refinement.conf:
     - EMBEDDING_MODEL (default: sentence-transformers/all-MiniLM-L6-v2)
     - TOP_K_RESULTS (default: 5)
     - SIMILARITY_THRESHOLD (default: 0.70)
@@ -194,9 +194,9 @@ class ContextRetriever:
 
     def __init__(
         self,
-        config_path: str = "/workspaces/sdd-agentic-framework/.specify/config/refinement.conf",
-        embeddings_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/embeddings",
-        cache_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/embeddings/cache"
+        config_path: str = "/workspaces/logic-loom/.logic-loom/config/refinement.conf",
+        embeddings_dir: str = "/workspaces/logic-loom/.docs/agents/shared/embeddings",
+        cache_dir: str = "/workspaces/logic-loom/.docs/agents/shared/embeddings/cache"
     ):
         """
         Initialize Context Retriever.
@@ -292,8 +292,8 @@ class ContextRetriever:
 
     def build_index(
         self,
-        specs_dir: str = "/workspaces/sdd-agentic-framework/specs",
-        docs_dir: str = "/workspaces/sdd-agentic-framework/.docs"
+        specs_dir: str = "/workspaces/logic-loom/specs",
+        docs_dir: str = "/workspaces/logic-loom/.docs"
     ) -> None:
         """
         Build search index from specifications and documentation.

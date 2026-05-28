@@ -51,7 +51,7 @@ Write `README.md` with plugin overview, structure, and usage.
 
 ### Step 6: Sync Command Bridge
 ```bash
-bash .specify/scripts/bash/sync-plugin-commands.sh sync
+bash .logic-loom/scripts/bash/sync-plugin-commands.sh sync
 ```
 
 ### Step 7: Report Completion

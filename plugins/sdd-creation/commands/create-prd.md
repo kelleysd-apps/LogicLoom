@@ -14,7 +14,7 @@ model: opus
 Ask user: Project-level PRD, feature-level PRD, or product pivot?
 
 ### Step 2: Load Template
-Read: `.specify/templates/prd-template.md`
+Read: `.logic-loom/templates/prd-template.md`
 
 ### Step 3: Interactive Questionnaire
 Walk through PRD sections with user:

@@ -192,4 +192,4 @@ This command strictly enforces **Principle VI: Git Operation Approval**:
 ## Related
 
 - [Unified Specification Guide](./unified-specification-guide.md)
-- [Constitutional Principles](../../.specify/memory/constitution.md)
+- [Constitutional Principles](../../.logic-loom/memory/constitution.md)

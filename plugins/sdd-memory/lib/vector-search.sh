@@ -538,7 +538,7 @@ _vector_search_paths() {
         [ -d "$VECTOR_REPO_ROOT/specs" ] && paths+=("$VECTOR_REPO_ROOT/specs")
         [ -d "$VECTOR_REPO_ROOT/.devloop/sessions" ] && paths+=("$VECTOR_REPO_ROOT/.devloop/sessions")
         [ -d "$VECTOR_REPO_ROOT/.docs" ] && paths+=("$VECTOR_REPO_ROOT/.docs")
-        [ -d "$VECTOR_REPO_ROOT/.specify/memory" ] && paths+=("$VECTOR_REPO_ROOT/.specify/memory")
+        [ -d "$VECTOR_REPO_ROOT/.logic-loom/memory" ] && paths+=("$VECTOR_REPO_ROOT/.logic-loom/memory")
         [ -d "$VECTOR_REPO_ROOT/plugins" ] && paths+=("$VECTOR_REPO_ROOT/plugins")
     fi
 

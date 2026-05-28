@@ -102,7 +102,7 @@ concerns against actual outcomes.
    `$HOME/.claude/projects/<project-slug>/memory/` where `<project-slug>` is
    the CWD path with `/` replaced by `-` (the convention this user's setup
    already follows — e.g.
-   `-Users-bkelley-kelleysd-apps-sdd-agentic-framework`). Determine the slug
+   `-Users-bkelley-kelleysd-apps-logic-loom`). Determine the slug
    via Bash:
    `slug=$(pwd | sed 's|/|-|g')` and target
    `$HOME/.claude/projects/${slug}/memory/retro_<feature>_<YYYY-MM-DD>.md`.

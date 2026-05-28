@@ -12,13 +12,13 @@ model: opus
 
 ### Step 1: Run Constitutional Compliance Check
 ```bash
-bash .specify/scripts/bash/constitutional-check.sh
+bash .logic-loom/scripts/bash/constitutional-check.sh
 ```
 Parse output for pass/fail per principle.
 
 ### Step 2: Run Sanitization Audit
 ```bash
-bash .specify/scripts/bash/sanitization-audit.sh 2>/dev/null || true
+bash .logic-loom/scripts/bash/sanitization-audit.sh 2>/dev/null || true
 ```
 Check for secrets, credentials, API keys in staged files.
 

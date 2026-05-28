@@ -107,7 +107,7 @@ Output: spec.md
 
 **Quality Gate Check**:
 ```
-Run: .specify/scripts/bash/validate-spec.sh --file ${SPECS_DIR}/spec.md
+Run: .logic-loom/scripts/bash/validate-spec.sh --file ${SPECS_DIR}/spec.md
 
 IF score < 0.90:
   Report: "Specification quality: ${score} (threshold: 0.90)"
@@ -143,7 +143,7 @@ Output: plan.md, research.md, data-model.md, contracts/, quickstart.md
 
 **Quality Gate Check**:
 ```
-Run: .specify/scripts/bash/validate-plan.sh --file ${SPECS_DIR}/plan.md
+Run: .logic-loom/scripts/bash/validate-plan.sh --file ${SPECS_DIR}/plan.md
 
 IF score < 0.85:
   Report: "Plan quality: ${score} (threshold: 0.85)"
@@ -198,7 +198,7 @@ Verify:
 
 **Run domain detection**:
 ```bash
-.specify/scripts/bash/detect-phase-domain.sh --file ${SPECS_DIR}/spec.md
+.logic-loom/scripts/bash/detect-phase-domain.sh --file ${SPECS_DIR}/spec.md
 ```
 
 **Generate completion report**:

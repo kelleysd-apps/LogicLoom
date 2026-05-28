@@ -655,7 +655,7 @@ Deployment logs retained for:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`

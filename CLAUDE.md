@@ -25,13 +25,13 @@ This framework uses **modular context loading** for 37% token efficiency improve
 
 ```bash
 # Load specific module
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 
 # Intelligent analysis (auto-loads relevant modules)
-./.specify/scripts/bash/load-context.sh analyze "your task description"
+./.logic-loom/scripts/bash/load-context.sh analyze "your task description"
 
 # List available modules
-./.specify/scripts/bash/load-context.sh list
+./.logic-loom/scripts/bash/load-context.sh list
 ```
 
 ---
@@ -96,7 +96,7 @@ If you start work without completing the pre-flight check:
 
 ## CRITICAL: Read Constitution First
 
-**ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
+**ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
 The constitution (v3.0.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
@@ -114,7 +114,7 @@ The constitution (v3.0.0) contains **16 enforceable principles**:
 
 For complete constitutional reference, load the governance module:
 ```bash
-./.specify/scripts/bash/load-context.sh load governance
+./.logic-loom/scripts/bash/load-context.sh load governance
 ```
 
 ---
@@ -133,7 +133,7 @@ The `/finalize` command validates compliance but NEVER executes git commands. It
 
 For complete git safety documentation, load the governance module:
 ```bash
-./.specify/scripts/bash/load-context.sh load governance
+./.logic-loom/scripts/bash/load-context.sh load governance
 ```
 
 ---
@@ -162,7 +162,7 @@ This is a specification-driven development framework that uses structured templa
 
 For detailed workflow documentation, load the workflows module:
 ```bash
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load workflows
 ```
 
 ---
@@ -216,7 +216,7 @@ The framework uses **Docker MCP Toolkit** as the primary MCP orchestration metho
 
 For complete agent documentation, load the agents module:
 ```bash
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 ```
 
 ### Hook-Based Orchestration (v3.0 — No Custom Agent Profile)
@@ -251,7 +251,7 @@ and orchestration guidance are injected via the `UserPromptSubmit` preflight hoo
 
 ### Directory Structure
 ```
-.specify/
+.logic-loom/
   memory/
     constitution.md                    # Core principles (v3.0.0 - 16 principles)
     constitution_update_checklist.md   # Mandatory change management
@@ -294,8 +294,8 @@ specs/###-feature-name/                # Per-feature documentation
 
 Run before commits:
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 ```
 
 ---
@@ -308,7 +308,7 @@ Run before commits:
 
 1. **Verify Before Create**: Check parent directory exists with `ls` before creating files
 2. **Edit Over Create**: Prefer modifying existing files over creating new ones
-3. **Templates First**: Use templates from `.specify/templates/` when available
+3. **Templates First**: Use templates from `.logic-loom/templates/` when available
 4. **Absolute Paths**: Always use absolute paths from repository root
 5. **No Proactive Docs**: Never create README.md or documentation files unless explicitly requested
 
@@ -357,7 +357,7 @@ The framework includes proven multi-agent patterns from Google's DS-STAR system:
 - **Actionable Feedback**: Clear guidance provided for improvements
 
 ### Configuration
-Quality thresholds configured in `.specify/config/refinement.conf`:
+Quality thresholds configured in `.logic-loom/config/refinement.conf`:
 - `MAX_REFINEMENT_ROUNDS=20`
 - `SPEC_COMPLETENESS_THRESHOLD=0.90`
 - `PLAN_QUALITY_THRESHOLD=0.85`
@@ -378,7 +378,7 @@ The framework now includes 6 production-ready enhancements integrated in Phases 
 
 | Enhancement | Purpose | Constitutional Principle |
 |-------------|---------|-------------------------|
-| **Structured Logging** | Observability via `.specify/lib/logging.sh` | VII (Observability) |
+| **Structured Logging** | Observability via `.logic-loom/lib/logging.sh` | VII (Observability) |
 | **Enhanced Git Safety** | Rollback checkpoints, commit suggestions | VI (Git Approval) |
 | **Tool Restriction Policies** | Granular command validation | XI, XIII (Input Validation) |
 | **Parallel Agent Execution** | 2-3x speedup for 3+ agents | IV, X (Idempotency, Delegation) |
@@ -439,10 +439,10 @@ Commands are automatically synced from plugins to `.claude/commands/` via the br
 
 ```bash
 # Sync plugin commands (runs automatically on setup and plugin install)
-.specify/scripts/bash/sync-plugin-commands.sh sync
+.logic-loom/scripts/bash/sync-plugin-commands.sh sync
 
 # View command→plugin mapping
-.specify/scripts/bash/sync-plugin-commands.sh list
+.logic-loom/scripts/bash/sync-plugin-commands.sh list
 ```
 
 ### SDD Marketplace (MCP Server)
@@ -470,9 +470,9 @@ The framework includes an RL (Reinforcement Learning) feedback system that impro
 |-----------|----------|---------|
 | Metrics Tracking | `.docs/rl-metrics/skill-performance.json` | Detailed performance history |
 | Skill Index | Plugin manifests (`plugins/*/plugin.json`) | RL weights for routing |
-| Feedback Script | `.specify/scripts/bash/rl/collect-feedback.sh` | Record outcomes |
-| Sync Script | `.specify/scripts/bash/rl/sync-metrics.sh` | Update skill index |
-| Dashboard | `.specify/scripts/bash/rl/dashboard.sh` | View metrics |
+| Feedback Script | `.logic-loom/scripts/bash/rl/collect-feedback.sh` | Record outcomes |
+| Sync Script | `.logic-loom/scripts/bash/rl/sync-metrics.sh` | Update skill index |
+| Dashboard | `.logic-loom/scripts/bash/rl/dashboard.sh` | View metrics |
 
 ### RL Flow
 
@@ -486,13 +486,13 @@ Skill Execution → Verifier Validation → Feedback Collection → Metrics Upda
 
 ```bash
 # Record skill execution result
-.specify/scripts/bash/rl/collect-feedback.sh <skill-name> success|failure [tokens]
+.logic-loom/scripts/bash/rl/collect-feedback.sh <skill-name> success|failure [tokens]
 
 # Sync metrics to plugin manifests
-.specify/scripts/bash/rl/sync-metrics.sh
+.logic-loom/scripts/bash/rl/sync-metrics.sh
 
 # View dashboard
-.specify/scripts/bash/rl/dashboard.sh
+.logic-loom/scripts/bash/rl/dashboard.sh
 ```
 
 ### Algorithm
@@ -511,20 +511,20 @@ For comprehensive documentation, load the appropriate context modules:
 
 ```bash
 # Agent delegation and registry
-./.specify/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load agents
 
 # Skill documentation
-./.specify/scripts/bash/load-context.sh load skills
+./.logic-loom/scripts/bash/load-context.sh load skills
 
 # SDD workflow details
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load workflows
 
 # Constitutional principles and compliance
-./.specify/scripts/bash/load-context.sh load governance
+./.logic-loom/scripts/bash/load-context.sh load governance
 ```
 
 **See Also**:
-- `.specify/memory/constitution.md` - Constitutional principles (v3.0.0)
+- `.logic-loom/memory/constitution.md` - Constitutional principles (v3.0.0)
 - `plugins/*/agents/` - Agent definitions (Plugin-First Architecture)
 - `plugins/*/skills/` - Skill documentation (Plugin-First Architecture)
 - `.docs/policies/` - Framework policies
@@ -532,7 +532,7 @@ For comprehensive documentation, load the appropriate context modules:
 
 ---
 
-**Framework**: sdd-agentic-framework v5.0.0
+**Framework**: logic-loom v5.0.0
 **Constitution**: v3.0.0 (16 Principles)
 **Architecture**: Skill-Based Delegation (v5.0) + Plugin-First (v4.1)
 **Context System**: Modular (v2.0)

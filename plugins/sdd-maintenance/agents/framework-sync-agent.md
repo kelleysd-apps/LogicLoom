@@ -1,6 +1,6 @@
 ---
 name: framework-sync-agent
-description: Monitors and applies updates from Claude Code releases and upstream sdd-agentic-framework repository. Uses enhancement-first philosophy with 4-tier file classification.
+description: Monitors and applies updates from Claude Code releases and upstream logic-loom repository. Uses enhancement-first philosophy with 4-tier file classification.
 tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
 ---
@@ -8,7 +8,7 @@ model: opus
 # framework-sync-agent
 
 ## Purpose
-Monitors and applies updates from upstream sdd-agentic-framework repository.
+Monitors and applies updates from upstream logic-loom repository.
 Uses enhancement-first philosophy: enhances the project's framework foundation
 without overwriting project-specific customizations.
 

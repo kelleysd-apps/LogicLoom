@@ -65,7 +65,7 @@
 ---
 
 #### Warning #2: Non-Executable Scripts (16 files)
-**Location**: `.specify/scripts/bash/`
+**Location**: `.logic-loom/scripts/bash/`
 
 **Files**:
 - discover-skills.sh
@@ -90,7 +90,7 @@
 ---
 
 #### Warning #3: Python Deprecation Warning
-**Location**: `.specify/scripts/bash/rl/collect-feedback.sh`
+**Location**: `.logic-loom/scripts/bash/rl/collect-feedback.sh`
 
 **Problem**: `datetime.utcnow()` deprecated in Python 3.12+
 
@@ -155,8 +155,8 @@
 sed -i '' 's/v1.6.0/v2.0.0/g' CLAUDE.md
 
 # Fix 3: Make scripts executable
-chmod +x .specify/scripts/bash/*.sh
-chmod +x .specify/scripts/bash/rl/*.sh
+chmod +x .logic-loom/scripts/bash/*.sh
+chmod +x .logic-loom/scripts/bash/rl/*.sh
 
 # Fix 4: Python deprecation (in collect-feedback.sh)
 # Replace datetime.utcnow() with datetime.now(datetime.UTC)

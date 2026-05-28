@@ -74,8 +74,8 @@ class RouterAgent:
 
     def __init__(
         self,
-        triggers_path: str = "/workspaces/sdd-agentic-framework/.specify/memory/agent-collaboration-triggers.md",
-        decisions_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/architecture/router/decisions"
+        triggers_path: str = "/workspaces/logic-loom/.logic-loom/memory/agent-collaboration-triggers.md",
+        decisions_dir: str = "/workspaces/logic-loom/.docs/agents/architecture/router/decisions"
     ):
         """
         Initialize Router Agent.

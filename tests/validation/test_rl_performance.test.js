@@ -21,7 +21,7 @@ const path = require('path');
 const ROOT_DIR = path.join(__dirname, '../..');
 const SKILL_PERFORMANCE_PATH = path.join(ROOT_DIR, '.docs/rl-metrics/skill-performance.json');
 const SKILL_INDEX_PATH = path.join(ROOT_DIR, '.claude/skill-index.json');
-const ARCHITECTURE_CONF_PATH = path.join(ROOT_DIR, '.specify/config/architecture.conf');
+const ARCHITECTURE_CONF_PATH = path.join(ROOT_DIR, '.logic-loom/config/architecture.conf');
 
 /**
  * Helper: Load JSON file

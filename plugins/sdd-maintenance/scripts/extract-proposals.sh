@@ -118,9 +118,9 @@ categorize_change() {
         plugins/*/skills/*)     echo "skill" ;;
         plugins/*/agents/*)     echo "agent" ;;
         plugins/*)              echo "plugin" ;;
-        .specify/memory/*)      echo "governance" ;;
-        .specify/scripts/*)     echo "script" ;;
-        .specify/config/*)      echo "config" ;;
+        .logic-loom/memory/*)      echo "governance" ;;
+        .logic-loom/scripts/*)     echo "script" ;;
+        .logic-loom/config/*)      echo "config" ;;
         .claude/*)              echo "config" ;;
         tests/*)                echo "test" ;;
         CLAUDE.md|AGENTS.md)    echo "config" ;;
@@ -281,7 +281,7 @@ case "${1:-}" in
                 fi
             else
                 echo "No upstream remote configured."
-                echo "  git remote add upstream https://github.com/kelleysd-apps/sdd-agentic-framework.git"
+                echo "  git remote add upstream https://github.com/kelleysd-apps/logic-loom.git"
             fi
         fi
         exit 0

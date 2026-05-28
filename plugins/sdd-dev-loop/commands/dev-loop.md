@@ -284,8 +284,8 @@ else
 fi
 
 # Update RL metrics
-.specify/scripts/bash/rl/collect-feedback.sh "core-loop" "$OUTCOME" "$TOKENS_USED"
-.specify/scripts/bash/rl/sync-metrics.sh
+.logic-loom/scripts/bash/rl/collect-feedback.sh "core-loop" "$OUTCOME" "$TOKENS_USED"
+.logic-loom/scripts/bash/rl/sync-metrics.sh
 ```
 
 ---
@@ -478,7 +478,7 @@ Pre-flight check executed before session start. Violations halt execution.
 
 ---
 
-**Framework**: sdd-agentic-framework v5.0.0
+**Framework**: logic-loom v5.0.0
 **Plugin**: sdd-dev-loop v0.1.0
 **Spec Reference**: `specs/feature-sdd-dev-loop/spec.md`
 **Data Model**: `specs/feature-sdd-dev-loop/data-model.md`

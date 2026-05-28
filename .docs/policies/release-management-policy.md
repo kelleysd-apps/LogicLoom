@@ -752,7 +752,7 @@ git branch -d hotfix/critical-bug
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
 - Semantic Versioning: https://semver.org/
 - Keep a Changelog: https://keepachangelog.com/
 - Conventional Commits: https://www.conventionalcommits.org/

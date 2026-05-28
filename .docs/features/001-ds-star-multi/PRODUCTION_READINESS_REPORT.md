@@ -188,7 +188,7 @@ All 39 contract tests passing across 5 agents:
 
 ## Configuration
 
-All thresholds configurable in `.specify/config/refinement.conf`:
+All thresholds configurable in `.logic-loom/config/refinement.conf`:
 
 ```bash
 # Quality Gates
@@ -470,20 +470,20 @@ The minor integration test issues and missing convenience modules do not impact 
 pytest tests/contract/ -v
 
 # Run constitutional check
-./.specify/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 
 # Run sanitization audit
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 
 # Verify specification quality
-python .specify/scripts/python/ds_star_integration.py verify_spec <path>
+python .logic-loom/scripts/python/ds_star_integration.py verify_spec <path>
 
 # Validate pre-commit compliance
-./.specify/scripts/bash/finalize-feature.sh
+./.logic-loom/scripts/bash/finalize-feature.sh
 ```
 
 ### Configuration:
-- `.specify/config/refinement.conf` - All thresholds
+- `.logic-loom/config/refinement.conf` - All thresholds
 - `requirements.txt` - Python dependencies
 - `pyproject.toml` - Build configuration
 

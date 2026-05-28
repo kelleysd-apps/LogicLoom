@@ -3,7 +3,7 @@
   "version": "2.0.0",
   "description": "Memory context injection with pluggable search backends. Supports keyword (v1.0), BM25, vector, and hybrid search modes. Features retention policies, scoped retrieval, and memory flush for context preservation.",
   "category": "orchestration",
-  "author": "sdd-agentic-framework",
+  "author": "logic-loom",
   "skills": [
     {
       "name": "context-injection",

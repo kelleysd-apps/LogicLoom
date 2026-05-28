@@ -32,8 +32,8 @@ Validate that all changes comply with the 16 constitutional principles before co
 Run the constitutional compliance script and sanitization audit:
 
 ```
-bash .specify/scripts/bash/constitutional-check.sh
-bash .specify/scripts/bash/sanitization-audit.sh 2>/dev/null || true
+bash .logic-loom/scripts/bash/constitutional-check.sh
+bash .logic-loom/scripts/bash/sanitization-audit.sh 2>/dev/null || true
 ```
 
 Parse output for pass/fail results per principle.
@@ -119,5 +119,5 @@ Suggested commit commands (for manual execution):
 ## Related
 
 - `/git-push` — Executes the git workflow (with user approval)
-- `.specify/scripts/bash/constitutional-check.sh` — Automated checker
-- `.specify/scripts/bash/sanitization-audit.sh` — Secret scanner
+- `.logic-loom/scripts/bash/constitutional-check.sh` — Automated checker
+- `.logic-loom/scripts/bash/sanitization-audit.sh` — Secret scanner

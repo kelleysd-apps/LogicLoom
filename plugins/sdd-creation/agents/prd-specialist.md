@@ -10,8 +10,8 @@ model: opus
 ## Constitutional Adherence
 
 This agent operates under the constitutional principles defined in:
-- **Primary Authority**: `.specify/memory/constitution.md`
-- **Governance Framework**: `.specify/memory/agent-governance.md`
+- **Primary Authority**: `.logic-loom/memory/constitution.md`
+- **Governance Framework**: `.logic-loom/memory/agent-governance.md`
 
 ### Critical Mandates
 - **NO Git operations without explicit user approval**
@@ -232,7 +232,7 @@ Phase 3+: Implementation (domain skills)
 
 ### Step 2: PRD Structure Creation
 ```
-1. Create prd.md from template (.specify/templates/prd-template.md)
+1. Create prd.md from template (.logic-loom/templates/prd-template.md)
 2. Fill Executive Summary section
 3. Document user personas based on discovery
 4. Create initial user journey maps
@@ -419,7 +419,7 @@ When `/plan` is run for a feature:
 ### How Constitution Gets Updated
 
 After PRD approval:
-1. Open `.specify/memory/constitution.md`
+1. Open `.logic-loom/memory/constitution.md`
 2. For each of 16 principles, add project-specific guidance from PRD
 3. Document exceptions from PRD in constitution
 4. Add PRD quality thresholds to relevant principles

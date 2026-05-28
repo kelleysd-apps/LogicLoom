@@ -31,15 +31,15 @@ A constitutional AI framework for specification-driven development with 18 insta
 ```bash
 # Clone the repository
 git clone <your-repo-url>
-cd sdd-agentic-framework
+cd logic-loom
 
 # Run setup (installs all dependencies including MCP servers)
-./.specify/scripts/setup.sh
+./.logic-loom/scripts/setup.sh
 ```
 
 ### First Steps
 
-1. **Read the Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
+1. **Read the Constitution**: [.logic-loom/memory/constitution.md](.logic-loom/memory/constitution.md)
 2. **Review CLAUDE.md**: Framework guidance for Claude Code
 3. **Check AGENTS.md**: Complete agent registry (11 agents across 18 plugins)
 4. **Start Claude Code**: `claude` -- all commands and marketplace tools available automatically
@@ -119,7 +119,7 @@ Task Brief Injection -> Agent Teams Execution -> Output + RL Feedback
 
 ## Documentation
 
-- **Constitution**: [.specify/memory/constitution.md](.specify/memory/constitution.md)
+- **Constitution**: [.logic-loom/memory/constitution.md](.logic-loom/memory/constitution.md)
 - **Framework Guide**: [CLAUDE.md](CLAUDE.md)
 - **Agent Registry**: [AGENTS.md](AGENTS.md)
 - **Marketplace**: [mcp-servers/sdd-marketplace/README.md](mcp-servers/sdd-marketplace/README.md)
@@ -161,7 +161,7 @@ plugins/                              # Plugin-First Architecture (18 plugins)
 
 mcp-servers/sdd-marketplace/          # Plugin marketplace MCP server
 
-.specify/
+.logic-loom/
 +-- memory/constitution.md            # v3.0.0 (16 principles)
 +-- scripts/bash/                     # Workflow automation + plugin bridge
 +-- config/                           # Quality thresholds

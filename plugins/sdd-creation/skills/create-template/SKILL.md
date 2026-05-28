@@ -61,19 +61,19 @@ artifacts. Templates use `{{VARIABLE}}` placeholders for customization.
 Supported types:
 ```yaml
 skill:
-  location: .specify/templates/skill-prototypes/
+  location: .logic-loom/templates/skill-prototypes/
   extension: .template.md
 
 agent:
-  location: .specify/templates/agent-prototypes/
+  location: .logic-loom/templates/agent-prototypes/
   extension: .template.md
 
 document:
-  location: .specify/templates/
+  location: .logic-loom/templates/
   extension: -template.md
 
 config:
-  location: .specify/templates/configs/
+  location: .logic-loom/templates/configs/
   extension: .template.conf
 ```
 
@@ -100,7 +100,7 @@ Create template with:
 
 Write to appropriate location:
 ```
-.specify/templates/
+.logic-loom/templates/
   {type}-prototypes/
     {template_name}.template.md
 ```
@@ -184,7 +184,7 @@ merged-from: []
 **Request**: "Create a template for integration skills"
 
 **Generated**:
-- File: `.specify/templates/skill-prototypes/integration-skill.template.md`
+- File: `.logic-loom/templates/skill-prototypes/integration-skill.template.md`
 - Variables: `{{SKILL_NAME}}`, `{{SERVICE_NAME}}`, `{{API_ENDPOINT}}`
 
 ### Example 2: Create Config Template
@@ -192,7 +192,7 @@ merged-from: []
 **Request**: "Create a template for environment configs"
 
 **Generated**:
-- File: `.specify/templates/configs/environment.template.conf`
+- File: `.logic-loom/templates/configs/environment.template.conf`
 - Variables: `{{ENV_NAME}}`, `{{DATABASE_URL}}`, `{{API_KEY}}`
 
 ## Error Handling

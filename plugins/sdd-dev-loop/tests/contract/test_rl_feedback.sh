@@ -332,9 +332,9 @@ echo "Integration with framework RL infrastructure"
 # These tests verify integration points exist (do NOT modify real files)
 
 assert "Framework collect-feedback.sh exists" \
-  "[ -f '${REPO_ROOT}/.specify/scripts/bash/rl/collect-feedback.sh' ]"
+  "[ -f '${REPO_ROOT}/.logic-loom/scripts/bash/rl/collect-feedback.sh' ]"
 assert "Framework sync-metrics.sh exists" \
-  "[ -f '${REPO_ROOT}/.specify/scripts/bash/rl/sync-metrics.sh' ]"
+  "[ -f '${REPO_ROOT}/.logic-loom/scripts/bash/rl/sync-metrics.sh' ]"
 assert "Framework skill-performance.json exists or directory exists" \
   "[ -f '${REPO_ROOT}/.docs/rl-metrics/skill-performance.json' ] || [ -d '${REPO_ROOT}/.docs/rl-metrics' ]"
 assert "Framework skill-index.json exists or .claude directory exists" \

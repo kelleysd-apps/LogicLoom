@@ -164,7 +164,7 @@ class AgentChannel:
 
     def __init__(
         self,
-        audit_dir: str = "/workspaces/sdd-agentic-framework/.docs/agents/shared/communication"
+        audit_dir: str = "/workspaces/logic-loom/.docs/agents/shared/communication"
     ):
         """
         Initialize Agent Channel.

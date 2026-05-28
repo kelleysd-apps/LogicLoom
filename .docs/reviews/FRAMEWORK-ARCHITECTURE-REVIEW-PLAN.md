@@ -18,8 +18,8 @@ Systematic review of the SDD Agentic Framework to verify all components are func
 | Skills | 33 | `.claude/skills/` |
 | Agents | 29 | `.claude/agents/` |
 | Commands | 11 | `.claude/commands/` |
-| Scripts | 39 | `.specify/scripts/` |
-| Templates | 11 | `.specify/templates/` |
+| Scripts | 39 | `.logic-loom/scripts/` |
+| Templates | 11 | `.logic-loom/templates/` |
 | Context Modules | 5 | `.claude/context/` |
 | Policies | 13 | `.docs/policies/` |
 
@@ -31,7 +31,7 @@ Systematic review of the SDD Agentic Framework to verify all components are func
 **Priority**: CRITICAL
 **Estimated Time**: 30 min
 
-- [ ] 1.1 Constitution file integrity (`.specify/memory/constitution.md`)
+- [ ] 1.1 Constitution file integrity (`.logic-loom/memory/constitution.md`)
 - [ ] 1.2 All 15 principles documented and enforceable
 - [ ] 1.3 Version alignment (v1.6.0)
 - [ ] 1.4 Constitutional update checklist present

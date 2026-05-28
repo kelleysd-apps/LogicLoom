@@ -16,7 +16,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Agent**: Executed by `prd-specialist` (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/create-prd.sh [project_name]`
+**Script**: `.logic-loom/scripts/bash/create-prd.sh [project_name]`
 
 **When to Use**:
 - Starting a new project (first step before any features)
@@ -58,7 +58,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Skill**: Executed by `sdd-specification` skill (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
+**Script**: `.logic-loom/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
 
 **When to Use**:
 - Starting new feature development
@@ -103,7 +103,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Skill**: Executed by `sdd-planning` skill (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/setup-plan.sh --json`
+**Script**: `.logic-loom/scripts/bash/setup-plan.sh --json`
 
 **When to Use**:
 - After feature spec is complete
@@ -154,7 +154,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Skill**: Executed by `sdd-tasks` skill (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/check-task-prerequisites.sh --json`
+**Script**: `.logic-loom/scripts/bash/check-task-prerequisites.sh --json`
 
 **When to Use**:
 - After implementation plan is complete
@@ -223,7 +223,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Purpose**: Pre-commit constitutional compliance validation
 
-**Script**: `.specify/scripts/bash/finalize-feature.sh --json`
+**Script**: `.logic-loom/scripts/bash/finalize-feature.sh --json`
 
 **CRITICAL**: NEVER performs git operations autonomously (Principle VI)
 
@@ -252,7 +252,7 @@ git push origin <branch>
 **Usage Pattern**:
 ```bash
 # After implementation complete
-./.specify/scripts/bash/finalize-feature.sh
+./.logic-loom/scripts/bash/finalize-feature.sh
 
 # If all checks pass, manually execute suggested git commands
 git add <files>
@@ -358,7 +358,7 @@ Manual Git Operations (User Approval Required)
 
 **Agent**: Executed by `subagent-architect` (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/create-agent.sh --json`
+**Script**: `.logic-loom/scripts/bash/create-agent.sh --json`
 
 **Features**:
 - Auto-determines department based on purpose
@@ -399,7 +399,7 @@ Manual Git Operations (User Approval Required)
 ### Directory Structure
 
 ```
-.specify/
+.logic-loom/
 ├── memory/
 │   ├── constitution.md                    # Core principles (v3.0.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
@@ -450,8 +450,8 @@ specs/###-feature-name/                     # Per-feature documentation
 
 **Run before commits and releases**:
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 ```
 
 ---
@@ -469,7 +469,7 @@ The framework includes proven multi-agent patterns from Google's DS-STAR system:
 
 ### Configuration
 
-Quality thresholds configured in `.specify/config/refinement.conf`:
+Quality thresholds configured in `.logic-loom/config/refinement.conf`:
 
 | Setting | Value | Purpose |
 |---------|-------|---------|
@@ -502,10 +502,10 @@ Load workflow context when needed:
 
 ```bash
 # Load workflows module
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load workflows
 
 # Load based on request analysis
-./.specify/scripts/bash/load-context.sh analyze "/plan the authentication feature"
+./.logic-loom/scripts/bash/load-context.sh analyze "/plan the authentication feature"
 ```
 
 ---
@@ -516,8 +516,8 @@ Load workflow context when needed:
 **Constitutional Authority**: Principles I-XVI (All 16 Principles)
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
-- `.specify/scripts/bash/` workflow scripts
-- `.specify/memory/constitution.md` (v3.0.0)
+- `.logic-loom/scripts/bash/` workflow scripts
+- `.logic-loom/memory/constitution.md` (v3.0.0)
 - `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow (NEW)

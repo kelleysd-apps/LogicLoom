@@ -240,7 +240,7 @@ Repository Root/
 ├── CLAUDE.md          # Workflow & compliance (primary AI instructions)
 ├── AGENTS.md          # Agent registry (agent reference)
 ├── README.md          # Project overview (human-focused)
-└── .specify/memory/
+└── .logic-loom/memory/
     └── constitution.md  # Constitutional authority
 ```
 
@@ -256,9 +256,9 @@ Repository Root/
 
 ## References
 
-- Constitution: `.specify/memory/constitution.md`
-- Update Checklist: `.specify/memory/constitution_update_checklist.md`
-- Agent Collaboration: `.specify/memory/agent-collaboration-triggers.md`
+- Constitution: `.logic-loom/memory/constitution.md`
+- Update Checklist: `.logic-loom/memory/constitution_update_checklist.md`
+- Agent Collaboration: `.logic-loom/memory/agent-collaboration-triggers.md`
 
 ---
 

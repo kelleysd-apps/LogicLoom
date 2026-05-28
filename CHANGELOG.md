@@ -289,7 +289,7 @@ This release integrates Google's proven DS-STAR multi-agent patterns into the SD
   - Feedback accumulation across rounds
   - Graceful escalation to human when needed
 
-- **Configuration System** (`.specify/config/refinement.conf`)
+- **Configuration System** (`.logic-loom/config/refinement.conf`)
   - `MAX_REFINEMENT_ROUNDS=20` - Maximum iteration limit
   - `EARLY_STOP_THRESHOLD=0.95` - High quality early exit
   - `SPEC_COMPLETENESS_THRESHOLD=0.90` - Specification requirement
@@ -452,7 +452,7 @@ None - DS-STAR enhancements are fully backward compatible with graceful degradat
   - `/create-agent` - Agent creation (initial version)
 
 - **Directory Structure**
-  - `.specify/` - Framework core with templates and scripts
+  - `.logic-loom/` - Framework core with templates and scripts
   - `.claude/` - AI assistant configuration
   - `.docs/` - Project documentation and policies
   - `specs/` - Feature specifications directory

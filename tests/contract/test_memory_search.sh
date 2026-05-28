@@ -108,15 +108,15 @@ assert "Interface defines format_search_result helper" "grep -q 'format_search_r
 echo ""
 echo "Skill-brief extraction"
 assert "extract_skill_brief function exists in common.sh" \
-  "grep -q 'extract_skill_brief()' .specify/scripts/bash/common.sh"
+  "grep -q 'extract_skill_brief()' .logic-loom/scripts/bash/common.sh"
 
 # Test extraction returns content for domain skills with Task Brief section
-BRIEF_OUTPUT=$(bash -c 'source .specify/scripts/bash/common.sh 2>/dev/null; extract_skill_brief "sdd-domain-backend" "backend-operations"' 2>/dev/null || echo "")
+BRIEF_OUTPUT=$(bash -c 'source .logic-loom/scripts/bash/common.sh 2>/dev/null; extract_skill_brief "sdd-domain-backend" "backend-operations"' 2>/dev/null || echo "")
 BRIEF_LEN=${#BRIEF_OUTPUT}
 assert "extract_skill_brief returns content for backend skill" "[ $BRIEF_LEN -gt 20 ]"
 
 # Test extraction returns empty for missing skill
-EMPTY_BRIEF=$(bash -c 'source .specify/scripts/bash/common.sh 2>/dev/null; extract_skill_brief "nonexistent" "nonexistent"' 2>/dev/null || echo "")
+EMPTY_BRIEF=$(bash -c 'source .logic-loom/scripts/bash/common.sh 2>/dev/null; extract_skill_brief "nonexistent" "nonexistent"' 2>/dev/null || echo "")
 EMPTY_BRIEF_LEN=${#EMPTY_BRIEF}
 assert "extract_skill_brief returns empty for missing skill" "[ $EMPTY_BRIEF_LEN -le 1 ]"
 

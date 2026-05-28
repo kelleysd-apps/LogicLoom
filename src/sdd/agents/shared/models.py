@@ -83,8 +83,8 @@ class AgentInput(BaseModel):
         ...     agent_id="quality.verifier",
         ...     task_id="550e8400-e29b-41d4-a716-446655440000",
         ...     phase="planning",
-        ...     input_data={"plan_path": "/workspaces/sdd-agentic-framework/specs/001-ds-star-multi/plan.md"},
-        ...     context=AgentContext(spec_path="/workspaces/sdd-agentic-framework/specs/001-ds-star-multi/spec.md")
+        ...     input_data={"plan_path": "/workspaces/logic-loom/specs/001-ds-star-multi/plan.md"},
+        ...     context=AgentContext(spec_path="/workspaces/logic-loom/specs/001-ds-star-multi/spec.md")
         ... )
         >>> agent_input.agent_id
         'quality.verifier'
@@ -129,10 +129,10 @@ class AgentInput(BaseModel):
                     "task_id": "550e8400-e29b-41d4-a716-446655440000",
                     "phase": "planning",
                     "input_data": {
-                        "plan_path": "/workspaces/sdd-agentic-framework/specs/001-ds-star-multi/plan.md"
+                        "plan_path": "/workspaces/logic-loom/specs/001-ds-star-multi/plan.md"
                     },
                     "context": {
-                        "spec_path": "/workspaces/sdd-agentic-framework/specs/001-ds-star-multi/spec.md",
+                        "spec_path": "/workspaces/logic-loom/specs/001-ds-star-multi/spec.md",
                         "plan_path": None,
                         "previous_outputs": [],
                         "cumulative_feedback": [],
@@ -333,7 +333,7 @@ class AgentContext(BaseModel):
 
     Example:
         >>> context = AgentContext(
-        ...     spec_path="/workspaces/sdd-agentic-framework/specs/001-ds-star-multi/spec.md",
+        ...     spec_path="/workspaces/logic-loom/specs/001-ds-star-multi/spec.md",
         ...     plan_path=None,
         ...     previous_outputs=[],
         ...     cumulative_feedback=[],

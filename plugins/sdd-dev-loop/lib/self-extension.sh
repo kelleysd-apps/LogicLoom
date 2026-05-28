@@ -709,7 +709,7 @@ register_plugin() {
     fi
 
     # Trigger plugin bridge sync if sync script exists
-    local sync_script="${workdir}/.specify/scripts/bash/sync-plugin-commands.sh"
+    local sync_script="${workdir}/.logic-loom/scripts/bash/sync-plugin-commands.sh"
     if [[ -f "$sync_script" ]] && [[ -x "$sync_script" ]]; then
         "$sync_script" sync >/dev/null 2>/dev/null || true
     fi

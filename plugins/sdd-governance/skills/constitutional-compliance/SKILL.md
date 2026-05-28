@@ -47,7 +47,7 @@ Activate this skill when:
 
 **Load the constitution**:
 ```bash
-Read: .specify/memory/constitution.md
+Read: .logic-loom/memory/constitution.md
 ```
 
 **Understand the 16 principles** organized in 3 tiers:
@@ -78,7 +78,7 @@ Read: .specify/memory/constitution.md
 
 **Execute the constitutional check script**:
 ```bash
-.specify/scripts/bash/constitutional-check.sh
+.logic-loom/scripts/bash/constitutional-check.sh
 ```
 
 **Script checks for**:
@@ -252,7 +252,7 @@ This skill EMBODIES constitutional compliance:
 - **Principle VI**: Never runs git operations without approval
 - **Principle VIII**: Ensures documentation stays synchronized
 - **Principle X**: Part of quality gate for agent delegation
-- **Uses constitutional check script**: `.specify/scripts/bash/constitutional-check.sh`
+- **Uses constitutional check script**: `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ## Examples
 
@@ -262,7 +262,7 @@ This skill EMBODIES constitutional compliance:
 
 **Skill Execution**:
 1. Read constitution
-2. Run: `.specify/scripts/bash/constitutional-check.sh`
+2. Run: `.logic-loom/scripts/bash/constitutional-check.sh`
 3. Automated results: 8/9 passing, 1 skipped (design system N/A)
 4. Manual review:
    - Principle IV: Code is idempotent ✅
@@ -276,7 +276,7 @@ This skill EMBODIES constitutional compliance:
 
 **Skill Execution**:
 1. Read constitution
-2. Run: `.specify/scripts/bash/constitutional-check.sh`
+2. Run: `.logic-loom/scripts/bash/constitutional-check.sh`
 3. Automated results: 5/9 passing
    - ❌ FAILING: Principle II - No testing strategy mentioned
    - ❌ FAILING: Principle III - No contracts defined
@@ -323,7 +323,7 @@ Verify the skill executed correctly:
 
 **Solution**:
 - Run from repository root
-- Use absolute path to constitution: `/workspaces/sdd-agentic-framework/.specify/memory/constitution.md`
+- Use absolute path to constitution: `/workspaces/logic-loom/.logic-loom/memory/constitution.md`
 
 ### Issue: Many principles show "SKIPPED"
 
@@ -375,9 +375,9 @@ Verify the skill executed correctly:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
-- Constitution Update Checklist: `.specify/memory/constitution_update_checklist.md`
-- Automated Check Script: `.specify/scripts/bash/constitutional-check.sh`
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
+- Constitution Update Checklist: `.logic-loom/memory/constitution_update_checklist.md`
+- Automated Check Script: `.logic-loom/scripts/bash/constitutional-check.sh`
 - Testing Policy: `.docs/policies/testing-policy.md` (Principle II)
 - Security Policy: `.docs/policies/security-policy.md` (Principle XI)
 - Code Review Policy: `.docs/policies/code-review-policy.md`

@@ -77,9 +77,9 @@ run_suite "Dev-Loop: Tribunal E2E" "bash plugins/sdd-dev-loop/tests/integration/
 run_suite "Dev-Loop: Self-Extension Lifecycle" "bash plugins/sdd-dev-loop/tests/integration/test_self_extension_lifecycle.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
-run_suite "Git Safety" "bash .specify/tests/test-git-safety.sh"
-run_suite "Policy Validation" "bash .specify/tests/test-policy-validation.sh"
-run_suite "Structured Logging" "bash .specify/tests/test_logging.sh"
+run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"
+run_suite "Policy Validation" "bash .logic-loom/tests/test-policy-validation.sh"
+run_suite "Structured Logging" "bash .logic-loom/tests/test_logging.sh"
 
 # MCP Tests (unit)
 run_suite "Marketplace MCP (unit)" "node --test mcp-servers/sdd-marketplace/src/__tests__/marketplace.test.js"

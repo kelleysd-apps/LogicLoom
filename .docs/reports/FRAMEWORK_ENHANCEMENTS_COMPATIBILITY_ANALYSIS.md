@@ -2,7 +2,7 @@
 
 **Date**: 2026-01-09
 **Source Project**: kelleysd.com (Framework v2.0)
-**Target Project**: sdd-agentic-framework (Framework v3.0.0)
+**Target Project**: logic-loom (Framework v3.0.0)
 **Analysis Type**: Cross-Project Enhancement Port Assessment
 
 ---
@@ -11,7 +11,7 @@
 
 ### Compatibility Status: ✅ **HIGHLY COMPATIBLE**
 
-All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-framework with **minimal modifications**. The frameworks share identical constitutional foundations (v1.6.0), making integration straightforward.
+All 6 enhancements from kelleysd.com can be successfully ported to logic-loom with **minimal modifications**. The frameworks share identical constitutional foundations (v1.6.0), making integration straightforward.
 
 ### Key Findings
 
@@ -32,7 +32,7 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 
 ### Framework Versions
 
-| Aspect | sdd-agentic-framework | kelleysd.com |
+| Aspect | logic-loom | kelleysd.com |
 |--------|----------------------|--------------|
 | **Constitution Version** | v1.6.0 | v1.6.0 |
 | **Framework Version** | v3.0.0 | v2.0 |
@@ -42,43 +42,43 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 
 ### Directory Structure Analysis
 
-#### sdd-agentic-framework (Current)
+#### logic-loom (Current)
 ```
-✅ .specify/memory/constitution.md (v1.6.0)
-✅ .specify/templates/
-✅ .specify/scripts/bash/common.sh (BASIC VERSION)
-✅ .specify/config/
+✅ .logic-loom/memory/constitution.md (v1.6.0)
+✅ .logic-loom/templates/
+✅ .logic-loom/scripts/bash/common.sh (BASIC VERSION)
+✅ .logic-loom/config/
 ✅ .claude/agents/
 ✅ .claude/skills/
 ✅ .claude/hooks/
 ✅ CLAUDE.md (648 lines - NOT REFACTORED)
 
-❌ .specify/lib/ (MISSING - CRITICAL)
-❌ .specify/logs/ (MISSING)
+❌ .logic-loom/lib/ (MISSING - CRITICAL)
+❌ .logic-loom/logs/ (MISSING)
 ❌ .claude/context/ (MISSING - 37% token savings)
 ❌ .claude/policies/ (MISSING)
 ```
 
 #### kelleysd.com (Enhanced)
 ```
-✅ .specify/lib/logging.sh (254 lines)
-✅ .specify/lib/policy.sh (350 lines)
-✅ .specify/lib/parallel.sh (12KB)
-✅ .specify/lib/json-parse.cjs (Node.js JSON parser)
-✅ .specify/logs/ (with README)
+✅ .logic-loom/lib/logging.sh (254 lines)
+✅ .logic-loom/lib/policy.sh (350 lines)
+✅ .logic-loom/lib/parallel.sh (12KB)
+✅ .logic-loom/lib/json-parse.cjs (Node.js JSON parser)
+✅ .logic-loom/logs/ (with README)
 ✅ .claude/context/ (5 modules: core, agents, skills, workflows, governance)
 ✅ .claude/policies/tool-restrictions.json (24 patterns)
-✅ .specify/scripts/bash/common.sh (ENHANCED VERSION)
-✅ .specify/scripts/bash/analyze-logs.sh (367 lines)
-✅ .specify/scripts/bash/discover-skills.sh
-✅ .specify/scripts/bash/generate-skill-index.sh
-✅ .specify/scripts/bash/load-context.sh
+✅ .logic-loom/scripts/bash/common.sh (ENHANCED VERSION)
+✅ .logic-loom/scripts/bash/analyze-logs.sh (367 lines)
+✅ .logic-loom/scripts/bash/discover-skills.sh
+✅ .logic-loom/scripts/bash/generate-skill-index.sh
+✅ .logic-loom/scripts/bash/load-context.sh
 ✅ CLAUDE.md (458 lines - REFACTORED)
 ```
 
 ### Key Differences
 
-| Component | sdd-agentic-framework | kelleysd.com | Impact |
+| Component | logic-loom | kelleysd.com | Impact |
 |-----------|----------------------|--------------|--------|
 | **common.sh** | 65 lines (basic) | 100+ lines (enhanced with logging) | HIGH |
 | **Logging** | None | Full library (254 lines) | CRITICAL |
@@ -97,10 +97,10 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 **Compatibility**: 100% - Direct port, zero modifications needed
 
 **Target Files**:
-- ✅ `.specify/lib/logging.sh` (CREATE)
-- ✅ `.specify/scripts/bash/analyze-logs.sh` (CREATE)
-- ✅ `.specify/logs/README.md` (CREATE)
-- ✅ `.specify/scripts/bash/common.sh` (MODIFY - add logging integration)
+- ✅ `.logic-loom/lib/logging.sh` (CREATE)
+- ✅ `.logic-loom/scripts/bash/analyze-logs.sh` (CREATE)
+- ✅ `.logic-loom/logs/README.md` (CREATE)
+- ✅ `.logic-loom/scripts/bash/common.sh` (MODIFY - add logging integration)
 
 **Constitutional Alignment**:
 - ✅ Principle VII (Observability) - Primary implementation
@@ -134,8 +134,8 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 **Compatibility**: 95% - Requires minor path adjustments
 
 **Target Files**:
-- ✅ `.specify/scripts/bash/common.sh` (MODIFY - add 8 git functions)
-- ✅ `.specify/logs/git-checkpoints/` (CREATE)
+- ✅ `.logic-loom/scripts/bash/common.sh` (MODIFY - add 8 git functions)
+- ✅ `.logic-loom/logs/git-checkpoints/` (CREATE)
 
 **Functions to Add**:
 1. `create_git_checkpoint()` - Create restore points
@@ -181,8 +181,8 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 **Compatibility**: 100% - Direct port with Windows compatibility
 
 **Target Files**:
-- ✅ `.specify/lib/policy.sh` (CREATE - 350 lines)
-- ✅ `.specify/lib/json-parse.cjs` (CREATE - Node.js fallback)
+- ✅ `.logic-loom/lib/policy.sh` (CREATE - 350 lines)
+- ✅ `.logic-loom/lib/json-parse.cjs` (CREATE - Node.js fallback)
 - ✅ `.claude/policies/tool-restrictions.json` (CREATE - 24 patterns)
 - ✅ `.claude/hooks/guard-dangerous-commands.sh` (MODIFY - integrate policy)
 
@@ -231,7 +231,7 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 **Compatibility**: 100% - Direct port with task-orchestrator integration
 
 **Target Files**:
-- ✅ `.specify/lib/parallel.sh` (CREATE - 12KB)
+- ✅ `.logic-loom/lib/parallel.sh` (CREATE - 12KB)
 - ✅ `.claude/agents/product/task-orchestrator.md` (MODIFY - add parallel addon)
 
 **Capabilities**:
@@ -278,8 +278,8 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 **Compatibility**: 100% - Direct port, immediate benefit
 
 **Target Files**:
-- ✅ `.specify/scripts/bash/discover-skills.sh` (CREATE - 7.1KB)
-- ✅ `.specify/scripts/bash/generate-skill-index.sh` (CREATE - 7.7KB)
+- ✅ `.logic-loom/scripts/bash/discover-skills.sh` (CREATE - 7.1KB)
+- ✅ `.logic-loom/scripts/bash/generate-skill-index.sh` (CREATE - 7.7KB)
 - ✅ `.claude/skill-index.json` (GENERATE - auto-created)
 - ✅ CLAUDE.md (MODIFY - reference skill-index.json)
 
@@ -301,7 +301,7 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 - ✅ awk/sed (system standard)
 - ✅ logging.sh (Enhancement #1 - optional)
 
-**Skills Directory**: `.claude/skills/` (already exists in sdd-agentic-framework)
+**Skills Directory**: `.claude/skills/` (already exists in logic-loom)
 
 **Conflicts**: NONE - New capability
 
@@ -325,7 +325,7 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 **Compatibility**: 90% - Requires CLAUDE.md refactoring
 
 **Target Files**:
-- ✅ `.specify/scripts/bash/load-context.sh` (CREATE - 11KB)
+- ✅ `.logic-loom/scripts/bash/load-context.sh` (CREATE - 11KB)
 - ✅ `.claude/context/core.md` (CREATE - extract from CLAUDE.md)
 - ✅ `.claude/context/agents.md` (CREATE - extract from CLAUDE.md)
 - ✅ `.claude/context/skills.md` (CREATE - extract from CLAUDE.md)
@@ -354,7 +354,7 @@ All 6 enhancements from kelleysd.com can be successfully ported to sdd-agentic-f
 - **33-48% reduction** for single-domain tasks
 - **~37% average improvement** across scenarios
 
-**Current CLAUDE.md**: 648 lines (sdd-agentic-framework)
+**Current CLAUDE.md**: 648 lines (logic-loom)
 **Target CLAUDE.md**: ~430 lines (34% reduction)
 **Context Modules**: 5 files (~1,900 lines total)
 
@@ -486,9 +486,9 @@ Enhancement 6: Modular Context (load-context.sh)
 
 ## 5. File Conflict Resolution
 
-### Conflict 1: `.specify/scripts/bash/common.sh`
+### Conflict 1: `.logic-loom/scripts/bash/common.sh`
 
-**Current State** (sdd-agentic-framework):
+**Current State** (logic-loom):
 - 65 lines
 - Basic git approval function
 - No logging integration
@@ -502,7 +502,7 @@ Enhancement 6: Modular Context (load-context.sh)
 **Resolution Strategy**: **MERGE**
 ```bash
 # 1. Backup current version
-cp .specify/scripts/bash/common.sh .specify/scripts/bash/common.sh.backup
+cp .logic-loom/scripts/bash/common.sh .logic-loom/scripts/bash/common.sh.backup
 
 # 2. Copy enhanced version
 cp [kelleysd]/.../ common.sh [sdd-agentic]/.../common.sh
@@ -513,13 +513,13 @@ diff common.sh.backup common.sh
 # 4. Test all scripts using common.sh
 ```
 
-**Risk**: LOW - No custom modifications detected in sdd-agentic-framework version
+**Risk**: LOW - No custom modifications detected in logic-loom version
 
 ---
 
 ### Conflict 2: `CLAUDE.md`
 
-**Current State** (sdd-agentic-framework):
+**Current State** (logic-loom):
 - 648 lines
 - Monolithic structure
 - All context in one file
@@ -591,8 +591,8 @@ cat CLAUDE.md | grep -E "^#{1,2} " > .docs/claude-md-sections.txt
 ✅ **4. Test Current Framework**
 ```bash
 # Run existing tests
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 ```
 
 ✅ **5. Create Rollback Plan**
@@ -644,9 +644,9 @@ cat [kelleysd]/.claude/policies/tool-restrictions.json
 **Phase 1: File Creation**
 ```bash
 # Check all new files created
-[ -f .specify/lib/logging.sh ] && echo "✅ logging.sh"
-[ -f .specify/lib/policy.sh ] && echo "✅ policy.sh"
-[ -f .specify/lib/parallel.sh ] && echo "✅ parallel.sh"
+[ -f .logic-loom/lib/logging.sh ] && echo "✅ logging.sh"
+[ -f .logic-loom/lib/policy.sh ] && echo "✅ policy.sh"
+[ -f .logic-loom/lib/parallel.sh ] && echo "✅ parallel.sh"
 [ -d .claude/context ] && echo "✅ context/"
 [ -f .claude/policies/tool-restrictions.json ] && echo "✅ tool-restrictions.json"
 ```
@@ -654,17 +654,17 @@ cat [kelleysd]/.claude/policies/tool-restrictions.json
 **Phase 2: Functional Testing**
 ```bash
 # Test logging
-source .specify/lib/logging.sh
+source .logic-loom/lib/logging.sh
 log_info "Test message"
-[ -f .specify/logs/operations/$(date +%Y-%m-%d).log ] && echo "✅ Logging works"
+[ -f .logic-loom/logs/operations/$(date +%Y-%m-%d).log ] && echo "✅ Logging works"
 
 # Test git safety
-source .specify/scripts/bash/common.sh
+source .logic-loom/scripts/bash/common.sh
 create_git_checkpoint "test-checkpoint"
 list_git_checkpoints | grep "test-checkpoint" && echo "✅ Git checkpoints work"
 
 # Test policy validation
-source .specify/lib/policy.sh
+source .logic-loom/lib/policy.sh
 validate_tool_call "bash" "echo hello" | grep "ALLOWED" && echo "✅ Policy validation works"
 ```
 
@@ -682,10 +682,10 @@ echo "Token reduction: $reduction%"
 **Phase 4: Integration Testing**
 ```bash
 # Run constitutional check
-./.specify/scripts/bash/constitutional-check.sh && echo "✅ Constitutional compliance"
+./.logic-loom/scripts/bash/constitutional-check.sh && echo "✅ Constitutional compliance"
 
 # Run sanitization audit
-./.specify/scripts/bash/sanitization-audit.sh && echo "✅ Framework sanitization"
+./.logic-loom/scripts/bash/sanitization-audit.sh && echo "✅ Framework sanitization"
 
 # Test feature workflow
 /specify "Test feature"  # Should work with all enhancements

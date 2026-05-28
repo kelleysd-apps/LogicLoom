@@ -39,7 +39,7 @@ Analyze description keywords to select target plugin:
 
 ### Step 4: Create Agent
 ```bash
-echo '{"name": "AGENT_NAME", "description": "DESCRIPTION"}' | .specify/scripts/bash/create-agent.sh --json
+echo '{"name": "AGENT_NAME", "description": "DESCRIPTION"}' | .logic-loom/scripts/bash/create-agent.sh --json
 ```
 
 ### Step 5: Verify and Report

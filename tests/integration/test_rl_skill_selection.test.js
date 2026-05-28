@@ -20,7 +20,7 @@ const { execSync } = require('child_process');
 const ROOT_DIR = path.join(__dirname, '../..');
 const SKILL_INDEX_PATH = path.join(ROOT_DIR, '.claude/skill-index.json');
 const SKILL_PERFORMANCE_PATH = path.join(ROOT_DIR, '.docs/rl-metrics/skill-performance.json');
-const RL_SCRIPTS_DIR = path.join(ROOT_DIR, '.specify/scripts/bash/rl');
+const RL_SCRIPTS_DIR = path.join(ROOT_DIR, '.logic-loom/scripts/bash/rl');
 
 /**
  * Helper: Load JSON file

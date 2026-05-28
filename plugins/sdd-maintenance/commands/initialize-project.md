@@ -21,7 +21,7 @@ Use the Task tool to invoke prd-specialist:
 Find PRD at `specs/prd/PRD.md` or ask user for location.
 
 ### Step 2: Customize Constitution
-Read PRD goals and constraints. Update `.specify/memory/constitution.md` principles as needed.
+Read PRD goals and constraints. Update `.logic-loom/memory/constitution.md` principles as needed.
 
 ### Step 3: Create Custom Agents
 Based on PRD-identified roles, use `/create-agent` for each.
@@ -44,7 +44,7 @@ If the user doesn't have these keys yet, note it as a setup TODO and continue.
 The `/research` command will validate keys are present before executing.
 
 ### Step 5: Validate Compliance
-Run `.specify/scripts/bash/constitutional-check.sh`
+Run `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Step 6: Report
 Show: customizations applied, agents created, MCP servers recommended, next steps.

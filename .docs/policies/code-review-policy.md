@@ -124,7 +124,7 @@ Reviewers must:
 Before requesting review:
 1. Run all tests locally (`npm test` or equivalent)
 2. Run linter (`npm run lint`)
-3. Run constitutional compliance check: `.specify/scripts/bash/constitutional-check.sh`
+3. Run constitutional compliance check: `.logic-loom/scripts/bash/constitutional-check.sh`
 4. Update documentation
 5. Self-review changes
 6. Write descriptive PR description
@@ -272,7 +272,7 @@ Required before review:
 - **Tests**: All tests must pass
 - **Coverage**: Code coverage threshold
 - **Security Scan**: Dependency vulnerability check
-- **Constitutional Check**: `.specify/scripts/bash/constitutional-check.sh`
+- **Constitutional Check**: `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Review Aids
 
@@ -380,7 +380,7 @@ Why: [Specific reason]
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
 - Testing Operations Skill: `plugins/sdd-domain-testing/skills/testing-operations/SKILL.md`
 - Security Operations Skill: `plugins/sdd-domain-security/skills/security-operations/SKILL.md`
 - Quality Assessor Agent: `plugins/sdd-specification/agents/quality-assessor.md`

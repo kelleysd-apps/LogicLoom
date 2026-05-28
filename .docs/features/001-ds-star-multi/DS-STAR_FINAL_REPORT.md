@@ -35,7 +35,7 @@ The DS-STAR Multi-Agent Enhancement for the SDD Agentic Framework has been succe
 
 ### Phase 1: Setup & Configuration (T001-T005) ✅
 - Python dependencies with version pinning
-- Refinement configuration (.specify/config/refinement.conf)
+- Refinement configuration (.logic-loom/config/refinement.conf)
 - Test fixtures for 81 tests
 - **Code**: ~500 lines
 
@@ -199,7 +199,7 @@ DS-STAR Multi-Agent System (Complete)
 
 ## Configuration
 
-All thresholds in `.specify/config/refinement.conf`:
+All thresholds in `.logic-loom/config/refinement.conf`:
 
 ```bash
 # Quality Gates
@@ -305,8 +305,8 @@ AUTO_FIX_TARGET_RATE=0.70            # 70% auto-fix target
 
 **Low Priority**:
 5. **Production Validation** (T051-T052, ~10 min)
-   - Run `.specify/scripts/bash/constitutional-check.sh`
-   - Run `.specify/scripts/bash/sanitization-audit.sh`
+   - Run `.logic-loom/scripts/bash/constitutional-check.sh`
+   - Run `.logic-loom/scripts/bash/sanitization-audit.sh`
    - Verify no violations
 
 **Total Estimated Time**: ~80 minutes to complete Phase 3.5

@@ -13,7 +13,7 @@ echo ""
 
 # Fix all bash scripts
 echo "Fixing bash scripts (.sh files)..."
-find .specify/scripts -name "*.sh" -type f 2>/dev/null | while read file; do
+find .logic-loom/scripts -name "*.sh" -type f 2>/dev/null | while read file; do
     if [ -f "$file" ]; then
         # Remove carriage returns
         sed -i 's/\r$//' "$file" 2>/dev/null || sed -i '' 's/\r$//' "$file" 2>/dev/null
@@ -24,7 +24,7 @@ done
 # Fix PowerShell scripts
 echo ""
 echo "Fixing PowerShell scripts (.ps1 files)..."
-find .specify/scripts -name "*.ps1" -type f 2>/dev/null | while read file; do
+find .logic-loom/scripts -name "*.ps1" -type f 2>/dev/null | while read file; do
     if [ -f "$file" ]; then
         # Remove carriage returns
         sed -i 's/\r$//' "$file" 2>/dev/null || sed -i '' 's/\r$//' "$file" 2>/dev/null
@@ -35,8 +35,8 @@ done
 # Make scripts executable
 echo ""
 echo "Making scripts executable..."
-chmod +x .specify/scripts/bash/*.sh 2>/dev/null
-chmod +x .specify/scripts/setup.sh 2>/dev/null
+chmod +x .logic-loom/scripts/bash/*.sh 2>/dev/null
+chmod +x .logic-loom/scripts/setup.sh 2>/dev/null
 echo "  Done"
 
 echo ""
@@ -45,5 +45,5 @@ echo "   Line Endings Fixed! ✓"
 echo "======================================"
 echo ""
 echo "You can now run:"
-echo "  bash .specify/scripts/setup.sh"
+echo "  bash .logic-loom/scripts/setup.sh"
 echo ""

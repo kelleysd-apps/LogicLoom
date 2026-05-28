@@ -16,7 +16,7 @@ The DS-STAR Multi-Agent Enhancement implementation is **85% complete**. All core
 
 ### Phase 1: Setup & Configuration (T001-T005) ✅
 - Python dependencies configured (requirements.txt, pyproject.toml)
-- Refinement configuration complete (.specify/config/refinement.conf)
+- Refinement configuration complete (.logic-loom/config/refinement.conf)
 - Test fixtures established (81 tests across 12 files)
 
 ### Phase 2: Tests First - TDD (T006-T017) ✅
@@ -241,7 +241,7 @@ DS-STAR Multi-Agent System
 
 ## Configuration
 
-All DS-STAR components use `.specify/config/refinement.conf`:
+All DS-STAR components use `.logic-loom/config/refinement.conf`:
 
 ```bash
 # Key Thresholds
@@ -291,7 +291,7 @@ All DS-STAR components comply with the 14 constitutional principles:
 - `src/sdd/agents/shared/communication.py`
 - `src/sdd/validation/constitutional.py`
 - `src/sdd/agents/engineering/error_classifier.py`
-- `.specify/scripts/python/ds_star_integration.py`
+- `.logic-loom/scripts/python/ds_star_integration.py`
 - `DS-STAR_INTEGRATION_GUIDE.md`
 - `tests/contract/test_*.py` (5 files)
 - `tests/integration/test_*.py` (7 files)
@@ -303,9 +303,9 @@ All DS-STAR components comply with the 14 constitutional principles:
 - `.claude/commands/create-agent.md` - Added delegation block
 - `CLAUDE.md` - Updated command documentation
 - `README.md` - Updated with agent annotations
-- `.specify/scripts/bash/create-new-feature.sh` - Already had DS-STAR integration
-- `.specify/scripts/bash/setup-plan.sh` - Already had DS-STAR integration
-- `.specify/scripts/bash/finalize-feature.sh` - Already existed
+- `.logic-loom/scripts/bash/create-new-feature.sh` - Already had DS-STAR integration
+- `.logic-loom/scripts/bash/setup-plan.sh` - Already had DS-STAR integration
+- `.logic-loom/scripts/bash/finalize-feature.sh` - Already existed
 - `tests/fixtures/setup_test_environment.py` - Fixed complete_spec_sample
 
 ---
@@ -326,16 +326,16 @@ The framework successfully integrates DS-STAR's proven multi-agent pattern while
 
 ```bash
 # Set PYTHONPATH
-export PYTHONPATH=/workspaces/sdd-agentic-framework/src:$PYTHONPATH
+export PYTHONPATH=/workspaces/logic-loom/src:$PYTHONPATH
 
 # Run passing tests
 pytest tests/contract/test_router_contract.py tests/contract/test_verifier_contract.py -v
 
 # Test integration wrapper
-python .specify/scripts/python/ds_star_integration.py verify_spec /tmp/test-spec.md
+python .logic-loom/scripts/python/ds_star_integration.py verify_spec /tmp/test-spec.md
 
 # Test finalize script
-.specify/scripts/bash/finalize-feature.sh
+.logic-loom/scripts/bash/finalize-feature.sh
 ```
 
 ---

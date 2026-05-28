@@ -407,7 +407,7 @@ All 3 layers contribute to unified audit trail:
 - **Layer 1 Hook**: `.claude/hooks/user-prompt-submit/README.md`
 - **Layer 2 Skill**: `.claude/skills/governance/governance-preflight/SKILL.md`
 - **Layer 3 Agent**: `.claude/agents/governance/constitutional-governance-agent.md`
-- **Constitution**: `.specify/memory/constitution.md` (v3.0.0)
+- **Constitution**: `.logic-loom/memory/constitution.md` (v3.0.0)
 - **Setup Guide**: `.docs/governance/browser-mcp-setup.md`
 
 ---

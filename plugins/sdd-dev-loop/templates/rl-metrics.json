@@ -136,8 +136,8 @@
   "_integration_points": {
     "plugin_manifests": "plugins/*/plugin.json — selection_weight synced here for framework-wide routing",
     "rl_metrics_store": ".docs/rl-metrics/skill-performance.json — detailed history persisted here",
-    "collect_feedback_script": ".specify/scripts/bash/rl/collect-feedback.sh — CLI for recording outcomes",
-    "sync_metrics_script": ".specify/scripts/bash/rl/sync-metrics.sh — syncs metrics to plugin manifests",
-    "dashboard_script": ".specify/scripts/bash/rl/dashboard.sh — human-readable metrics view"
+    "collect_feedback_script": ".logic-loom/scripts/bash/rl/collect-feedback.sh — CLI for recording outcomes",
+    "sync_metrics_script": ".logic-loom/scripts/bash/rl/sync-metrics.sh — syncs metrics to plugin manifests",
+    "dashboard_script": ".logic-loom/scripts/bash/rl/dashboard.sh — human-readable metrics view"
   }
 }

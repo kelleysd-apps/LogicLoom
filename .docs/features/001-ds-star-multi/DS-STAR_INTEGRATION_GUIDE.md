@@ -32,7 +32,7 @@ The DS-STAR Multi-Agent Enhancement adds five new specialized agents and support
 /specify "feature description"
 
 # Then optionally verify quality
-python .specify/scripts/python/ds_star_integration.py verify_spec specs/###-feature-name/spec.md
+python .logic-loom/scripts/python/ds_star_integration.py verify_spec specs/###-feature-name/spec.md
 ```
 
 **Output**:
@@ -54,7 +54,7 @@ python .specify/scripts/python/ds_star_integration.py verify_spec specs/###-feat
 /plan
 
 # Then optionally verify quality
-python .specify/scripts/python/ds_star_integration.py verify_plan specs/###-feature-name/plan.md
+python .logic-loom/scripts/python/ds_star_integration.py verify_plan specs/###-feature-name/plan.md
 ```
 
 **Output**:
@@ -152,7 +152,7 @@ result = agent.analyze({
 **Usage**:
 ```bash
 # Before committing, validate compliance
-python .specify/scripts/python/ds_star_integration.py finalize specs/###-feature-name
+python .logic-loom/scripts/python/ds_star_integration.py finalize specs/###-feature-name
 ```
 
 **Output**:
@@ -167,7 +167,7 @@ python .specify/scripts/python/ds_star_integration.py finalize specs/###-feature
 
 ## Configuration
 
-All DS-STAR components are configured via `.specify/config/refinement.conf`:
+All DS-STAR components are configured via `.logic-loom/config/refinement.conf`:
 
 ```bash
 # Refinement
@@ -210,13 +210,13 @@ GENERATE_DOCS=true
 echo "# Test Spec\n\n## Requirements\n- FR-001: Test" > /tmp/test-spec.md
 
 # Verify it (should report insufficient quality)
-python .specify/scripts/python/ds_star_integration.py verify_spec /tmp/test-spec.md
+python .logic-loom/scripts/python/ds_star_integration.py verify_spec /tmp/test-spec.md
 ```
 
 ### Test Finalizer
 ```bash
 # Run finalizer on current feature
-python .specify/scripts/python/ds_star_integration.py finalize specs/001-ds-star-multi
+python .logic-loom/scripts/python/ds_star_integration.py finalize specs/001-ds-star-multi
 ```
 
 ---
@@ -247,7 +247,7 @@ pip install -r requirements.txt
 
 **Cause**: Thresholds may be too strict
 
-**Solution**: Adjust thresholds in `.specify/config/refinement.conf`
+**Solution**: Adjust thresholds in `.logic-loom/config/refinement.conf`
 
 ### Context Retrieval Slow
 

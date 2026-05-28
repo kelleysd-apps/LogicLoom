@@ -286,7 +286,7 @@ Constitutional Compliance Check:
 15. **Principle XV**: File Organization - Proper structure and naming conventions
 16. **Principle XVI**: Plugin-First Architecture - Capabilities as installable plugins
 
-**Script**: `.specify/scripts/bash/constitutional-check.sh`
+**Script**: `.logic-loom/scripts/bash/constitutional-check.sh`
 
 **Related Command**: `/finalize` (pre-commit validation)
 
@@ -304,10 +304,10 @@ Load skill context when needed:
 
 ```bash
 # Load skills module
-./.specify/scripts/bash/load-context.sh load skills
+./.logic-loom/scripts/bash/load-context.sh load skills
 
 # Load based on request analysis
-./.specify/scripts/bash/load-context.sh analyze "debug deployment error"
+./.logic-loom/scripts/bash/load-context.sh analyze "debug deployment error"
 ```
 
 ### Skill Registration
@@ -354,7 +354,7 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 **Constitutional Authority**: Principle X (Procedural Workflow Guidance)
 **Source Documents**:
 - All SKILL.md files in `plugins/*/skills/`
-- `.specify/memory/agent-collaboration-triggers.md`
+- `.logic-loom/memory/agent-collaboration-triggers.md`
 - CLAUDE.md "Commands" section
 
 ## New Commands (v5.0.0)

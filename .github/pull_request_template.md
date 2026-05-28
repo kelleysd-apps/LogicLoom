@@ -39,7 +39,7 @@
 <!-- How was this tested? -->
 
 - [ ] Contract tests: `bash tests/contract/plugins/test_plugin_lifecycle.sh`
-- [ ] Constitutional check: `.specify/scripts/bash/constitutional-check.sh`
+- [ ] Constitutional check: `.logic-loom/scripts/bash/constitutional-check.sh`
 - [ ] Manual validation: _______________
 
 ---

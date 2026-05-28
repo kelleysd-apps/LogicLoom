@@ -1,13 +1,13 @@
 {
-  "name": "sdd-agentic-framework",
+  "name": "logic-loom",
   "version": "5.0.0",
   "description": "Specification-driven development framework with DS-STAR multi-agent orchestration, quality gates, and intelligent routing",
   "private": true,
   "scripts": {
-    "setup": "./.specify/scripts/setup.sh",
-    "setup:windows": "powershell -ExecutionPolicy Bypass -File .specify/scripts/setup-windows.ps1",
-    "setup:macos": "bash .specify/scripts/setup.sh",
-    "setup:linux": "bash .specify/scripts/setup.sh",
+    "setup": "./.logic-loom/scripts/setup.sh",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File .logic-loom/scripts/setup-windows.ps1",
+    "setup:macos": "bash .logic-loom/scripts/setup.sh",
+    "setup:linux": "bash .logic-loom/scripts/setup.sh",
     "init": "bash init-project.sh",
     "test": "jest",
     "test:contracts": "jest tests/contracts/",
@@ -47,7 +47,7 @@
     "extensionsToTreatAsEsm": [],
     "collectCoverageFrom": [
       ".claude/**/*.{js,md}",
-      ".specify/**/*.{js,sh}",
+      ".logic-loom/**/*.{js,sh}",
       "!**/node_modules/**",
       "!**/tests/**"
     ],
@@ -66,10 +66,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kelleysd-apps/sdd-agentic-framework.git"
+    "url": "git+https://github.com/kelleysd-apps/logic-loom.git"
   },
   "bugs": {
-    "url": "https://github.com/kelleysd-apps/sdd-agentic-framework/issues"
+    "url": "https://github.com/kelleysd-apps/logic-loom/issues"
   },
-  "homepage": "https://github.com/kelleysd-apps/sdd-agentic-framework#readme"
+  "homepage": "https://github.com/kelleysd-apps/logic-loom#readme"
 }

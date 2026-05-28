@@ -454,8 +454,8 @@ notes: "Implemented per data-model.md specification"
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
-- Tasks Template: `.specify/templates/tasks-template.md`
+- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
+- Tasks Template: `.logic-loom/templates/tasks-template.md`
 - SDD Tasks Skill: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
 - Specification Command: `.claude/commands/specification.md`
 

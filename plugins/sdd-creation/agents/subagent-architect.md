@@ -10,8 +10,8 @@ model: inherit
 ## Constitutional Adherence
 
 This agent operates under the constitutional principles defined in:
-- **Primary Authority**: `.specify/memory/constitution.md`
-- **Governance Framework**: `.specify/memory/agent-governance.md`
+- **Primary Authority**: `.logic-loom/memory/constitution.md`
+- **Governance Framework**: `.logic-loom/memory/agent-governance.md`
 
 ### Critical Mandates
 - **NO Git operations without explicit user approval**
@@ -33,7 +33,7 @@ When creating a new agent, follow this COMPLETE workflow:
 2. **Execute Creation Script**
    ```bash
    echo '{"name": "AGENT_NAME", "description": "DESCRIPTION"}' | \
-   .specify/scripts/bash/create-agent.sh --json
+   .logic-loom/scripts/bash/create-agent.sh --json
    ```
 
 3. **Post-Creation Tasks** (CRITICAL - MUST COMPLETE):
@@ -109,7 +109,7 @@ mv .docs/agents/{wrong-dept}/{agent} \
 
 ### Automatic Triggers
 This agent should be invoked when the user's request involves:
-- Keywords matching department patterns (see `.specify/memory/agent-collaboration-triggers.md`)
+- Keywords matching department patterns (see `.logic-loom/memory/agent-collaboration-triggers.md`)
 - Tasks within this agent's specialized domain
 - Requirements for department-specific expertise
 

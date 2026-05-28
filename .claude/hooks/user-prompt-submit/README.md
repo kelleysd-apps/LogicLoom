@@ -164,7 +164,7 @@ The hook respects these environment variables:
 ### Log Retention
 
 - Logs persist indefinitely (no automatic cleanup)
-- Use `.specify/scripts/bash/cleanup-governance-logs.sh` to manage old logs
+- Use `.logic-loom/scripts/bash/cleanup-governance-logs.sh` to manage old logs
 - Recommended: Clean logs older than 30 days
 
 ---
@@ -257,7 +257,7 @@ chmod 755 .docs/governance/audit
 3. Check disk space (audit logs can accumulate)
 
 **Fix**:
-- Clean old audit logs: `./.specify/scripts/bash/cleanup-governance-logs.sh --force`
+- Clean old audit logs: `./.logic-loom/scripts/bash/cleanup-governance-logs.sh --force`
 - Increase timeout in settings.json to 10000ms
 
 ---
@@ -278,7 +278,7 @@ echo '{"message": "test"}' | ./.claude/hooks/user-prompt-submit/governance-prefl
 Use the debug script:
 
 ```bash
-./.specify/scripts/bash/debug-hook.sh
+./.logic-loom/scripts/bash/debug-hook.sh
 ```
 
 This validates:
@@ -351,21 +351,21 @@ Run monthly:
 
 ```bash
 # Dry-run (show what would be deleted)
-./.specify/scripts/bash/cleanup-governance-logs.sh
+./.logic-loom/scripts/bash/cleanup-governance-logs.sh
 
 # Actual cleanup (delete logs older than 30 days)
-./.specify/scripts/bash/cleanup-governance-logs.sh --force --days 30
+./.logic-loom/scripts/bash/cleanup-governance-logs.sh --force --days 30
 ```
 
 ---
 
 ## Related Documentation
 
-- **Constitution**: `.specify/memory/constitution.md` - All 16 principles
+- **Constitution**: `.logic-loom/memory/constitution.md` - All 16 principles
 - **Governance Skill**: `.claude/skills/governance/governance-preflight/SKILL.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`
-- **Hook Debugging**: `.specify/scripts/bash/debug-hook.sh`
-- **Governance Metrics**: `.specify/scripts/bash/governance-metrics.sh`
+- **Hook Debugging**: `.logic-loom/scripts/bash/debug-hook.sh`
+- **Governance Metrics**: `.logic-loom/scripts/bash/governance-metrics.sh`
 
 ---
 

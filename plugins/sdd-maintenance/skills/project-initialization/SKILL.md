@@ -43,13 +43,13 @@ Read `.docs/prd/prd.md` and extract:
 
 ### Step 2: Customize Constitution
 
-File: `.specify/memory/constitution.md`
+File: `.logic-loom/memory/constitution.md`
 
 1. Create a backup: `cp constitution.md constitution.md.backup`
 2. Add project metadata header (name, date, PRD reference)
 3. For each principle with PRD customizations, add a `**Project Customization**` subsection
 4. Increment patch version and update "Last Amended" date
-5. Run `.specify/scripts/bash/constitutional-check.sh` to validate
+5. Run `.logic-loom/scripts/bash/constitutional-check.sh` to validate
 
 For customization templates, read `references/constitution-customization.md`.
 
@@ -67,7 +67,7 @@ For each agent identified in the PRD:
 
 1. **CLAUDE.md** — Add project overview section with name, vision, primary domains, custom workflows
 2. **AGENTS.md** — Register new agents, update counts
-3. **Agent collaboration triggers** — Add new domain→agent mappings to `.specify/memory/agent-collaboration-triggers.md`
+3. **Agent collaboration triggers** — Add new domain→agent mappings to `.logic-loom/memory/agent-collaboration-triggers.md`
 
 ### Step 5: Configure MCP Servers
 
@@ -80,7 +80,7 @@ Delegate to the MCP server setup skill:
 If PRD specifies:
 - **Design system** (Principle XII): Create `src/design-system/` directory with README
 - **Access tiers** (Principle XIII): Create `.docs/access-control.md` documenting tiers
-- **Project config**: Create `.specify/config/project.conf` with thresholds
+- **Project config**: Create `.logic-loom/config/project.conf` with thresholds
 
 ### Step 7: Validate and Report
 
@@ -116,4 +116,4 @@ Next Steps:
 
 - **Customization patterns**: `references/constitution-customization.md` — templates for each principle
 - **MCP setup**: `plugins/sdd-maintenance/skills/mcp-server-setup/SKILL.md`
-- **Constitution**: `.specify/memory/constitution.md`
+- **Constitution**: `.logic-loom/memory/constitution.md`

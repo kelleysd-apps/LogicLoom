@@ -48,8 +48,8 @@ def test_analyze_codebase_returns_relevant_files():
         "task_description": "Implement quality verification system",
         "search_keywords": ["quality", "verification", "gate", "validation", "test"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/.claude/agents",
-            "/workspaces/sdd-agentic-framework/.specify/memory",
+            "/workspaces/logic-loom/.claude/agents",
+            "/workspaces/logic-loom/.logic-loom/memory",
         ],
         "max_results": 10,
         "performance_target_ms": 2000,
@@ -113,7 +113,7 @@ def test_analyze_identifies_relevant_files_by_keywords():
         "task_description": "Design authentication system",
         "search_keywords": ["authentication", "security", "auth", "login"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/.claude/agents",
+            "/workspaces/logic-loom/.claude/agents",
         ],
         "max_results": 5,
         "performance_target_ms": 2000,
@@ -161,8 +161,8 @@ def test_analyze_maps_file_dependencies():
         "task_description": "Understand agent framework structure",
         "search_keywords": ["agent", "framework", "constitution", "delegation"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/.claude/agents",
-            "/workspaces/sdd-agentic-framework/.specify/memory",
+            "/workspaces/logic-loom/.claude/agents",
+            "/workspaces/logic-loom/.logic-loom/memory",
         ],
         "max_results": 10,
         "performance_target_ms": 2000,
@@ -211,7 +211,7 @@ def test_analyze_response_matches_contract_schema():
         "task_description": "Analyze codebase for testing patterns",
         "search_keywords": ["test", "pytest", "testing"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/tests",
+            "/workspaces/logic-loom/tests",
         ],
         "max_results": 10,
         "performance_target_ms": 2000,
@@ -296,7 +296,7 @@ def test_analyze_uses_semantic_embedding_search():
         "task_description": "Find patterns for API contract design",
         "search_keywords": ["contract", "API", "OpenAPI", "schema"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/specs",
+            "/workspaces/logic-loom/specs",
         ],
         "max_results": 10,
         "performance_target_ms": 2000,
@@ -348,7 +348,7 @@ def test_context_summary_output_format():
         "task_description": "Analyze agent delegation patterns",
         "search_keywords": ["agent", "delegation", "orchestration"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/.specify/memory",
+            "/workspaces/logic-loom/.logic-loom/memory",
         ],
         "max_results": 10,
         "performance_target_ms": 2000,
@@ -430,7 +430,7 @@ def test_analyze_meets_performance_target():
         "task_description": "Quick context lookup",
         "search_keywords": ["constitution"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/.specify/memory",
+            "/workspaces/logic-loom/.logic-loom/memory",
         ],
         "max_results": 5,
         "performance_target_ms": 2000,
@@ -479,7 +479,7 @@ def test_analyze_falls_back_to_keyword_search_on_timeout():
         "task_description": "Context lookup with tight timeout",
         "search_keywords": ["test"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework",
+            "/workspaces/logic-loom",
         ],
         "max_results": 5,
         "performance_target_ms": 1,  # Unrealistically low to potentially trigger fallback
@@ -525,7 +525,7 @@ def test_analyze_tracks_constitutional_status():
         "task_description": "Check constitutional compliance for library design",
         "search_keywords": ["library", "architecture", "principle"],
         "scan_paths": [
-            "/workspaces/sdd-agentic-framework/.specify/memory",
+            "/workspaces/logic-loom/.logic-loom/memory",
         ],
         "max_results": 10,
         "performance_target_ms": 2000,

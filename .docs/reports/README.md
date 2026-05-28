@@ -1,14 +1,14 @@
 # Framework Enhancements Integration Reports
 
 **Generated**: 2026-01-09
-**Framework**: sdd-agentic-framework v3.0.0 → v3.1.0
+**Framework**: logic-loom v3.0.0 → v3.1.0
 **Source**: kelleysd.com Framework v2.0 Enhancements
 
 ---
 
 ## Report Package Overview
 
-This directory contains a comprehensive analysis and integration plan for porting 6 production-ready enhancements from kelleysd.com to sdd-agentic-framework.
+This directory contains a comprehensive analysis and integration plan for porting 6 production-ready enhancements from kelleysd.com to logic-loom.
 
 **Total Documentation**: ~25,000 words, 60+ pages
 **Review Time**: ~2 hours for complete understanding
@@ -310,7 +310,7 @@ git revert <phase-4-commit-hash>
 **Original Enhancements**: kelleysd.com Framework v2.0
 **Integration Analysis**: Claude Sonnet 4.5 (backend-architect)
 **Date**: 2026-01-09
-**Framework Version**: sdd-agentic-framework v3.0.0 → v3.1.0
+**Framework Version**: logic-loom v3.0.0 → v3.1.0
 
 **Source Summary**: [FRAMEWORK_ENHANCEMENTS_SUMMARY.md](../../kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md)
 
@@ -320,7 +320,7 @@ git revert <phase-4-commit-hash>
 
 ### In This Repository
 
-- `.specify/memory/constitution.md` - Constitutional principles (v1.6.0)
+- `.logic-loom/memory/constitution.md` - Constitutional principles (v1.6.0)
 - `.docs/policies/` - Framework policies
 - `CLAUDE.md` - Current framework instructions (648 lines)
 - `AGENTS.md` - Agent registry
@@ -328,9 +328,9 @@ git revert <phase-4-commit-hash>
 ### In kelleysd.com Repository
 
 - `.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md` - Source enhancements summary
-- `.specify/lib/` - Enhanced libraries
+- `.logic-loom/lib/` - Enhanced libraries
 - `.claude/context/` - Modular context system
-- `.specify/tests/` - Unit tests (57/65 passing)
+- `.logic-loom/tests/` - Unit tests (57/65 passing)
 
 ---
 
@@ -379,5 +379,5 @@ For questions about this integration:
 
 **Generated**: 2026-01-09
 **Analyst**: Claude Sonnet 4.5 (backend-architect)
-**Framework**: sdd-agentic-framework v3.0.0
+**Framework**: logic-loom v3.0.0
 **Target Version**: v3.1.0 (with Framework v2.0 Enhancements)

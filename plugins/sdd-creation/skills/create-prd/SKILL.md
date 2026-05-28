@@ -25,7 +25,7 @@ The skill operates in **two modes**, auto-detected from inputs:
 
 ### Step 2: Load Template
 
-Read PRD template from `.specify/templates/prd-template.md`. If missing, fall back to the standard PRD structure documented inline.
+Read PRD template from `.logic-loom/templates/prd-template.md`. If missing, fall back to the standard PRD structure documented inline.
 
 ### Step 3a: Vision-Driven Mode
 

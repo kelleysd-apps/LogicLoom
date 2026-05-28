@@ -127,7 +127,7 @@ backend_search() {
         [ -d "$KEYWORD_REPO_ROOT/specs" ] && search_paths+=("$KEYWORD_REPO_ROOT/specs")
         [ -d "$KEYWORD_REPO_ROOT/.devloop/sessions" ] && search_paths+=("$KEYWORD_REPO_ROOT/.devloop/sessions")
         [ -d "$KEYWORD_REPO_ROOT/.docs" ] && search_paths+=("$KEYWORD_REPO_ROOT/.docs")
-        [ -d "$KEYWORD_REPO_ROOT/.specify/memory" ] && search_paths+=("$KEYWORD_REPO_ROOT/.specify/memory")
+        [ -d "$KEYWORD_REPO_ROOT/.logic-loom/memory" ] && search_paths+=("$KEYWORD_REPO_ROOT/.logic-loom/memory")
         [ -d "$KEYWORD_REPO_ROOT/plugins" ] && search_paths+=("$KEYWORD_REPO_ROOT/plugins")
     fi
 

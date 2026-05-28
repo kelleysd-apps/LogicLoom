@@ -18,7 +18,7 @@ Read `plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md` and follow it
 4. **Evaluator (NEW)** — behavioral verification via `chrome-devtools` MCP (for UI changes) and pure-function quality checks (placeholder for property-based testing, deferred to v6.1)
 
 ### Step 2: Execute Review
-Use the Task tool to spawn 4 parallel review workers with skill briefs from `extract_skill_brief()` in `.specify/scripts/bash/common.sh`. The behavioral evaluator's brief comes from `plugins/sdd-orchestrator/skills/review-evaluator/SKILL.md`. Synthesize findings after all complete.
+Use the Task tool to spawn 4 parallel review workers with skill briefs from `extract_skill_brief()` in `.logic-loom/scripts/bash/common.sh`. The behavioral evaluator's brief comes from `plugins/sdd-orchestrator/skills/review-evaluator/SKILL.md`. Synthesize findings after all complete.
 
 **Synthesis rule**: Evaluator's Functionality rubric item is load-bearing — a `fail` on Functionality blocks the entire review-team verdict regardless of the other three reviewers' scores. ("Beautiful-but-broken cannot pass.")
 

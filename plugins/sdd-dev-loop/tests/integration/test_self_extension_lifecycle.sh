@@ -42,14 +42,14 @@ setup() {
   mkdir -p "$TEMP_DIR/.docs/rl-metrics"
 
   # Create mock sync-plugin-commands.sh that writes a marker
-  mkdir -p "$TEMP_DIR/.specify/scripts/bash"
-  cat > "$TEMP_DIR/.specify/scripts/bash/sync-plugin-commands.sh" <<SYNCEOF
+  mkdir -p "$TEMP_DIR/.logic-loom/scripts/bash"
+  cat > "$TEMP_DIR/.logic-loom/scripts/bash/sync-plugin-commands.sh" <<SYNCEOF
 #!/usr/bin/env bash
 touch "$TEMP_DIR/.bridge-sync-marker"
 echo "Commands synced"
 exit 0
 SYNCEOF
-  chmod +x "$TEMP_DIR/.specify/scripts/bash/sync-plugin-commands.sh"
+  chmod +x "$TEMP_DIR/.logic-loom/scripts/bash/sync-plugin-commands.sh"
 }
 
 # ──────────────────────────────────────────────────────

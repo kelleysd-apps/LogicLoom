@@ -1,6 +1,6 @@
 # Loom Migration Plan
 
-**From**: `sdd-agentic-framework` v5.0.0 (SDD specification waterfall)
+**From**: `logic-loom` v5.0.0 (SDD specification waterfall)
 **To**: `logic-loom` (brand: **LogicLoom**) — vision → PRD → plan → swarm primary path, with SDD waterfall preserved as legacy
 **Style**: Supplementary on workflow (no SDD tool deletions), hard cutover on rename, ~13 staged commits with verification between each
 **Authored**: 2026-05-01
@@ -14,7 +14,7 @@
 |---|---|
 | Project name (technical) | **`logic-loom`** (was `loom` — collision with loom.com) |
 | Brand (human-facing) | **LogicLoom** |
-| `.specify/` folder rename | **`.logic-loom/`** |
+| `.logic-loom/` folder rename | **`.logic-loom/`** |
 | Marketplace strategy (v3) | Cut our `sdd-marketplace` MCP entirely; defer to Anthropic Claude Code Plugin Marketplace + Docker MCP Toolkit for 3rd-party discovery; bundle LogicLoom plugins in repo |
 | Workflow strategy (v3) | **Supplementary**: keep `/specification`, `/build-team`, `/fullstack-team`, `/dev-loop`, `/finalize`, validators, DS-STAR, domain plugins, templates, `specs/` — all as **legacy alternatives**. Add vision/PRD/plan/swarm as **primary documented path** |
 | Token cap | **800K of 1M default context** |
@@ -33,7 +33,7 @@
 
 **In scope**: Dev workflow scaffolding only. The SDD `/specification` waterfall, `/finalize`, three orchestration overlaps (`/build-team`, `/fullstack-team`, `/dev-loop`), 7 domain plugins, marketplace overbuild, RL infrastructure, DS-STAR / refinement Python, validators, `specs/` directory, project + folder rename.
 
-**Out of scope** (do NOT touch): 16-principle constitution, `.specify/memory/` content, `plugins/sdd-governance/` (except removing the rl-metrics-capture hook), `plugins/sdd-creation/` (except retargeting `/create-prd`), `plugins/sdd-maintenance/`, `plugins/sdd-memory/`, governance preflight hook, dangerous-cmd guard, plugin chassis, cloner init scripts.
+**Out of scope** (do NOT touch): 16-principle constitution, `.logic-loom/memory/` content, `plugins/sdd-governance/` (except removing the rl-metrics-capture hook), `plugins/sdd-creation/` (except retargeting `/create-prd`), `plugins/sdd-maintenance/`, `plugins/sdd-memory/`, governance preflight hook, dangerous-cmd guard, plugin chassis, cloner init scripts.
 
 ---
 
@@ -45,7 +45,7 @@
 | 1 | DELETE **marketplace overbuild only** (mcp-servers/sdd-marketplace + .mcp.json entry) — v3 scope | Low | Yes (revert commit) | No |
 | ~~2~~ | ~~DELETE 7 sdd-domain-* plugins~~ — **DROPPED v3**: keep as legacy per supplementary principle | — | — | — |
 | ~~3~~ | ~~DELETE /specification waterfall + validators + DS-STAR~~ — **DROPPED v3**: keep as legacy per supplementary principle | — | — | — |
-| 4 | DELETE RL telemetry only (internal): .specify/scripts/bash/rl/ + rl-metrics-capture hook + rl_metrics manifest fields + .docs/rl-metrics/ + src/sdd/feedback,metrics/ | Medium | Yes | No |
+| 4 | DELETE RL telemetry only (internal): .logic-loom/scripts/bash/rl/ + rl-metrics-capture hook + rl_metrics manifest fields + .docs/rl-metrics/ + src/sdd/feedback,metrics/ | Medium | Yes | No |
 | 5 | ADD `features/` folder convention + templates | Low | Trivial | No |
 | 6 | MODIFY `/swarm` — add `explore` and `implement` modes | Medium | Yes | No |
 | 7 | MODIFY `/create-prd` — retarget + add office-hours forcing gate (gstack-A) | Medium | Yes | No |
@@ -55,7 +55,7 @@
 | 10 | ADD plan-as-DAG support (handoff contract for `/swarm implement`) | Medium | Yes | No |
 | 11 | ADD hooks bundle: port-namespace + 800K cap + `/freeze` write-scope (gstack-D) | Low | Trivial | **YES — 3 parallel hook authors** |
 | **11b** | **NEW** `/retro` skill (gstack-C) — sprint retrospective writing to memory | Low | Yes | No |
-| 12 | RENAME `sdd-agentic-framework` → `loom`, `.specify/` → `.loom/` | **HIGH** | Yes (revert commit) | No (atomic by design) |
+| 12 | RENAME `logic-loom` → `loom`, `.logic-loom/` → `.loom/` | **HIGH** | Yes (revert commit) | No (atomic by design) |
 | 13 | DOCS pass (CLAUDE.md, AGENTS.md, README, START_HERE, CHANGELOG, 3 new arch docs) | Low | Yes | **YES — parallel doc authors** |
 | 14 | TEST suite pruning (1322+ → ~150-200) | Medium | Yes | **YES — parallel by suite category** |
 | 15 | End-to-end verification (smoke including `/plan-review` and `/retro`) | — | — | No |
@@ -73,7 +73,7 @@ Each stage = one git commit. After each stage: run constitutional-check.sh, veri
 **Steps** (require user approval per Principle VI):
 1. `git tag pre-loom-migration` on main
 2. `git checkout -b loom-migration`
-3. Run baseline: `./.specify/scripts/bash/constitutional-check.sh` and `npm test`. Document any pre-existing failures.
+3. Run baseline: `./.logic-loom/scripts/bash/constitutional-check.sh` and `npm test`. Document any pre-existing failures.
 4. Snapshot file inventory: `find plugins .specify .claude -type f | wc -l` (record count)
 
 **Verify**: Tag exists, branch active, baseline state recorded.
@@ -97,7 +97,7 @@ Each stage = one git commit. After each stage: run constitutional-check.sh, veri
 **Steps**:
 1. Verify no other plugin's plugin.json declares dependency on these
 2. Delete dirs/files
-3. Run `.specify/scripts/bash/sync-plugin-commands.sh sync` to remove stub commands from `.claude/commands/`
+3. Run `.logic-loom/scripts/bash/sync-plugin-commands.sh sync` to remove stub commands from `.claude/commands/`
 4. Update `plugins/sdd-orchestrator/.claude-plugin/plugin.json` skill/command counts
 5. Update root `CLAUDE.md` and `AGENTS.md` quick-command-reference table
 
@@ -123,7 +123,7 @@ Each stage = one git commit. After each stage: run constitutional-check.sh, veri
 **Steps**:
 1. Confirm no plugin manifest declares dependency on any sdd-domain-*
 2. Delete the 7 plugin directories
-3. Update `.specify/memory/agent-collaboration-triggers.md` — replace specialist routing with `/swarm`-based pattern, OR mark file as deferred-for-rewrite-in-Stage-13
+3. Update `.logic-loom/memory/agent-collaboration-triggers.md` — replace specialist routing with `/swarm`-based pattern, OR mark file as deferred-for-rewrite-in-Stage-13
 4. Update CLAUDE.md domain-table to reflect that domain delegation now happens via `/swarm explore` (one orchestrator-worker mode replaces 7 specialist routes)
 5. Re-sync command bridge
 
@@ -139,28 +139,28 @@ Each stage = one git commit. After each stage: run constitutional-check.sh, veri
 
 **Affects**:
 - `plugins/sdd-specification/` (entire plugin: command, skill, scripts)
-- `.specify/scripts/bash/create-new-feature.sh`, `setup-plan.sh`, `check-task-prerequisites.sh`
-- `.specify/scripts/bash/validate-spec.sh`, `validate-plan.sh`, `validate-tasks.sh`
-- `.specify/scripts/bash/sanitize-for-template.sh` (used by SDD templating only — verify)
-- `.specify/scripts/python/ds_star_integration.py`
-- `.specify/scripts/python/auto_debug_wrapper.py` (T044 auto-debug, tied to dev-loop)
-- `.specify/templates/spec-template.md`, `plan-template.md`, `tasks-template.md`, `agent-file-template.md`
-- `.specify/templates/skill-prototypes/` (sdd-workflow templates that are SDD-specific)
-- `.specify/config/refinement.conf`
+- `.logic-loom/scripts/bash/create-new-feature.sh`, `setup-plan.sh`, `check-task-prerequisites.sh`
+- `.logic-loom/scripts/bash/validate-spec.sh`, `validate-plan.sh`, `validate-tasks.sh`
+- `.logic-loom/scripts/bash/sanitize-for-template.sh` (used by SDD templating only — verify)
+- `.logic-loom/scripts/python/ds_star_integration.py`
+- `.logic-loom/scripts/python/auto_debug_wrapper.py` (T044 auto-debug, tied to dev-loop)
+- `.logic-loom/templates/spec-template.md`, `plan-template.md`, `tasks-template.md`, `agent-file-template.md`
+- `.logic-loom/templates/skill-prototypes/` (sdd-workflow templates that are SDD-specific)
+- `.logic-loom/config/refinement.conf`
 - `src/sdd/refinement/` (entire)
 - `src/sdd/validation/` (entire — was for spec/plan/tasks validation)
 - `specs/` directory contents (keep `specs/README.md` placeholder, OR delete dir entirely; prefer delete)
 - `.docs/agents/shared/refinement-state/` (if exists)
 
 **Keep**:
-- `.specify/templates/agent-template.md` (used by `/create-agent`)
-- `.specify/templates/skill-template.md` (used by `/create-skill`)
-- `.specify/templates/prd-template.md` (used by `/create-prd` — will be re-targeted in Stage 7)
+- `.logic-loom/templates/agent-template.md` (used by `/create-agent`)
+- `.logic-loom/templates/skill-template.md` (used by `/create-skill`)
+- `.logic-loom/templates/prd-template.md` (used by `/create-prd` — will be re-targeted in Stage 7)
 
 **Steps**:
 1. Delete plugin and scripts above
 2. Delete `specs/` directory
-3. Update `.specify/memory/constitution_update_checklist.md` — remove references to validate-* scripts and spec/plan/tasks templates (this is a doc edit, not a constitution change — the principles themselves are untouched)
+3. Update `.logic-loom/memory/constitution_update_checklist.md` — remove references to validate-* scripts and spec/plan/tasks templates (this is a doc edit, not a constitution change — the principles themselves are untouched)
 4. Re-sync command bridge
 
 **Verify**:
@@ -178,14 +178,14 @@ Each stage = one git commit. After each stage: run constitutional-check.sh, veri
 **Goal**: Strip RL feedback loop. Plugin manifests lose `rl_metrics` field. PostToolUse hook for metrics capture is removed.
 
 **Affects**:
-- `.specify/scripts/bash/rl/` (entire dir: collect-feedback.sh, update-skill-weight.sh, sync-metrics.sh, dashboard.sh, select-skill.sh, load-skill-progressive.sh, credit-assignment.sh, grpo-optimizer.sh)
+- `.logic-loom/scripts/bash/rl/` (entire dir: collect-feedback.sh, update-skill-weight.sh, sync-metrics.sh, dashboard.sh, select-skill.sh, load-skill-progressive.sh, credit-assignment.sh, grpo-optimizer.sh)
 - `plugins/sdd-governance/hooks/scripts/rl-metrics-capture.sh`
 - `plugins/sdd-governance/hooks/hooks.json` — remove the PostToolUse entry pointing to rl-metrics-capture
 - `src/sdd/feedback/` (RL components)
 - `src/sdd/metrics/` (if RL-only; keep observability metrics if applicable)
 - `.docs/rl-metrics/skill-performance.json` and dir
 - `.docs/architecture/RL-FEEDBACK-ARCHITECTURE.md`
-- `.specify/memory/skill-activation-triggers.md` (if purely RL — verify; if it has non-RL routing rules, keep + edit)
+- `.logic-loom/memory/skill-activation-triggers.md` (if purely RL — verify; if it has non-RL routing rules, keep + edit)
 - `rl_metrics` field removed from every `plugins/*/.claude-plugin/plugin.json` (script-driven sed)
 
 **Steps**:
@@ -208,8 +208,8 @@ Each stage = one git commit. After each stage: run constitutional-check.sh, veri
 **Affects**:
 - `features/` (new top-level dir)
 - `features/README.md` (convention doc)
-- `.specify/templates/vision-template.md` (new)
-- `.specify/templates/feature-folder-scaffold.md` (new — describes the layout)
+- `.logic-loom/templates/vision-template.md` (new)
+- `.logic-loom/templates/feature-folder-scaffold.md` (new — describes the layout)
 
 **Layout documented**:
 ```
@@ -272,7 +272,7 @@ features/<feature-name>/
 
 **Affects**:
 - `plugins/sdd-creation/skills/create-prd/SKILL.md` (rewrite procedure)
-- `.specify/templates/prd-template.md` (rewrite for broad-PRD philosophy)
+- `.logic-loom/templates/prd-template.md` (rewrite for broad-PRD philosophy)
 - `plugins/sdd-creation/commands/create-prd.md` (update arg parsing if needed)
 
 **New procedure**:
@@ -387,7 +387,7 @@ features/<feature-name>/
 **Goal**: `plan.md` becomes a DAG of tasks with file-ownership scope and per-task acceptance rubric. `/swarm implement` reads waves from DAG topology.
 
 **Affects**:
-- `.specify/templates/plan-template.md` (new format — replaces the deleted SDD plan-template)
+- `.logic-loom/templates/plan-template.md` (new format — replaces the deleted SDD plan-template)
 - `plugins/sdd-orchestrator/skills/swarm-implement/SKILL.md` (DAG-aware dispatch)
 - `features/README.md` (document plan format)
 
@@ -433,7 +433,7 @@ sprints:
 - New: `.claude/hooks/context-cap-warn.sh`
 - New: `.claude/hooks/freeze-write-scope.sh` (gstack-D)
 - Modified: `.claude/settings.json` (register all three hooks)
-- Modified (if needed): `.specify/lib/policy.sh` (extended for freeze-scope checks)
+- Modified (if needed): `.logic-loom/lib/policy.sh` (extended for freeze-scope checks)
 
 **Hook 1 — Worktree port namespace** (MindStudio/Augment 2026 pattern):
 - Fires on session start when in a worktree (detect via `git worktree list`)
@@ -456,7 +456,7 @@ sprints:
 ```
 Task A: Author worktree-port-namespace.sh   (file: .claude/hooks/worktree-port-namespace.sh)
 Task B: Author context-cap-warn.sh           (file: .claude/hooks/context-cap-warn.sh)
-Task C: Author freeze-write-scope.sh + extend .specify/lib/policy.sh if needed
+Task C: Author freeze-write-scope.sh + extend .logic-loom/lib/policy.sh if needed
 ```
 Each Task receives scoped file ownership. After all three return, single-author registers all three in `.claude/settings.json` and commits the bundle.
 
@@ -503,14 +503,14 @@ Each Task receives scoped file ownership. After all three return, single-author 
 
 ---
 
-## Stage 12 — RENAME `sdd-agentic-framework` → `loom`, `.specify/` → `.loom/`
+## Stage 12 — RENAME `logic-loom` → `loom`, `.logic-loom/` → `.loom/`
 
 **Goal**: The big rename. Project + folder. Atomic commit so cloner scripts remain functional throughout.
 
 **Affects** (~50+ files):
 
 **Folder rename**:
-- `.specify/` → `.loom/`
+- `.logic-loom/` → `.loom/`
 
 **Project name references** (search and replace):
 - `package.json` — `name` field
@@ -518,24 +518,24 @@ Each Task receives scoped file ownership. After all three return, single-author 
 - `README.md`, `START_HERE.md`, `CHANGELOG.md`
 - `CLAUDE.md`, `AGENTS.md`
 - `.sdd-sync-ref` → consider renaming to `.loom-sync-ref` (but this breaks /update-framework — keep filename, update content references inside)
-- All bash scripts under `.specify/scripts/bash/` referencing `.specify/` paths (now `.loom/`)
-- Plugin manifests: any `plugins/*/plugin.json` referencing `.specify/`
-- Hook scripts referencing `.specify/`
-- Test files referencing `.specify/`
+- All bash scripts under `.logic-loom/scripts/bash/` referencing `.logic-loom/` paths (now `.loom/`)
+- Plugin manifests: any `plugins/*/plugin.json` referencing `.logic-loom/`
+- Hook scripts referencing `.logic-loom/`
+- Test files referencing `.logic-loom/`
 - `.docs/` files referencing the old name (do in Stage 13 docs pass — separate it from the path rename)
 
 **Steps** (single git commit at the end):
 1. `git mv .specify .loom`
-2. Find-and-replace `.specify/` → `.loom/` across all bash, json, md, py, ts files
-3. Find-and-replace `sdd-agentic-framework` → `loom` in: package.json (name field), pyproject.toml, README/START_HERE/CHANGELOG (delicate — keep historical references in CHANGELOG)
+2. Find-and-replace `.logic-loom/` → `.loom/` across all bash, json, md, py, ts files
+3. Find-and-replace `logic-loom` → `loom` in: package.json (name field), pyproject.toml, README/START_HERE/CHANGELOG (delicate — keep historical references in CHANGELOG)
 4. Run `./.loom/scripts/bash/sync-plugin-commands.sh sync` to confirm bridge still works
 5. Run `./.loom/scripts/bash/constitutional-check.sh` to confirm governance still passes
 6. Run cloner-init smoke test: `bash init-project.sh` in a sandbox
-7. Single commit titled "Rename: sdd-agentic-framework → loom, .specify → .loom"
+7. Single commit titled "Rename: logic-loom → loom, .specify → .loom"
 
 **Verify**: Cloner-init works. constitutional-check passes. /update-framework still resolves upstream pointer. /create-prd, /initialize-project, /create-skill, /create-agent, /create-plugin all run.
 
-**Risk**: **HIGHEST in the migration**. Breakage modes: (a) bash script using a hard-coded `.specify/` string we missed; (b) plugin.json referencing a path we missed; (c) test file referencing the old name. Mitigation: thorough grep BEFORE the rename, comprehensive grep AFTER, run smoke tests.
+**Risk**: **HIGHEST in the migration**. Breakage modes: (a) bash script using a hard-coded `.logic-loom/` string we missed; (b) plugin.json referencing a path we missed; (c) test file referencing the old name. Mitigation: thorough grep BEFORE the rename, comprehensive grep AFTER, run smoke tests.
 
 **Rollback plan**: `git revert` the rename commit. Migration branch still has all prior stages.
 
@@ -553,7 +553,7 @@ Each Task receives scoped file ownership. After all three return, single-author 
 - `.docs/architecture/` — new `loom-architecture.md` describing vision/PRD/plan/swarm shape
 - `.docs/architecture/RL-FEEDBACK-ARCHITECTURE.md` — already deleted in Stage 4
 - `.docs/policies/` — review each, drop SDD-specific ones (file-structure-policy may need updates)
-- `.specify/memory/agent-collaboration-triggers.md` — wait, this is now `.loom/memory/agent-collaboration-triggers.md`; rewrite domain routing to use `/swarm explore` instead of 7 specialists
+- `.logic-loom/memory/agent-collaboration-triggers.md` — wait, this is now `.loom/memory/agent-collaboration-triggers.md`; rewrite domain routing to use `/swarm explore` instead of 7 specialists
 - `features/README.md` — finalize convention doc
 
 **Steps** (parallel authoring — spawn 5-6 Agent workers, one per doc family):
@@ -642,11 +642,11 @@ Workers operate on disjoint dirs so parallelism is conflict-free. After return, 
 
 ```bash
 # 1. Governance still works
-./.specify/scripts/bash/constitutional-check.sh        # before Stage 12
+./.logic-loom/scripts/bash/constitutional-check.sh        # before Stage 12
 ./.loom/scripts/bash/constitutional-check.sh           # after Stage 12
 
 # 2. Plugin command bridge works
-./.specify/scripts/bash/sync-plugin-commands.sh list   # before Stage 12
+./.logic-loom/scripts/bash/sync-plugin-commands.sh list   # before Stage 12
 ./.loom/scripts/bash/sync-plugin-commands.sh list      # after Stage 12
 
 # 3. Retained commands resolve

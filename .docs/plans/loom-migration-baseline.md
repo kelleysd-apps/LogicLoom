@@ -8,7 +8,7 @@
 
 | Metric | Count |
 |---|---|
-| Framework files (plugins/.specify/.claude) | 258 |
+| Framework files (plugins/.logic-loom/.claude) | 258 |
 | Plugins | 16 (excluding 4 helper files in `plugins/`) |
 | Domain plugins (Stage 2 targets) | 7 (frontend, backend, database, testing, security, performance, devops) |
 | Slash commands | 15 |
@@ -59,7 +59,7 @@
 ## Deletion targets present
 
 - `mcp-servers/sdd-marketplace/` — PRESENT (Stage 1 target)
-- `.specify/scripts/bash/rl/` — PRESENT, 8 files (Stage 4 target)
+- `.logic-loom/scripts/bash/rl/` — PRESENT, 8 files (Stage 4 target)
 - `src/sdd/` — PRESENT (Stages 3, 4 targets within)
 - `specs/` — PRESENT, 1 entry (Stage 3 target)
 

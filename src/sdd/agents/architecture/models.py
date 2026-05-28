@@ -390,8 +390,8 @@ class ContextSummary(BaseModel):
                 {
                     "task_id": "550e8400-e29b-41d4-a716-446655440000",
                     "relevant_files": [
-                        "/workspaces/sdd-agentic-framework/.claude/agents/product/planning-agent.md",
-                        "/workspaces/sdd-agentic-framework/.specify/memory/constitution.md"
+                        "/workspaces/logic-loom/.claude/agents/product/planning-agent.md",
+                        "/workspaces/logic-loom/.logic-loom/memory/constitution.md"
                     ],
                     "file_summaries": {
                         "planning-agent.md": "Implementation planning specialist",

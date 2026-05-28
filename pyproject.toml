@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "sdd-agentic-framework"
+name = "logic-loom"
 version = "5.0.0"
 description = "Specification-Driven Development (SDD) Agentic Framework with DS-STAR Multi-Agent Enhancement"
 readme = "README.md"

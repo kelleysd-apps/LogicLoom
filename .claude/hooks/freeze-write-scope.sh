@@ -24,7 +24,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-POLICY_LIB="$REPO_ROOT/.specify/lib/policy.sh"
+POLICY_LIB="$REPO_ROOT/.logic-loom/lib/policy.sh"
 MARKER_FILE="$REPO_ROOT/.loom-active-feature"
 
 allow() {
