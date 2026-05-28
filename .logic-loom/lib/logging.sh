@@ -50,7 +50,7 @@ _get_log_level_priority() {
 # Check if message should be logged based on level
 _should_log() {
     local message_level="$1"
-    local current_level="${CLAUDE_LOG_LEVEL}"
+    local current_level="${CLAUDE_LOG_LEVEL:-INFO}"
 
     local message_priority=$(_get_log_level_priority "$message_level")
     local current_priority=$(_get_log_level_priority "$current_level")

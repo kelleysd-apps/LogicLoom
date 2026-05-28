@@ -10,7 +10,6 @@
     "setup:linux": "bash .logic-loom/scripts/setup.sh",
     "init": "bash init-project.sh",
     "test": "jest",
-    "test:contracts": "jest tests/contracts/",
     "test:integration": "jest tests/integration/",
     "test:validation": "jest tests/validation/",
     "lint": "echo \"Error: no linter configured\" && exit 1",
