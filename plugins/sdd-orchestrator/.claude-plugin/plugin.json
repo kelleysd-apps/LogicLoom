@@ -26,22 +26,24 @@
     ]
   },
   "skills": {
-    "count": 5,
+    "count": 6,
     "list": [
       "full-stack-feature",
       "migration-workflow",
       "multi-skill-workflow",
       "plan-review",
+      "retro",
       "team-orchestration"
     ]
   },
   "commands": {
-    "count": 6,
+    "count": 7,
     "list": [
       "build-team",
       "fullstack-team",
       "plan-review",
       "research",
+      "retro",
       "review-team",
       "swarm"
     ]
