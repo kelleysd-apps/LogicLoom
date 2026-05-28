@@ -33,13 +33,11 @@
   },
   "commands": {
     "count": 4,
-    "list": ["create-agent", "create-plugin", "create-prd", "create-skill"]
-  },
-  "rl_metrics": {
-    "success_rate": 0.5,
-    "selection_weight": 0.5,
-    "invocation_count": 0,
-    "avg_tokens": 0,
-    "last_updated": "2026-02-08T00:00:00Z"
+    "list": [
+      "create-agent",
+      "create-plugin",
+      "create-prd",
+      "create-skill"
+    ]
   }
 }

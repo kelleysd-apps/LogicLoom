@@ -36,16 +36,15 @@
   },
   "commands": {
     "count": 5,
-    "list": ["build-team", "fullstack-team", "research", "review-team", "swarm"]
+    "list": [
+      "build-team",
+      "fullstack-team",
+      "research",
+      "review-team",
+      "swarm"
+    ]
   },
   "dependencies": [
     "sdd-governance"
-  ],
-  "rl_metrics": {
-    "success_rate": 0.5,
-    "selection_weight": 0.5,
-    "invocation_count": 0,
-    "avg_tokens": 0,
-    "last_updated": "2026-02-06T00:00:00Z"
-  }
+  ]
 }

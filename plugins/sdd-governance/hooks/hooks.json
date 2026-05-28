@@ -13,12 +13,6 @@
       },
       "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/git-safety-gate.sh",
       "description": "Gate git operations requiring user approval (Principle VI)"
-    },
-    {
-      "event": "PostToolUse",
-      "matcher": {},
-      "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/rl-metrics-capture.sh",
-      "description": "Capture skill success/failure for per-plugin RL metrics"
     }
   ]
 }

@@ -4,8 +4,16 @@
   "description": "Git workflow safety plugin -- commit, push, PR with conflict resolution. All operations require user approval (Principle VI).",
   "author": "kelleysd-apps",
   "license": "MIT",
-  "keywords": ["sdd", "git", "safety", "PR", "commit"],
-  "dependencies": ["sdd-governance"],
+  "keywords": [
+    "sdd",
+    "git",
+    "safety",
+    "PR",
+    "commit"
+  ],
+  "dependencies": [
+    "sdd-governance"
+  ],
   "agents": {
     "count": 0,
     "list": []
@@ -19,13 +27,9 @@
   },
   "commands": {
     "count": 2,
-    "list": ["finalize", "git-push"]
-  },
-  "rl_metrics": {
-    "success_rate": 0.5,
-    "selection_weight": 0.5,
-    "invocation_count": 0,
-    "avg_tokens": 0,
-    "last_updated": "2026-02-06T00:00:00Z"
+    "list": [
+      "finalize",
+      "git-push"
+    ]
   }
 }

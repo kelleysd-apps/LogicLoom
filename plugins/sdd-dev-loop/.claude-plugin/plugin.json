@@ -10,8 +10,19 @@
     "sdd-specification",
     "sdd-git"
   ],
-  "permissions_required": ["Read", "Write", "Edit", "Bash", "Grep", "Glob", "Task"],
-  "permissions_elevated": ["WebSearch", "WebFetch"],
+  "permissions_required": [
+    "Read",
+    "Write",
+    "Edit",
+    "Bash",
+    "Grep",
+    "Glob",
+    "Task"
+  ],
+  "permissions_elevated": [
+    "WebSearch",
+    "WebFetch"
+  ],
   "agents": {
     "count": 0,
     "list": []
@@ -24,13 +35,8 @@
   },
   "commands": {
     "count": 1,
-    "list": ["dev-loop"]
-  },
-  "rl_metrics": {
-    "success_rate": 0.5,
-    "selection_weight": 0.5,
-    "invocation_count": 0,
-    "avg_tokens": 0,
-    "last_updated": null
+    "list": [
+      "dev-loop"
+    ]
   }
 }
