@@ -89,15 +89,19 @@ specs/*/
 **/.deprecated/
 
 # Memory search index (generated, regenerable)
+.loom-memory-index/
 .sdd-memory-index/
 vector_helper.py
 
 # Memory working tier (session-specific)
-plugins/sdd-memory/working/
-!plugins/sdd-memory/working/.gitkeep
-plugins/sdd-memory/recall/
-!plugins/sdd-memory/recall/.gitkeep
-plugins/sdd-memory/.retention-last-run
+plugins/loom-memory/working/
+!plugins/loom-memory/working/.gitkeep
+plugins/loom-memory/recall/
+!plugins/loom-memory/recall/.gitkeep
+plugins/loom-memory/.retention-last-run
+
+# Memory runtime logs (generated)
+.docs/memory/search-log.jsonl
 
 # Test artifacts
 test-checkpoint-*
