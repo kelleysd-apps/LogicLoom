@@ -102,7 +102,9 @@ Reads the named sprint from `plan.md`, spawns scope-bounded workers, writes to `
 
 ### 12. `/code-review`
 
-Focused review of the open PR.
+Focused review of the open PR. This is an **external Claude Code command** the
+workflow leans on — it is not shipped by LogicLoom (`loom-git` ships only
+`/git-push` and `/finalize`).
 
 ### 13. `/retro`
 

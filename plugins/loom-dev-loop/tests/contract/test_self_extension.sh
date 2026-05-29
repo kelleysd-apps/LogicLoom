@@ -51,7 +51,9 @@ echo ""
 # ══════════════════════════════════════════
 echo "Template and skill existence"
 assert "gap-analysis.md template exists" "[ -f '${TEMPLATES_DIR}/gap-analysis.md' ]"
-assert "self-extend SKILL.md exists" "[ -f '${PLUGIN_DIR}/skills/self-extend/SKILL.md' ]"
+# Self-extension capability is hosted within the dev-loop core-loop skill
+# (the standalone self-extend skill was consolidated into core-loop).
+assert "core-loop SKILL.md exists" "[ -f '${PLUGIN_DIR}/skills/core-loop/SKILL.md' ]"
 
 # Source libraries (tolerant of partially-implemented libs)
 LIBS_SOURCED=false

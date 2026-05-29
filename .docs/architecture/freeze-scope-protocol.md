@@ -23,32 +23,67 @@ Other tool calls (Read, Bash, Grep, Glob, Task, MCP tools) are not affected.
 
 ## 2. Active DAG context detection
 
-The hook activates only when an **active DAG context** is detected. Two
-mechanisms are checked, in order:
+The hook activates only when an **active DAG context** is detected. The
+context comes from two sources, which compose:
 
-1. **Environment variables** (preferred — set by `/swarm implement`):
-   - `LOOM_ACTIVE_FEATURE=<feature-name>` (required to activate)
-   - `LOOM_ACTIVE_TASK=<task-id>` (optional; if absent, the hook unions
-     `owns:` across the whole feature plan — lenient mode)
-2. **Marker file** (fallback for human-driven sessions):
+1. **Marker file** (primary — written by `/swarm implement` before each
+   dispatch; see §6):
    - Path: `<repo>/.loom-active-feature`
-   - Format: two lines, forgiving whitespace:
+   - Format (forgiving whitespace), carries both identity AND the resolved
+     ownership scope for the active task:
      ```
      feature: <feature-name>
      task: <task-id>
+     owns:
+       - <path-or-glob>
+       - ...
+     freeze:
+       - <path-or-glob>
+       - ...
      ```
+   - When the marker declares `owns:`/`freeze:`, **those lists are
+     authoritative** — the hook does not re-parse the nested-YAML plan.
+2. **Environment variables** (override for env-aware runners):
+   - `LOOM_ACTIVE_FEATURE=<feature-name>` — overrides the marker's `feature:`.
+   - `LOOM_ACTIVE_TASK=<task-id>` — overrides the marker's `task:`.
+   - Env vars only set identity; they do not carry scope. When env identity is
+     used without marker scope, the hook falls back to parsing `plan.md`
+     (see §3). `LOOM_ACTIVE_FEATURE` alone (no task) unions `owns:` across the
+     whole flat plan — lenient mode.
 
-**If neither is present, the hook default-allows every write.** This is the
-critical safety property: ad-hoc / free-form work is never blocked by
-plan-DAG machinery.
+A context is "active" once a `feature` is resolved from either source.
+
+**If no feature resolves from either source, the hook default-allows every
+write.** This is the critical safety property: ad-hoc / free-form work is
+never blocked by plan-DAG machinery.
 
 ## 3. When active
 
-When `LOOM_ACTIVE_FEATURE` resolves, the hook reads
-`features/<feature>/plan.md` and extracts the active task's `owns:` and
-`freeze:` lists from the YAML-ish DAG block (see loom-architecture.md §5).
+Scope (the active task's `owns:`/`freeze:` lists) resolves in priority order:
 
-If `plan.md` is missing, the hook default-allows — it cannot enforce a
+1. **Marker-provided scope** (primary): if `.loom-active-feature` declares
+   `owns:`/`freeze:`, the hook uses them directly. `/swarm implement` resolves
+   each task's scope from the nested-YAML plan once (at plan-parse time) and
+   writes the concrete lists into the marker before dispatch. The hook never
+   has to parse the nested YAML.
+2. **plan.md fallback** (only when the marker carried no scope): the hook
+   reads `features/<feature>/plan.md` and extracts the active task's `owns:`
+   and `freeze:` lists from the **flat** `## task: <id>` blocks:
+   ```
+   ## task: <id>
+   owns:
+     - path/one
+   freeze:
+     - path/two
+   ```
+   This flat form is what the hook's `extract_list` awk parser consumes. It is
+   distinct from the nested-YAML frontmatter that `/swarm implement` parses
+   (loom-architecture.md §5): the nested plan is the model-side SSOT; this
+   flat block is an optional hook-readable mirror for human-driven sessions
+   that set only `feature:`/`task:` and want the hook to self-serve scope.
+
+If neither source yields any `owns:`/`freeze:` scope (e.g. `plan.md` missing
+and marker had no lists), the hook default-allows — it cannot enforce a
 contract it cannot read. This is intentional: a partially-set marker file
 should not brick writes.
 
@@ -66,9 +101,22 @@ For a given write target (resolved from `tool_input.file_path`,
 4. **No owns declared**: default-allow (lenient — a task that forgot to
    declare ownership is treated as ad-hoc).
 
-Decisions are returned as JSON on stdout
-(`{"hookEventName":"PreToolUse","decision":"approve|block","reason":"..."}`)
-plus a human-readable line on stderr for the deny case.
+Decisions are returned as JSON on stdout using the current Claude Code
+PreToolUse permission-decision schema (the same schema the sibling hooks
+`git-safety-gate.sh` / `guard-dangerous-commands.sh` use):
+
+```json
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}
+```
+```json
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"..."}}
+```
+
+A human-readable `[BLOCKED freeze-write-scope] ...` line is also emitted on
+stderr for the deny case. The hook exits `0` in both cases — the decision is
+carried by the JSON body, not the exit code (the legacy
+`{"decision":"approve|block"}` schema and the nonzero-exit-to-block convention
+are no longer used).
 
 ## 5. Glob behavior
 
@@ -87,21 +135,29 @@ write-time check here and for the one-task-one-owner plan validator).
 
 ## 6. Integration with /swarm implement
 
-The integration contract is one-sided: `/swarm implement` is responsible
-for injecting the env vars; the hook is responsible for reading them.
+The integration contract is one-sided: `/swarm implement` is responsible for
+**establishing the active-task context**; the hook is responsible for reading
+it. The context must exist before the worker runs or the guarantee is a no-op.
 
-Per the swarm-implement SKILL.md, before dispatching each worker task,
-`/swarm implement`:
+Per the swarm-implement SKILL.md (Task Brief step 6), before dispatching each
+worker task, `/swarm implement`:
 
-1. Resolves the feature name and task id from the plan-DAG it is walking.
-2. Injects `LOOM_ACTIVE_FEATURE` and `LOOM_ACTIVE_TASK` into the spawned
-   Task's environment.
-3. Dispatches the worker.
+1. Resolves the feature name, task id, and the task's `owns:`/`freeze:` lists
+   from the plan-DAG it parsed at load time.
+2. **Writes the marker file** `<repo>/.loom-active-feature` with
+   `feature:`/`task:` plus the resolved `owns:`/`freeze:` lists inline. This
+   is the primary, reliable mechanism — the marker is read on every write
+   attempt regardless of how the worker process was spawned.
+3. Optionally also injects `LOOM_ACTIVE_FEATURE` / `LOOM_ACTIVE_TASK` env vars
+   (override for env-aware runners).
+4. Dispatches the worker.
+5. After the worker returns, **tears down the marker** (delete it, or
+   overwrite it with the next task's scope) so stale ownership never
+   constrains subsequent ad-hoc or next-task writes.
 
-The hook then reads those env vars on every write attempt and enforces the
-scope declared in the plan. Workers spawned for task `T07` therefore can
-only write to `T07`'s `owns:` paths, regardless of what the worker tries
-to do.
+The hook then reads the marker on every write attempt and enforces the scope
+it declares. Workers dispatched for task `T07` can therefore only write to
+`T07`'s `owns:` paths, regardless of what the worker tries to do.
 
 ## 7. Pre-existing latent bug note
 
@@ -143,22 +199,27 @@ This file should be added to `.gitignore`. The gitignore edit is **deferred
 
 ## 9. Testing
 
-The following scenarios were verified in a scratch repo during Stage 11.
-Each pair is a positive (allow) and a negative (deny):
+Automated contract test: `tests/contract/test_freeze_scope.sh`. It builds an
+isolated fake repo, copies the hook in, and drives it with synthetic
+PreToolUse Write/Edit payloads. Run it directly (`bash
+tests/contract/test_freeze_scope.sh`); it is bash-3.2 safe and needs no deps
+beyond awk/sed/grep (jq optional). It covers both the marker-scope path and
+the plan.md flat-format fallback, and asserts the output uses the current
+`permissionDecision` schema. The scenarios:
 
 - **No marker file, no env vars** → write to arbitrary path **allowed**
   (default-allow safety property).
-- **`LOOM_ACTIVE_FEATURE=demo` set, plan.md missing** → write **allowed**
-  (can't enforce a contract it can't read).
-- **Active feature + task, write target in `owns:`** → **allowed**.
-- **Active feature + task, write target outside `owns:`** → **denied**
-  with "OUTSIDE owns scope" reason.
-- **Active feature + task, write target in `freeze:`** → **denied** with
-  "FREEZE list" reason (freeze takes precedence even if a sibling task
-  owns the path).
-- **Marker file with `feature:` line but no `task:` line** → uses lenient
-  union-of-all-tasks mode for `owns:`.
-- **Marker file plus env var both set** → env var wins.
+- **Marker carries `owns:`/`freeze:`, target in `owns:`** → **allowed**.
+- **Marker carries `owns:`, target outside it** → **denied** with "OUTSIDE
+  owns scope" reason.
+- **Marker carries `freeze:`, target in it** → **denied** with "FREEZE list"
+  reason (freeze takes precedence even if a sibling task owns the path).
+- **Marker with `feature:`/`task:` only (no scope), plan.md present** → hook
+  falls back to the flat `## task:` block in plan.md for `owns:`/`freeze:`.
+- **`LOOM_ACTIVE_FEATURE`/`LOOM_ACTIVE_TASK` env set, plan.md present, no
+  marker scope** → env identity + plan.md fallback enforce the task scope.
+- **Marker plus env var both set** → env var wins for identity; marker scope
+  (if any) still authoritative for `owns:`/`freeze:`.
 - **Non-write tool (Bash, Read)** → not gated; default-allow.
 - **Strict-mode sourcing of logging.sh** → does not trip the hook
   (workaround in §7 holds).

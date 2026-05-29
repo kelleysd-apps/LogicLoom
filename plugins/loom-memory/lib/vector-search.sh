@@ -355,7 +355,7 @@ def reindex_all(repo_root, vector_dir, metadata_dir, chunk_size=512, overlap=64)
     search_dirs = [
         os.path.join(repo_root, "specs"),
         os.path.join(repo_root, ".docs"),
-        os.path.join(repo_root, ".specify", "memory"),
+        os.path.join(repo_root, ".logic-loom", "memory"),
         os.path.join(repo_root, "plugins"),
     ]
 
@@ -375,12 +375,12 @@ def reindex_all(repo_root, vector_dir, metadata_dir, chunk_size=512, overlap=64)
         if not os.path.isdir(search_dir):
             continue
         for root, _dirs, files in os.walk(search_dir):
-            # Skip hidden directories (except .specify, .docs, .devloop)
+            # Skip hidden directories (except .logic-loom, .docs, .devloop)
             rel_root = os.path.relpath(root, repo_root)
             parts = rel_root.split(os.sep)
             skip = False
             for part in parts:
-                if part.startswith(".") and part not in (".specify", ".docs", ".devloop"):
+                if part.startswith(".") and part not in (".logic-loom", ".docs", ".devloop"):
                     skip = True
                     break
             if skip:

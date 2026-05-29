@@ -6,11 +6,6 @@ description: {{SKILL_DESCRIPTION}}
 triggers:
   - {{PRIMARY_TRIGGER}}
   - {{SECONDARY_TRIGGERS}}
-rl_metrics:
-  success_rate: 0.0
-  selection_weight: 0.5
-  invocation_count: 0
-  avg_tokens: 0
 progressive-disclosure:
   layer-1-metadata:
     description: {{SHORT_DESCRIPTION}}
@@ -22,10 +17,9 @@ agent-invocations:
   - agent: {{PRIMARY_AGENT}}
     context-subset: [{{CONTEXT_FIELDS}}]
     expected-output: {{OUTPUT_TYPE}}
-ds-star:
+governance:
   pre-execution: validation/message-preflight
   post-verification: true
-  auto-debug: conditional
 ---
 
 # {{SKILL_NAME}} Skill
@@ -72,11 +66,10 @@ expected:
   validation: {{VALIDATION_CRITERIA}}
 ```
 
-## Quality Gates (DS-STAR)
+## Quality Gates
 
-- Pre-execution: FR-707 compliance check required
+- Pre-execution: message pre-flight compliance check required
 - Post-verification: Verifier validates {{VALIDATION_TARGET}}
-- Auto-debug: Triggered on {{DEBUG_CONDITION}}
 
 ## Examples
 

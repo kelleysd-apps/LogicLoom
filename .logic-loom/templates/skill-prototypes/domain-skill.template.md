@@ -9,11 +9,6 @@ triggers:
   - {{KEYWORD_3}}
   - {{KEYWORD_4}}
   - {{KEYWORD_5}}
-rl_metrics:
-  success_rate: 0.0
-  selection_weight: 0.5
-  invocation_count: 0
-  avg_tokens: 0
 progressive-disclosure:
   layer-1-metadata:
     description: "Handles {{DOMAIN}} domain operations"
@@ -33,10 +28,9 @@ agent-invocations:
       - code_to_review
       - quality_criteria
     expected-output: validation
-ds-star:
+governance:
   pre-execution: validation/message-preflight
   post-verification: true
-  auto-debug: true
 ---
 
 # {{DOMAIN}} Operations Skill
@@ -126,13 +120,13 @@ Post-execution verification:
 - {{CONTEXT_REQ_5}}
 - {{CONTEXT_REQ_6}}
 
-## DS-STAR Integration
+## Verification Flow
 
 ```
 User Request
     |
     v
-[FR-707] Compliance Check
+Message Pre-Flight Compliance Check
     |
     v
 {{SKILL_NAME}} Skill Activation
@@ -148,7 +142,7 @@ Verifier Validation
     |
     +-> SUFFICIENT: Return result
     |
-    +-> INSUFFICIENT: Auto-Debug
+    +-> INSUFFICIENT: Revise
 ```
 
 ## Examples
@@ -190,13 +184,12 @@ Verifier Validation
 |----------|-----------|------------|
 | Agent unavailable | Timeout | Fallback to {{FALLBACK_AGENT}} |
 | Invalid context | Validation | Request missing information |
-| Quality failure | Verifier | Trigger auto-debug |
+| Quality failure | Verifier | Request revision |
 
-## RL Metrics
+## Metrics
 
 - **Success Criteria**: Task completed, verifier passes
 - **Token Efficiency**: Target < {{TOKEN_TARGET}} tokens
-- **Learning Rate**: 0.1 (EMA)
 
 ## Related Skills
 

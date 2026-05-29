@@ -6,11 +6,6 @@ description: {{ORCHESTRATION_DESCRIPTION}}
 triggers:
   - {{PRIMARY_TRIGGER}}
   - {{SECONDARY_TRIGGERS}}
-rl_metrics:
-  success_rate: 0.0
-  selection_weight: 0.5
-  invocation_count: 0
-  avg_tokens: 0
 progressive-disclosure:
   layer-1-metadata:
     description: "Orchestrates {{WORKFLOW_TYPE}}"
@@ -31,10 +26,9 @@ agent-invocations:
   - agent: {{DOMAIN_AGENT_2}}
     context-subset: [{{CONTEXT_2}}]
     expected-output: {{OUTPUT_2}}
-ds-star:
+governance:
   pre-execution: validation/message-preflight
   post-verification: true
-  auto-debug: true
 ---
 
 # {{SKILL_NAME}} Orchestration Skill
@@ -51,7 +45,7 @@ Coordinates multiple domain skills and agents to complete {{WORKFLOW_TYPE}} work
 User Request (Multi-Domain)
     |
     v
-[FR-707] Compliance Check
+Message Pre-Flight Compliance Check
     |
     v
 {{SKILL_NAME}} Activation
@@ -122,15 +116,12 @@ Determine execution order based on dependencies:
 
 1. **Initialize Workflow**
    - Create workflow session
-   - Set up credit tracking
-   - Initialize RL metrics
 
 2. **Execute Skills**
    - For each skill in sequence:
      - Activate skill with minimal context
      - Skill invokes appropriate agent
      - Capture output
-     - Update RL metrics
 
 3. **Aggregate Results**
    - Combine outputs from all skills
@@ -139,7 +130,6 @@ Determine execution order based on dependencies:
 
 4. **Finalize**
    - Run verifier validation
-   - Distribute RL rewards
    - Log completion
 
 ## Agent Coordination
@@ -246,14 +236,6 @@ If workflow coordinator fails:
 1. Fall back to sequential execution
 2. Use default skill order
 3. Log degraded mode
-
-## RL Metrics
-
-Orchestration rewards distributed using credit assignment:
-
-- **Skill orchestration**: 40% of total reward
-- **Agent execution**: 50% of total reward
-- **Context provision**: 10% of total reward
 
 ## Quality Gates
 

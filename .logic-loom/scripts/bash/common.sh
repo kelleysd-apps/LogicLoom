@@ -573,9 +573,9 @@ get_domain_brief() {
     [ -n "$domain" ] || return 0
 
     # Resolve the governance core plugin dir (loom-governance after rename;
-    # loom-governance before). First match wins.
+    # sdd-governance before). First match wins.
     local gov_dir
-    for gov_dir in loom-governance loom-governance; do
+    for gov_dir in loom-governance sdd-governance; do
         local brief_file="$REPO_ROOT/plugins/$gov_dir/domain-briefs/${domain}.md"
         if [ -f "$brief_file" ]; then
             # Emit content from the "## Task Brief" heading to EOF (skip the header).

@@ -19,5 +19,12 @@
   "commands": {
     "count": 0,
     "list": []
-  }
+  },
+  "config": {
+    "domains_conf": "config/domains.conf"
+  },
+  "constitutional_principles": [
+    "X",
+    "XVI"
+  ]
 }

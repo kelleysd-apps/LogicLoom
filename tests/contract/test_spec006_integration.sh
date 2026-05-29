@@ -91,15 +91,15 @@ done
 assert "domain-briefs registry README exists" "[ -f '$GOV_DIR/domain-briefs/README.md' ]"
 
 # Memory plugin should be v2.0.0
-MEM_VERSION=$(python3 -c "import json; print(json.load(open('$ROOT_DIR/plugins/loom-memory/plugin.json'))['version'])" 2>/dev/null)
+MEM_VERSION=$(python3 -c "import json; print(json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
 assert "loom-memory plugin version is 2.0.0 (found ${MEM_VERSION})" "[ '${MEM_VERSION}' = '2.0.0' ]"
 
 # Memory plugin has backends field
-assert "loom-memory plugin.json has backends field" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/plugin.json')); assert 'backends' in d\""
-assert "backends has keyword entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/plugin.json')); assert 'keyword' in d['backends']\""
-assert "backends has bm25 entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/plugin.json')); assert 'bm25' in d['backends']\""
-assert "backends has vector entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/plugin.json')); assert 'vector' in d['backends']\""
-assert "backends has hybrid entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/plugin.json')); assert 'hybrid' in d['backends']\""
+assert "loom-memory plugin.json has backends field" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'backends' in d\""
+assert "backends has keyword entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'keyword' in d['backends']\""
+assert "backends has bm25 entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'bm25' in d['backends']\""
+assert "backends has vector entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'vector' in d['backends']\""
+assert "backends has hybrid entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'hybrid' in d['backends']\""
 
 echo ""
 
@@ -239,9 +239,10 @@ echo "--- Cross-Cutting Validation ---"
 ORPHAN_DOMAINS=$(find "$ROOT_DIR/plugins" -maxdepth 1 -type d -name 'sdd-domain-*' 2>/dev/null | wc -l | tr -d ' ')
 assert "No sdd-domain-* plugin dirs remain (found ${ORPHAN_DOMAINS})" "[ ${ORPHAN_DOMAINS} -eq 0 ]"
 
-# All plugin.json files are valid JSON
+# All plugin manifests are valid JSON (canonical location: .claude-plugin/plugin.json)
 INVALID_JSON=0
-for pjson in "$ROOT_DIR"/plugins/*/plugin.json; do
+for pjson in "$ROOT_DIR"/plugins/*/.claude-plugin/plugin.json; do
+  [ -f "$pjson" ] || continue
   if ! python3 -c "import json; json.load(open('$pjson'))" 2>/dev/null; then
     INVALID_JSON=$((INVALID_JSON + 1))
     echo "    WARNING: Invalid JSON in $pjson"

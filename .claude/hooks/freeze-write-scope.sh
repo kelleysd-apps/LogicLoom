@@ -5,7 +5,7 @@
 # Enforces plan-as-DAG file ownership during /swarm implement runs.
 # When an active feature/task context is set, write tools (Write, Edit,
 # MultiEdit, NotebookEdit) may only target files declared in the task's
-# `owns:` list. Files in any task's `freeze:` list are rejected.
+# `owns:` list. Files in the task's `freeze:` list are rejected.
 #
 # Default-allow semantics: if no active DAG context is detected, every
 # write is permitted — ad-hoc / free-form work is never blocked.
@@ -15,10 +15,26 @@
 #   2. Marker file: <repo>/.loom-active-feature  with lines:
 #        feature: <feature-name>
 #        task: <task-id>
+#        owns:
+#          - <path-or-glob>
+#          ...
+#        freeze:
+#          - <path-or-glob>
+#          ...
+#
+# Scope resolution (owns:/freeze: lists), in priority order:
+#   A. If the marker file declares owns:/freeze: lists, those are authoritative.
+#      swarm-implement writes the active task's resolved scope here before each
+#      worker dispatch (see swarm-implement/SKILL.md §6). This is the primary
+#      mechanism — the hook does not have to re-parse the nested-YAML plan.
+#   B. Otherwise, fall back to parsing the flat `## task: <id>` blocks in
+#      features/<feature>/plan.md (lenient; for human-driven sessions that set
+#      only feature:/task: but rely on a flat plan).
 #
 # Input:  Claude Code PreToolUse JSON via stdin, e.g.:
 #   {"tool_name":"Edit","tool_input":{"file_path":"/abs/path/file.ts", ...}}
-# Output: JSON decision. Exit non-zero with reason to block.
+# Output: Claude Code PreToolUse permission decision JSON on stdout:
+#   {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow|deny","permissionDecisionReason":"..."}}
 
 set -euo pipefail
 
@@ -28,8 +44,8 @@ POLICY_LIB="$REPO_ROOT/.logic-loom/lib/policy.sh"
 MARKER_FILE="$REPO_ROOT/.loom-active-feature"
 
 allow() {
-    # PreToolUse contract: empty/no decision = allow. Print compact JSON to be safe.
-    printf '{"hookEventName":"PreToolUse","decision":"approve"}\n'
+    # Current Claude Code PreToolUse schema. Emit an explicit allow.
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}\n'
     exit 0
 }
 
@@ -38,10 +54,11 @@ deny() {
     local esc=${reason//\\/\\\\}
     esc=${esc//\"/\\\"}
     esc=${esc//$'\n'/\\n}
-    # Emit a deny decision (Claude Code reads stderr for human message too)
-    printf '{"hookEventName":"PreToolUse","decision":"block","reason":"%s"}\n' "$esc"
+    # Current Claude Code PreToolUse schema: deny with a reason surfaced to the model.
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$esc"
+    # Also emit a human-readable line on stderr.
     printf '[BLOCKED freeze-write-scope] %s\n' "$reason" >&2
-    exit 1
+    exit 0
 }
 
 # Drain stdin
@@ -88,26 +105,106 @@ esac
 active_feature="${LOOM_ACTIVE_FEATURE:-}"
 active_task="${LOOM_ACTIVE_TASK:-}"
 
-if [ -z "$active_feature" ] && [ -f "$MARKER_FILE" ]; then
-    # Parse "feature: <name>" and "task: <id>" lines (very forgiving)
-    while IFS= read -r line; do
+# Scope lists sourced directly from the marker file (primary mechanism).
+marker_owns=""
+marker_freeze=""
+
+if [ -f "$MARKER_FILE" ]; then
+    # Parse the marker file. Recognizes:
+    #   feature: <name>
+    #   task: <id>
+    #   owns:        (list header; following "  - <path>" lines belong to it)
+    #   freeze:      (list header)
+    # Env-provided feature/task win over the marker's feature/task lines.
+    _section=""
+    _m_feature=""
+    _m_task=""
+    while IFS= read -r line || [ -n "$line" ]; do
+        # List item under the active section?
+        case "$line" in
+            *-\ *|*-$'\t'*)
+                item=$(printf '%s' "$line" | sed -n 's/^[[:space:]]*-[[:space:]]*\(.*\)$/\1/p' | sed 's/[[:space:]]*$//')
+                if [ -n "$item" ]; then
+                    case "$_section" in
+                        owns)   marker_owns="${marker_owns}${item}"$'\n' ;;
+                        freeze) marker_freeze="${marker_freeze}${item}"$'\n' ;;
+                    esac
+                    continue
+                fi
+                ;;
+        esac
+        # key: value (or key: with empty value -> list header)
         key=$(printf '%s' "$line" | sed -n 's/^[[:space:]]*\([a-zA-Z_]*\)[[:space:]]*:.*/\1/p')
         val=$(printf '%s' "$line" | sed -n 's/^[^:]*:[[:space:]]*\(.*\)$/\1/p' | sed 's/[[:space:]]*$//')
         case "$key" in
-            feature) active_feature="$val" ;;
-            task)    active_task="$val" ;;
+            feature) _m_feature="$val"; _section="" ;;
+            task)    _m_task="$val"; _section="" ;;
+            owns)    _section="owns" ;;
+            freeze)  _section="freeze" ;;
+            *)       _section="" ;;
         esac
     done < "$MARKER_FILE"
+
+    [ -n "$active_feature" ] || active_feature="$_m_feature"
+    [ -n "$active_task" ]    || active_task="$_m_task"
 fi
 
 # No active DAG context -> default allow (this is the critical safety property)
 [ -n "$active_feature" ] || allow
 
 # ============================================================
-# Locate the feature plan
+# Resolve owns:/freeze: scope lists
 # ============================================================
-plan_file="$REPO_ROOT/features/${active_feature}/plan.md"
-[ -f "$plan_file" ] || allow  # Plan missing -> can't enforce, default allow
+# Priority A: marker-provided scope (authoritative when present).
+owns_list="$marker_owns"
+freeze_list="$marker_freeze"
+
+# Priority B: fall back to parsing the feature plan when the marker carried
+# no scope. Uses the flat `## task: <id>` block format.
+if [ -z "$owns_list" ] && [ -z "$freeze_list" ]; then
+    plan_file="$REPO_ROOT/features/${active_feature}/plan.md"
+    if [ -f "$plan_file" ]; then
+        # plan.md flat DAG task block convention:
+        #   ## task: <task-id>
+        #   owns:
+        #     - path/one
+        #     - path/two
+        #   freeze:
+        #     - path/three
+        #
+        # If task is unspecified, we union all owns:/freeze: across the plan.
+        extract_list() {
+            # extract_list <plan_file> <task_id> <key>   key = "owns" | "freeze"
+            local pf="$1" task="$2" key="$3"
+            awk -v task="$task" -v key="$key" '
+                BEGIN { in_task = (task == ""); in_key = 0 }
+                /^##[[:space:]]+task:/ {
+                    sub(/^##[[:space:]]+task:[[:space:]]*/, "", $0)
+                    gsub(/[[:space:]]+$/, "", $0)
+                    if (task == "" || $0 == task) { in_task = 1 } else { in_task = 0 }
+                    in_key = 0
+                    next
+                }
+                /^##[[:space:]]/ { in_task = (task == "" ? 1 : 0); in_key = 0; next }
+                in_task && $0 ~ "^"key":[[:space:]]*$" { in_key = 1; next }
+                in_task && in_key && /^[a-zA-Z_]+:[[:space:]]*$/ { in_key = 0 }
+                in_task && in_key && /^[[:space:]]*-[[:space:]]+/ {
+                    line = $0
+                    sub(/^[[:space:]]*-[[:space:]]+/, "", line)
+                    gsub(/[[:space:]]+$/, "", line)
+                    print line
+                }
+            ' "$pf"
+        }
+        owns_list=$(extract_list "$plan_file" "$active_task" "owns")
+        freeze_list=$(extract_list "$plan_file" "$active_task" "freeze")
+    fi
+fi
+
+# If we resolved no scope at all, we cannot enforce -> default allow.
+if [ -z "$owns_list" ] && [ -z "$freeze_list" ]; then
+    allow
+fi
 
 # Source policy.sh for the helper (provides loom_check_freeze_scope).
 # policy.sh transitively sources logging.sh which trips `set -u` on unset
@@ -125,48 +222,6 @@ fi
 REPO_ROOT="$_loom_saved_repo_root"
 unset _loom_saved_repo_root
 
-# ============================================================
-# Extract owns: and freeze: lists for the active task from plan.md
-# ============================================================
-# plan.md DAG task block convention (Stage 10):
-#   ## task: <task-id>
-#   owns:
-#     - path/one
-#     - path/two
-#   freeze:
-#     - path/three
-#
-# We parse the YAML-ish block under the active task heading. If task is
-# unspecified, we union all owns: across the plan (lenient).
-extract_list() {
-    # extract_list <plan_file> <task_id> <key>
-    #   key = "owns" or "freeze"
-    local pf="$1" task="$2" key="$3"
-    awk -v task="$task" -v key="$key" '
-        BEGIN { in_task = (task == ""); in_key = 0 }
-        /^##[[:space:]]+task:/ {
-            # New task heading
-            sub(/^##[[:space:]]+task:[[:space:]]*/, "", $0)
-            gsub(/[[:space:]]+$/, "", $0)
-            if (task == "" || $0 == task) { in_task = 1 } else { in_task = 0 }
-            in_key = 0
-            next
-        }
-        /^##[[:space:]]/ { in_task = (task == "" ? 1 : 0); in_key = 0; next }
-        in_task && $0 ~ "^"key":[[:space:]]*$" { in_key = 1; next }
-        in_task && in_key && /^[a-zA-Z_]+:[[:space:]]*$/ { in_key = 0 }
-        in_task && in_key && /^[[:space:]]*-[[:space:]]+/ {
-            line = $0
-            sub(/^[[:space:]]*-[[:space:]]+/, "", line)
-            gsub(/[[:space:]]+$/, "", line)
-            print line
-        }
-    ' "$pf"
-}
-
-owns_list=$(extract_list "$plan_file" "$active_task" "owns")
-freeze_list=$(extract_list "$plan_file" "$active_task" "freeze")
-
 # Normalize the target to a path relative to repo root for matching.
 # bash 3.2 quirk: ${var#"$prefix"} (quoted) does not strip when prefix
 # contains '/'. Use unquoted form — REPO_ROOT is a path with no glob chars.
@@ -174,13 +229,12 @@ rel_target="$file_path"
 prefix="$REPO_ROOT/"
 case "$rel_target" in
     "$REPO_ROOT"/*)
-        # Strip via plain substring chop (no parameter expansion quoting)
         rel_target="${rel_target:${#prefix}}"
         ;;
 esac
 
 # ============================================================
-# Check freeze: list first (hard reject across all tasks if matched)
+# Check freeze: list first (hard reject if matched)
 # ============================================================
 if [ -n "$freeze_list" ]; then
     while IFS= read -r frozen; do

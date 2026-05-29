@@ -277,6 +277,7 @@ shift
 AGENT_NAME=""
 CATEGORY=""
 DESCRIPTION=""
+TARGET_PLUGIN="loom-creation"  # Default home for new skills
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -292,12 +293,29 @@ while [[ $# -gt 0 ]]; do
             DESCRIPTION="$2"
             shift 2
             ;;
+        --plugin)
+            TARGET_PLUGIN="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
             exit 1
             ;;
     esac
 done
+
+# Technical "domains" are no longer separate plugins. They live as briefs in
+# the governance domain-brief registry (plugins/loom-governance/domain-briefs/).
+# If the user asked for a domain category, redirect them there instead of
+# scaffolding a skill into a deleted sdd-domain-* plugin.
+DOMAIN_BRIEFS="frontend backend database testing security performance devops"
+is_domain() {
+    local cand="$1"
+    for d in $DOMAIN_BRIEFS; do
+        [[ "$cand" == "$d" ]] && return 0
+    done
+    return 1
+}
 
 # Validate skill name
 if [[ ! "$SKILL_NAME" =~ ^[a-z]+(-[a-z]+)*$ ]]; then
@@ -333,11 +351,30 @@ if [[ -z "$DESCRIPTION" ]]; then
     fi
 fi
 
-# Create skill directory
-SKILL_DIR="${REPO_ROOT}/plugins/sdd-domain-${CATEGORY}/skills/${SKILL_NAME}"
+# If the requested category/skill maps to a technical domain, redirect the
+# user to the governance domain-brief registry rather than creating a skill.
+if is_domain "$CATEGORY" || is_domain "$SKILL_NAME"; then
+    DOMAIN="$CATEGORY"
+    is_domain "$DOMAIN" || DOMAIN="$SKILL_NAME"
+    echo -e "${YELLOW}ℹ  '${DOMAIN}' is a technical domain, not a skill.${NC}"
+    echo -e "${YELLOW}   Domains live as briefs in the governance registry:${NC}"
+    echo -e "${BLUE}     plugins/loom-governance/domain-briefs/${DOMAIN}.md${NC}"
+    echo -e "${YELLOW}   Edit that brief (or add one) instead of scaffolding a skill.${NC}"
+    echo -e "${YELLOW}   See: plugins/loom-governance/domain-briefs/README.md${NC}"
+    exit 1
+fi
+
+# Create skill directory inside a real loom-* plugin (default: loom-creation).
+PLUGIN_DIR="${REPO_ROOT}/plugins/${TARGET_PLUGIN}"
+if [[ ! -d "$PLUGIN_DIR" ]]; then
+    echo -e "${RED}✗ Target plugin '${TARGET_PLUGIN}' not found at plugins/${TARGET_PLUGIN}${NC}"
+    echo -e "${YELLOW}   Pass --plugin <loom-plugin> with a valid plugin directory.${NC}"
+    exit 1
+fi
+SKILL_DIR="${PLUGIN_DIR}/skills/${SKILL_NAME}"
 
 if [[ -d "$SKILL_DIR" ]]; then
-    echo -e "${RED}✗ Skill '${SKILL_NAME}' already exists in category '${CATEGORY}'${NC}"
+    echo -e "${RED}✗ Skill '${SKILL_NAME}' already exists in plugin '${TARGET_PLUGIN}'${NC}"
     exit 1
 fi
 
@@ -356,7 +393,8 @@ echo -e "${GREEN}✨ Skill: ${SKILL_NAME}${NC}"
 echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 echo -e "${BLUE}Category:${NC} ${CATEGORY}"
-echo -e "${BLUE}Location:${NC} plugins/sdd-domain-${CATEGORY}/skills/${SKILL_NAME}/SKILL.md"
+echo -e "${BLUE}Plugin:${NC} ${TARGET_PLUGIN}"
+echo -e "${BLUE}Location:${NC} plugins/${TARGET_PLUGIN}/skills/${SKILL_NAME}/SKILL.md"
 if [[ -n "$AGENT_NAME" ]]; then
     echo -e "${BLUE}Associated Agent:${NC} ${AGENT_NAME}"
 fi

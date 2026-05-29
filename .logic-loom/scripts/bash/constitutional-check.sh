@@ -405,7 +405,7 @@ echo "Checking for AI model configuration..."
 
 # Check for model selection documentation or configuration
 MODEL_CONFIG=false
-if grep -r "claude.*sonnet\|claude.*opus\|model.*selection\|AI.*model" "$REPO_ROOT/.claude" "$REPO_ROOT/.specify" "$REPO_ROOT/CLAUDE.md" "$REPO_ROOT/AGENTS.md" 2>/dev/null | head -1 | grep -q .; then
+if grep -r "claude.*sonnet\|claude.*opus\|model.*selection\|AI.*model" "$REPO_ROOT/.claude" "$REPO_ROOT/.logic-loom" "$REPO_ROOT/CLAUDE.md" "$REPO_ROOT/AGENTS.md" 2>/dev/null | head -1 | grep -q .; then
     MODEL_CONFIG=true
 fi
 

@@ -111,7 +111,7 @@ test / fix                        (direct debug loop on failures)
     ↓
 /git-push                         (commit + PR with explicit approval)
     ↓
-/code-review                      (Claude plugin — PR-level review)
+/code-review                      (external Claude Code command — PR-level review)
     ↓
 /retro <feature>                  (sprint retrospective → memory write)
     ↓
@@ -182,13 +182,12 @@ For new work, prefer `/swarm explore` over individual specialist routing.
 
 ---
 
-## Constitution & Governance (UNCHANGED)
+## Constitution Principles
 
 **ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v3.0.0) contains **16 enforceable principles** unchanged from
-SDD-era. Governance hooks, the preflight injection, and the git-safety gate
-all continue to operate as before.
+The constitution (v3.1.0) contains **16 enforceable principles**. Enforcement is
+hook-side (see the **Governance** section above); the list below is a quick map.
 
 - **3 Immutable** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
@@ -199,33 +198,28 @@ all continue to operate as before.
 | Principle | Requirement | Consequence |
 |---|---|---|
 | **II (Test-First)** | TDD mandatory, >80% coverage | IMMUTABLE — blocks merge |
-| **VI (Git Approval)** | NO autonomous git operations | CRITICAL — always ask user |
+| **VI (Git Approval)** | NO autonomous git operations | CRITICAL — hook-gated (`git-safety-gate.sh` / `subagent-git-guard.sh`) |
 | **X (Agent Delegation)** | Specialized work → specialists or `/swarm` | CRITICAL — delegate or violate |
 | **XVI (Plugin-First)** | Capabilities as installable plugins | CRITICAL — all new features as plugins |
 
-### Git Operations (Principle VI)
-
-**NO automatic Git operations without user approval.** This includes branch
-creation/switching/deletion, commits, pushes, pulls, merges, history edits.
-
-- `/git-push` requests explicit approval at each stage gate.
-- `/finalize` (SDD pack) validates compliance but NEVER executes git commands.
+(Git operations under Principle VI are detailed in the **Governance** section above.)
 
 ---
 
 ## LogicLoom Hooks
 
-The framework ships three new hooks under `.claude/hooks/` (in addition to the
-unchanged governance preflight and dangerous-command guard):
+Full hook inventory under `.claude/hooks/` (see the **Governance** section for
+how each maps to a principle):
 
 | Hook | Purpose |
 |---|---|
+| `subagent-git-guard.sh` | Denies ANY git command from a subagent (Principle VI). Git is main-agent + direct-user-request only |
+| `git-safety-gate.sh` | Forces an approval prompt on main-agent git mutations (Principle VI). No autonomous git |
+| `guard-dangerous-commands.sh` | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
+| `governance-preflight.sh` | Injects domain briefs + memory context on `UserPromptSubmit` (and, in strict mode, the pre-flight recitation) |
 | `worktree-port-namespace.sh` | Computes per-worktree port/db namespaces (`PORT_BASE`, `DB_PORT`) so parallel worktrees don't collide |
 | `context-cap-warn.sh` | At 800K of 1M default context, injects reset reminder + handoff-artifact prompt to avoid "context anxiety" wrap-up bias |
 | `freeze-write-scope.sh` | Hook-level enforcement of plan-as-DAG file ownership: rejects writes outside the active task's declared `owns:` scope; default-allows when no DAG context |
-
-Existing hooks unchanged: `user-prompt-submit/` (governance preflight),
-`guard-dangerous-commands.sh`.
 
 ---
 
@@ -294,7 +288,7 @@ Commands are synced from plugins to `.claude/commands/` via the bridge:
 ```
 .logic-loom/
   memory/
-    constitution.md                    # 16 principles (v3.0.0 — UNCHANGED)
+    constitution.md                    # 16 principles (v3.1.0)
     constitution_update_checklist.md
   scripts/bash/                        # Workflow automation + plugin bridge
   templates/                           # vision-template, prd-template, plan-template, ...
@@ -312,9 +306,8 @@ features/                              # Swarm pack: per-feature workspaces (vis
 specs/                                 # SDD pack: waterfall specs
 
 .docs/
-  architecture/loom-architecture.md    # Full architectural reference (created in W3)
+  architecture/loom-architecture.md    # Full architectural reference (LogicLoom shape)
   policies/
-  plans/loom-migration.md              # The migration master plan
 ```
 
 ### Workflow scripts
@@ -326,7 +319,7 @@ specs/                                 # SDD pack: waterfall specs
 | `sync-plugin-commands.sh` | Plugin → `.claude/commands/` bridge |
 | `load-context.sh` | Modular context loading |
 
-Pre-commit (legacy SDD path):
+Pre-commit compliance check:
 ```bash
 ./.logic-loom/scripts/bash/constitutional-check.sh
 ```
@@ -380,10 +373,11 @@ Pre-commit (legacy SDD path):
 
 ## AI Model Selection (Principle XIV)
 
-**Config-driven** via `.logic-loom/config/models.conf` (role→tier). Agents use tier
-keywords (`opus`/`sonnet`/`haiku`/`inherit`), never pinned version strings — so
-swapping the flagship or a per-role tier is one config edit. Default flagship:
-**Opus 4.8**.
+Agents/commands select a tier via frontmatter keywords
+(`opus`/`sonnet`/`haiku`/`inherit`), never pinned version strings. The
+**documented** role→tier convention and current flagship live in
+`.logic-loom/config/models.conf` (a reference table, not a runtime resolver —
+no consumer parses it yet). Default flagship: **Opus 4.8**.
 
 | Tier | Use Case |
 |---|---|
@@ -422,9 +416,8 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 - `.docs/architecture/loom-architecture.md` — full architectural reference (LogicLoom shape)
 - `.docs/architecture/evaluator-protocol.md` — `/review-team` evaluator contract
 - `.docs/architecture/freeze-scope-protocol.md` — `/freeze` hook contract
-- `.docs/history/loom-migration.md` — migration master plan (archived)
 - `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.1.0)
-- `.logic-loom/config/models.conf` — role→model selection (SSOT)
+- `.logic-loom/config/models.conf` — documented role→tier convention + current flagship
 - `.logic-loom/config/governance.conf` — governance mode (lean/strict)
 - `features/README.md` — per-feature folder convention
 - `plugins/*/skills/` — skill documentation (Plugin-First Architecture)
@@ -457,4 +450,4 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 **Constitution**: v3.1.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall / dev-loop)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
-**Last Updated**: 2026-05-27
+**Last Updated**: 2026-05-28

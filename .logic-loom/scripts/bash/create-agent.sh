@@ -558,10 +558,12 @@ create_skill_for_agent() {
 
     local skill_category=$(determine_skill_category "$department")
     local skill_name="${agent_name}"
-    local skill_dir="${REPO_ROOT}/plugins/sdd-domain-${skill_category}/skills/${skill_name}"
+    # sdd-domain-* plugins were collapsed into the governance domain-brief
+    # registry. Agent companion skills now live in the loom-creation plugin.
+    local skill_dir="${REPO_ROOT}/plugins/loom-creation/skills/${skill_name}"
 
     echo
-    echo -e "${YELLOW}▶ Creating skill: ${skill_name}${NC}"
+    echo -e "${YELLOW}▶ Creating skill: ${skill_name} (category: ${skill_category})${NC}"
 
     # Create skill directory
     mkdir -p "$skill_dir"
@@ -569,7 +571,7 @@ create_skill_for_agent() {
     # Generate SKILL.md from template
     generate_skill_template "$skill_dir/SKILL.md" "$skill_name" "$agent_name" "$description" "$department"
 
-    echo -e "${GREEN}✓ Skill created: plugins/sdd-domain-${skill_category}/skills/${skill_name}/SKILL.md${NC}"
+    echo -e "${GREEN}✓ Skill created: plugins/loom-creation/skills/${skill_name}/SKILL.md${NC}"
     echo -e "${BLUE}ℹ  Next steps:${NC}"
     echo -e "   1. Edit the skill file to add detailed procedure steps"
     echo -e "   2. Add specific trigger keywords"
@@ -966,7 +968,7 @@ json_create() {
         local skill_file=""
         if should_suggest_skill "$agent_name" "$department" "$description"; then
             local skill_category=$(determine_skill_category "$department")
-            skill_file="plugins/sdd-domain-${skill_category}/skills/${agent_name}/SKILL.md"
+            skill_file="plugins/loom-creation/skills/${agent_name}/SKILL.md"
             create_skill_for_agent "$agent_name" "$department" "$description" > /dev/null 2>&1
             skill_created="true"
         fi

@@ -4,9 +4,10 @@ version: 0.1.0
 description: |
   Executes a feature's plan.md as a DAG. Topologically sorts tasks within a
   sprint, enforces file-ownership conflict detection before dispatch, spawns
-  Task workers with LOOM_ACTIVE_FEATURE / LOOM_ACTIVE_TASK env vars so the
-  freeze-write-scope hook gates writes, and verifies each task's rubric via
-  /review-team before dispatching its dependents.
+  Task workers after writing the .loom-active-feature marker (feature/task +
+  resolved owns/freeze scope) so the freeze-write-scope hook gates writes, and
+  verifies each task's rubric via /review-team before dispatching its
+  dependents.
 allowed-tools: Task, Read, Write, Bash
 triggers: ["swarm implement", "/swarm implement"]
 category: orchestration
@@ -95,13 +96,49 @@ For task `<id>`:
 
 1. Create `features/<feature>/sprints/<NN-sprint-name>/<id>/` and write a
    `brief.md` containing the task description, `owns`, `freeze`, and `rubric`.
-2. Spawn a Task worker with:
-   - Environment: `LOOM_ACTIVE_FEATURE=<feature>`, `LOOM_ACTIVE_TASK=<id>`.
-     The freeze-write-scope hook (Stage 11) reads these and rejects writes
-     outside `owns` and inside `freeze`.
+2. **Establish the active-task freeze context BEFORE dispatch.** This is the
+   step that arms the `freeze-write-scope.sh` PreToolUse hook. Without it the
+   hook has no active DAG context and default-allows every write — i.e. the
+   ownership guarantee is a no-op. Write the marker file at the repo root,
+   `<repo>/.loom-active-feature`, carrying the task's resolved scope inline:
+
+   ```
+   feature: <feature>
+   task: <id>
+   owns:
+     - <each owns: path/glob resolved from plan.md for this task>
+     - ...
+   freeze:
+     - <each freeze: path/glob resolved from plan.md for this task>
+     - ...
+   ```
+
+   The marker's `owns:`/`freeze:` lists are **authoritative** for the hook —
+   it does not have to re-parse the nested-YAML plan. You have already parsed
+   `plan.md` in step 2, so emit the concrete resolved lists here. Use the
+   `Write` tool to create the marker (this write is itself permitted — the
+   marker does not yet exist, and the hook default-allows until a marker with
+   scope is present).
+3. Spawn a Task worker with:
+   - Environment (belt-and-suspenders, for env-aware runners):
+     `LOOM_ACTIVE_FEATURE=<feature>`, `LOOM_ACTIVE_TASK=<id>`. The hook reads
+     these too; when present they override the marker's `feature:`/`task:`
+     lines. The marker remains the source of the `owns:`/`freeze:` scope.
    - Prompt: the task description, the resolved `owns`/`freeze`/`rubric`, and
      the absolute path of the per-task output directory.
-3. Wait for the worker to return.
+4. Wait for the worker to return.
+5. **Tear down the marker** after the worker returns and BEFORE any
+   orchestrator-side write that is not part of the next task's scope: delete
+   `<repo>/.loom-active-feature` (or overwrite it with the next task's scope at
+   the start of step 2 for that task). Leaving a stale marker would
+   incorrectly constrain subsequent ad-hoc writes.
+
+> **Why a marker file, not just env vars?** Task workers run in the same
+> process tree, but env injection into a spawned Task is not guaranteed to
+> reach every write boundary. The repo-root marker file is read by the hook on
+> every write attempt regardless of how the worker was spawned, so it is the
+> reliable mechanism. Env vars are kept as an override for runners that do
+> propagate them.
 
 ### 7. Verify the rubric
 
@@ -174,7 +211,9 @@ tooling reads the per-task `result.md` files to determine sprint state.
 
 - **v0.1 (this version)**: sequential execution within a sprint;
   one-task-one-owner check via literal string equality on `owns`; per-task
-  rubric verification via /review-team; freeze hook enforces writes.
+  rubric verification via /review-team; the `.loom-active-feature` marker
+  (written per-dispatch, torn down after) arms the freeze-write-scope hook so
+  it enforces writes against the active task's `owns`/`freeze` scope.
 - **v0.2 (deferred)**: parallel wave dispatch (Kahn-style barrier between
   waves); glob-aware overlap detection in `owns`; cross-sprint dependencies;
   automatic retry on transient evaluator failure.

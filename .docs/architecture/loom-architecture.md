@@ -54,9 +54,10 @@ contract-first and fully specifiable up front.
 5. **plan-mode** — Claude drafts `features/<name>/plan.md` as a DAG (see §5).
 6. **`/plan-review`** — separate-context reviewer grades the plan against
    the PRD before any code is written. Blocks `/swarm implement` on fail.
-7. **`/swarm implement`** — DAG executor. Topologically sorts tasks, injects
-   `LOOM_ACTIVE_FEATURE` + `LOOM_ACTIVE_TASK` env vars before dispatching each
-   worker so the freeze-write-scope hook gates writes (see §6).
+7. **`/swarm implement`** — DAG executor. Topologically sorts tasks, writes
+   the `.loom-active-feature` marker (task scope) — and sets
+   `LOOM_ACTIVE_FEATURE`/`LOOM_ACTIVE_TASK` — before dispatching each worker so
+   the freeze-write-scope hook gates writes (see §6).
 8. **Test + fix** — implementor task runs project test command, iterates on
    failures up to its rubric budget.
 9. **`/review-team`** — four reviewers run in parallel: security, quality,
@@ -136,6 +137,13 @@ sprints:
   dispatches tasks sequentially in topological order; **parallel waves are
   deferred to v0.2**.
 
+> **Hook handoff.** This nested-YAML schema is the model-side SSOT that
+> `/swarm implement` parses. The freeze-write-scope hook does **not** parse it
+> directly. Before each dispatch, `/swarm implement` resolves the active task's
+> `owns:`/`freeze:` lists and writes them into the repo-root marker file
+> `.loom-active-feature` (a flat, hook-readable form); the hook reads the
+> marker on every write. See §6 and freeze-scope-protocol.md.
+
 ## 6. Hook architecture
 
 LogicLoom hooks live in `.claude/hooks/` and are wired in
@@ -180,10 +188,12 @@ assist** injected on each message:
   tools only. Writes a single exploration report; no code edits. Used in the
   vision/swarm pack at step 2 (§3).
 - **`implement`** (DAG executor) — reads `features/<name>/plan.md`, performs
-  topological sort, dispatches one worker per task. Before each dispatch,
-  injects `LOOM_ACTIVE_FEATURE=<feature>` and `LOOM_ACTIVE_TASK=<id>` into
-  the worker's environment so the freeze-write-scope hook can resolve the
-  active scope and gate writes to that task's `owns:` list.
+  topological sort, dispatches one worker per task. Before each dispatch, it
+  writes the repo-root marker `.loom-active-feature` with the task's resolved
+  `owns:`/`freeze:` scope (and sets `LOOM_ACTIVE_FEATURE`/`LOOM_ACTIVE_TASK`
+  env vars as an override) so the freeze-write-scope hook can resolve the
+  active scope and gate writes to that task's `owns:` list. The marker is torn
+  down after the worker returns.
 - **`generic`** (team-orchestration) — the general multi-agent dispatch mode
   behind the team commands (`/build-team`, `/fullstack-team`, `/review-team`);
   preserves the v5.0.0 behavior.

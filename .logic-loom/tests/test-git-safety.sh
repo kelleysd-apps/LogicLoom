@@ -8,8 +8,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# Source the library under test
-source "$REPO_ROOT/.logic-loom/scripts/bash/common.sh"
+# Source the library under test. common.sh pulls in logging.sh/policy.sh which
+# require bash 4+ (associative arrays). Under bash 3.2 those `declare -A` lines
+# trip `set -u` and would terminate the sourcing shell (can't be `||`-caught
+# from a sourced file), so only source when running on bash 4+. The T007-T011
+# function tests below skip gracefully when the functions are absent, and the
+# hook-gate tests drive the hook scripts as subprocesses and need nothing here.
+if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+    source "$REPO_ROOT/.logic-loom/scripts/bash/common.sh"
+else
+    echo "[skip] bash ${BASH_VERSION%%(*}: common.sh not sourced (lib needs bash 4+) — T007-T011 function tests will skip"
+fi
 
 # Test utilities
 TESTS_RUN=0
@@ -249,13 +258,125 @@ test_git_workflow_integration() {
 }
 
 # ==============================================================================
+# Hook gate tests: subagent-git-guard.sh + git-safety-gate.sh
+# Drives the real hook scripts with PreToolUse JSON on stdin and asserts on the
+# permissionDecision. bash-3.2 safe (no associative arrays, no `mapfile`).
+# ==============================================================================
+
+SUBAGENT_GUARD="$REPO_ROOT/plugins/loom-governance/hooks/scripts/subagent-git-guard.sh"
+SAFETY_GATE="$REPO_ROOT/plugins/loom-governance/hooks/scripts/git-safety-gate.sh"
+
+# json_escape <string> -> JSON-safe inner string (handles backslash + quote)
+json_escape() {
+    printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
+
+# extract_decision <hook-json-output> -> permissionDecision value
+extract_decision() {
+    printf '%s' "$1" | grep -oE '"permissionDecision":"[a-z]+"' | head -1 | sed 's/.*:"//; s/"$//'
+}
+
+# run_subagent_guard <agent_id> <command> -> prints decision
+run_subagent_guard() {
+    local aid cmd payload out
+    aid="$(json_escape "$1")"
+    cmd="$(json_escape "$2")"
+    if [ -n "$1" ]; then
+        payload="{\"tool_name\":\"Bash\",\"agent_id\":\"$aid\",\"agent_type\":\"general-purpose\",\"tool_input\":{\"command\":\"$cmd\"}}"
+    else
+        payload="{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"}}"
+    fi
+    out="$(printf '%s' "$payload" | bash "$SUBAGENT_GUARD" 2>/dev/null || true)"
+    extract_decision "$out"
+}
+
+# run_safety_gate <command> -> prints decision
+run_safety_gate() {
+    local cmd payload out
+    cmd="$(json_escape "$1")"
+    payload="{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"$cmd\"}}"
+    out="$(printf '%s' "$payload" | bash "$SAFETY_GATE" 2>/dev/null || true)"
+    extract_decision "$out"
+}
+
+test_subagent_git_guard() {
+    echo ""
+    echo "Test: subagent-git-guard.sh blocks git from subagents (path-prefix safe)"
+
+    # Subagent + git invocations (including path-prefix bypasses) -> deny
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "/usr/bin/git push")" \
+        "subagent '/usr/bin/git push' -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "./git clean -fd")" \
+        "subagent './git clean -fd' -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git -C /t reset --hard")" \
+        "subagent 'git -C /t reset --hard' -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "cd x && /usr/bin/git push")" \
+        "subagent 'cd x && /usr/bin/git push' -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git status")" \
+        "subagent 'git status' (read-only still blocked) -> deny"
+
+    # Subagent + non-git substrings -> allow (no false positives)
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "ls && grep digit f")" \
+        "subagent 'ls && grep digit f' -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "echo github")" \
+        "subagent 'echo github' -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "cat .gitignore")" \
+        "subagent 'cat .gitignore' -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "echo legitimate work")" \
+        "subagent 'echo legitimate work' -> allow"
+
+    # Main agent (no agent_id) -> allow even for git (safety-gate handles it)
+    assert_equals "allow" "$(run_subagent_guard "" "git -C /r push")" \
+        "main agent 'git -C /r push' -> allow at subagent guard"
+}
+
+test_git_safety_gate() {
+    echo ""
+    echo "Test: git-safety-gate.sh asks for mutating git (flag-decoupled)"
+
+    # Mutating with global flags between git and subcommand -> ask
+    assert_equals "ask" "$(run_safety_gate "git -C /r push")" \
+        "main 'git -C /r push' -> ask"
+    assert_equals "ask" "$(run_safety_gate "git -c k=v commit -m x")" \
+        "main 'git -c k=v commit' -> ask"
+    assert_equals "ask" "$(run_safety_gate "git --git-dir=x push")" \
+        "main 'git --git-dir=x push' -> ask"
+    assert_equals "ask" "$(run_safety_gate "/usr/bin/git push origin main")" \
+        "main '/usr/bin/git push' (path prefix) -> ask"
+    assert_equals "ask" "$(run_safety_gate "git clean -fd")" \
+        "main 'git clean -fd' -> ask"
+    assert_equals "ask" "$(run_safety_gate "git branch -D feature")" \
+        "main 'git branch -D feature' -> ask"
+    assert_equals "ask" "$(run_safety_gate "git remote add origin url")" \
+        "main 'git remote add' -> ask"
+
+    # Read-only git -> allow
+    assert_equals "allow" "$(run_safety_gate "git status")" \
+        "main 'git status' -> allow"
+    assert_equals "allow" "$(run_safety_gate "git log --oneline")" \
+        "main 'git log' -> allow"
+    assert_equals "allow" "$(run_safety_gate "git diff HEAD")" \
+        "main 'git diff' -> allow"
+    assert_equals "allow" "$(run_safety_gate "git branch")" \
+        "main 'git branch' (list, no -d) -> allow"
+    assert_equals "allow" "$(run_safety_gate "git rev-parse HEAD")" \
+        "main 'git rev-parse' -> allow"
+
+    # Non-git commands -> allow (no false positives)
+    assert_equals "allow" "$(run_safety_gate "echo github")" \
+        "main 'echo github' -> allow"
+    assert_equals "allow" "$(run_safety_gate "ls && grep digit f")" \
+        "main 'ls && grep digit f' -> allow"
+}
+
+# ==============================================================================
 # Run all tests
 # ==============================================================================
 
 main() {
     echo "========================================"
     echo "Git Safety Functions Test Suite"
-    echo "Testing: T007, T008, T009, T011"
+    echo "Testing: T007, T008, T009, T011 + hook gates"
     echo "========================================"
 
     # T007 tests
@@ -274,6 +395,10 @@ main() {
 
     # T011 tests
     test_git_workflow_integration || true
+
+    # Hook gate tests
+    test_subagent_git_guard || true
+    test_git_safety_gate || true
 
     # Summary
     echo ""

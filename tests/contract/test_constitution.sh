@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contract Tests: Constitution v3.0.0 (16 Principles)
+# Contract Tests: Constitution v3.1.0 (16 Principles)
 set -euo pipefail
 
 PASS=0; FAIL=0; TOTAL=0
@@ -14,13 +14,16 @@ assert() {
   fi
 }
 
-echo "═══ Constitution v3.0.0 Contract Tests ═══"
+echo "═══ Constitution v3.1.0 Contract Tests ═══"
 echo ""
 
 echo "Structure"
 assert "constitution.md exists" "[ -f .logic-loom/memory/constitution.md ]"
-assert "Version is v3.0.0" "grep -q 'v3.0.0' .logic-loom/memory/constitution.md"
-assert "Has 16 Principles header" "grep -q '16 Principles' .logic-loom/memory/constitution.md"
+assert "Title is v3.1.0" "grep -q '# LogicLoom Constitution v3.1.0' .logic-loom/memory/constitution.md"
+assert "Version is v3.1.0" "grep -q 'v3.1.0' .logic-loom/memory/constitution.md"
+assert "Has 16 enforceable principles" "grep -q '16 enforceable principles' .logic-loom/memory/constitution.md"
+assert "v3.1.0 amendment date recorded" "grep -q 'Amended.*2026-05-28 (v3.1.0)' .logic-loom/memory/constitution.md"
+assert "v3.1.0 version-history row exists" "grep -qE '^\| 3.1.0 \|' .logic-loom/memory/constitution.md"
 
 echo ""
 echo "Immutable Principles (I-III)"
@@ -39,7 +42,9 @@ assert "Principle IX: Dependency Management" "grep -q 'Principle IX.*Dependency'
 
 echo ""
 echo "Workflow & Delegation (X-XV)"
-assert "Principle X: Skills-First Delegation" "grep -q 'Principle X.*Delegation' .logic-loom/memory/constitution.md"
+# v3.1.0: Principle X rewritten from "Skills-First Delegation" to "Delegation & Context Isolation"
+assert "Principle X: Delegation & Context Isolation" "grep -q '### Principle X: Delegation & Context Isolation' .logic-loom/memory/constitution.md"
+assert "Principle X no longer titled Skills-First" "! grep -q '### Principle X: Skills-First' .logic-loom/memory/constitution.md"
 assert "Principle XI: Input Validation" "grep -q 'Principle XI.*Input' .logic-loom/memory/constitution.md"
 assert "Principle XII: Design System" "grep -q 'Principle XII.*Design' .logic-loom/memory/constitution.md"
 assert "Principle XIII: Access Control" "grep -q 'Principle XIII.*Access' .logic-loom/memory/constitution.md"
@@ -49,16 +54,12 @@ assert "Principle XV: File Organization" "grep -q 'Principle XV.*File' .logic-lo
 echo ""
 echo "Plugin Architecture (XVI)"
 assert "Principle XVI: Plugin-First Architecture" "grep -q 'Principle XVI.*Plugin-First' .logic-loom/memory/constitution.md"
-assert "XVI requires manifest" "grep -q 'Manifest Required' .logic-loom/memory/constitution.md"
-assert "XVI requires governance dependency" "grep -q 'Governance Dependency' .logic-loom/memory/constitution.md"
-assert "XVI has protected plugins" "grep -q 'Protected Plugins' .logic-loom/memory/constitution.md"
 assert "XVI no longer mandates RL metrics (v3.1.0 removed it)" "! grep -q 'MUST include .rl_metrics' .logic-loom/memory/constitution.md"
 
 echo ""
 echo "CLAUDE.md alignment"
 assert "CLAUDE.md references 16 principles" "grep -q '16 principles' CLAUDE.md"
 assert "CLAUDE.md has Principle XVI" "grep -q 'XVI.*Plugin-First' CLAUDE.md"
-assert "CLAUDE.md references v3.0.0" "grep -q 'v3.0.0' CLAUDE.md"
 
 echo ""
 echo "═══════════════════════════════════════"

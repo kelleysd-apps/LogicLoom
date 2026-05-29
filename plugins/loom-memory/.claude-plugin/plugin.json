@@ -21,5 +21,19 @@
   "commands": {
     "count": 0,
     "list": []
-  }
+  },
+  "config": {
+    "memory_conf": "config/memory.conf",
+    "memory_v2_conf": "config/memory-v2.conf"
+  },
+  "backends": {
+    "keyword": "lib/keyword-backend.sh",
+    "bm25": "lib/bm25-search.sh",
+    "vector": "lib/vector-search.sh",
+    "hybrid": "lib/hybrid-search.sh"
+  },
+  "constitutional_principles": [
+    "VII",
+    "XVI"
+  ]
 }

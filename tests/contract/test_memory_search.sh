@@ -25,9 +25,9 @@ echo ""
 
 # ── Plugin Infrastructure Tests ──
 echo "Plugin infrastructure"
-assert "loom-memory plugin.json exists" "[ -f plugins/loom-memory/plugin.json ]"
+assert "loom-memory plugin.json exists" "[ -f plugins/loom-memory/.claude-plugin/plugin.json ]"
 assert "loom-memory plugin.json is valid JSON" \
-  "python3 -c 'import json; json.load(open(\"plugins/loom-memory/plugin.json\"))'"
+  "python3 -c 'import json; json.load(open(\"plugins/loom-memory/.claude-plugin/plugin.json\"))'"
 assert "memory.conf exists" "[ -f $MEMORY_CONF ]"
 assert "memory-search.sh exists" "[ -f $MEMORY_SEARCH ]"
 assert "memory-search.sh is executable" "[ -x $MEMORY_SEARCH ]"

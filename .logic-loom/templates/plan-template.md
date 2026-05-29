@@ -5,9 +5,16 @@ Semantics:
 - DAG ordering: `depends_on` lists task IDs that must complete (and pass their
   rubric) before a task is dispatched. Cycles are a parser error.
 - File ownership: every task declares `owns` — a list of file globs it may
-  write. The freeze-write-scope hook (Stage 11) enforces this at write time,
-  using LOOM_ACTIVE_FEATURE / LOOM_ACTIVE_TASK env vars injected by the
-  swarm-implement scheduler.
+  write. The freeze-write-scope hook (Stage 11) enforces this at write time.
+  This nested-YAML frontmatter is the source of truth that `/swarm implement`
+  parses. Before dispatching each task's worker, the scheduler resolves that
+  task's `owns`/`freeze` lists and writes them — together with the feature and
+  task id — into the repo-root marker file `.loom-active-feature`, which is
+  what the hook reads on every write attempt. (LOOM_ACTIVE_FEATURE /
+  LOOM_ACTIVE_TASK env vars are also set as an override for env-aware runners.)
+  See `.docs/architecture/freeze-scope-protocol.md` for the marker format and
+  enforcement rules, and `plugins/loom-orchestrator/skills/swarm-implement/
+  SKILL.md` §6 for the write/teardown lifecycle.
 - One-task-one-owner rule: if two tasks declare the same path in `owns`, the
   swarm-implement scheduler refuses to dispatch and reports the conflict.
   Concurrent writes to the same file are never allowed.

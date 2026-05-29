@@ -6,7 +6,7 @@
 
 ## Overview
 
-This directory contains prototype templates for creating new skills following the skills-first architecture v3.0.0. These templates ensure consistent skill structure, constitutional compliance, and RL metrics integration.
+This directory contains prototype templates for creating new skills following the skills-first architecture v3.0.0. These templates ensure consistent skill structure and constitutional compliance.
 
 ## Available Templates
 
@@ -93,7 +93,7 @@ All templates use `{{VARIABLE_NAME}}` placeholders. Replace these with actual va
 
 | Layer | Target Tokens | Content |
 |-------|---------------|---------|
-| Layer 1 | ~100 | Metadata + RL metrics |
+| Layer 1 | ~100 | Metadata + triggers |
 | Layer 2 | ~500 | Instructions + invocations |
 | Layer 3 | Variable | Examples + references |
 
@@ -141,32 +141,16 @@ All templates use `{{VARIABLE_NAME}}` placeholders. Replace these with actual va
 
 - [ ] All `{{VARIABLE}}` placeholders replaced
 - [ ] Frontmatter validates against skill-definition.yaml v3
-- [ ] rl_metrics section present with defaults
 - [ ] progressive-disclosure layers defined
 - [ ] agent-invocations reference valid consolidated agents
-- [ ] ds-star pre-execution includes message-preflight
+- [ ] governance pre-execution includes message-preflight
 - [ ] Examples demonstrate actual use cases
 - [ ] Error handling covers common scenarios
-
-## Integration with RL
-
-New skills start with default RL metrics:
-- `success_rate`: 0.0 (updated after invocations)
-- `selection_weight`: 0.5 (adjusted by EMA)
-- `invocation_count`: 0 (incremented on use)
-- `avg_tokens`: 0 (calculated from actual usage)
-
-RL learning improves selection over time based on:
-- Task completion success
-- Token efficiency
-- User satisfaction
 
 ## Related Files
 
 - `contracts/skill-definition.yaml` - Schema for validation
-- `plugins/*/plugin.json` - Plugin manifests (RL metrics in plugin manifests)
-- `.logic-loom/scripts/bash/rl/` - RL scripts
-- `.docs/rl-metrics/skill-performance.json` - Performance tracking
+- `plugins/*/.claude-plugin/plugin.json` - Plugin manifests
 
 ---
 

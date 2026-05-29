@@ -13,6 +13,15 @@
 #   - agent_id absent (main agent)    -> ALLOW here; the git-safety-gate hook
 #                                        still forces user approval ("ask").
 #
+# Detection scope / known limitation: this is a STRING gate over the literal
+# Bash command. It detects `git` as a command word even behind a path prefix
+# (e.g. `/usr/bin/git`, `./git`, `cd x && /usr/bin/git push`). It does NOT, and
+# cannot, see git invoked through interpreter / script / eval indirection —
+# `python -c "...subprocess git..."`, `bash some-script.sh` (git inside the
+# script), `eval "$cmd"`, or variable indirection (`G=git; $G push`). Those are
+# inherent limitations of any string-level gate and are intentionally out of
+# scope here.
+#
 # Input:  PreToolUse JSON via stdin, e.g.
 #   {"tool_name":"Bash","agent_id":"a8e...","agent_type":"general-purpose",
 #    "tool_input":{"command":"git clean -fd"}}
@@ -55,8 +64,12 @@ deny() {
 [ -z "$COMMAND" ] && allow
 
 # Subagent context: deny ANY git invocation (mutating or read-only).
-# Matched as a command word so non-git Bash and substrings like "digit" pass.
-if printf '%s' "$COMMAND" | grep -qE '(^|[;&|(`[:space:]])git([[:space:]]|$)'; then
+# Match `git` as a command word that may carry a path prefix (/usr/bin/git,
+# ./git). Boundary: start-of-string or any non-identifier char, an optional
+# path component (no whitespace, ending in /), then `git`, then whitespace or
+# end. This rejects path-prefixed bypasses while leaving substrings such as
+# "digit", "github", "legitimate", and "gitignore" untouched.
+if printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'; then
   AGENT_TYPE="$(json_get '.agent_type' || true)"
   deny "Git is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run git — return findings to the main agent, which will run git with user approval. Blocked: '${COMMAND}'"
 fi

@@ -44,14 +44,15 @@ run_suite() {
 }
 
 echo "╔═══════════════════════════════════════════════╗"
-echo "║   SDD Framework — Full Test Suite             ║"
+echo "║   LogicLoom Framework — Full Test Suite       ║"
 echo "║   $(date '+%Y-%m-%d %H:%M:%S')                         ║"
 echo "╚═══════════════════════════════════════════════╝"
 
 # Contract Tests
 run_suite "Plugin Lifecycle" "bash tests/contract/plugins/test_plugin_lifecycle.sh"
 run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh"
-run_suite "Constitution v3.0.0" "bash tests/contract/test_constitution.sh"
+run_suite "Constitution v3.1.0" "bash tests/contract/test_constitution.sh"
+run_suite "Governance Hooks" "bash tests/contract/test_governance_hooks.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
 run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
 run_suite "Orchestration Hook" "bash tests/contract/test_orchestration_hook.sh"
@@ -62,7 +63,6 @@ run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.s
 # Dev-Loop Contract Tests (plugin-hosted)
 run_suite "Dev-Loop: Event Sourcing" "bash plugins/loom-dev-loop/tests/contract/test_event_sourcing.sh"
 run_suite "Dev-Loop: Quality Grading" "bash plugins/loom-dev-loop/tests/contract/test_quality_grading.sh"
-run_suite "Dev-Loop: RL Feedback" "bash plugins/loom-dev-loop/tests/contract/test_rl_feedback.sh"
 run_suite "Dev-Loop: Scope Detection" "bash plugins/loom-dev-loop/tests/contract/test_scope_detection.sh"
 run_suite "Dev-Loop: Lifecycle" "bash plugins/loom-dev-loop/tests/contract/test_dev_loop_lifecycle.sh"
 run_suite "Dev-Loop: Self-Extension" "bash plugins/loom-dev-loop/tests/contract/test_self_extension.sh"

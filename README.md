@@ -52,7 +52,7 @@ EnterWorktree
   -> test / fix            (direct debug loop on failures)
   -> /review-team          (security + quality + performance + behavioral evaluator)
   -> /git-push             (commit + PR with explicit approval)
-  -> /code-review          (PR-level review)
+  -> /code-review          (external Claude Code command — PR-level review)
   -> /retro                (capture learnings)
 ExitWorktree
 ```
@@ -92,7 +92,7 @@ LogicLoom's own plugins live in `plugins/` and are loaded directly — see Plugi
 | `loom-orchestrator-hook` | orchestration | Domain detection, agent recommendations via hook |
 | `loom-memory` | orchestration | 3-tier memory with hybrid BM25/vector search |
 | `loom-creation` | core | `/create-prd`, `/create-agent`, `/create-plugin` |
-| `loom-git` | core | `/git-push`, `/code-review`, `/finalize` |
+| `loom-git` | core | `/git-push`, `/finalize` (`/code-review` is an external Claude Code command, not shipped here) |
 | `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
 | `sdd-specification` | SDD pack | `/specification` waterfall (keeps `sdd-` — it *is* the SDD workflow) |
 | `loom-dev-loop` | dev-loop pack | `/dev-loop` autonomous loop |
@@ -146,7 +146,7 @@ Pick the layout that matches the problem shape. New exploratory work belongs in 
 | `/plan-review` | CEO + Eng verdict on `plan.md` before implementation |
 | `/review-team` | 4 parallel reviewers (security + quality + performance + behavioral evaluator) |
 | `/git-push` | Complete git workflow with conflict resolution and explicit approval |
-| `/code-review` | PR-level review |
+| `/code-review` | PR-level review (external Claude Code command the workflow leans on — not shipped by LogicLoom) |
 | `/retro` | Post-feature learning capture |
 
 ### Plugin & agent management

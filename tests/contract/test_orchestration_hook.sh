@@ -83,9 +83,9 @@ assert "Hook detects security domain keywords" "[ '$HAS_SECURITY' = 'yes' ]"
 # ── Plugin Infrastructure Tests ──
 echo ""
 echo "Orchestrator hook plugin"
-assert "loom-orchestrator-hook plugin.json exists" "[ -f plugins/loom-orchestrator-hook/plugin.json ]"
+assert "loom-orchestrator-hook plugin.json exists" "[ -f plugins/loom-orchestrator-hook/.claude-plugin/plugin.json ]"
 assert "loom-orchestrator-hook plugin.json is valid JSON" \
-  "python3 -c 'import json; json.load(open(\"plugins/loom-orchestrator-hook/plugin.json\"))'"
+  "python3 -c 'import json; json.load(open(\"plugins/loom-orchestrator-hook/.claude-plugin/plugin.json\"))'"
 assert "domains.conf exists" "[ -f $DOMAINS_CONF ]"
 assert "domains.conf has frontend mapping" "grep -q 'frontend' $DOMAINS_CONF"
 assert "domains.conf has backend mapping" "grep -q 'backend' $DOMAINS_CONF"
