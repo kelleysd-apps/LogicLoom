@@ -35,9 +35,15 @@ ds-star:
 
 ## Purpose
 
-Creates new SDD plugins following the Plugin-First Architecture v4.0 (Principle XVI).
+Creates new LogicLoom plugins following the Plugin-First Architecture v4.0 (Principle XVI).
 This skill ensures all new plugins are created with proper structure including
-plugin.json manifest, governance dependency, RL metrics, and required components.
+plugin.json manifest, governance dependency, and required components.
+
+> **Domains are briefs, not plugins.** Technical domains (frontend, backend,
+> database, testing, security, performance, devops) are **not** plugins — they
+> live in the `plugins/loom-governance/domain-briefs/` registry and are
+> surfaced via `get_domain_brief`. Do not scaffold `sdd-domain-*` plugins; to
+> add a domain, edit a brief in the registry (see `plugins/CONTRIBUTING.md`).
 
 ## Constitutional Compliance
 
@@ -51,7 +57,7 @@ plugin.json manifest, governance dependency, RL metrics, and required components
 
 1. Constitutional compliance check must pass
 2. User must provide:
-   - Plugin name (sdd-* prefix required)
+   - Plugin name (`loom-*` prefix required for new plugins)
    - Target category
    - Key capabilities (commands, agents, skills)
 
@@ -59,17 +65,19 @@ plugin.json manifest, governance dependency, RL metrics, and required components
 
 Prompt user for:
 ```yaml
-plugin_name: <required, sdd-* prefix>
-category: <domain | orchestration | governance | creation | specification | integration | maintenance>
+plugin_name: <required, loom-* prefix>
+category: <orchestration | governance | creation | specification | integration | maintenance>
 purpose: <brief description>
 commands: <list of slash commands>
 agents: <list of agent names>
 ```
 
+New plugins use the `loom-` prefix. (`sdd-specification` keeps its legacy
+prefix — it *is* the SDD workflow; do not rename it.)
+
 ### Step 2: Select Base Template
 
 Based on category, scaffold from:
-- `domain` → copy from `plugins/sdd-domain-template/`
 - `orchestration` → minimal scaffold with agent + command
 - Other → minimal scaffold with plugin.json
 
@@ -95,51 +103,49 @@ plugins/<plugin-name>/
   "description": "<purpose>",
   "author": "kelleysd-apps",
   "license": "MIT",
-  "keywords": ["sdd", "<category>"],
-  "dependencies": ["loom-governance"],
-  "rl_metrics": {
-    "success_rate": 0.5,
-    "selection_weight": 0.5,
-    "invocation_count": 0,
-    "avg_tokens": 0,
-    "last_updated": "<ISO timestamp>"
-  }
+  "keywords": ["loom", "<category>"],
+  "dependencies": ["loom-governance"]
 }
 ```
 
-### Step 5: Register in Marketplace
+### Step 5: Wire Into the Command Bridge
 
-Add entry to marketplace registry:
+Plugins are bundled in-repo; expose their commands via the bridge:
 ```bash
-# Via MCP tool
-marketplace-install --plugin-name <name> --source local
+bash .logic-loom/scripts/bash/sync-plugin-commands.sh sync
 ```
+
+LogicLoom does **not** ship its own marketplace MCP. For third-party plugin
+discovery use the **Anthropic Claude Code Plugin Marketplace** (`/plugin`) and
+the **Docker MCP Toolkit** gateway.
 
 ### Step 6: Validate
 
 Run plugin validation:
 ```bash
-# Via MCP tool
-marketplace-validate --plugin-name <name>
+bash tests/contract/plugins/test_plugin_lifecycle.sh
 ```
 
 ## Examples
 
-### Example 1: Create Domain Plugin
+### Example 1: Create Orchestration Plugin
 
 **Request**: "Create a plugin for AI/ML operations"
 
-**Generated**: `plugins/sdd-domain-ai-ml/`
+**Generated**: `plugins/loom-ai-ml/`
 - plugin.json with dependencies: ["loom-governance"]
 - agents/ai-ml-specialist.md
 - skills/ai-ml-operations/SKILL.md
 - commands/ai-ml.md
 
+> If the request were "add an AI/ML *domain*", that is a brief, not a plugin —
+> add `plugins/loom-governance/domain-briefs/ai-ml.md` instead.
+
 ### Example 2: Create Integration Plugin
 
 **Request**: "Create a plugin for Slack notifications"
 
-**Generated**: `plugins/sdd-integration-slack/`
+**Generated**: `plugins/loom-integration-slack/`
 - plugin.json
 - skills/slack-notifications/SKILL.md
 - scripts/slack-webhook.sh

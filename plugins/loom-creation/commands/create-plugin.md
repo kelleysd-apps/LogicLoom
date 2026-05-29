@@ -1,6 +1,6 @@
 ---
 name: create-plugin
-description: Create a new SDD plugin with constitutional compliance (Plugin-First Architecture v4.0)
+description: Create a new LogicLoom plugin with constitutional compliance (Plugin-First Architecture)
 model: opus
 ---
 
@@ -12,20 +12,28 @@ model: opus
 ```
 Use the Task tool to invoke subagent-architect:
 - description: "Execute /create-plugin command"
-- prompt: "Create a new SDD plugin. Arguments: $ARGUMENTS"
+- prompt: "Create a new LogicLoom plugin. Arguments: $ARGUMENTS"
 ```
+
+> **Domains are briefs, not plugins.** Technical domains (frontend, backend,
+> database, testing, security, performance, devops) live in the
+> `plugins/loom-governance/domain-briefs/` registry and are surfaced via
+> `get_domain_brief`. Do **not** create `sdd-domain-*` plugins — to add or
+> change a domain, edit a brief in the registry (see `plugins/CONTRIBUTING.md`).
 
 ## Execution Instructions (for subagent-architect)
 
 ### Step 1: Parse Arguments
-- Extract plugin name from $ARGUMENTS (must be kebab-case, prefixed with `sdd-`)
+- Extract plugin name from $ARGUMENTS (must be kebab-case, prefixed with `loom-`)
 - If no arguments: prompt user for plugin name and description
 
 ### Step 2: Validate Plugin Name
 ```bash
-# Must be kebab-case, prefixed with sdd- or sdd-domain-
-echo "$PLUGIN_NAME" | grep -qE '^sdd-(domain-)?[a-z0-9]+(-[a-z0-9]+)*$'
+# Must be kebab-case, prefixed with loom-
+echo "$PLUGIN_NAME" | grep -qE '^loom-[a-z0-9]+(-[a-z0-9]+)*$'
 ```
+- New plugins use the `loom-` prefix. (`sdd-specification` keeps its legacy
+  prefix — it *is* the SDD workflow; do not rename it.)
 - Check for existing plugin: `ls plugins/$PLUGIN_NAME 2>/dev/null`
 
 ### Step 3: Create Plugin Structure
@@ -43,7 +51,6 @@ mkdir -p "$PLUGIN_DIR/scripts"
 Write `.claude-plugin/plugin.json` with:
 - name, version (1.0.0), description
 - dependencies: ["loom-governance"]
-- rl_metrics with default values
 - Keywords from description
 
 ### Step 5: Generate README.md
@@ -62,10 +69,21 @@ bash .logic-loom/scripts/bash/sync-plugin-commands.sh sync
 ## Constitutional Compliance
 - **Principle XVI**: Plugin-First Architecture — all capabilities as plugins
 - **Principle IX**: Dependencies declared in manifest
-- **Principle VII**: RL metrics included for observability
+
+## Distribution
+
+New plugins are bundled in-repo under `plugins/` and exposed through the
+command bridge (`.logic-loom/scripts/bash/sync-plugin-commands.sh`). LogicLoom
+does **not** ship its own marketplace MCP — for third-party plugin discovery
+use the **Anthropic Claude Code Plugin Marketplace** (`/plugin`) and the
+**Docker MCP Toolkit** gateway.
 
 ## Usage
 ```
-/create-plugin sdd-domain-rust "Rust development domain plugin"
-/create-plugin sdd-analytics "Analytics and metrics tracking"
+/create-plugin loom-analytics "Analytics and metrics tracking"
+/create-plugin loom-integration-slack "Slack notification integration"
 ```
+
+> Need a new technical domain (e.g. Rust)? That's a **brief**, not a plugin —
+> add `plugins/loom-governance/domain-briefs/rust.md` and wire detection
+> keywords in `plugins/loom-orchestrator-hook/config/domains.conf`.

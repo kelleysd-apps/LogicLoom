@@ -1,9 +1,8 @@
 ---
 name: governance-preflight
 category: governance
-version: 1.0.0
-description: Constitutional compliance and governance enforcement
-author: SDD Framework
+version: 3.1.0
+description: Constitutional compliance and governance reference
 tags: [governance, constitution, compliance, audit]
 layer: skill
 invocation: /governance-preflight
@@ -13,7 +12,12 @@ invocation: /governance-preflight
 
 **Purpose**: Manual constitutional compliance review and governance decision-making for complex scenarios requiring human judgment.
 
-**Layer**: Layer 2 of 3-layer governance architecture (Hook → **Skill** → Agent)
+**Enforcement is hook-driven.** The UserPromptSubmit governance hook injects constitutional
+context and domain recommendations on every message, and the git-safety-gate PreToolUse hook
+forces explicit approval on git mutations. Governance runs in two modes via
+`LOOM_GOVERNANCE_MODE`: **lean** (default — hooks enforce silently) and **strict** (hooks
+plus an explicit recited compliance summary). This skill is the reference layer between the
+hook and the agent, invoked manually for complex review.
 
 ---
 
@@ -21,13 +25,14 @@ invocation: /governance-preflight
 
 Use `/governance-preflight` when:
 
-1. **Complex Delegation Decision** - Multiple agents could handle the task
+1. **Complex Delegation Decision** - Multiple worker briefs could handle the task
 2. **Constitutional Ambiguity** - Unclear which principle applies
 3. **Exception Request** - User wants to deviate from constitutional requirements
 4. **Pre-Commit Review** - Manual validation before git operations
 5. **Governance Audit** - Review governance decisions for compliance
 
-**Auto-Triggered**: This skill is conceptually triggered by the UserPromptSubmit hook (Layer 1), but can be manually invoked for review.
+**Hook-enforced**: governance context is injected automatically by the UserPromptSubmit hook;
+this skill can be invoked manually for deeper review.
 
 ---
 
@@ -90,10 +95,10 @@ Use this checklist to validate compliance with all 16 principles:
 ### Part III: Workflow & Delegation Principles (X-XVI)
 
 - [ ] **Principle X: Agent Delegation Protocol** ⚠️ CRITICAL
-  - Is specialized work routed to specialist skills?
+  - Is specialized work routed to a consolidated worker brief?
   - Is domain correctly identified?
-  - Is appropriate skill selected?
-  - **1 domain = 1 specialist skill**, **2+ domains = team-orchestration**
+  - Is the appropriate brief selected (`get_domain_brief <domain>`)?
+  - **1 domain = 1 worker brief**, **2+ domains = swarm/team**
 
 - [ ] **Principle XI: Input Validation & Output Sanitization**
   - Is user input validated?
@@ -111,8 +116,8 @@ Use this checklist to validate compliance with all 16 principles:
   - Are permissions enforced?
 
 - [ ] **Principle XIV: AI Model Selection Protocol**
-  - Is appropriate model selected (Opus/Sonnet/Haiku)?
-  - Default: Opus 4.8 for agents
+  - Is the appropriate model selected (Opus/Sonnet/Haiku)?
+  - Default: Opus 4.8 (flagship) for agents
   - Sonnet for cost optimization
   - Haiku for simple tasks
 
@@ -124,48 +129,33 @@ Use this checklist to validate compliance with all 16 principles:
 
 ---
 
-## Skill Delegation Reference
+## Worker Brief Delegation Reference
 
-Use this table to route tasks to appropriate skills:
+Domains resolve to consolidated worker briefs in the governance-core domain-brief registry
+(`plugins/loom-governance/domain-briefs/<domain>.md`), resolved via `get_domain_brief
+<domain>` in `.logic-loom/scripts/bash/common.sh`. This registry replaced the former seven
+`sdd-domain-*` plugins. The authoritative keyword → domain map is
+`plugins/loom-orchestrator-hook/config/domains.conf` (`keyword=domain`).
 
 ### Single-Domain Routing
 
-| Domain | Keywords | Skill | Plugin |
-|--------|----------|-------|--------|
-| **Frontend** | UI, component, React, CSS, form, responsive | frontend-operations | sdd-domain-frontend |
-| **Backend** | API, endpoint, server, auth, middleware | api-design, service-architecture | sdd-domain-backend |
-| **Database** | schema, migration, query, RLS, SQL | schema-design | sdd-domain-database |
-| **Testing** | test, TDD, E2E, coverage, QA | testing-operations | sdd-domain-testing |
-| **Security** | encryption, XSS, secrets, vulnerability | security-operations | sdd-domain-security |
-| **Performance** | optimize, cache, benchmark, latency | performance-operations | sdd-domain-performance |
-| **DevOps** | deploy, CI/CD, Docker, pipeline | monitoring | sdd-domain-devops |
-| **Planning** | /plan, research, contract design | sdd-planning | sdd-specification |
-| **Specification** | /specify, requirements, user story | unified-specification | sdd-specification |
-| **Tasks** | /tasks, task list, dependencies | sdd-tasks | sdd-specification |
+| Domain | Keywords | Worker brief |
+|--------|----------|--------------|
+| **Frontend** | UI, component, React, CSS, form, responsive | `get_domain_brief frontend` |
+| **Backend** | API, endpoint, server, auth, middleware, route | `get_domain_brief backend` |
+| **Database** | schema, migration, query, RLS, SQL, table | `get_domain_brief database` |
+| **Testing** | test, TDD, E2E, coverage, QA, assertion | `get_domain_brief testing` |
+| **Security** | encryption, XSS, secrets, vulnerability, CSRF, injection | `get_domain_brief security` |
+| **Performance** | optimize, cache, benchmark, latency, profiling | `get_domain_brief performance` |
+| **DevOps** | deploy, CI/CD, Docker, pipeline, infrastructure | `get_domain_brief devops` |
 
 ### Multi-Domain Routing
 
 | Scenario | Delegate To | Reason |
 |----------|-------------|--------|
-| 2+ domains detected | team-orchestration | Coordinates multiple specialist skills |
-| Complex workflow | team-orchestration | Orchestrates end-to-end implementation |
-| Unclear domain | team-orchestration | Routes after analysis |
-
-### Domain Trigger Keywords (Comprehensive)
-
-**Frontend**: UI, component, React, Next.js, Vue, Angular, CSS, Tailwind, form, button, modal, responsive, mobile, web, client-side, browser, DOM, JSX, TSX
-
-**Backend**: API, endpoint, REST, GraphQL, server, Express, Fastify, middleware, authentication, authorization, session, JWT, OAuth, controller, service, route, handler
-
-**Database**: schema, table, column, migration, query, SQL, PostgreSQL, MySQL, MongoDB, Supabase, Prisma, TypeORM, RLS, row-level security, index, transaction
-
-**Testing**: test, TDD, unit test, integration test, E2E, Playwright, Jest, Vitest, coverage, mock, stub, assertion, test suite
-
-**Security**: security, vulnerability, XSS, CSRF, SQL injection, encryption, hashing, secrets, credentials, authentication, authorization, OWASP, penetration test
-
-**Performance**: performance, optimize, cache, Redis, latency, throughput, bottleneck, profile, benchmark, load test, CDN, lazy load
-
-**DevOps**: deploy, deployment, CI/CD, Docker, Kubernetes, pipeline, GitHub Actions, AWS, GCP, Azure, infrastructure, container, orchestration
+| 2+ domains detected | `/swarm` (or legacy team orchestration) | Coordinates multiple worker briefs |
+| Complex workflow | `/swarm` | Orchestrates end-to-end implementation |
+| Unclear domain | `/swarm explore` | Read-only investigation before committing scope |
 
 ---
 
@@ -195,7 +185,8 @@ Before ANY git commit, verify:
 - [ ] All 16 principles checked
 - [ ] Critical principles (II, VI, X) verified
 - [ ] Exceptions documented with justification
-- [ ] `/finalize` command run (if available)
+- [ ] `/finalize` command run (legacy, if available)
+- [ ] Git mutations gated by the git-safety-gate hook (Principle VI)
 
 ### Git Operations
 - [ ] User explicitly approved commit
@@ -212,7 +203,7 @@ Before ANY git commit, verify:
 **ALWAYS BLOCK**:
 - Autonomous git operations without user approval (Principle VI)
 - TDD violation (tests not written first) (Principle II)
-- Specialist work performed without skill-first routing (Principle X)
+- Specialist work performed without worker-brief delegation (Principle X)
 - Secrets committed to repository (Principle XI)
 
 **WARN BUT ALLOW**:
@@ -280,15 +271,15 @@ echo '{ ... }' >> .docs/governance/audit/$(date +%Y-%m-%d)/skill-decision.json
 - Complexity: Medium (also involves backend API call)
 - Wait - TWO domains: Frontend (UI) + Backend (API)
 
-**Decision**: Activate `team-orchestration` skill (2+ domains)
+**Decision**: Dispatch a `/swarm` (2+ domains)
 
 **Output**:
 ```
 Constitutional Compliance Check:
 - Domain(s): multi (frontend, backend)
-- Delegation: team-orchestration
-- Git operations: none planned (will request approval if needed)
-- Proceeding with: coordinating frontend and backend specialist skills
+- Delegation: /swarm
+- Git operations: none planned (git-safety-gate will gate any mutation)
+- Proceeding with: coordinating frontend and backend worker briefs under a swarm
 ```
 
 ---
@@ -364,19 +355,19 @@ Would you like me to start by writing the test first?
 ```
 ⚠️ FILE ORGANIZATION
 
-Per Principle XV, agent files should be in department subdirectories:
+Per Principle XV, agent files should live in a plugin's agents/ directory:
 
 Incorrect: .claude/agents/api-builder.md
-Correct: plugins/sdd-domain-backend/agents/api-builder.md
+Correct: plugins/<plugin>/agents/api-builder.md
 
-Which plugin should this agent belong to?
-- sdd-specification (product/spec agents)
-- sdd-domain-backend (backend agents)
-- sdd-domain-frontend (frontend agents)
-- sdd-domain-testing (testing agents)
-- sdd-domain-security (security agents)
-- sdd-domain-devops (devops agents)
+Which plugin should this agent belong to? Examples:
+- loom-orchestrator (swarm/team orchestration agents)
+- loom-creation (creation/scaffolding agents)
 - loom-governance (governance agents)
+
+Note: domain expertise is no longer carried by per-domain plugins — it lives as
+consolidated worker briefs in plugins/loom-governance/domain-briefs/<domain>.md
+(resolved via get_domain_brief). Create an agent only when a brief is insufficient.
 ```
 
 ---
@@ -419,7 +410,7 @@ Which plugin should this agent belong to?
 ---
 ## Related Documentation
 
-- **Constitution**: `.logic-loom/memory/constitution.md` (v3.0.0)
+- **Constitution**: `.logic-loom/memory/constitution.md` (v3.1.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
 - **Agent Layer**: `plugins/loom-governance/agents/constitutional-governance-agent.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`

@@ -14,6 +14,6 @@ model: opus
 Read `plugins/loom-orchestrator/skills/team-orchestration/SKILL.md` and follow its procedure in **sequential** mode (architect → implementor → reviewer).
 
 ### Step 2: Execute Pipeline
-Use the Task tool to spawn 3 sequential workers with domain skill briefs extracted via `extract_skill_brief()` from `.logic-loom/scripts/bash/common.sh`. Each worker's output feeds the next.
+Use the Task tool to spawn 3 sequential workers. Inject the relevant domain brief into each worker's prompt via `get_domain_brief <domain>` (e.g. `get_domain_brief backend`) from `.logic-loom/scripts/bash/common.sh`, which reads the domain-brief registry at `plugins/loom-governance/domain-briefs/<domain>.md`. Each worker's output feeds the next.
 
 **Usage**: `/build-team "Build user authentication with JWT tokens"`

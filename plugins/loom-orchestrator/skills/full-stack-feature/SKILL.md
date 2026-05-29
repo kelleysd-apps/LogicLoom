@@ -21,7 +21,7 @@ proper sequencing and dependency management across all domains.
 **Key responsibilities:**
 - Decompose full-stack features into database, backend, and frontend work items
 - Establish dependency ordering: Database -> Backend -> Frontend
-- Delegate domain work to appropriate specialists (schema-design skill (sdd-domain-database), api-design skill (sdd-domain-backend), frontend-operations skill (sdd-domain-frontend))
+- Delegate domain work to per-domain workers, injecting each brief via `get_domain_brief database`, `get_domain_brief backend`, and `get_domain_brief frontend` (registry at `plugins/loom-governance/domain-briefs/<domain>.md`)
 - Pass context between layers (e.g., schema shape to API designer, API contracts to frontend)
 - Validate integration points between layers at each phase transition
 - Run cross-layer quality gates: contracts match, tests pass, end-to-end flow works
@@ -54,18 +54,18 @@ Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
 
 ```yaml
 primary-agent: team-orchestration skill (loom-orchestrator)
-supporting-agents:
-  - schema-design skill (sdd-domain-database)
-  - api-design skill (sdd-domain-backend)
-  - frontend-operations skill (sdd-domain-frontend)
+supporting-workers:
+  - database worker (get_domain_brief database)
+  - backend worker (get_domain_brief backend)
+  - frontend worker (get_domain_brief frontend)
 timeout: 30m
 ```
 
 ### Composes
 - validation/message-preflight (pre-execution)
-- domain/database-operations (phase 1)
-- domain/backend-operations (phase 2)
-- domain/frontend-operations (phase 3)
+- get_domain_brief database (phase 1)
+- get_domain_brief backend (phase 2)
+- get_domain_brief frontend (phase 3)
 
 ## Instructions
 
@@ -86,10 +86,10 @@ Database → Backend → Frontend
 
 ### Step 3: Skill Sequencing
 
-Execute domain skills in order:
-1. Invoke `domain/database-operations` for schema work
-2. Invoke `domain/backend-operations` for API work
-3. Invoke `domain/frontend-operations` for UI work
+Execute domain workers in order, each carrying its injected brief:
+1. Spawn database worker (`get_domain_brief database`) for schema work
+2. Spawn backend worker (`get_domain_brief backend`) for API work
+3. Spawn frontend worker (`get_domain_brief frontend`) for UI work
 
 ### Step 4: Coordination via Workflow Coordinator
 
@@ -141,9 +141,9 @@ Between each phase:
 - [ ] Contracts validated
 - [ ] Dependencies satisfied
 - [ ] Integration points verified
-## Related Skills
+## Related
 
-- domain/database-operations - Database layer
-- domain/backend-operations - API layer
-- domain/frontend-operations - UI layer
+- `get_domain_brief database` - Database layer brief
+- `get_domain_brief backend` - API layer brief
+- `get_domain_brief frontend` - UI layer brief
 - orchestration/multi-skill-workflow - Complex workflows

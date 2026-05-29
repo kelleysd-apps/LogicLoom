@@ -34,7 +34,6 @@ progressive-disclosure:
     - triggers
     - category
     - version
-    - rl_metrics
   layer2:
     - instructions
     - agent-invocations
@@ -130,7 +129,6 @@ work together to fulfill a user request.
 - Validate outputs at each step before passing to dependent skills
 - Manage migration workflows (agent-to-skill, version upgrades, rollbacks)
 - Consolidate results and run cross-domain validation on completion
-- Track RL metrics per invocation (success/failure, tokens, duration)
 
 **Constitutional constraints:**
 - Principle X: Route domain work to appropriate domain skills

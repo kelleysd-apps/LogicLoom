@@ -28,14 +28,18 @@ Must be kebab-case. Check for existing agent with same name.
 ### Step 3: Determine Plugin
 Analyze description keywords to select target plugin:
 - Architecture: system, design, planning → `plugins/loom-creation/agents/`
-- Backend: develop, backend, API → `plugins/sdd-domain-backend/agents/`
-- Frontend: frontend, UI, component → `plugins/sdd-domain-frontend/agents/`
-- Quality/Testing: test, qa, review → `plugins/sdd-domain-testing/agents/`
-- Security: security, auth, encryption → `plugins/sdd-domain-security/agents/`
-- Database: database, sql, pipeline → `plugins/sdd-domain-database/agents/`
-- Product: requirement, spec, user → `plugins/sdd-specification/agents/`
-- Operations: deploy, devops, monitor → `plugins/sdd-domain-devops/agents/`
-- Performance: optimize, cache, benchmark → `plugins/sdd-domain-performance/agents/`
+- Orchestration: swarm, team, review, research → `plugins/loom-orchestrator/agents/`
+- Dev loop: iterate, autonomous, edit-test-debug → `plugins/loom-dev-loop/agents/`
+- Git: commit, push, PR → `plugins/loom-git/agents/`
+- Governance: constitution, compliance, hook → `plugins/loom-governance/agents/`
+- Product/Spec: requirement, spec, user story → `plugins/sdd-specification/agents/`
+
+> **Domains are briefs, not plugins.** Technical domains (frontend, backend,
+> database, testing, security, performance, devops) are **not** plugins — they
+> live in the `plugins/loom-governance/domain-briefs/` registry and are
+> surfaced via `get_domain_brief`. Do not place an agent in a `sdd-domain-*`
+> directory; pick the real owning plugin above. If no clear match, default to
+> `loom-creation`.
 
 ### Step 4: Create Agent
 ```bash

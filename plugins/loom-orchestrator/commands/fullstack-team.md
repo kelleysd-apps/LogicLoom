@@ -14,6 +14,6 @@ model: opus
 Read `plugins/loom-orchestrator/skills/team-orchestration/SKILL.md` and follow its procedure in **parallel fullstack** mode (frontend + backend + database).
 
 ### Step 2: Execute Development
-Use the Task tool to spawn 3 parallel domain workers with skill briefs from `extract_skill_brief()` in `.logic-loom/scripts/bash/common.sh`. Assign file ownership boundaries to prevent conflicts.
+Use the Task tool to spawn 3 parallel domain workers. Inject each worker's domain brief via `get_domain_brief frontend`, `get_domain_brief backend`, and `get_domain_brief database` from `.logic-loom/scripts/bash/common.sh`, which reads the domain-brief registry at `plugins/loom-governance/domain-briefs/<domain>.md`. Assign file ownership boundaries to prevent conflicts.
 
 **Usage**: `/fullstack-team "Build user profile page with API and database schema"`

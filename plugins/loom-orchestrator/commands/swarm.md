@@ -1,6 +1,6 @@
 ---
 name: swarm
-description: Spawn coordinated multi-agent swarm. Three modes — explore (read-only investigation), implement (DAG-driven sprint execution), and generic (domain auto-detect, the legacy behavior).
+description: Spawn coordinated multi-agent swarm. Three modes — explore (read-only investigation), implement (DAG-driven sprint execution), and generic (domain auto-detect with phased execution).
 model: opus
 ---
 
@@ -24,11 +24,11 @@ DAG-driven sprint execution. Used in LogicLoom Phase 7 (after `/plan-review` pas
 
 **Usage**: `/swarm implement` (next unstarted sprint) or `/swarm implement 02-feature-x`
 
-## Mode 3 — `/swarm <freeform>` (generic — legacy behavior)
+## Mode 3 — `/swarm <freeform>` (generic)
 
-Domain auto-detect + phased execution with budget controls. Preserved from v5.x for backward compatibility.
+Domain auto-detect + phased execution with budget controls.
 
-**SKILL ACTIVATION**: Read and execute `plugins/loom-orchestrator/skills/team-orchestration/SKILL.md` in swarm mode. Analyzes task for domain keywords, loads relevant skill briefs via `extract_skill_brief()` from `.logic-loom/scripts/bash/common.sh`, plans execution phases, spawns parallel workers per phase with budget tracking.
+**SKILL ACTIVATION**: Read and execute `plugins/loom-orchestrator/skills/team-orchestration/SKILL.md` in swarm mode. Analyzes task for domain keywords, injects the matching domain briefs via `get_domain_brief <domain>` from `.logic-loom/scripts/bash/common.sh` (registry at `plugins/loom-governance/domain-briefs/<domain>.md`), plans execution phases, spawns parallel workers per phase with budget tracking.
 
 **Usage**: `/swarm "Build auth with React UI, Express API, PostgreSQL"`
 

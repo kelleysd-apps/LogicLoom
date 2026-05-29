@@ -41,7 +41,6 @@ progressive-disclosure:
     - triggers
     - category
     - version
-    - rl_metrics
   layer2:
     - instructions
     - agent-invocations
@@ -101,7 +100,7 @@ Activate this skill when:
 Identify what needs migration:
 
 1. **Agent Migration**: Convert agent to skill + consolidated agent
-2. **Skill Upgrade**: v2 to v3 with RL metrics
+2. **Skill Upgrade**: v2 to v3 skill contract
 3. **Workflow Update**: Legacy patterns to skills-first
 4. **Configuration**: Update routing and indexes
 
@@ -113,11 +112,11 @@ Build a migration plan:
 migration-plan:
   type: agent-to-skill
   source:
-    name: frontend-operations skill (sdd-domain-frontend)
+    name: frontend-operations (legacy agent)
     type: agent
-    location: plugins/sdd-domain-frontend/agents/frontend-operations skill (sdd-domain-frontend).md
+    location: plugins/<legacy-plugin>/agents/frontend-operations.md
   target:
-    skill: domain/frontend-operations
+    brief: get_domain_brief frontend
     agent: implementation-specialist (consolidated)
   rollback-strategy: Keep source until validated
   validation:
@@ -176,10 +175,10 @@ delegates-to:
 ### Agent to Skill Migration
 
 ```
-frontend-operations skill (sdd-domain-frontend) (legacy)
+frontend-operations (legacy agent)
        |
        v
-domain/frontend-operations (skill)
+get_domain_brief frontend (registry brief)
        |
        v
 implementation-specialist (consolidated agent)
@@ -200,7 +199,7 @@ version: 3.0.0
 description: ...
 triggers: [...]
 progressive-disclosure:
-  layer1: [name, triggers, rl_metrics]
+  layer1: [name, triggers]
   layer2: [instructions]
   layer3: [examples]
 ```
@@ -209,19 +208,19 @@ progressive-disclosure:
 
 | Original | Consolidated |
 |----------|--------------|
-| frontend-operations skill (sdd-domain-frontend) | implementation-specialist |
-| backend-operations skill (sdd-domain-backend) | implementation-specialist |
-| monitoring skill (sdd-domain-devops) | operations-specialist |
-| performance-operations skill (sdd-domain-performance) | operations-specialist |
-| testing-operations skill (sdd-domain-testing) | quality-specialist |
-| security-operations skill (sdd-domain-security) | quality-specialist |
+| frontend-operations (legacy agent) | implementation-specialist |
+| backend-operations (legacy agent) | implementation-specialist |
+| monitoring / devops (legacy agent) | operations-specialist |
+| performance-operations (legacy agent) | operations-specialist |
+| testing-operations (legacy agent) | quality-specialist |
+| security-operations (legacy agent) | quality-specialist |
 
 ## Migration Scripts
 
 ### migrate-agent-to-skill.sh
 ```bash
-# Usage: ./migrate-agent-to-skill.sh <agent-name> <skill-path>
-./migrate-agent-to-skill.sh frontend-operations skill (sdd-domain-frontend) domain/frontend-operations
+# Usage: ./migrate-agent-to-skill.sh <agent-name> <target-brief>
+./migrate-agent-to-skill.sh frontend-operations get_domain_brief-frontend
 ```
 
 ### upgrade-skill-to-v3.sh

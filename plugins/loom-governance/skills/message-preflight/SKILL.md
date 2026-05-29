@@ -1,15 +1,15 @@
 ---
 name: message-preflight
-version: 3.0.0
+version: 3.1.0
 description: |
-  CRITICAL FR-707 Compliance Skill: Executes the MANDATORY 4-step pre-flight compliance check
-  on EVERY user message. This skill MUST be activated as the FIRST step after receiving any
-  user message. It validates constitutional compliance, analyzes task domain, determines
-  delegation requirements, and authorizes execution. Cannot be bypassed by other skills.
-  Implements Constitutional Principle X Work Session Initiation Protocol with skills-first routing.
+  Reference documentation for LogicLoom message pre-flight governance. Governance is
+  hook-enforced: the UserPromptSubmit governance hook injects constitutional context and
+  the git-safety-gate PreToolUse hook forces explicit approval on git mutations — neither
+  depends on a recited ceremony. This skill documents the OPTIONAL strict-mode recitation
+  (LOOM_GOVERNANCE_MODE=strict) and the domain-brief routing reference used to recommend
+  consolidated worker briefs.
 category: validation
 triggers:
-  - "__system_preflight__"
   - "compliance check"
   - "constitutional compliance"
   - "preflight"
@@ -17,145 +17,73 @@ allowed-tools:
   - Read
   - Grep
   - Glob
-agent-invocations: []
-composes: []
-progressive-disclosure:
-  layer1:
-    - name
-    - description
-    - triggers
-    - category
-    - version
-    - rl_metrics
-  layer2:
-    - instructions
-    - agent-invocations
-    - composes
-    - allowed-tools
-  layer3:
-    - examples
-    - references
 ---
 
-# Message Pre-Flight Compliance Check (FR-707)
+# Message Pre-Flight (Governance Reference)
 
-## MANDATORY EXECUTION - FR-707 CRITICAL
+## Governance is hook-enforced
 
-**This skill MUST execute at the START of every user message. No exceptions.**
+Pre-flight governance in LogicLoom no longer relies on a mandatory recited ceremony.
+Two hooks carry the load automatically:
 
-**Why This Exists**: FR-707 mandates that constitutional compliance check is the FIRST step after receiving ANY user message. This skill enforces that requirement proactively before the Router Agent or any other processing.
+- **UserPromptSubmit governance hook** — injects constitutional context and domain
+  recommendations on every message.
+- **git-safety-gate PreToolUse hook** — intercepts git-mutating Bash commands and forces
+  explicit user approval (Principle VI). This is enforced at the tool boundary; it cannot
+  be skipped by forgetting a checklist.
 
-**What It Prevents**:
-- Executing specialized work without skill-first routing
-- Skipping constitution acknowledgment
-- Forgetting to analyze task domains
-- Autonomous git operations (Principle VI)
-- Bypassing quality gates
+Because enforcement lives in the hooks, this skill is a **reference**, not a gate. It
+documents how to reason about a message and — when running in strict mode — how to recite
+the compliance summary.
 
-## The 4-Step Protocol
+## Governance modes (`LOOM_GOVERNANCE_MODE`)
 
-### Step 1: Constitution Acknowledgment
+| Mode | Default | Behavior |
+|------|---------|----------|
+| `lean` | yes | Hooks enforce git approval and inject context silently. No recitation required. Reason about domains/git inline and proceed. |
+| `strict` | no | In addition to hook enforcement, recite the compliance summary (below) before acting, for audit-heavy or training contexts. |
 
-**Action**: Confirm awareness of the 16 constitutional principles (v3.0.0).
+Set the mode via the environment variable `LOOM_GOVERNANCE_MODE`. Absence ⇒ `lean`.
 
-**Key Principles to Remember**:
-- **Principle II (Test-First)**: TDD is mandatory, >80% coverage
-- **Principle VI (Git Approval)**: NO autonomous git operations - CRITICAL
-- **Principle X (Skill-First Routing)**: Routes to specialist skills which invoke agents as needed
-- **Principle XV (File Organization)**: Verify before creating files/folders
+## How to reason about a message
 
-**Mental Checklist**:
-```
-[ ] I am aware of the 16 constitutional principles
-[ ] I know Principles I-III are IMMUTABLE
-[ ] I know Principle VI prohibits autonomous git operations
-[ ] I know Principle X requires skill-first routing (skills -> agents)
-[ ] I know Principle XV requires verification before file creation
-```
+1. **Constitution** — work under the 16 principles (v3.1.0). The load-bearing ones in
+   day-to-day flow: II (Test-First, IMMUTABLE), VI (Git Approval — hook-enforced),
+   X (Agent Delegation), XVI (Plugin-First).
+2. **Domain(s)** — note any technical domains present (frontend, backend, database,
+   testing, security, performance, devops). The governance hook surfaces these from
+   `plugins/loom-orchestrator-hook/config/domains.conf` (`keyword=domain`).
+3. **Delegation** — pick where the work goes:
+   - 0 domains → may execute directly.
+   - 1 domain → `/swarm explore` (primary) or a single consolidated worker brief.
+   - 2+ domains → `/swarm` (primary) or team orchestration (legacy).
+4. **Worker briefs** — when delegating to a swarm/team worker, pull the consolidated
+   brief from the domain-brief registry rather than a per-domain plugin:
 
-### Step 2: Domain Analysis
+   ```bash
+   # .logic-loom/scripts/bash/common.sh
+   get_domain_brief backend     # emits the consolidated Task Brief for a domain
+   ```
 
-**Action**: Scan the user message for domain trigger keywords.
+   Registry source: `plugins/loom-governance/domain-briefs/<domain>.md`. This replaced the
+   former seven `sdd-domain-*` plugins; one registry, one brief per domain.
 
-**Skill-First Domain Mapping (v5)**:
+## Optional strict-mode compliance summary
 
-| Domain | Trigger Keywords | Route To Skill | Plugin |
-|--------|------------------|----------------|--------|
-| Frontend | UI, component, React, CSS, form | frontend-operations | sdd-domain-frontend |
-| Backend | API, endpoint, server, auth, service | api-design, service-architecture | sdd-domain-backend |
-| Database | schema, migration, query, RLS, SQL | schema-design | sdd-domain-database |
-| Testing | test, TDD, E2E, coverage, QA | testing-operations | sdd-domain-testing |
-| Security | auth, encryption, XSS, secrets | security-operations | sdd-domain-security |
-| Performance | optimize, cache, benchmark | performance-operations | sdd-domain-performance |
-| DevOps | deploy, CI/CD, Docker, pipeline | monitoring | sdd-domain-devops |
-| Specification | /specify, requirements, spec | unified-specification | sdd-specification |
-| Planning | /plan, research, contract | sdd-planning | sdd-specification |
-| Tasks | /tasks, task list, dependencies | sdd-tasks | sdd-specification |
-| Multi-Domain | 2+ domains detected | team-orchestration | loom-orchestrator |
-
-**Scan Process**:
-1. Read the user message
-2. Identify any domain keywords present
-3. Count how many domains are involved
-4. Note which skills would be activated
-
-### Step 3: Delegation Decision
-
-**Action**: Make an explicit decision based on domain analysis.
-
-**Skill-First Decision Logic (v5)**:
-```
-IF 0 domains detected:
-  -> May execute directly (simple/informational task)
-
-IF 1 domain detected:
-  -> MUST activate the appropriate domain skill
-  -> Skill will invoke consolidated agent as needed
-
-IF 2+ domains detected:
-  -> MUST activate team-orchestration skill
-  -> Orchestration skill coordinates multiple domain skills
-```
-
-**Critical Rule**: Route to SKILLS, not agents directly. Skills determine agent invocation.
-
-### Step 4: Execution Authorization
-
-**Action**: Confirm all steps complete before proceeding.
-
-**Authorization Checklist**:
-```
-[ ] Step 1: Constitution acknowledged
-[ ] Step 2: Domains analyzed
-[ ] Step 3: Skill routing decision made
-[ ] Step 4: Ready to execute (directly or via skill activation)
-```
-
-**Log to Audit Trail**:
-- Timestamp (ISO8601)
-- Message hash (first 8 chars)
-- Domains detected
-- Skill routing target
-- Git operations planned (boolean)
-
-## Output Format
-
-After completing the 4-step protocol, output a brief compliance summary:
+Only required when `LOOM_GOVERNANCE_MODE=strict`. Format:
 
 ```
 Constitutional Compliance Check:
-- Timestamp: [ISO8601]
 - Domain(s): [none | single: <domain> | multi: <domains>]
-- Delegation: [direct execution | <skill-name>]
+- Delegation: [direct execution | /swarm <mode> | worker brief: <domain>]
 - Git operations: [none planned | will request approval]
 - Proceeding with: [action description]
 ```
 
-**Examples**:
+Examples:
 
 ```
 Constitutional Compliance Check:
-- Timestamp: 2026-01-13T10:00:00Z
 - Domain(s): none
 - Delegation: direct execution
 - Git operations: none planned
@@ -164,151 +92,31 @@ Constitutional Compliance Check:
 
 ```
 Constitutional Compliance Check:
-- Timestamp: 2026-01-13T10:05:00Z
 - Domain(s): single: database
-- Delegation: schema-design
+- Delegation: worker brief: database
 - Git operations: none planned
-- Proceeding with: activating schema-design skill for database work
+- Proceeding with: schema work via get_domain_brief database
 ```
 
 ```
 Constitutional Compliance Check:
-- Timestamp: 2026-01-13T10:10:00Z
 - Domain(s): multi: frontend, backend, database
-- Delegation: team-orchestration
+- Delegation: /swarm
 - Git operations: will request approval
-- Proceeding with: coordinating full-stack feature via team-orchestration skill
+- Proceeding with: coordinating a full-stack swarm
 ```
 
-## Audit Trail (FR-707 Requirement)
+## Git operations (Principle VI)
 
-Every compliance check MUST log to `.docs/audit/message-preflight.log`:
-
-```json
-{
-  "timestamp": "2026-01-13T10:00:00Z",
-  "message_hash": "abc12345",
-  "domains_detected": ["backend", "database"],
-  "delegation_target": "team-orchestration",
-  "git_operations_planned": false,
-  "compliance_status": "PASS",
-  "duration_ms": 125
-}
-```
-
-## Integration with DS-STAR
-
-This skill integrates with DS-STAR Router Agent (FR-701):
-
-```
-User Message
-    |
-    v
-[FR-707] message-preflight skill  <-- THIS SKILL (FIRST!)
-    |
-    v
-Router Agent (DS-STAR)
-    |
-    v
-RL-Enhanced Skill Selection
-    |
-    v
-Skill Activation
-    |
-    v
-Agent Invocation (via skill)
-```
-
-**Critical**: Router Agent MUST NOT process until this skill completes.
-
-## Violation Handling
-
-### If You Catch Yourself Violating
-
-If you realize you started work without running this protocol:
-
-1. **STOP** immediately
-2. **ACKNOWLEDGE** the violation
-3. **CORRECT** by running the 4-step protocol now
-4. **PROCEED** only after completing all steps
-5. **LOG** the self-correction event
-
-**Self-Correction Template**:
-```
-[CORRECTION] I started work without completing the pre-flight check.
-
-Constitutional Compliance Check (corrected):
-- Timestamp: [now]
-- Domain(s): [analysis]
-- Delegation: [skill decision]
-- Git operations: [status]
-- Proceeding with: [corrected action]
-```
-
-### Bypass Attempt Detection
-
-If another skill/agent attempts to bypass this check:
-
-1. **BLOCK** the attempted action
-2. **LOG** the bypass attempt
-3. **FORCE** compliance check execution
-4. **ALERT** user to governance violation
-
-## Performance Targets
-
-| Metric | Target | Rationale |
-|--------|--------|-----------|
-| Execution Time | <500ms | Must not delay user experience |
-| Success Rate | 99.9% | Critical path, must be reliable |
-| Token Usage | <200 | Minimal overhead |
-
-## Common Violations to Avoid
-
-1. **Skipping to implementation** without domain analysis
-2. **Invoking agents directly** without going through skills (v5)
-3. **Running git commands** without user approval
-4. **Ignoring multi-domain** complexity (treating as single domain)
-5. **Bypassing compliance check** on "simple" tasks (NO exceptions)
-
-## Constitutional Compliance
-
-This skill directly implements:
-- **FR-707**: Compliance check as FIRST step after user message
-- **Principle X**: Work Session Initiation Protocol (skill-first routing in v5)
-- **Principle VI**: Git operation approval enforcement
-
-**From Constitution v3.0.0**:
-
-> **Work Session Initiation Protocol (MANDATORY for EVERY task)**:
->
-> **Step 1: READ CONSTITUTION** - First action of any session
-> **Step 2: ANALYZE TASK DOMAIN** - Scan for trigger keywords
-> **Step 3: DELEGATION DECISION** - Route to appropriate skill
-> **Step 4: EXECUTION** - Execute directly OR activate skill
-
-This skill automates and enforces this protocol.
-
-## Validation
-
-Verify the skill executed correctly:
-
-- [ ] Constitution acknowledgment completed (Step 1)
-- [ ] Domain keywords scanned (Step 2)
-- [ ] Domain count determined (0, 1, or 2+)
-- [ ] Skill routing decision made (Step 3)
-- [ ] Compliance summary output provided
-- [ ] Appropriate skill activated (if needed)
-- [ ] Git operations flagged (if detected)
-- [ ] Audit log entry created
-## Related Skills
-
-- **domain-detection**: Detailed domain analysis
-- **constitutional-compliance**: Full compliance validation (post-work)
-- **team-orchestration**: Multi-domain coordination
+The git-safety-gate hook intercepts git mutations and requires explicit user approval —
+branch create/switch/delete, commit, push, pull, merge, rebase, reset, stash. This holds
+in both lean and strict modes; there is nothing to remember, because the hook blocks the
+command until you ask.
 
 ## References
 
-- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
-- Skill Activation Triggers: `.logic-loom/memory/skill-activation-triggers.md` (Phase 3)
-- Agent Collaboration Triggers: `.logic-loom/memory/agent-collaboration-triggers.md` (legacy)
-- Domain Detection Skill: `plugins/loom-governance/skills/domain-detection/SKILL.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Domain-brief registry: `plugins/loom-governance/domain-briefs/`
+- Domain keyword map: `plugins/loom-orchestrator-hook/config/domains.conf`
+- `get_domain_brief()`: `.logic-loom/scripts/bash/common.sh`
+- Domain Detection skill: `plugins/loom-governance/skills/domain-detection/SKILL.md`

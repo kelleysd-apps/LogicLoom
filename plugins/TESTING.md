@@ -17,7 +17,7 @@ bash tests/contract/plugins/test_plugin_lifecycle.sh
 - Valid JSON syntax
 - Required fields: `name`, `version`, `description`, `dependencies`
 - `loom-governance` in dependencies
-- `rl_metrics` object present with `success_rate`, `selection_weight`, `invocation_count`
+- `name` uses the `loom-` prefix (legacy exception: `sdd-specification`)
 
 ### 2. Skill Structure Validation
 
@@ -52,15 +52,18 @@ bash tests/contract/plugins/test_plugin_lifecycle.sh
 ### Integration Tests (Required for core/orchestration plugins)
 
 ```bash
-# Framework integration tests (after marketplace MCP is live)
+# Framework integration tests
 bash tests/integration/test_plugin_integration.sh
 ```
 
-### Domain Tests (Required for domain plugins)
+### Domain Brief Tests (Required when adding/changing a domain)
+
+Domains are briefs in the `plugins/loom-governance/domain-briefs/` registry, not
+plugins. Validate them via the `get_domain_brief` contract test:
 
 ```bash
-# Domain-specific validation
-bash tests/domain/test_domain_plugins.sh
+# Exercises get_domain_brief over the domain-brief registry
+bash tests/contract/test_memory_search.sh
 ```
 
 ## Writing Tests for New Plugins

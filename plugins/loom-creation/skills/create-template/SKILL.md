@@ -45,7 +45,7 @@ artifacts. Templates use `{{VARIABLE}}` placeholders for customization.
 
 ### Prerequisites
 
-1. FR-707 compliance check must pass
+1. Constitutional compliance check must pass (governance is hook-enforced)
 2. User must provide:
    - Template type (skill, agent, document)
    - Template name
@@ -193,10 +193,6 @@ merged-from: []
 | Missing variables | Analysis | Suggest common variables |
 | Duplicate template | File check | Prompt for overwrite |
 
-## RL Metrics
-
-- **Success Criteria**: Template created and usable
-- **Token Efficiency**: Minimize generation overhead
 ## Related Skills
 
 - **creation/create-skill**: Uses skill templates

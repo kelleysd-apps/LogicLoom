@@ -29,18 +29,19 @@ Analyze description keywords to select the target plugin:
 | Keywords | Target Plugin |
 |----------|--------------|
 | system, design, planning, architecture | loom-creation |
-| backend, API, endpoint, server | sdd-domain-backend |
-| frontend, UI, component, React | sdd-domain-frontend |
-| test, qa, review, coverage | sdd-domain-testing |
-| security, auth, encryption, XSS | sdd-domain-security |
-| database, sql, schema, migration | sdd-domain-database |
-| requirement, spec, user story | sdd-specification |
-| deploy, devops, monitor, CI/CD | sdd-domain-devops |
-| optimize, cache, benchmark, perf | sdd-domain-performance |
-| orchestration, swarm, team | loom-orchestrator |
+| orchestration, swarm, team, review, research | loom-orchestrator |
 | dev-loop, iterate, autonomous | loom-dev-loop |
+| commit, push, PR, git | loom-git |
+| constitution, compliance, hook, governance | loom-governance |
+| requirement, spec, user story | sdd-specification |
 
 If no clear match, default to `loom-creation`.
+
+> **Domains are briefs, not plugins.** Technical domains (frontend, backend,
+> database, testing, security, performance, devops) are **not** plugins — they
+> live in the `plugins/loom-governance/domain-briefs/` registry and are
+> surfaced via `get_domain_brief`. Never place an agent in an `sdd-domain-*`
+> directory; pick the real owning plugin above.
 
 ### Step 4: Create Agent File
 

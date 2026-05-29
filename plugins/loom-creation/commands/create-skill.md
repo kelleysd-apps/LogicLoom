@@ -20,15 +20,19 @@ Create SKILL.md at appropriate location:
 - If `--category`: `plugins/<plugin>/skills/<skill-name>/SKILL.md`
 - Default: `plugins/loom-governance/skills/<skill-name>/SKILL.md`
 
-### Step 4: Include RL Metrics
-Add default rl_metrics frontmatter (success_rate: 0.5, selection_weight: 0.5).
-
-### Step 5: Report
-Show: skill path, RL metrics, usage instructions.
+### Step 4: Report
+Show: skill path, usage instructions.
 
 ## Usage
 ```
 /create-skill api-design
-/create-skill api-design --category sdd-domain-backend
-/create-skill api-design --category sdd-workflow
+/create-skill api-design --category loom-orchestrator
+/create-skill api-design --plugin loom-creation
 ```
+
+> **Note**: Technical domains (frontend, backend, database, testing, security,
+> performance, devops) are **briefs**, not plugins — they live in the
+> `plugins/loom-governance/domain-briefs/` registry and are surfaced via
+> `get_domain_brief`. Do not target a skill at a `--category sdd-domain-*`;
+> use a real plugin (`loom-*`, or `sdd-specification` for the legacy SDD
+> workflow) instead.
