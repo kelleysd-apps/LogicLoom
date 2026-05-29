@@ -18,7 +18,7 @@ assert() {
 
 HOOK_SCRIPT=".claude/hooks/user-prompt-submit/governance-preflight.sh"
 SETTINGS_FILE=".claude/settings.json"
-DOMAINS_CONF="plugins/sdd-orchestrator-hook/config/domains.conf"
+DOMAINS_CONF="plugins/loom-orchestrator-hook/config/domains.conf"
 
 echo "═══ Orchestration Hook Contract Tests ═══"
 echo ""
@@ -83,16 +83,16 @@ assert "Hook detects security domain keywords" "[ '$HAS_SECURITY' = 'yes' ]"
 # ── Plugin Infrastructure Tests ──
 echo ""
 echo "Orchestrator hook plugin"
-assert "sdd-orchestrator-hook plugin.json exists" "[ -f plugins/sdd-orchestrator-hook/plugin.json ]"
-assert "sdd-orchestrator-hook plugin.json is valid JSON" \
-  "python3 -c 'import json; json.load(open(\"plugins/sdd-orchestrator-hook/plugin.json\"))'"
+assert "loom-orchestrator-hook plugin.json exists" "[ -f plugins/loom-orchestrator-hook/plugin.json ]"
+assert "loom-orchestrator-hook plugin.json is valid JSON" \
+  "python3 -c 'import json; json.load(open(\"plugins/loom-orchestrator-hook/plugin.json\"))'"
 assert "domains.conf exists" "[ -f $DOMAINS_CONF ]"
 assert "domains.conf has frontend mapping" "grep -q 'frontend' $DOMAINS_CONF"
 assert "domains.conf has backend mapping" "grep -q 'backend' $DOMAINS_CONF"
 assert "domains.conf has security mapping" "grep -q 'security' $DOMAINS_CONF"
-assert "domains.conf uses skill-based delegation format" "grep -q 'sdd-domain-.*:.*-operations' $DOMAINS_CONF"
+assert "domains.conf uses keyword=domain format" "grep -qE '=(frontend|backend|database|testing|security|performance|devops)$' $DOMAINS_CONF"
 assert "Orchestration skill exists" \
-  "[ -f plugins/sdd-orchestrator-hook/skills/orchestration-guidance/SKILL.md ]"
+  "[ -f plugins/loom-orchestrator-hook/skills/orchestration-guidance/SKILL.md ]"
 
 # ── Graceful Failure Test ──
 echo ""

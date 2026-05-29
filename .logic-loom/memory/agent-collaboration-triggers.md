@@ -23,34 +23,30 @@ Every work session must follow these 4 steps:
 
 ---
 
-## Department Structures
+## Routing Targets
 
-### Available Agents by Department
+Technical domains resolve to **domain briefs** in the governance core — keyword →
+domain (`config/domains.conf`) → `get_domain_brief <domain>`
+(`plugins/loom-governance/domain-briefs/<domain>.md`). Workflow phases and
+orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 
-**Architecture Department**:
-- `api-design` skill (sdd-domain-backend plugin) - API architecture, contract design
-- `service-architecture` skill (sdd-domain-backend plugin) - System design, scalability
-- `subagent-architect` agent (sdd-creation plugin) - Creating new SDD-compliant agents
+### Technical Domains (briefs)
 
-**Data Department**:
-- `schema-design` skill (sdd-domain-database plugin) - Schema design, queries, migrations, RLS, indexing
+- `frontend` → `get_domain_brief frontend` - React/Next.js, UI components, state management
+- `backend` → `get_domain_brief backend` - API architecture, contract design, services
+- `database` → `get_domain_brief database` - Schema design, queries, migrations, RLS, indexing
+- `testing` → `get_domain_brief testing` - Test strategy, test creation, QA
+- `security` → `get_domain_brief security` - Security review, vulnerability assessment
+- `performance` → `get_domain_brief performance` - Optimization, caching, benchmarking
+- `devops` → `get_domain_brief devops` - CI/CD, Docker, deployment, infrastructure
 
-**Engineering Department**:
-- `frontend-operations` skill (sdd-domain-frontend plugin) - React/Next.js, UI components, state management
+### Workflow & Orchestration (skills/agents)
 
-**Operations Department**:
-- `monitoring` skill (sdd-domain-devops plugin) - CI/CD, Docker, deployment, infrastructure
-- `performance-operations` skill (sdd-domain-performance plugin) - Optimization, caching, benchmarking
-
-**Product Department**:
-- `sdd-specification` skill (sdd-specification plugin) - Feature specs, requirements, user stories
+- `subagent-architect` agent (loom-creation plugin) - Creating new SDD-compliant agents
+- `unified-specification` skill (sdd-specification plugin) - Feature specs, requirements, user stories
 - `planning-agent` skill (sdd-specification plugin) - Implementation planning, technical research, contract design
 - `task-generation` skill (sdd-specification plugin) - Task breakdown, dependency tracking
-- `team-orchestration` skill (sdd-orchestrator plugin) - Multi-agent workflow coordination
-
-**Quality Department**:
-- `testing-operations` skill (sdd-domain-testing plugin) - Test strategy, test creation, QA
-- `security-operations` skill (sdd-domain-security plugin) - Security review, vulnerability assessment
+- `team-orchestration` skill (loom-orchestrator plugin) / `/swarm` - Multi-domain workflow coordination
 
 ---
 
@@ -74,7 +70,7 @@ Every work session must follow these 4 steps:
 - "Add responsive navigation menu"
 - "Implement state management for user data"
 
-**Delegate To**: `frontend-operations` skill (sdd-domain-frontend plugin)
+**Delegate To**: domain `frontend` → `get_domain_brief frontend`
 
 ---
 
@@ -97,7 +93,7 @@ Every work session must follow these 4 steps:
 - "Add role-based access control"
 - "Build webhook handler for payments"
 
-**Delegate To**: `api-design` or `service-architecture` skill (sdd-domain-backend plugin)
+**Delegate To**: domain `backend` → `get_domain_brief backend`
 
 ---
 
@@ -121,7 +117,7 @@ Every work session must follow these 4 steps:
 - "Add indexes for query performance"
 - "Write migration for new table"
 
-**Delegate To**: `schema-design` skill (sdd-domain-database plugin)
+**Delegate To**: domain `database` → `get_domain_brief database`
 
 ---
 
@@ -144,7 +140,7 @@ Every work session must follow these 4 steps:
 - "Add integration tests for API"
 - "Set up test fixtures and mocks"
 
-**Delegate To**: `testing-operations` skill (sdd-domain-testing plugin)
+**Delegate To**: domain `testing` → `get_domain_brief testing`
 
 ---
 
@@ -168,7 +164,7 @@ Every work session must follow these 4 steps:
 - "Implement rate limiting on login"
 - "Encrypt sensitive user data"
 
-**Delegate To**: `security-operations` skill (sdd-domain-security plugin)
+**Delegate To**: domain `security` → `get_domain_brief security`
 
 ---
 
@@ -192,7 +188,7 @@ Every work session must follow these 4 steps:
 - "Improve page load speed"
 - "Profile and fix memory leaks"
 
-**Delegate To**: `performance-operations` skill (sdd-domain-performance plugin)
+**Delegate To**: domain `performance` → `get_domain_brief performance`
 
 ---
 
@@ -215,7 +211,7 @@ Every work session must follow these 4 steps:
 - "Deploy to production on AWS"
 - "Configure environment variables for staging"
 
-**Delegate To**: `monitoring` skill (sdd-domain-devops plugin)
+**Delegate To**: domain `devops` → `get_domain_brief devops`
 
 ---
 
@@ -237,7 +233,7 @@ Every work session must follow these 4 steps:
 - "Define acceptance criteria for feature"
 - "Document requirements for API"
 
-**Delegate To**: `sdd-specification` skill (sdd-specification plugin)
+**Delegate To**: `unified-specification` skill (sdd-specification plugin)
 
 ---
 
@@ -319,9 +315,9 @@ Every work session must follow these 4 steps:
 - "Develop multi-tenant system" (architecture + database + security + frontend)
 
 **Multi-Domain Detection**:
-If task description contains keywords from 2+ domains → Use `team-orchestration` skill (sdd-orchestrator plugin)
+If task description contains keywords from 2+ domains → Use `team-orchestration` skill (loom-orchestrator plugin)
 
-**Delegate To**: `team-orchestration` skill (sdd-orchestrator plugin)
+**Delegate To**: `team-orchestration` skill (loom-orchestrator plugin)
 
 ---
 
@@ -383,15 +379,15 @@ Use team-orchestration       Keywords from 1 domain?
 - Keywords: authentication (backend), login (frontend), database (data), security (quality)
 - Domains: Backend, Frontend, Database, Security = 4 domains
 
-**Decision**: Multi-agent scenario → Delegate to `team-orchestration` skill (sdd-orchestrator plugin)
+**Decision**: Multi-agent scenario → Delegate to `team-orchestration` skill (loom-orchestrator plugin)
 
-**Orchestration Workflow**:
-1. `sdd-specification` skill: Create feature spec
-2. `api-design` skill: Design API endpoints
-3. `schema-design` skill: Design user schema, RLS policies
-4. `security-operations` skill: Review auth flow, encryption
-5. `frontend-operations` skill: Implement login UI
-6. `testing-operations` skill: Create E2E tests
+**Orchestration Workflow** (each worker gets its domain brief injected):
+1. `unified-specification` skill: Create feature spec
+2. backend brief (`get_domain_brief backend`): Design API endpoints
+3. database brief (`get_domain_brief database`): Design user schema, RLS policies
+4. security brief (`get_domain_brief security`): Review auth flow, encryption
+5. frontend brief (`get_domain_brief frontend`): Implement login UI
+6. testing brief (`get_domain_brief testing`): Create E2E tests
 
 ---
 
@@ -403,7 +399,7 @@ Use team-orchestration       Keywords from 1 domain?
 - Keywords: API, endpoint (backend), pagination (backend)
 - Domains: Backend only = 1 domain
 
-**Decision**: Single-domain scenario → Delegate to `api-design` skill (sdd-domain-backend plugin)
+**Decision**: Single-domain scenario → domain `backend` → `get_domain_brief backend`
 
 ---
 
@@ -415,7 +411,7 @@ Use team-orchestration       Keywords from 1 domain?
 - Keywords: database, schema, table relationships
 - Domains: Database only = 1 domain
 
-**Decision**: Single-domain scenario → Delegate to `schema-design` skill (sdd-domain-database plugin)
+**Decision**: Single-domain scenario → domain `database` → `get_domain_brief database`
 
 ---
 
@@ -427,7 +423,7 @@ Use team-orchestration       Keywords from 1 domain?
 - Keywords: optimize, performance, slow loading
 - Domains: Performance = 1 domain (but may expand after analysis)
 
-**Decision**: Start with `performance-operations` skill (sdd-domain-performance plugin) → May delegate to frontend/backend if needed
+**Decision**: Start with domain `performance` → `get_domain_brief performance` → may add frontend/backend briefs if needed
 
 ---
 
@@ -439,15 +435,15 @@ Use team-orchestration       Keywords from 1 domain?
 - Scope: Full feature with CRUD, UI, API, database
 - Domains: Frontend, Backend, Database, Testing = 4+ domains
 
-**Decision**: Complex multi-domain → Delegate to `team-orchestration` skill (sdd-orchestrator plugin)
+**Decision**: Complex multi-domain → Delegate to `team-orchestration` skill (loom-orchestrator plugin)
 
-**Orchestration Workflow**:
-1. `sdd-specification` skill: Create feature specification
-2. `api-design` skill: Design data model and API
-3. `schema-design` skill: Design schema and relationships
-4. `frontend-operations` skill: Implement UI components
-5. `testing-operations` skill: Create test suite
-6. `security-operations` skill: Review for vulnerabilities
+**Orchestration Workflow** (each worker gets its domain brief injected):
+1. `unified-specification` skill: Create feature specification
+2. backend brief (`get_domain_brief backend`): Design data model and API
+3. database brief (`get_domain_brief database`): Design schema and relationships
+4. frontend brief (`get_domain_brief frontend`): Implement UI components
+5. testing brief (`get_domain_brief testing`): Create test suite
+6. security brief (`get_domain_brief security`): Review for vulnerabilities
 
 ---
 
@@ -455,7 +451,7 @@ Use team-orchestration       Keywords from 1 domain?
 
 ### Single-Domain Routing
 
-**When to use single domain skill**:
+**When to use a single domain brief**:
 - Task clearly within one domain
 - Simple, straightforward requirements
 - No cross-functional dependencies
@@ -463,7 +459,7 @@ Use team-orchestration       Keywords from 1 domain?
 
 **Pattern**:
 ```
-Task → Analyze Domain → Select Domain Skill → Delegate → Execute
+Task → Analyze Domain → get_domain_brief <domain> → Inject Brief → Execute
 ```
 
 ### Multi-Domain Orchestration
@@ -489,8 +485,8 @@ When multiple skills work on same feature, use structured context handoff:
 {
   "feature": "user-authentication",
   "phase": "implementation",
-  "previous_skill": "api-design",
-  "next_skill": "frontend-operations",
+  "previous_domain": "backend",
+  "next_domain": "frontend",
   "context": {
     "api_endpoints": [
       "POST /api/auth/login",
@@ -562,19 +558,19 @@ Checks for:
 
 ## Quick Reference Table
 
-| Domain | Skill / Agent | Trigger Keywords |
-|--------|---------------|------------------|
-| Frontend | frontend-operations (sdd-domain-frontend) | UI, React, component, styling, responsive |
-| Backend | api-design / service-architecture (sdd-domain-backend) | API, endpoint, server, auth, business logic |
-| Database | schema-design (sdd-domain-database) | schema, migration, query, RLS, index |
-| Testing | testing-operations (sdd-domain-testing) | test, E2E, unit, integration, QA |
-| Security | security-operations (sdd-domain-security) | security, XSS, encryption, vulnerability |
-| Performance | performance-operations (sdd-domain-performance) | optimization, caching, benchmark, speed |
-| DevOps | monitoring (sdd-domain-devops) | deploy, CI/CD, Docker, infrastructure |
-| Specs | sdd-specification (sdd-specification) | spec, requirements, user story |
+| Domain / Phase | Route | Trigger Keywords |
+|----------------|-------|------------------|
+| Frontend | `get_domain_brief frontend` | UI, React, component, styling, responsive |
+| Backend | `get_domain_brief backend` | API, endpoint, server, auth, business logic |
+| Database | `get_domain_brief database` | schema, migration, query, RLS, index |
+| Testing | `get_domain_brief testing` | test, E2E, unit, integration, QA |
+| Security | `get_domain_brief security` | security, XSS, encryption, vulnerability |
+| Performance | `get_domain_brief performance` | optimization, caching, benchmark, speed |
+| DevOps | `get_domain_brief devops` | deploy, CI/CD, Docker, infrastructure |
+| Specs | unified-specification (sdd-specification) | spec, requirements, user story |
 | Planning | planning-agent (sdd-specification) | implementation plan, research, contracts |
 | Tasks | task-generation (sdd-specification) | task list, breakdown, dependency |
-| Multi-Domain | team-orchestration (sdd-orchestrator) | 2+ domains, complex feature |
+| Multi-Domain | team-orchestration (loom-orchestrator) / `/swarm` | 2+ domains, complex feature |
 | Agent Creation | subagent-architect | create agent, new agent |
 
 ---

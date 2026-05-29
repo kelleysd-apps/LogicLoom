@@ -36,11 +36,11 @@ install_plugin() {
 case "$PHASE" in
   1|all)
     echo "Phase 1: Core Governance"
-    install_plugin "sdd-governance"
+    install_plugin "loom-governance"
     ;;&
   2|all)
     echo "Phase 2: Core Plugins"
-    for p in sdd-specification sdd-git sdd-debug sdd-creation; do
+    for p in sdd-specification loom-git sdd-debug loom-creation; do
       install_plugin "$p"
     done
     ;;&
@@ -52,7 +52,7 @@ case "$PHASE" in
     ;;&
   4|all)
     echo "Phase 4: Orchestration"
-    install_plugin "sdd-orchestrator"
+    install_plugin "loom-orchestrator"
     ;;&
 esac
 

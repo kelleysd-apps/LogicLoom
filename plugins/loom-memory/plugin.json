@@ -1,0 +1,41 @@
+{
+  "name": "loom-memory",
+  "version": "2.0.0",
+  "description": "Memory context injection with pluggable search backends. Supports keyword (v1.0), BM25, vector, and hybrid search modes. Features retention policies, scoped retrieval, and memory flush for context preservation.",
+  "category": "orchestration",
+  "author": "logic-loom",
+  "skills": [
+    {
+      "name": "context-injection",
+      "path": "skills/context-injection/SKILL.md",
+      "triggers": [
+        "memory context",
+        "context injection",
+        "project memory"
+      ]
+    }
+  ],
+  "agents": [
+    {
+      "name": "memory-context-agent",
+      "path": "agents/memory-context-agent.md",
+      "department": "orchestration"
+    }
+  ],
+  "commands": [],
+  "config": {
+    "memory_conf": "config/memory.conf",
+    "memory_v2_conf": "config/memory-v2.conf"
+  },
+  "backends": {
+    "keyword": "lib/keyword-backend.sh",
+    "bm25": "lib/bm25-search.sh",
+    "vector": "lib/vector-search.sh",
+    "hybrid": "lib/hybrid-search.sh"
+  },
+  "dependencies": [],
+  "constitutional_principles": [
+    "VII",
+    "XVI"
+  ]
+}

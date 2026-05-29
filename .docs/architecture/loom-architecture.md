@@ -1,8 +1,8 @@
 # LogicLoom Architecture
 
-**Status**: v6.0.0 (post-migration authoritative)
-**Constitution**: v3.0.0 (16 principles, untouched in this migration)
-**Migration source**: SDD-Workflow v5.0.0 → LogicLoom v6.0.0 (workflow-scope cutover)
+**Status**: v6.1.0 (authoritative)
+**Constitution**: v3.1.0 (16 principles)
+**Migration source**: SDD-Workflow v5.0.0 → LogicLoom (workflow-scope cutover)
 **Reference**: Anthropic, "How we built our multi-agent harness."
 
 ---
@@ -10,10 +10,12 @@
 ## 1. Identity
 
 - **Name**: `logic-loom` (slug) / **LogicLoom** (display)
-- **Version**: v6.0.0
+- **Version**: v6.1.0
 - **Repository layout**: three-layer separation, see §2.
-- **Scope of this migration**: workflow only. Constitutional governance,
-  preflight hook, and memory plugin are preserved as-is from v5.0.0.
+- **Shape**: a durable **governance core** (constitution, hooks, memory, plugin
+  chassis) plus **interchangeable workflow packs** layered on top. The
+  vision/swarm pack (§3), the SDD-waterfall pack (§4), and the dev-loop pack are
+  peers — none is privileged. Governance is preserved as-is from v5.0.0.
 
 ## 2. Layers
 
@@ -26,13 +28,19 @@ namespace of layer-1 changes (`.specify/` → `.logic-loom/`).
 | 2. Harness integration | `.claude/` | hooks/, commands/ (bridge-generated), context/, settings.json |
 | 3. Capabilities | `plugins/` | All skills, agents, commands (plugin-first per Principle XVI) |
 
-**Worker workspace**: `features/<feature-name>/` holds vision.md, prd.md,
-plan.md, and sprint output. This replaces `specs/###-name/` from v5.0.0.
+**Worker workspaces**: the vision/swarm pack uses `features/<feature-name>/`
+(vision.md, prd.md, plan.md, sprint output); the SDD-waterfall pack uses
+`specs/###-name/` from v5.0.0. Both coexist — one per pack.
 
-## 3. Primary workflow — vision / PRD / plan / swarm
+## 3. Vision / swarm pack — vision / PRD / plan / swarm
 
-The primary loop is a 12-step pipeline. Each step is gated by a verifier or
-by the immediately downstream step's preconditions.
+One workflow pack. Its loop is a 12-step pipeline; each step is gated by a
+verifier or by the immediately downstream step's preconditions. `vision.md`
+(step 4) and `/plan-review` (step 6) are **pack-internal gates** — they prevent
+broad-spec cascade and worker collision within this pack, not across the
+framework. Use this pack for exploratory or surface-bearing work with a
+behavioral quality bar; use the SDD-waterfall pack (§4) when the task is
+contract-first and fully specifiable up front.
 
 1. **EnterWorktree** — isolate the feature on its own branch + working tree.
    `worktree-port-namespace.sh` writes `.loom-worktree-env` with the
@@ -58,23 +66,25 @@ by the immediately downstream step's preconditions.
 12. **`/retro`** + **ExitWorktree** — write a short retrospective; tear down
     the worktree.
 
-## 4. Legacy SDD workflow
+## 4. SDD-waterfall pack
 
-The waterfall workflow remains available and is **not** removed in v6.0.0:
+A peer workflow pack to §3 — fully first-class, not a fallback:
 
 - `/specification` — three-phase SDD waterfall (spec → plan → tasks).
 - `/build-team` — sequential architect → implementor → reviewer.
 - `/fullstack-team` — parallel frontend + backend + database team.
-- `/dev-loop` — recursive edit-test-debug loop with tribunal voting.
 - `/finalize` — pre-commit constitutional compliance validator.
 
-Use the legacy commands when the task is constrained, contract-first, and
-benefits from a fully specified up-front design. Use the primary workflow
-(§3) when the task is exploratory, surface-bearing, or has a quality bar
-that needs behavioral grading.
+The recursive **dev-loop pack** (`/dev-loop`, edit-test-debug with tribunal
+voting) is a third peer pack with its own entry point.
 
-Legacy docs live at `.docs/workflows/sdd-waterfall.md` (not migrated;
-existing v5.0.0 documentation remains canonical).
+Choose the waterfall pack when the task is constrained, contract-first, and
+benefits from a fully specified up-front design. Choose the vision/swarm pack
+(§3) when the task is exploratory, surface-bearing, or has a quality bar that
+needs behavioral grading. All packs share the governance core (§12), plugin
+chassis, and distribution machinery.
+
+SDD-waterfall reference docs live at `.docs/workflows/sdd-waterfall.md`.
 
 ## 5. Plan-as-DAG handoff contract
 
@@ -131,12 +141,28 @@ sprints:
 LogicLoom hooks live in `.claude/hooks/` and are wired in
 `.claude/settings.json`. Three categories:
 
-### Governance hooks (preserved from v5.0.0)
+### Governance-core hooks (preserved from v5.0.0)
+
+These are the durable governance core. They enforce the constitution at the
+harness boundary, independent of which workflow pack is active.
 
 | Hook | Event | Purpose | Principle |
 |------|-------|---------|-----------|
-| `user-prompt-submit` | UserPromptSubmit | Injects constitutional governance reminder + domain detection + memory context | I–XVI |
+| `user-prompt-submit` (governance-preflight) | UserPromptSubmit | Injects governance context + domain detection + memory context. Recitation depth is mode-controlled (see below) | I–XVI |
+| `git-safety-gate.sh` | PreToolUse (Bash) | Forces explicit approval on any git mutation (commit, push, branch, merge, history edit). Runs in every mode | VI |
 | `guard-dangerous-commands.sh` | PreToolUse | Gates destructive bash commands; never auto-runs git | VI, XI |
+
+**Governance mode (`LOOM_GOVERNANCE_MODE`)** — env > `.logic-loom/config/governance.conf`
+> built-in default. Hook enforcement (git-safety gate, dangerous-command guard,
+freeze-scope) runs regardless of mode; the mode only tunes the **model-side
+assist** injected on each message:
+
+- **`lean`** (default) — hooks enforce; no per-message compliance recitation.
+  Correct for flagship Opus-class models that follow the governance section of
+  CLAUDE.md directly. The mandatory per-message 4-step ceremony is not run.
+- **`strict`** — hooks enforce **and** the explicit step-by-step compliance
+  assist is re-injected on every message. Graceful-degradation path for weaker
+  / non-flagship models.
 
 ### LogicLoom hooks (new in v6.0.0)
 
@@ -151,15 +177,16 @@ LogicLoom hooks live in `.claude/hooks/` and are wired in
 `/swarm` is the unified multi-agent dispatch command. It has three modes:
 
 - **`explore`** (read-only) — spawns investigator workers with Read/Grep/Glob
-  tools only. Writes a single exploration report; no code edits. Used in
-  primary workflow step 2.
+  tools only. Writes a single exploration report; no code edits. Used in the
+  vision/swarm pack at step 2 (§3).
 - **`implement`** (DAG executor) — reads `features/<name>/plan.md`, performs
   topological sort, dispatches one worker per task. Before each dispatch,
   injects `LOOM_ACTIVE_FEATURE=<feature>` and `LOOM_ACTIVE_TASK=<id>` into
   the worker's environment so the freeze-write-scope hook can resolve the
   active scope and gate writes to that task's `owns:` list.
-- **`generic`** (legacy team-orchestration) — preserves the v5.0.0 behavior
-  of the team commands (`/build-team`, `/fullstack-team`, `/review-team`).
+- **`generic`** (team-orchestration) — the general multi-agent dispatch mode
+  behind the team commands (`/build-team`, `/fullstack-team`, `/review-team`);
+  preserves the v5.0.0 behavior.
 
 `/swarm` without a mode flag selects `generic` for backward compatibility.
 
@@ -181,9 +208,8 @@ other three reviewers. Beautiful-but-broken is never shipped.
 
 ## 9. /research jury-on-demand
 
-`/research` is the multi-LLM tribunal research command. v6.0.0 introduces
-a query-type classifier that picks 1–3 judges instead of always calling all
-three (Claude / OpenAI / Gemini):
+`/research` is the multi-LLM tribunal research command. A query-type classifier
+picks 1–3 judges instead of always calling all three (Claude / OpenAI / Gemini):
 
 - Fact-lookup queries → 1 judge.
 - Reasoning queries → 2 judges + cross-vote.
@@ -194,17 +220,17 @@ deterministic three-way voting. Reference: arxiv 2512.01786 (Jury on Demand).
 
 ## 10. Memory architecture
 
-The `sdd-memory` plugin is preserved unchanged. It injects relevant project
+The `loom-memory` plugin is preserved unchanged. It injects relevant project
 memory (past specs, tasks, sessions) into `additionalContext` via the
 preflight hook.
 
 **Deferred**: a 3rd-party memory tier (Mem0 / Letta) was scoped during
-migration research and **deferred** as out-of-scope for v6.0.0. See §13.
+migration research and **deferred** as out-of-scope. See §13.
 
 ## 11. Third-party discovery
 
-LogicLoom does not run its own plugin marketplace in v6.0.0. Plugin and
-skill discovery is delegated to the surrounding ecosystem:
+LogicLoom does not run its own plugin marketplace. Plugin and skill discovery
+is delegated to the surrounding ecosystem:
 
 - **Skills and plugins**: Anthropic Claude Code Plugin Marketplace.
 - **MCP servers**: Docker MCP Toolkit (310+ containerized servers, `mcp-find`
@@ -214,10 +240,10 @@ The v5.0.0 `mcp-servers/sdd-marketplace/` MCP server is retired.
 
 ## 12. Constitutional governance
 
-The 16-principle constitution at `.logic-loom/memory/constitution.md` is
-**unchanged** in v6.0.0. The migration is workflow-scope; principles I–XVI
-and their enforcement (preflight hook, git-safety gates, finalize validator,
-agent delegation rules) remain authoritative.
+The 16-principle constitution (v3.1.0) at `.logic-loom/memory/constitution.md`
+is the durable governance core shared by every workflow pack. Principles I–XVI
+and their enforcement (preflight hook, git-safety gate, finalize validator,
+agent delegation rules) remain authoritative across all packs.
 
 Quick reference (full text in constitution.md):
 
@@ -229,8 +255,8 @@ Quick reference (full text in constitution.md):
 
 ## 13. Future work
 
-Items scoped during May 2026 frontier-research review and **deferred** from
-v6.0.0:
+Items scoped during May 2026 frontier-research review and **deferred** (not yet
+shipped as of v6.1.0):
 
 - **STORM write-arbiter** (arxiv 2605.20563) — multi-writer arbitration for
   long-form planning artifacts.
@@ -247,7 +273,7 @@ v6.0.0:
 - **Property-based testing branch** for the evaluator's non-UI branch
   (fast-check / Hypothesis). See evaluator-protocol.md §Future work.
 - **Three-tier memory upgrade** — Mem0 or Letta integration as a 3rd-party
-  memory tier alongside sdd-memory.
+  memory tier alongside loom-memory.
 - **Sherlock-style replay debugging** (arxiv 2511.00330) — deterministic
   replay of failed worker dispatches.
 

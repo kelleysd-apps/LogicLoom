@@ -52,7 +52,7 @@ assert "Principle XVI: Plugin-First Architecture" "grep -q 'Principle XVI.*Plugi
 assert "XVI requires manifest" "grep -q 'Manifest Required' .logic-loom/memory/constitution.md"
 assert "XVI requires governance dependency" "grep -q 'Governance Dependency' .logic-loom/memory/constitution.md"
 assert "XVI has protected plugins" "grep -q 'Protected Plugins' .logic-loom/memory/constitution.md"
-assert "XVI requires RL metrics" "grep -q 'RL Metrics' .logic-loom/memory/constitution.md"
+assert "XVI no longer mandates RL metrics (v3.1.0 removed it)" "! grep -q 'MUST include .rl_metrics' .logic-loom/memory/constitution.md"
 
 echo ""
 echo "CLAUDE.md alignment"

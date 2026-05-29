@@ -23,7 +23,7 @@ cat > "${PLUGIN_DIR}/.claude-plugin/plugin.json" << EOF
   "author": "kelleysd-apps",
   "license": "MIT",
   "keywords": ["sdd", "domain", "${DOMAIN}"],
-  "dependencies": ["sdd-governance"],
+  "dependencies": ["loom-governance"],
   "rl_metrics": { "success_rate": 0.5, "selection_weight": 0.5, "invocation_count": 0, "avg_tokens": 0, "last_updated": "2026-02-06T00:00:00Z" }
 }
 EOF

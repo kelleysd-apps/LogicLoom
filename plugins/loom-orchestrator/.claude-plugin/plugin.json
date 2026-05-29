@@ -1,0 +1,57 @@
+{
+  "name": "loom-orchestrator",
+  "version": "3.0.0",
+  "description": "Multi-agent orchestration plugin -- multi-LLM tribunal research (Claude, OpenAI, Gemini), swarm execution, team workflows, MCP marketplace integration, and RL-weighted routing.",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "keywords": [
+    "sdd",
+    "orchestrator",
+    "swarm",
+    "multi-agent",
+    "team",
+    "parallel",
+    "marketplace",
+    "tribunal",
+    "voting",
+    "multi-llm",
+    "openai",
+    "gemini",
+    "perplexity"
+  ],
+  "agents": {
+    "count": 1,
+    "list": [
+      "team-synthesizer"
+    ]
+  },
+  "skills": {
+    "count": 9,
+    "list": [
+      "full-stack-feature",
+      "migration-workflow",
+      "multi-skill-workflow",
+      "plan-review",
+      "retro",
+      "review-evaluator",
+      "swarm-explore",
+      "swarm-implement",
+      "team-orchestration"
+    ]
+  },
+  "commands": {
+    "count": 7,
+    "list": [
+      "build-team",
+      "fullstack-team",
+      "plan-review",
+      "research",
+      "retro",
+      "review-team",
+      "swarm"
+    ]
+  },
+  "dependencies": [
+    "loom-governance"
+  ]
+}

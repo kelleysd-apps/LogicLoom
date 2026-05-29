@@ -1,8 +1,8 @@
 # START HERE — LogicLoom Onboarding
 
-**A coding harness framework with vision/PRD/plan/swarm workflow, hook-based governance, and legacy SDD support.**
+**A governed Claude Code harness: a constitutional governance core with interchangeable workflow packs.**
 
-This guide walks new users through their first feature using the LogicLoom workflow. For the legacy SDD waterfall (`/specification`, `/specify`, `/plan`, `/tasks`), see the section near the end.
+This guide walks new users through their first feature using the **swarm pack** (one of several interchangeable workflow packs). For the **SDD waterfall pack** (`/specification`, `/specify`, `/plan`, `/tasks`) and the **dev-loop pack** (`/dev-loop`), see the section near the end. None is privileged — pick by problem shape.
 
 ---
 
@@ -20,19 +20,19 @@ bash init-project.sh
 
 | Path | Purpose |
 |------|---------|
-| `.logic-loom/memory/constitution.md` | 16 governance principles + v6.0.0 supplementary |
+| `.logic-loom/memory/constitution.md` | 16 governance principles (v3.1.0) |
 | `.logic-loom/scripts/bash/` | Workflow automation and plugin command bridge |
 | `.logic-loom/templates/` | `vision-template.md`, `prd-template.md`, plan/sprint/retro templates |
 | `.logic-loom/config/` | Quality thresholds |
 | `.logic-loom/lib/` | Shared shell libraries |
 
-Launch Claude Code with `claude`. The governance preflight hook fires on every message, injecting constitutional reminders, domain detection, and memory context.
+Launch Claude Code with `claude`. The governance preflight hook fires on every message, injecting domain briefs and memory context. Governance is **hook-enforced** (git-safety gate, freeze-scope) — there is no per-message compliance ceremony in the default `lean` mode; set `LOOM_GOVERNANCE_MODE=strict` to re-add a recitation for weaker models.
 
 ---
 
-## The 14-step LogicLoom loop
+## The swarm pack — 14-step loop
 
-Run each step from inside Claude Code unless noted. Outputs live under `features/<feature-name>/`.
+Run each step from inside Claude Code unless noted. Outputs live under `features/<feature-name>/`. (This is the swarm pack; the SDD waterfall and dev-loop packs are summarized later.)
 
 ### 2. EnterWorktree
 
@@ -68,7 +68,7 @@ Create `features/<feature-name>/vision.md` from `.logic-loom/templates/vision-te
 /create-prd <feature-name>
 ```
 
-Auto-detects mode: **vision-driven** when `vision.md` exists (runs the office-hours forcing-questions gate); **legacy** otherwise. Outputs `features/<feature-name>/prd.md`.
+Auto-detects mode: **vision-driven** when `vision.md` exists (runs the office-hours forcing-questions gate); **blank-slate** otherwise. Outputs `features/<feature-name>/prd.md`.
 
 ### 7. Plan mode
 
@@ -124,9 +124,9 @@ You don't invoke these; they fire from `.claude/hooks/`.
 
 ---
 
-## Legacy SDD workflow
+## SDD waterfall + dev-loop packs
 
-The pre-LogicLoom waterfall is still fully supported for well-understood features with stable requirements. Specs live under `specs/###-feature-name/`.
+Peer workflow packs. The **SDD waterfall** suits well-understood features with stable requirements; its specs live under `specs/###-feature-name/`. The **dev-loop** pack (`/dev-loop`) runs a contained autonomous edit-test-debug cycle.
 
 | Command | Purpose |
 |---------|---------|
@@ -150,14 +150,14 @@ your-project/
 ├── .logic-loom/             # Framework core (constitution, scripts, templates, config, lib)
 ├── .claude/                 # commands, context, hooks, settings.json
 ├── plugins/                 # LogicLoom plugins
-├── features/                # LogicLoom workflow — per-feature folders
+├── features/                # Swarm pack — per-feature folders
 │   └── <feature-name>/
 │       ├── vision.md
 │       ├── exploration/  research/
 │       ├── prd.md  plan.md  plan-review.md
 │       ├── sprints/NN-name/
 │       └── retro.md
-├── specs/                   # Legacy SDD waterfall — per-feature folders
+├── specs/                   # SDD waterfall pack — per-feature folders
 ├── .docs/                   # Project documentation
 ├── CLAUDE.md  README.md  START_HERE.md
 ```
@@ -166,11 +166,11 @@ your-project/
 
 ## Where to read next
 
-- **CLAUDE.md** — full AI assistant instructions and pre-flight protocol
+- **CLAUDE.md** — full AI assistant instructions and hook-enforced governance
 - **README.md** — framework features and architecture
 - **AGENTS.md** — complete agent registry
 - **features/README.md** — per-feature layout convention with rationale
-- **.logic-loom/memory/constitution.md** — 16 principles + v6.0.0 supplementary
+- **.logic-loom/memory/constitution.md** — 16 principles (v3.1.0)
 - **.docs/policies/** — framework policies
 
 ---

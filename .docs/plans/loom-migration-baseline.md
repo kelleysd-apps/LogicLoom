@@ -17,8 +17,8 @@
 
 ## Plugins inventory
 
-- `sdd-creation` — keep
-- `sdd-dev-loop` — **DELETE** (Stage 1)
+- `loom-creation` — keep
+- `loom-dev-loop` — **DELETE** (Stage 1)
 - `sdd-domain-backend` — **DELETE** (Stage 2)
 - `sdd-domain-database` — **DELETE** (Stage 2)
 - `sdd-domain-devops` — **DELETE** (Stage 2)
@@ -26,12 +26,12 @@
 - `sdd-domain-performance` — **DELETE** (Stage 2)
 - `sdd-domain-security` — **DELETE** (Stage 2)
 - `sdd-domain-testing` — **DELETE** (Stage 2)
-- `sdd-git` — keep (drop `/finalize` only)
-- `sdd-governance` — keep (drop rl-metrics-capture hook entry only)
-- `sdd-maintenance` — keep
-- `sdd-memory` — keep
-- `sdd-orchestrator` — keep, extend (drop /build-team /fullstack-team, add 4 new skills, modify team-orchestration)
-- `sdd-orchestrator-hook` — keep
+- `loom-git` — keep (drop `/finalize` only)
+- `loom-governance` — keep (drop rl-metrics-capture hook entry only)
+- `loom-maintenance` — keep
+- `loom-memory` — keep
+- `loom-orchestrator` — keep, extend (drop /build-team /fullstack-team, add 4 new skills, modify team-orchestration)
+- `loom-orchestrator-hook` — keep
 - `sdd-specification` — **DELETE** (Stage 3)
 
 ## Slash commands inventory

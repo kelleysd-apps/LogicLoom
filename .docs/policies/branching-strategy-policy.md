@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle VI (Git Operation Approval)
+**Authority**: Constitution v3.1.0 - Principle VI (Git Operation Approval)
 **Review Cycle**: Quarterly
 
 ---
@@ -613,10 +613,10 @@ fi
 
 ### Framework Branch Creation
 
-When user invokes a feature-bootstrapping command (`/create-prd`, `/swarm explore`, or legacy `/specification`):
+When user invokes a feature-bootstrapping command (`/create-prd`, `/swarm explore`, or `/specification`):
 
 1. **Ask user**: "Would you like to create a new feature branch?"
-2. **If yes**, ask: "What branch name format? (feature-name for LogicLoom, ###-feature-name for legacy SDD)"
+2. **If yes**, ask: "What branch name format? (feature-name for the vision/PRD/plan pack, ###-feature-name for the SDD waterfall pack)"
 3. **User approves**: Create branch
 4. **User denies**: Use current branch
 
@@ -758,7 +758,7 @@ npm test || exit 1
 
 ## Integration with LogicLoom Framework
 
-### LogicLoom Flow (primary)
+### Vision/PRD/Plan Workflow Pack Flow
 
 `/create-prd` and `/swarm explore` respect Principle VI:
 1. User invokes: `/create-prd "User authentication feature"` (or `/swarm explore ...`)
@@ -769,7 +769,7 @@ npm test || exit 1
 6. System creates: `git checkout -b user-authentication main`
 7. System creates: `features/user-authentication/vision.md` (and later `plan.md`)
 
-### Legacy SDD Flow (preserved)
+### SDD Waterfall Workflow Pack Flow
 
 `/specification` respects Principle VI:
 1. User invokes: `/specification "User authentication feature"`
@@ -779,14 +779,14 @@ npm test || exit 1
 
 Branch name matches feature directory:
 ```
-LogicLoom:
+Vision/PRD/Plan pack:
 Branch: user-authentication
 Features: features/user-authentication/
           ├── vision.md
           ├── plan.md
           └── retro.md
 
-Legacy SDD:
+SDD waterfall pack:
 Branch: 001-user-authentication
 Specs:  specs/001-user-authentication/
         ├── spec.md
@@ -812,7 +812,7 @@ Track these branching metrics:
 
 ## References
 
-- Constitution v3.0.0: `.logic-loom/memory/constitution.md` (Principle VI)
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md` (Principle VI)
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Deployment Policy: `.docs/policies/deployment-policy.md`
 - Release Management: `.docs/policies/release-management-policy.md`

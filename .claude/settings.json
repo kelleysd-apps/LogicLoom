@@ -39,6 +39,21 @@
             "timeout": 3000
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash plugins/loom-governance/hooks/scripts/git-safety-gate.sh",
+            "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/guard-dangerous-commands.sh",
+            "timeout": 3000
+          }
+        ]
       }
     ]
   },

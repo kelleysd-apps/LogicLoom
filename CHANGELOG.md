@@ -5,6 +5,43 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.0] - 2026-05-28
+
+**Opus 4.8 re-base + workflow-agnostic core.** Removed harness scaffolding made
+redundant by flagship models, and reframed the framework around a governance core
+with interchangeable workflow packs (no "primary"/"legacy" path).
+
+### Changed — governance is hook-enforced
+- Removed the mandatory per-message **4-step compliance ceremony** (FR-707). The
+  `git-safety-gate` PreToolUse hook now forces an approval prompt on git mutations
+  (real Principle VI enforcement) and is wired into `.claude/settings.json` with
+  the dangerous-command guard.
+- New `LOOM_GOVERNANCE_MODE` (`.logic-loom/config/governance.conf`): `lean`
+  (default, flagship models) / `strict` (re-adds recitation for weaker models).
+- Constitution → **v3.1.0**: LogicLoom identity; Principle X rewritten to
+  "Delegation & Context Isolation"; Opus 4.8 default; dropped the `rl_metrics`
+  manifest mandate.
+
+### Changed — workflow-agnostic reframe
+- Governance core + **interchangeable workflow packs** (swarm, SDD waterfall,
+  dev-loop); none privileged. `vision.md` / `/plan-review` are swarm-pack-internal
+  gates, not framework-level.
+- Plugins renamed `sdd-*` → `loom-*`; **`sdd-specification` keeps its prefix**
+  (it *is* the SDD workflow). 9 plugins.
+
+### Removed
+- The 7 `sdd-domain-*` plugins — collapsed into a governance-core **domain-brief
+  registry** (`get_domain_brief`).
+- RL telemetry (`rl_metrics` fields), the `sdd-marketplace` MCP, migration
+  scaffolding. (DS-STAR refinement subsystem **retained**, just decoupled from
+  mandatory governance. RL retained inside the `loom-dev-loop` pack by design.)
+
+### Added
+- `.logic-loom/config/models.conf` — role→model config (flagship Opus 4.8); no
+  pinned version strings in agents/commands.
+- Documented model/provider boundary: orchestration is Claude-Code-native
+  (Anthropic-only); cross-provider models only at the delegated `/research` layer.
+
 ## [6.0.0] - 2026-05-27
 
 **Major release**: LogicLoom rename + workflow modernization. Project renamed `sdd-agentic-framework` → `logic-loom` (brand: **LogicLoom**); `.specify/` → `.logic-loom/`. The rename disambiguates from the loom.com video platform.
@@ -18,8 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added — LogicLoom primary workflow
 
 - **`features/<feature-name>/` layout**: vision → exploration → research → PRD → plan → plan-review → sprints → retro (see `features/README.md`)
-- **`/plan-review` skill** (sdd-orchestrator): CEO + Eng reviewer verdict on `plan.md` — gates `/swarm implement`
-- **`/retro` skill** (sdd-orchestrator): post-feature learning capture
+- **`/plan-review` skill** (loom-orchestrator): CEO + Eng reviewer verdict on `plan.md` — gates `/swarm implement`
+- **`/retro` skill** (loom-orchestrator): post-feature learning capture
 - **Vision-driven `/create-prd`**: auto-detects whether `vision.md` exists and routes to vision-driven or legacy PRD mode; office-hours forcing-questions gate
 - **3 new hooks**:
   - `worktree-port-namespace` — deterministic per-worktree dev-server port ranges (no collision across parallel branches)
@@ -93,7 +130,7 @@ Pick the workflow that matches the problem shape.
 - **14 custom agent definitions**: Replaced by enhanced plugin skills with Task Briefs
 - **3 obsolete scripts**: `generate-skill-index.sh`, `discover-skills.sh`, `update-agents-to-constitution-v1.5.0.sh`
 - **TEMPLATE_INIT.md**: Now generated dynamically by sanitize script
-- **Empty `sdd-orchestrator-hook/agents/` directory**
+- **Empty `loom-orchestrator-hook/agents/` directory**
 
 ### Fixed
 
@@ -122,13 +159,13 @@ Pick the workflow that matches the problem shape.
 ### Added - Hook-Based Orchestration (Feature 005)
 
 - **Removed custom agent profile** from `settings.json` — Claude Code runs natively, augmented by hooks
-- **`sdd-orchestrator-hook` plugin**: Domain detection via `config/domains.conf`, orchestration guidance injected as `additionalContext`
+- **`loom-orchestrator-hook` plugin**: Domain detection via `config/domains.conf`, orchestration guidance injected as `additionalContext`
 - **`governance-preflight.sh` v3.0.0**: Refactored to provide domain analysis, agent recommendations, and constitutional reminders without constraining Claude Code
 - Downstream projects customize `domains.conf` for their own agent registries
 
 ### Added - Memory Context Agent (Feature 005)
 
-- **`sdd-memory` plugin**: 3-tier memory search (working/recall/archival) with keyword extraction and relevance scoring
+- **`loom-memory` plugin**: 3-tier memory search (working/recall/archival) with keyword extraction and relevance scoring
 - **`memory-search.sh`**: Searches project knowledge (specs, architecture docs, session history, plugins) within 5-second hook timeout
 - **`memory-log.sh`**: Observability logging for memory search operations (JSONL format)
 - **`memory-context-agent`**: Haiku-model agent for lightweight context injection
@@ -157,17 +194,17 @@ Pick the workflow that matches the problem shape.
 
 ## [4.0.0] - 2026-02-08
 
-**Major release**: Plugin-First Architecture, sdd-dev-loop plugin, Multi-LLM tribunal research, 209/209 tests passing.
+**Major release**: Plugin-First Architecture, loom-dev-loop plugin, Multi-LLM tribunal research, 209/209 tests passing.
 
 ### Added - Plugin-First Architecture (v4.1)
 
-- **16 plugins**: sdd-governance, sdd-specification, sdd-orchestrator, sdd-creation, sdd-git, sdd-debug, sdd-maintenance, sdd-dev-loop, 7 domain plugins, sdd-domain-template
+- **16 plugins**: loom-governance, sdd-specification, loom-orchestrator, loom-creation, loom-git, sdd-debug, loom-maintenance, loom-dev-loop, 7 domain plugins, sdd-domain-template
 - **SDD Marketplace MCP Server**: 6 tools for plugin management (list, validate, search, install, update, publish)
 - **Dynamic Plugin Command Bridge**: `sync-plugin-commands.sh` auto-syncs plugin commands to `.claude/commands/`
 - **Constitution v3.0.0**: 16 enforceable principles including Principle XVI (Plugin-First Architecture)
 - **19 slash commands** across 7 core plugins, all bridge-generated
 
-### Added - sdd-dev-loop Plugin (NEW)
+### Added - loom-dev-loop Plugin (NEW)
 
 Recursive autonomous dev-loop with council/tribunal methodology:
 
@@ -218,7 +255,7 @@ Recursive autonomous dev-loop with council/tribunal methodology:
 
 - Issues #18-#23 resolved
 - Opus 4.6 model references updated
-- `/research` skill added to sdd-orchestrator
+- `/research` skill added to loom-orchestrator
 - Unified `/specification` and `/git-push` commands with RL integration
 
 ## [3.1.1] - 2026-01-10

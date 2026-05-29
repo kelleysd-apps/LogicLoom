@@ -6,12 +6,12 @@
 
 <!-- Which plugins are affected? -->
 
-- [ ] sdd-governance (🔒 protected)
+- [ ] loom-governance (🔒 protected)
 - [ ] sdd-specification
-- [ ] sdd-git
+- [ ] loom-git
 - [ ] sdd-debug
-- [ ] sdd-creation
-- [ ] sdd-orchestrator
+- [ ] loom-creation
+- [ ] loom-orchestrator
 - [ ] Domain plugin(s): _____________
 - [ ] No plugin changes
 

@@ -61,12 +61,12 @@ assert "All 15 commands are bridge-generated (found ${BRIDGE_COUNT})" "[ $BRIDGE
 # ── Plugins are authoritative ──
 echo ""
 echo "Plugin-First completeness (v4.0)"
-assert "framework-updater has plugin home" "[ -f plugins/sdd-maintenance/skills/framework-updater/SKILL.md ]"
-assert "mcp-server-setup has plugin home" "[ -f plugins/sdd-maintenance/skills/mcp-server-setup/SKILL.md ]"
-assert "project-initialization has plugin home" "[ -f plugins/sdd-maintenance/skills/project-initialization/SKILL.md ]"
-assert "create-plugin command exists" "[ -f plugins/sdd-creation/commands/create-plugin.md ]"
-assert "create-plugin skill exists" "[ -f plugins/sdd-creation/skills/create-plugin/SKILL.md ]"
-assert "sdd-maintenance plugin manifest exists" "[ -f plugins/sdd-maintenance/.claude-plugin/plugin.json ]"
+assert "framework-updater has plugin home" "[ -f plugins/loom-maintenance/skills/framework-updater/SKILL.md ]"
+assert "mcp-server-setup has plugin home" "[ -f plugins/loom-maintenance/skills/mcp-server-setup/SKILL.md ]"
+assert "project-initialization has plugin home" "[ -f plugins/loom-maintenance/skills/project-initialization/SKILL.md ]"
+assert "create-plugin command exists" "[ -f plugins/loom-creation/commands/create-plugin.md ]"
+assert "create-plugin skill exists" "[ -f plugins/loom-creation/skills/create-plugin/SKILL.md ]"
+assert "loom-maintenance plugin manifest exists" "[ -f plugins/loom-maintenance/.claude-plugin/plugin.json ]"
 
 echo ""
 echo "Plugin Command Bridge (v4.1)"

@@ -7,10 +7,10 @@
 # additionalContext injection. Does NOT override Claude Code's native capabilities.
 #
 # Components:
-#   1. Domain detection + agent recommendations (sdd-orchestrator-hook plugin)
+#   1. Domain detection + agent recommendations (loom-orchestrator-hook plugin)
 #   2. Constitutional governance reminder
 #   3. Slash command routing (preserved from v2.0)
-#   4. Memory context injection (sdd-memory plugin, if available)
+#   4. Memory context injection (loom-memory plugin, if available)
 #
 # Input: JSON via stdin (Claude Code hook contract)
 # Output: JSON with hookEventName and additionalContext
@@ -24,13 +24,25 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SETTINGS_FILE="$REPO_ROOT/.claude/settings.json"
-DOMAINS_CONF="$REPO_ROOT/plugins/sdd-orchestrator-hook/config/domains.conf"
-MEMORY_SEARCH="$REPO_ROOT/plugins/sdd-memory/scripts/memory-search.sh"
-MEMORY_LOG="$REPO_ROOT/plugins/sdd-memory/scripts/memory-log.sh"
+DOMAINS_CONF="$REPO_ROOT/plugins/loom-orchestrator-hook/config/domains.conf"
+MEMORY_SEARCH="$REPO_ROOT/plugins/loom-memory/scripts/memory-search.sh"
+MEMORY_LOG="$REPO_ROOT/plugins/loom-memory/scripts/memory-log.sh"
 AUDIT_DIR="$REPO_ROOT/.docs/governance/audit"
 SESSION_ID="${CLAUDE_SESSION_ID:-$(date +%s)-$$}"
 TIMESTAMP=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z")
 DATE=$(date "+%Y-%m-%d")
+
+# Governance mode (capability-gated). Default "lean": hooks enforce, no per-message
+# recitation — correct for flagship Opus-class models. "strict": additionally
+# inject the 4-step compliance protocol for weaker / non-flagship models that
+# benefit from the explicit assist. Hook enforcement (git-safety, guard,
+# freeze-scope) is active in BOTH modes — only the model-side assist changes.
+# Set via env LOOM_GOVERNANCE_MODE or .logic-loom/config/governance.conf.
+GOVERNANCE_MODE="${LOOM_GOVERNANCE_MODE:-}"
+if [ -z "$GOVERNANCE_MODE" ] && [ -f "$REPO_ROOT/.logic-loom/config/governance.conf" ]; then
+    GOVERNANCE_MODE=$(grep -E '^[[:space:]]*mode[[:space:]]*=' "$REPO_ROOT/.logic-loom/config/governance.conf" 2>/dev/null | head -1 | cut -d= -f2 | xargs || true)
+fi
+GOVERNANCE_MODE="${GOVERNANCE_MODE:-lean}"
 
 # ============================================
 # Functions
@@ -49,28 +61,23 @@ detect_domains() {
         return
     fi
 
-    # Read domain mappings (keyword=delegate format)
-    while IFS='=' read -r keyword delegate; do
+    # Read domain mappings (keyword=domain format, v3.1.0).
+    # `delegates` is kept as the detected domain list for backward-compatible
+    # output (consumers read field 2), but routing is now to a swarm/team worker
+    # carrying the domain's brief from the governance-core registry.
+    while IFS='=' read -r keyword domain; do
         # Skip comments and empty lines
         [[ "$keyword" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$keyword" ]] && continue
         keyword=$(echo "$keyword" | xargs)  # trim whitespace
-        delegate=$(echo "$delegate" | xargs)
+        domain=$(echo "$domain" | xargs)
+        [[ -z "$domain" ]] && continue
 
         # Case-insensitive keyword match in message
         if echo "$message" | grep -qi "$keyword"; then
-            # Extract domain name from delegate
-            local domain
-            if echo "$delegate" | grep -q ':'; then
-                # Skill-based: sdd-domain-backend:backend-operations -> backend
-                domain=$(echo "$delegate" | sed 's/sdd-domain-//' | cut -d: -f1)
-            else
-                # Legacy agent-based: backend-architect -> backend
-                domain=$(echo "$delegate" | sed 's/-specialist//' | sed 's/-architect//' | sed 's/-engineer//' | sed 's/-agent//')
-            fi
-            if ! echo "$domains" | grep -q "$domain"; then
+            if ! echo "$domains" | grep -qw "$domain"; then
                 domains="${domains:+$domains, }$domain"
-                delegates="${delegates:+$delegates, }$delegate"
+                delegates="${delegates:+$delegates, }$domain"
             fi
         fi
     done < "$DOMAINS_CONF"
@@ -132,13 +139,9 @@ generate_orchestration_guidance() {
     if [ "$domain_count" -eq 0 ]; then
         delegation="direct execution"
     elif [ "$domain_count" -eq 1 ]; then
-        if echo "$delegates" | grep -q ':'; then
-            delegation="delegate to $delegates skill (load Task Brief via extract_skill_brief)"
-        else
-            delegation="single: $delegates"
-        fi
+        delegation="/swarm explore OR a single worker carrying the '$domains' domain brief (get_domain_brief)"
     else
-        delegation="team-orchestration (multi-domain: $domains)"
+        delegation="/swarm or team orchestration (multi-domain: $domains)"
     fi
 
     # Skip injection entirely if no domains and no command detected
@@ -152,7 +155,7 @@ generate_orchestration_guidance() {
 
 **DOMAIN DETECTION** (auto-detected from message):
 - Domain(s): $domains
-- Recommended delegate(s): $delegates
+- Worker brief(s) available: $delegates (inject via get_domain_brief)
 - Delegation: $delegation
 
 EOF
@@ -164,7 +167,24 @@ EOF
     fi
 }
 
-# Run memory context search (if sdd-memory plugin installed)
+# Strict-mode compliance recitation (only injected when GOVERNANCE_MODE=strict).
+# This is the model-side assist for weaker/non-flagship models. Flagship Opus
+# models follow CLAUDE.md governance without it (lean mode).
+generate_strict_preflight() {
+    [ "$GOVERNANCE_MODE" = "strict" ] || return
+    cat <<'STRICTEOF'
+
+**GOVERNANCE PRE-FLIGHT (strict mode) — complete before acting:**
+1. CONSTITUTION: 16 principles (I–XVI). Key: II Test-First, VI Git-Approval, X Delegation.
+2. DOMAIN ANALYSIS: identify domain(s) from the request (see DOMAIN DETECTION below if present).
+3. DELEGATION: 0 domains → may execute directly; 1 → specialist/swarm; 2+ → /swarm or team orchestration.
+4. AUTHORIZE: confirm git ops will request approval, then proceed.
+Note: hook enforcement (git-safety, dangerous-command guard, freeze-scope) is active regardless.
+
+STRICTEOF
+}
+
+# Run memory context search (if loom-memory plugin installed)
 run_memory_search() {
     local message="$1"
     local memory_context=""
@@ -240,6 +260,13 @@ main() {
     # Generate orchestration guidance
     local GUIDANCE
     GUIDANCE=$(generate_orchestration_guidance "$INPUT_SUMMARY" "$DOMAIN_RESULT" "$COMMAND_NAME")
+
+    # Prepend strict-mode recitation when enabled (lean mode emits nothing)
+    local STRICT_PREFLIGHT
+    STRICT_PREFLIGHT=$(generate_strict_preflight)
+    if [ -n "$STRICT_PREFLIGHT" ]; then
+        GUIDANCE="${STRICT_PREFLIGHT}${GUIDANCE}"
+    fi
 
     # Run memory context search (if available)
     local MEMORY_CONTEXT

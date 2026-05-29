@@ -1,24 +1,28 @@
-# SDD Framework Constitution v3.0.0
+# LogicLoom Constitution v3.1.0
 
 **Status**: RATIFIED
-**Feature**: 004-plugin-first-architecture
-**Ratified**: 2026-01-13
+**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0)
 **Effective Date**: 2026-01-13
 
 ---
 
 ## Overview
 
-This is the ratified Constitution v3.0.0 with 16 enforceable principles including Plugin-First Architecture (Principle XVI). The constitution governs all agents, skills, and workflows within the SDD Agentic Framework.
+This is the LogicLoom Constitution with 16 enforceable principles, including
+Plugin-First Architecture (Principle XVI). The constitution is the **durable
+core** of the harness: it governs all agents, skills, and workflows regardless of
+which workflow pack (SDD waterfall, vision/swarm, dev-loop, …) is in use. No
+principle privileges a particular workflow.
 
-## Changes Summary
+## Changes Summary (v3.1.0)
 
-| Section | v2.0.0 | v3.0.0 | Rationale |
-|---------|--------|--------|-----------|
-| Principle X | Skills-First Delegation Protocol | *(unchanged)* | Skills are primary orchestration |
-| **Principle XVI** | *(new)* | **Plugin-First Architecture** | Modular, installable capabilities |
-| Architecture | Monolithic .claude/ | Plugin-based plugins/ | Hot-swap, RL metrics, governance |
-| Routing | Plugin manifests (plugins/*/plugin.json) | Plugin auto-discovery | Eliminate centralized manifest |
+| Section | Change | Rationale |
+|---------|--------|-----------|
+| Identity | "SDD Framework" → **LogicLoom**; workflow-agnostic framing | Governance is the core; workflows are interchangeable packs |
+| Principle X | "Skills-First / FR-707" → **Delegation & Context Isolation** | Enforcement is hook-side; delegation is for isolation/parallelism, not model-capability gaps |
+| Principle XIV | Default model → **Opus 4.8** (was 4.6) | Current flagship; model selection is config-driven (`models.conf`) |
+| Principle XVI | Dropped the `rl_metrics` manifest mandate | RL telemetry was removed in the LogicLoom migration |
+| Governance | Hook-enforced, capability-gated (`lean`/`strict` modes) | Model-independent enforcement; no mandatory per-message recitation |
 
 ---
 
@@ -26,7 +30,10 @@ This is the ratified Constitution v3.0.0 with 16 enforceable principles includin
 
 ### Preamble
 
-This Constitution establishes the governance framework for the Specification-Driven Development (SDD) Agentic Framework. All agents, skills, and workflows operating within this framework MUST adhere to these principles.
+This Constitution establishes the governance framework for **LogicLoom**, a
+multi-agent harness for building software with Claude Code. Governance is the
+core; workflow packs plug into it. All agents, skills, and workflows operating
+within this framework MUST adhere to these principles.
 
 ---
 
@@ -103,93 +110,48 @@ All dependencies explicitly declared and version-pinned.
 
 ## Workflow & Delegation Principles (X-XV)
 
-### Principle X: Skills-First Delegation Protocol
+### Principle X: Delegation & Context Isolation
 
-**Status**: MODIFIED (v2.0.0)**
+**Status**: REWRITTEN (v3.1.0)
 
-```
-OLD (v1.6.0): Specialized work delegated to specialized AGENTS
-NEW (v2.0.0): Specialized work delegated to specialized SKILLS which invoke agents
-```
+Delegate specialized or parallel work to subagents/swarm **for context isolation
+and parallelism** — not because the base model lacks capability. A flagship
+model handles cross-domain reasoning in a single context; the reason to spawn
+workers is to give each an isolated context window, enforce file-ownership
+scopes, or run independent tasks concurrently.
 
-#### Work Session Initiation Protocol (MANDATORY for EVERY task)
-
-**Step 1: FR-707 COMPLIANCE CHECK** (First action)
-- Activate `validation/message-preflight` skill
-- Log compliance check timestamp
-- Cannot be bypassed
-
-**Step 2: DOMAIN ANALYSIS**
-- Scan message for domain trigger keywords
-- Identify applicable skill(s)
-- Use RL selection weights for candidates
-
-**Step 3: SKILL DELEGATION**
-```
-IF 0 domains detected:
-  -> May execute directly
-
-IF 1 domain detected:
-  -> MUST activate the appropriate domain skill
-  -> Skill determines if agent invocation needed
-
-IF 2+ domains detected:
-  -> MUST activate orchestration/multi-skill-workflow
-  -> Orchestration skill coordinates domain skills
-```
-
-**Step 4: EXECUTION**
-- Skill activates with progressive disclosure
-- Skill invokes agent(s) with minimal context
-- DS-STAR quality gates validate output
-- RL metrics updated
-
-#### Skills-First Flow
+#### Delegation heuristic
 
 ```
-User Message
-    |
-    v
-[FR-707] Compliance Check (MANDATORY FIRST)
-    |
-    v
-Domain Analysis (Router)
-    |
-    v
-RL-Enhanced Skill Selection
-    |
-    v
-Skill Activation (Progressive Disclosure)
-    |
-    v
-Agent Invocation (Minimal Context)
-    |
-    v
-Verifier Validation
-    |
-    v
-RL Feedback Loop
+0 domains / trivial    -> execute directly
+1 domain               -> a specialist skill OR /swarm explore
+2+ domains / parallel  -> /swarm  OR  team orchestration
 ```
 
-#### Violation Response
+This is guidance, not a mandatory per-message ceremony. Governance is enforced
+**hook-side** (see Governance, below), so there is no recitation requirement and
+no skills-first gate to "violate."
 
-If skills-first pattern violated:
-1. **STOP** current action
-2. **LOG** violation
-3. **CORRECT** by activating skill
-4. **PROCEED** only via skill
+#### Governance enforcement (model-independent)
 
-#### Migration Period
+Enforcement lives in hooks, not in model recitation:
 
-During hybrid mode (Phase 1-2):
-- Both patterns work
-- Legacy emits deprecation warning
-- Migration tracking enabled
+- `git-safety-gate.sh` (PreToolUse · Bash) — Principle VI: git mutations force
+  an approval prompt.
+- `guard-dangerous-commands.sh` (PreToolUse · Bash) — policy-based blocking.
+- `freeze-write-scope.sh` (PreToolUse · Write/Edit) — plan-as-DAG ownership.
+- `governance-preflight.sh` (UserPromptSubmit) — domain guidance + memory; in
+  `strict` mode also injects the optional 4-step pre-flight.
 
-After hybrid mode (Phase 3-4):
-- Skills-first is default
-- Legacy patterns blocked
-- Full RL integration active
+#### Governance modes (capability-gated assist)
+
+Configured via `LOOM_GOVERNANCE_MODE` / `.logic-loom/config/governance.conf`:
+
+- **`lean`** (default) — hooks enforce; no per-message recitation. For flagship
+  Opus-class models.
+- **`strict`** — hooks enforce **and** the 4-step pre-flight is re-injected each
+  message. For weaker / non-flagship models. Enforcement is identical in both
+  modes; only the model-side assist differs.
 
 ### Principle XI: Input Validation & Output Sanitization
 
@@ -211,9 +173,16 @@ Dual-layer enforcement (backend + frontend).
 
 ### Principle XIV: AI Model Selection
 
-**Status**: UNCHANGED
+**Status**: MODIFIED (v3.1.0)
 
-Use Opus 4.6 by default (`claude-opus-4-6`). All agents use Opus for maximum capability.
+Default to the current flagship: **Opus 4.8** (`claude-opus-4-8`). Model choice is
+**config-driven** via `.logic-loom/config/models.conf` (role → model), so swapping
+tiers or future models is one config change rather than edits across agents.
+Agent frontmatter uses tier keywords (`opus` / `sonnet` / `haiku` / `inherit`),
+never pinned version strings. See the Model & Provider Boundary note in
+`CLAUDE.md`: the orchestration runtime is Claude-Code-native (Anthropic models);
+cross-provider models are supported only at the delegated research/verification
+layer.
 
 ### Principle XV: File Organization
 
@@ -232,7 +201,7 @@ All framework capabilities MUST be organized as discrete, installable plugins.
 ```
 Plugin Structure:
   plugins/<name>/
-    .claude-plugin/plugin.json   # Manifest (name, version, dependencies, rl_metrics)
+    .claude-plugin/plugin.json   # Manifest (name, version, dependencies)
     commands/                     # Slash commands (/specify, /debug, etc.)
     skills/                       # Skill definitions (SKILL.md)
     agents/                       # Agent definitions
@@ -243,41 +212,34 @@ Plugin Structure:
 #### Requirements
 
 1. **Manifest Required**: Every plugin MUST have a valid `.claude-plugin/plugin.json`
-2. **Governance Dependency**: All plugins MUST declare `sdd-governance` as a dependency
-3. **Protected Plugins**: `sdd-governance` is protected and cannot be disabled
-4. **RL Metrics**: All plugins MUST include `rl_metrics` in their manifest
-5. **Hot-Swap**: Plugins MUST support enable/disable without framework restart
-6. **Portable Paths**: Use `${CLAUDE_PLUGIN_ROOT}` for cross-environment compatibility
+2. **Governance Dependency**: All plugins MUST declare the governance core plugin (`loom-governance`) as a dependency
+3. **Protected Plugins**: `loom-governance` is protected and cannot be disabled
+4. **Hot-Swap**: Plugins MUST support enable/disable without framework restart
+5. **Portable Paths**: Use `${CLAUDE_PLUGIN_ROOT}` for cross-environment compatibility
 
 #### Plugin Categories
 
 | Category | Examples | Can Disable? |
 |----------|----------|-------------|
-| **Governance** | sdd-governance | ❌ Never |
-| **Core** | sdd-specification, sdd-git, sdd-debug, sdd-creation | ⚠️ With warning |
-| **Domain** | sdd-domain-frontend, sdd-domain-backend, etc. | ✅ Yes |
-| **Orchestration** | sdd-orchestrator | ⚠️ With warning |
+| **Governance core** | `loom-governance` | ❌ Never (protected) |
+| **Core tooling** | `loom-memory`, `loom-creation`, `loom-git`, `loom-maintenance` | ⚠️ With warning |
+| **Workflow pack** | `sdd-specification` (SDD), `loom-orchestrator` (swarm), `loom-dev-loop` | ✅ Yes |
 | **Community** | Third-party plugins | ✅ Yes |
+
+No workflow pack is privileged; governance is the only protected layer.
 
 ---
 
 ## Amendment Process
 
-### To Ratify v2.0.0
+1. **Propose** — describe the change and the principle(s) affected.
+2. **Justify** — state which model-weakness assumption or policy need it
+   addresses (governance is policy; capability scaffolding is removable).
+3. **User approval** — the framework owner approves the amendment.
+4. **Ratify** — bump the version, add a Version History row, update the Changes
+   Summary, and sync tandem docs (`CLAUDE.md`, `AGENTS.md`).
 
-1. **Complete Phase 2** - Agent consolidation verified
-2. **Validate RL benefit** - +15-25% skill selection accuracy
-3. **Test hybrid mode** - 6+ months of successful operation
-4. **User approval** - Framework users approve change
-5. **Formal ratification** - Update version, deprecate legacy
-
-### Rollback Conditions
-
-Revert to v1.6.0 if:
-- RL shows no improvement over baseline
-- Skills-first pattern has critical bugs
-- User satisfaction significantly decreases
-- Migration proves too disruptive
+Immutable principles (I–III) cannot be amended or overridden.
 
 ---
 
@@ -290,8 +252,9 @@ Revert to v1.6.0 if:
 | 1.6.0 | 2025-11-07 | Added principle XV |
 | 2.0.0 | 2026-01-13 | Skills-first Principle X rewrite (ratified) |
 | 3.0.0 | 2026-01-15 | Added Principle XVI: Plugin-First Architecture |
+| 3.1.0 | 2026-05-28 | LogicLoom identity; Principle X → Delegation & Context Isolation (hook-enforced governance, lean/strict modes); Opus 4.8 + config-driven model selection; dropped `rl_metrics` mandate; workflow-agnostic framing |
 
 ---
 
-*v3.0.0 ratified with Plugin-First Architecture (Principle XVI)*
-*Spec 004: 13 plugins, 36 skills, 20 agents, 16 commands*
+*v3.1.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall,
+vision/swarm, and dev-loop are interchangeable workflow packs.*

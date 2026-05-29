@@ -10,7 +10,8 @@
 ## Overview
 
 This document provides the authoritative mapping of trigger keywords and commands
-to skills. Used by the Router Agent for RL-enhanced skill selection.
+to skills, and of domain keywords to domain briefs. Used by governance domain
+detection to route work.
 
 ---
 
@@ -24,7 +25,7 @@ Exact matches for slash commands:
 | `/plan` | sdd-workflow/sdd-planning | planning-agent skill |
 | `/tasks` | sdd-workflow/sdd-tasks | task-generation skill |
 | `/debug` | sdd-workflow/sdd-debug | auto-debug skill (auto-debug-agent) |
-| `/finalize` | governance/finalize | finalize skill (sdd-git) |
+| `/finalize` | governance/finalize | finalize skill (loom-git) |
 | `/create-agent` | creation/create-agent | agent-creation skill (subagent-architect) |
 | `/create-skill` | creation/create-skill | skill-creation skill (subagent-architect) |
 | `/create-prd` | creation/create-prd | prd-creation skill (prd-specialist) |
@@ -34,11 +35,17 @@ Exact matches for slash commands:
 
 ## Domain Triggers
 
+Technical domains route **keyword → domain → brief**. Keywords are mapped to a
+domain in `config/domains.conf`; the consolidated worker brief is injected at
+swarm/team spawn time via `get_domain_brief <domain>`
+(`plugins/loom-governance/domain-briefs/<domain>.md`). Domains are *briefs*, not
+plugins.
+
 ### Frontend Domain
 
 **Triggers**: UI, component, React, CSS, form, responsive, page, layout, style
 
-**Primary Skill**: frontend-operations skill (sdd-domain-frontend)
+**Route**: domain `frontend` → `get_domain_brief frontend`
 
 **Examples**:
 - "Create a login form component"
@@ -49,8 +56,7 @@ Exact matches for slash commands:
 
 **Triggers**: API, endpoint, server, middleware, service, authentication
 
-**Primary Skill**: api-design skill (sdd-domain-backend)
-**Fallback Skill**: service-architecture skill (sdd-domain-backend)
+**Route**: domain `backend` → `get_domain_brief backend`
 
 **Examples**:
 - "Create a user registration endpoint"
@@ -61,8 +67,7 @@ Exact matches for slash commands:
 
 **Triggers**: schema, migration, query, SQL, RLS, table, index, data model
 
-**Primary Skill**: schema-design skill (sdd-domain-database)
-**Fallback Skill**: planning-agent skill (sdd-specification)
+**Route**: domain `database` → `get_domain_brief database`
 
 **Examples**:
 - "Create the users table schema"
@@ -73,7 +78,7 @@ Exact matches for slash commands:
 
 **Triggers**: test, TDD, E2E, coverage, unit test, QA, assertion, mock
 
-**Primary Skill**: testing-operations skill (sdd-domain-testing)
+**Route**: domain `testing` → `get_domain_brief testing`
 
 **Examples**:
 - "Write unit tests for the user service"
@@ -84,8 +89,7 @@ Exact matches for slash commands:
 
 **Triggers**: security, encryption, XSS, secrets, vulnerability, OWASP
 
-**Primary Skill**: security-operations skill (sdd-domain-security)
-**Fallback Skill**: api-design skill (sdd-domain-backend)
+**Route**: domain `security` → `get_domain_brief security`
 
 **Examples**:
 - "Review code for security vulnerabilities"
@@ -96,8 +100,7 @@ Exact matches for slash commands:
 
 **Triggers**: performance, optimize, cache, benchmark, latency, speed
 
-**Primary Skill**: performance-operations skill (sdd-domain-performance)
-**Fallback Skill**: monitoring skill (sdd-domain-devops)
+**Route**: domain `performance` → `get_domain_brief performance`
 
 **Examples**:
 - "Optimize database queries"
@@ -108,7 +111,7 @@ Exact matches for slash commands:
 
 **Triggers**: deploy, CI/CD, Docker, pipeline, infrastructure, Kubernetes
 
-**Primary Skill**: monitoring skill (sdd-domain-devops)
+**Route**: domain `devops` → `get_domain_brief devops`
 
 **Examples**:
 - "Set up CI/CD pipeline"
@@ -151,7 +154,7 @@ Exact matches for slash commands:
 
 **Triggers**: finalize, pre-commit, commit check, ready to commit
 
-**Skill**: finalize skill (sdd-git plugin)
+**Skill**: finalize skill (loom-git plugin)
 
 ### Compliance
 
@@ -167,7 +170,7 @@ Exact matches for slash commands:
 
 **Detection**: 2+ domains identified in message
 
-**Skill**: team-orchestration skill (sdd-orchestrator)
+**Skill**: team-orchestration skill (loom-orchestrator)
 
 **Examples**:
 - "Build user profile with database and UI" (frontend + database)
@@ -178,7 +181,7 @@ Exact matches for slash commands:
 
 **Triggers**: migration, migrate, upgrade pattern, convert to skills
 
-**Skill**: multi-skill-workflow skill (sdd-orchestrator)
+**Skill**: multi-skill-workflow skill (loom-orchestrator)
 
 ---
 
@@ -210,39 +213,28 @@ Exact matches for slash commands:
 
 **Triggers**: MCP, mcp-add, MCP server, tool integration
 
-**Skill**: mcp-server-setup skill (sdd-maintenance)
+**Skill**: mcp-server-setup skill (loom-maintenance)
 
 ---
 
-## RL Selection Rules
+## Selection Rules
 
-When multiple skills match:
+When multiple routes match:
 
-1. **Check selection weights** from plugin manifests (plugins/*/plugin.json)
-2. **Apply softmax** with configured temperature
-3. **Select skill** probabilistically (or deterministically in testing)
-4. **Log selection** for RL feedback
-
-### Selection Weight Update
-
-After skill execution:
-```
-new_weight = alpha * reward + (1 - alpha) * old_weight
-
-Where:
-- alpha = 0.1 (learning rate)
-- reward = 0.5 * success + 0.3 * token_efficiency + 0.2 * user_satisfaction
-```
+1. **Prefer the most specific match** (exact command > keyword > domain)
+2. **Workflow-phase skills** take precedence for `/`-commands
+3. **Domain briefs** apply for technical work; 2+ domains → team-orchestration / `/swarm`
+4. **Default to direct execution** when nothing specialized matches
 
 ---
 
 ## Fallback Rules
 
-If no skill matches:
+If no route matches:
 
 1. **Check command routes** for exact match
 2. **Check keyword routes** for partial match
-3. **Check domain routes** for domain-based routing
+3. **Check domain routes** (keyword → domain → `get_domain_brief`)
 4. **Default to direct execution** if no match
 
 ---

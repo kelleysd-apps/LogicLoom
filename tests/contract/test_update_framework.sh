@@ -17,8 +17,8 @@ assert() {
 }
 
 SYNC_REF_FILE=".sdd-sync-ref"
-EXTRACT_SCRIPT="plugins/sdd-maintenance/scripts/extract-proposals.sh"
-SKILL_FILE="plugins/sdd-maintenance/skills/framework-updater/SKILL.md"
+EXTRACT_SCRIPT="plugins/loom-maintenance/scripts/extract-proposals.sh"
+SKILL_FILE="plugins/loom-maintenance/skills/framework-updater/SKILL.md"
 
 echo "═══ Additive Update Framework Contract Tests ═══"
 echo ""
@@ -75,9 +75,9 @@ assert "Help text mentions release tags" \
 echo ""
 echo "Update framework command"
 assert "update-framework command exists" \
-  "[ -f plugins/sdd-maintenance/commands/update-framework.md ]"
+  "[ -f plugins/loom-maintenance/commands/update-framework.md ]"
 assert "update-framework references proposal-based flow" \
-  "grep -qi 'proposal\|enhancement' plugins/sdd-maintenance/commands/update-framework.md"
+  "grep -qi 'proposal\|enhancement' plugins/loom-maintenance/commands/update-framework.md"
 
 echo ""
 echo "════════════════════════════════"

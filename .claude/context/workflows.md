@@ -1,10 +1,21 @@
 # Workflows Context Module
 <!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
-<!-- Module: SDD workflow commands, feature development lifecycle, architecture -->
+<!-- Module: workflow commands, feature development lifecycle, architecture -->
 
-## SDD (Specification-Driven Development) Workflow
+## Workflow Packs (Interchangeable)
 
-The SDD framework provides a structured approach to feature development with built-in quality gates, constitutional compliance, and multi-agent coordination.
+LogicLoom's constitutional governance is the **core**. Development workflows sit
+on top of it as **interchangeable packs** — none is primary or legacy:
+
+| Pack | Use when |
+|------|----------|
+| **Vision / Swarm** (`features/<name>/`) | Exploratory or novel work; unclear scope |
+| **SDD waterfall** (`specs/###-name/`) | Well-understood feature with stable requirements |
+| **Dev-loop** | Autonomous edit-test-debug cycles on a bounded task |
+
+This module documents the **SDD waterfall pack** (spec → plan → tasks → finalize).
+All packs share the same built-in quality gates, constitutional compliance, and
+multi-agent coordination.
 
 ---
 
@@ -78,8 +89,8 @@ The SDD framework provides a structured approach to feature development with bui
 - Constraints and dependencies
 - Success metrics
 
-**DS-STAR Enhancement**:
-- Automatically invokes refinement loop after spec generation
+**Quality Validation**:
+- Automatically invokes a refinement loop after spec generation
 - Verifies specification quality against thresholds (completeness ≥0.90)
 - Iteratively refines until sufficient or max 20 rounds
 - Provides actionable feedback for improvements
@@ -124,8 +135,8 @@ The SDD framework provides a structured approach to feature development with bui
 - `contracts/` - API contract schemas (OpenAPI/GraphQL)
 - `quickstart.md` - Test scenarios and integration test plan
 
-**DS-STAR Enhancement**:
-- Automatically invokes verification gate after plan generation
+**Quality Validation**:
+- Automatically invokes a verification gate after plan generation
 - Verifies plan quality against thresholds (completeness ≥0.85, spec alignment ≥0.90)
 - **Blocks progression to /tasks if quality insufficient**
 - Provides actionable feedback for improvements
@@ -219,7 +230,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 ## Phase 5: Finalization & Commit
 
-### /finalize Command (NEW - DS-STAR Enhancement)
+### /finalize Command
 
 **Purpose**: Pre-commit constitutional compliance validation
 
@@ -260,7 +271,7 @@ git commit -m "message"
 git push origin <branch>
 ```
 
-**Skill Reference**: `plugins/sdd-governance/skills/constitutional-compliance/SKILL.md`
+**Skill Reference**: `plugins/loom-governance/skills/constitutional-compliance/SKILL.md`
 
 ---
 
@@ -285,7 +296,7 @@ Phase 1: Feature Specification
 │ - Acceptance criteria            │
 │ - Constraints                    │
 │ Output: specs/###/spec.md        │
-│ ✓ DS-STAR Refinement Loop       │
+│ ✓ Quality Refinement Loop       │
 └──────────────────────────────────┘
    ↓
 Phase 2: Implementation Planning
@@ -303,7 +314,7 @@ Phase 2: Implementation Planning
 │ Constitution Check Gate ✓        │
 │ Output: plan.md, research.md,    │
 │         data-model.md, contracts/│
-│ ✓ DS-STAR Verification Gate     │
+│ ✓ Quality Verification Gate     │
 └──────────────────────────────────┘
    ↓
 Phase 3: Task Generation
@@ -401,7 +412,7 @@ Manual Git Operations (User Approval Required)
 ```
 .logic-loom/
 ├── memory/
-│   ├── constitution.md                    # Core principles (v3.0.0 - 16 principles)
+│   ├── constitution.md                    # Core principles (v3.1.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
 │   └── agent-collaboration-triggers.md    # Agent delegation reference
 ├── scripts/bash/                          # Workflow automation scripts
@@ -437,8 +448,8 @@ specs/###-feature-name/                     # Per-feature documentation
 ### Core Scripts
 
 - **common.sh**: Shared functions for branch/path management, git approval
-- **create-new-feature.sh**: Initialize feature branch and spec + DS-STAR refinement loop
-- **setup-plan.sh**: Prepare implementation planning + DS-STAR verification gate
+- **create-new-feature.sh**: Initialize feature branch and spec + quality refinement loop
+- **setup-plan.sh**: Prepare implementation planning + quality verification gate
 - **check-task-prerequisites.sh**: Verify design artifacts exist before task generation
 - **finalize-feature.sh**: Pre-commit compliance validation (no auto-git)
 - **update-agent-context.sh**: Update AI assistant context files
@@ -456,9 +467,11 @@ specs/###-feature-name/                     # Per-feature documentation
 
 ---
 
-## DS-STAR Multi-Agent Enhancements (Feature 001)
+## Quality Validation Subsystem
 
-The framework includes proven multi-agent patterns from Google's DS-STAR system:
+The SDD waterfall pack uses a quality-validation subsystem (the DS-STAR
+refinement engine) to verify and iteratively refine specs and plans. It is a
+workflow-pack quality aid, not part of constitutional governance.
 
 ### Quality Gates
 
@@ -481,18 +494,12 @@ Quality thresholds configured in `.logic-loom/config/refinement.conf`:
 
 ### Graceful Degradation
 
-If DS-STAR components unavailable (Python not installed, dependencies missing):
+If the quality-validation components are unavailable (Python not installed,
+dependencies missing):
 - Workflow continues without quality gates
 - Warning messages displayed
 - Manual review recommended
 - No workflow blocking
-
-### Performance Targets
-
-- Context retrieval: <2 seconds
-- Debug iteration cycle: <30 seconds
-- 3.5x improvement in task completion accuracy (target)
-- >70% automatic fix rate for common errors (target)
 
 ---
 
@@ -517,7 +524,7 @@ Load workflow context when needed:
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
 - `.logic-loom/scripts/bash/` workflow scripts
-- `.logic-loom/memory/constitution.md` (v3.0.0)
+- `.logic-loom/memory/constitution.md` (v3.1.0)
 - `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow (NEW)

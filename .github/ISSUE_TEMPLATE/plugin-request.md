@@ -1,6 +1,6 @@
 ---
 name: Plugin Request
-about: Request a new domain plugin or plugin enhancement
+about: Request a new plugin or plugin enhancement
 title: "[Plugin] "
 labels: plugin, enhancement
 assignees: ''
@@ -8,14 +8,21 @@ assignees: ''
 
 ## Plugin Details
 
-**Plugin name**: sdd-domain-_____ or sdd-_____
-**Category**: Domain / Core / Orchestration / Community
+**Plugin name**: loom-_____
+**Category**: Core / Orchestration / Community
 **Description**: 
+
+> Note: domain expertise is no longer packaged as standalone `sdd-domain-*`
+> plugins. Domains now live as lightweight **domain briefs** under
+> `plugins/loom-governance/domain-briefs/<domain>.md`, retrieved via
+> `get_domain_brief()`. Request a new domain brief by editing the governance
+> registry rather than filing a plugin request. New capability plugins should
+> use the `loom-` name prefix.
 
 ## Proposed Structure
 
 ```
-plugins/sdd-<name>/
+plugins/loom-<name>/
   .claude-plugin/plugin.json
   skills/
     <skill-name>/SKILL.md
@@ -29,7 +36,7 @@ plugins/sdd-<name>/
 
 ## Dependencies
 
-- [ ] sdd-governance (required)
+- [ ] loom-governance (required)
 - [ ] Other: _____________
 
 ## Use Cases
@@ -42,4 +49,3 @@ plugins/sdd-<name>/
 
 - Does this plugin introduce new principles? No / Yes: _____
 - Does this plugin modify governance hooks? No / Yes: _____
-- Estimated RL baseline weight: 0.5

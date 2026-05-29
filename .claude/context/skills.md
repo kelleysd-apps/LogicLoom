@@ -147,7 +147,7 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 **Trigger Keywords**: /plan, implementation plan, technical research, contract design, data modeling
 
-**DS-STAR Enhancement**: Includes quality verification gate that blocks progression if plan quality insufficient
+**Quality Validation**: Includes a quality verification gate that blocks progression if plan quality insufficient
 
 ---
 
@@ -182,83 +182,42 @@ Step 5: Publication → Add to useBlog.ts, deploy
 
 ---
 
-## Validation Skills
+## Governance & Domain Briefs
 
-### message-preflight
+Governance is **hook-enforced** — there is no message pre-flight skill to invoke
+on every message. The `UserPromptSubmit` preflight hook performs domain detection
+and surfaces delegation recommendations automatically. Verbosity is controlled by
+`LOOM_GOVERNANCE_MODE` (`lean` default / `strict`) in
+`.logic-loom/config/governance.conf`.
 
-**Location**: `plugins/sdd-governance/skills/message-preflight/SKILL.md`
+### Domain-Brief Registry
 
-**Purpose**: MANDATORY 4-step compliance check before any action (Constitutional Principle X enforcement)
+The 7 former `sdd-domain-*` plugins are replaced by a lightweight **domain-brief
+registry** — one markdown brief per domain — loaded on demand:
 
-**When to Use**: **EVERY user message** (no exceptions)
+**Location**: `plugins/loom-governance/domain-briefs/<domain>.md`
 
-**Workflow Steps**:
-```
-STEP 1: CONSTITUTION ACKNOWLEDGMENT
-       └─ Confirm awareness of 16 principles (I-XVI)
-       └─ Key: II (Test-First), VI (Git Approval), X (Agent Delegation), XVI (Plugin-First)
+**Loader**: `get_domain_brief <domain>` (in `.logic-loom/scripts/bash/common.sh`)
 
-STEP 2: DOMAIN ANALYSIS
-       └─ Scan message for domain trigger keywords
-       └─ Domains: frontend, backend, database, testing, security,
-                   performance, devops, specification, planning, tasks
+| Domain | Trigger keywords | Brief |
+|--------|------------------|-------|
+| Frontend | UI, component, React, CSS, responsive, styling | `domain-briefs/frontend.md` |
+| Backend | API, endpoint, service, auth, server, middleware | `domain-briefs/backend.md` |
+| Database | schema, migration, query, SQL, RLS, index | `domain-briefs/database.md` |
+| Testing | test, E2E, integration, mock, QA, coverage | `domain-briefs/testing.md` |
+| Security | security, XSS, encryption, vulnerability, OWASP | `domain-briefs/security.md` |
+| Performance | optimize, cache, benchmark, speed, latency | `domain-briefs/performance.md` |
+| DevOps | deploy, CI/CD, Docker, infrastructure, Vercel | `domain-briefs/devops.md` |
 
-STEP 3: DELEGATION DECISION
-       └─ 0 domains → may execute directly
-       └─ 1 domain → MUST delegate to specialist skill
-       └─ 2+ domains → MUST delegate to team-orchestration skill
-
-STEP 4: EXECUTION AUTHORIZATION
-       └─ Confirm all steps complete
-       └─ Proceed with direct execution OR agent delegation
-```
-
-**Output Format**:
-```
-Constitutional Compliance Check:
-- Domain(s): [none | single: <domain> | multi: <domains>]
-- Delegation: [direct execution | <agent-name>]
-- Git operations: [none planned | will request approval]
-- Proceeding with: [action description]
-```
-
-**Violation Self-Correction**:
-1. STOP immediately
-2. ACKNOWLEDGE the violation explicitly
-3. CORRECT by running protocol now
-4. PROCEED only after correction
-
-**Constitutional Authority**: Principle X (Agent Delegation Protocol)
-
----
-
-### domain-detection
-
-**Location**: `plugins/sdd-governance/skills/domain-detection/SKILL.md`
-
-**Purpose**: Automated domain keyword scanning for delegation routing
-
-**When to Use**: During STEP 2 of message-preflight check
-
-**Domain Keywords**:
-- **Frontend**: UI, component, React, CSS, responsive, styling, navigation
-- **Backend**: API, endpoint, service, auth, server, middleware
-- **Database**: schema, migration, query, SQL, RLS, index
-- **Testing**: test, E2E, integration, mock, QA, coverage
-- **Security**: security, XSS, encryption, vulnerability, OWASP
-- **Performance**: optimize, cache, benchmark, speed, latency
-- **DevOps**: deploy, CI/CD, Docker, infrastructure, Vercel
-- **Specification**: spec, requirements, user story, acceptance criteria
-- **Planning**: /plan, research, contract design, data modeling
-- **Tasks**: /tasks, task breakdown, dependency, parallel
-
-**Output**: List of detected domains and delegation recommendation
+**Usage**: when domain work is detected, load the matching brief and inject it as
+the worker's context (e.g. via a `/swarm` worker or team command), keeping that
+worker's context isolated per Principle X.
 
 ---
 
 ### constitutional-compliance
 
-**Location**: `plugins/sdd-governance/skills/constitutional-compliance/SKILL.md`
+**Location**: `plugins/loom-governance/skills/constitutional-compliance/SKILL.md`
 
 **Purpose**: Validate adherence to 16 constitutional principles
 
@@ -278,7 +237,7 @@ Constitutional Compliance Check:
 7. **Principle VII**: Observability - Logging and metrics present
 8. **Principle VIII**: Documentation Synchronization - Docs updated with code
 9. **Principle IX**: Dependency Management - Dependencies declared and pinned
-10. **Principle X**: Agent Delegation Protocol - Specialized work delegated
+10. **Principle X**: Delegation & Context Isolation - Specialized work delegated, worker context isolated
 11. **Principle XI**: Input Validation & Output Sanitization - Security checks
 12. **Principle XII**: Design System Compliance - UI consistency
 13. **Principle XIII**: Feature Access Control - Auth/authz enforced
@@ -336,8 +295,10 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 
 - "create blog post" → content-pipeline
 - "deployment failed" → debug
-- "optimize performance" → delegates to performance-operations skill
-- Any message → message-preflight (mandatory)
+- "optimize performance" → loads `domain-briefs/performance.md` via `get_domain_brief performance`
+
+Note: domain detection and delegation hints run automatically in the
+`UserPromptSubmit` preflight hook — there is no skill to invoke per message.
 
 ### Explicit Invocation (Skill Reference)
 
@@ -351,10 +312,10 @@ Skills with trigger keywords are automatically invoked when keywords detected:
 **Module Version**: 2.0.0
 **Created**: 2026-01-09 (Sprint 3 Task T024)
 **Last Updated**: 2026-02-07
-**Constitutional Authority**: Principle X (Procedural Workflow Guidance)
+**Constitutional Authority**: Principle X (Delegation & Context Isolation)
 **Source Documents**:
 - All SKILL.md files in `plugins/*/skills/`
-- `.logic-loom/memory/agent-collaboration-triggers.md`
+- `plugins/loom-governance/domain-briefs/` (domain-brief registry)
 - CLAUDE.md "Commands" section
 
 ## New Commands (v5.0.0)

@@ -21,7 +21,7 @@
 
 3. **plugin.json requirements**:
    - `name`: Must start with `sdd-domain-`
-   - `dependencies`: Must include `sdd-governance`
+   - `dependencies`: Must include `loom-governance`
    - `rl_metrics`: Include with default values
    - `version`: Semantic versioning
 

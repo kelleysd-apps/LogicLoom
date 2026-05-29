@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-29
-**Authority**: Constitution v3.0.0
+**Authority**: Constitution v3.1.0
 **Review Cycle**: Quarterly
 
 ---
@@ -62,11 +62,11 @@ project-root/
 │   ├── scripts/                # Automation scripts
 │   └── templates/              # Document templates
 │
-├── features/                   # LogicLoom per-feature folders (primary)
+├── features/                   # Per-feature folders (vision/PRD/plan workflow pack)
 │   └── <name>/                 # e.g., user-auth/ — vision, plan, retro
 │
-├── specs/                      # Legacy SDD feature specifications
-│   └── ###-feature-name/       # Per-feature spec directory (legacy SDD)
+├── specs/                      # Feature specs (SDD waterfall workflow pack)
+│   └── ###-feature-name/       # Per-feature spec directory
 │
 ├── src/                        # Source code
 │   └── [project-specific]      # Application code
@@ -178,7 +178,7 @@ project-root/
 - Include version, date, and authority header
 - Reference constitutional principles
 
-### features/ - LogicLoom Feature Folders (Primary)
+### features/ - Vision/PRD/Plan Workflow Pack Folders
 
 **Structure**:
 ```
@@ -193,9 +193,9 @@ features/
 **Rules**:
 - Directory name: `<feature-name>` (kebab-case, no sequential prefix)
 - Created via `/create-prd` or `/swarm explore` workflow
-- Coexists with legacy `specs/` per v3 supplementary principle
+- Interchangeable with `specs/`; both workflow packs share the governance core
 
-### specs/ - Legacy SDD Feature Specifications
+### specs/ - SDD Waterfall Workflow Pack Specifications
 
 **Structure**:
 ```
@@ -212,11 +212,11 @@ specs/
         └── auth.yaml
 ```
 
-**Rules** (legacy SDD workflow, preserved per v3 supplementary principle):
+**Rules** (SDD waterfall workflow pack):
 - Feature number prefix (###) is sequential
 - Directory name: `###-feature-name` (kebab-case)
 - All files use templates from `.logic-loom/templates/`
-- Created via `/specification` command (legacy SDD waterfall)
+- Created via `/specification` command (SDD waterfall pack)
 
 ### src/ - Source Code
 
@@ -472,8 +472,8 @@ All agents MUST:
 | Skill | `.claude/skills/[category]/[skill]/SKILL.md` |
 | Command | `.claude/commands/[command].md` |
 | Policy | `.docs/policies/[topic]-policy.md` |
-| LogicLoom feature | `features/<name>/` (primary) |
-| Legacy SDD spec | `specs/###-[name]/` (legacy) |
+| Feature (vision/PRD/plan pack) | `features/<name>/` |
+| Feature (SDD waterfall pack) | `specs/###-[name]/` |
 | Template | `.logic-loom/templates/[name]-template.md` |
 
 ### Creation Commands
@@ -485,11 +485,11 @@ All agents MUST:
 # Create skill folder
 mkdir -p .claude/skills/[category]/[skill-name]
 
-# Create LogicLoom feature (primary)
+# Create feature via vision/PRD/plan workflow pack
 /create-prd [feature-name]      # bootstraps features/<name>/vision.md
 /swarm explore [feature-name]   # produces features/<name>/plan.md
 
-# Create legacy SDD feature spec (legacy waterfall)
+# Create feature via SDD waterfall workflow pack
 /specification [feature-name]   # bootstraps specs/###-<name>/
 ```
 

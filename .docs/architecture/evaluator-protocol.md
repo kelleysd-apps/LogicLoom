@@ -1,7 +1,7 @@
 # Evaluator Protocol
 
 **Status**: v0.1 (Loom migration, Stage 8)
-**Skill**: `plugins/sdd-orchestrator/skills/review-evaluator/SKILL.md`
+**Skill**: `plugins/loom-orchestrator/skills/review-evaluator/SKILL.md`
 **Reference**: Anthropic, "How we built our multi-agent harness" — the
 generator/grader split (article §Concrete Grading Criteria).
 
@@ -182,8 +182,8 @@ These items are explicitly out of scope for v0.1 and tracked for v6.0+:
   for the generator/grader split and the Concrete Grading Criteria rubric.
   See `.logic-loom/memory/MEMORY.md` →
   `reference_anthropic_harness_design.md` for the indexed notes.
-- `plugins/sdd-orchestrator/skills/review-evaluator/SKILL.md` — the
+- `plugins/loom-orchestrator/skills/review-evaluator/SKILL.md` — the
   procedural implementation of this protocol.
-- `plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md` — the
+- `plugins/loom-orchestrator/skills/team-orchestration/SKILL.md` — the
   `/review-team` integrator that spawns the evaluator as the 4th reviewer
   (wired by the Stage 8 integrator, not this worker).

@@ -126,11 +126,13 @@ parse_model_name() {
     local model_raw="$1"
 
     case "$model_raw" in
+        *opus-4-8*|*opus-4.8*) model_name="Opus 4.8" ;;
         *opus-4-6*|*opus-4.6*) model_name="Opus 4.6" ;;
         *opus-4-5*|*opus-4.5*) model_name="Opus 4.5" ;;
         *opus-4-1*|*opus-4.1*) model_name="Opus 4.1" ;;
         *opus-4*|*opus4*) model_name="Opus 4" ;;
         *opus*) model_name="Opus" ;;
+        *sonnet-4-6*|*sonnet-4.6*) model_name="Sonnet 4.6" ;;
         *sonnet-4-5*|*sonnet-4.5*) model_name="Sonnet 4.5" ;;
         *sonnet-4*|*sonnet4*) model_name="Sonnet 4" ;;
         *sonnet-3-7*|*sonnet-3.7*) model_name="Sonnet 3.7" ;;

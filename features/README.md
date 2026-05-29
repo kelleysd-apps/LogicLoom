@@ -1,12 +1,16 @@
-# `features/` — LogicLoom Primary Workflow
+# `features/` — Vision / Swarm workflow pack
 
-This directory holds **per-feature working folders** for the LogicLoom workflow:
-vision → exploration/research → PRD → plan → swarm implement → review → retro.
+This directory holds **per-feature working folders** for the vision/swarm
+workflow pack: vision → exploration/research → PRD → plan → swarm implement →
+review → retro.
 
-Each subdirectory under `features/` is one feature, owned end-to-end through the
-LogicLoom loop. This is the **primary documented path** for new work. The legacy
-`/specification` waterfall (`specs/###-feature/`) remains supported as an
-alternative — see `.logic-loom/templates/spec-template.md`.
+LogicLoom is a durable **governance core** (constitution, hooks, memory, plugin
+chassis) with several **interchangeable workflow packs** layered on top. The
+vision/swarm pack documented here is one peer; the SDD-waterfall pack
+(`specs/###-feature/`, see `.logic-loom/templates/spec-template.md`) and the
+dev-loop pack are equals — none is privileged. Each subdirectory under
+`features/` is one feature, owned end-to-end through this pack's loop. Pick the
+pack that matches the problem shape.
 
 ---
 
@@ -14,7 +18,7 @@ alternative — see `.logic-loom/templates/spec-template.md`.
 
 Per Anthropic's [harness-design article](https://www.anthropic.com/engineering):
 broad specs leave room for the agent to reason; narrow specs cascade upstream
-errors. The LogicLoom layout enforces this by separating concerns across files:
+errors. This pack's layout enforces this by separating concerns across files:
 
 - `vision.md` declares **what we want to achieve** — deliberately broad.
 - `exploration/` and `research/` resolve unknowns **before** committing to a PRD.
@@ -25,7 +29,7 @@ errors. The LogicLoom layout enforces this by separating concerns across files:
 - `retro.md` closes the loop with explicit learnings.
 
 If the planner tried to specify granular technical details upfront and got
-something wrong, the errors in the spec would cascade. The LogicLoom layout
+something wrong, the errors in the spec would cascade. This pack's layout
 makes that mistake hard to commit by accident.
 
 ---
@@ -61,7 +65,7 @@ features/<feature-name>/
 
 ---
 
-## The LogicLoom loop
+## The vision / swarm pack loop
 
 ```
 EnterWorktree
@@ -82,8 +86,11 @@ ExitWorktree
 ```
 
 Steps marked optional may be skipped when the feature is well-understood, but
-`vision.md` and `plan-review.md` are not optional — they are the gates that
-prevent broad-spec cascade and worker-collision respectively.
+within this pack `vision.md` and `plan-review.md` are not optional — they are
+the **pack-internal gates** that prevent broad-spec cascade and worker-collision
+respectively. (These gates are specific to the vision/swarm pack; other packs
+have their own controls — e.g. the SDD-waterfall pack gates on its spec and
+`/finalize`.)
 
 ---
 
@@ -95,7 +102,7 @@ prevent broad-spec cascade and worker-collision respectively.
 - **Sprint naming**: `NN-name/` where `NN` is zero-padded (`01-foundations`,
   `02-api-surface`, etc.). Names match the plan.md sprint declarations.
 - **File ownership**: every sprint declares which files each worker may
-  touch. The `/freeze` hook (Stage 12) rejects writes outside declared scope.
+  touch. The `freeze-write-scope.sh` hook rejects writes outside declared scope.
 - **No code in vision/PRD**: implementation details live in `plan.md` and
   sprint outputs. Vision and PRD declare intent and boundaries only.
 
@@ -103,14 +110,17 @@ prevent broad-spec cascade and worker-collision respectively.
 
 ## Relationship to `specs/`
 
-| Aspect | `features/` (LogicLoom — primary) | `specs/` (SDD waterfall — legacy) |
-|--------|-----------------------------------|-----------------------------------|
+`features/` and `specs/` are the workspaces for two peer workflow packs over the
+same governance core:
+
+| Aspect | `features/` (vision / swarm pack) | `specs/` (SDD-waterfall pack) |
+|--------|-----------------------------------|-------------------------------|
 | Entry point | `vision.md` (broad north star) | `spec.md` (functional requirements) |
 | Workflow | Iterative explore → PRD → plan → swarm | Linear spec → plan → tasks → implement |
 | Worker model | Sprint-bounded swarm with file-ownership | Sequential task execution |
-| When to use | New feature work, exploratory problems | Well-understood features with stable requirements |
+| When to use | Exploratory problems, behavioral quality bar | Contract-first features with stable requirements |
 
-Both layouts are supported. Pick the one that matches the problem shape.
+Both packs are first-class. Pick the one that matches the problem shape.
 
 ---
 

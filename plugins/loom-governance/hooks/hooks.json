@@ -1,0 +1,12 @@
+{
+  "hooks": [
+    {
+      "event": "PreToolUse",
+      "matcher": {
+        "tool_name": "Bash"
+      },
+      "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/git-safety-gate.sh",
+      "description": "Gate git mutations requiring explicit user approval (Principle VI)"
+    }
+  ]
+}

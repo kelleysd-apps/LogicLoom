@@ -12,7 +12,7 @@
     "workflow"
   ],
   "dependencies": [
-    "sdd-governance"
+    "loom-governance"
   ],
   "agents": {
     "count": 0,

@@ -2,38 +2,48 @@
 <!-- Auto-generated from AGENTS.md and plugin files - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->
 <!-- Module: Agent/skill registry, delegation protocol, multi-agent coordination -->
 
-## Agent & Skill Delegation Protocol
+## Delegation & Context Isolation Protocol
 
-**Constitutional Principle X** requires specialized work be delegated to specialized agents or skills.
+**Constitutional Principle X** requires specialized work be delegated to
+specialists or `/swarm`, with each worker's context kept isolated.
 
-**Architecture (v5.1.0)**: 6 custom agents + 14 enhanced skills with Task Briefs. Domain and workflow expertise lives in plugin SKILL.md files, injected as Task tool briefs when spawning workers.
+**Architecture**: A small set of custom agents + enhanced skills, plus a
+**domain-brief registry**. Domain expertise lives in per-domain markdown briefs;
+workflow expertise lives in plugin SKILL.md files. Both are injected as isolated
+Task-tool briefs when spawning workers.
 
-**Quick Rule**: Domain keywords → skill delegation (via team commands). Non-domain work → agent delegation.
+**Quick Rule**: Domain keywords → load the domain brief (via team commands or
+`/swarm`). Non-domain / workflow work → agent or skill delegation.
+
+Delegation routing is surfaced automatically by the `UserPromptSubmit` preflight
+hook — no recited protocol is required.
 
 ---
 
-## Domain → Skill Mapping (v5.0.0)
+## Domain → Brief Mapping
 
-Domain work is handled by enhanced plugin skills, NOT custom agents:
+The 7 former `sdd-domain-*` plugins have been deleted. Domain work is now handled
+by a lightweight **domain-brief registry** — one markdown brief per domain —
+loaded on demand via `get_domain_brief <domain>` (in `common.sh`):
 
-| Domain | Keywords | Plugin:Skill | Invocation |
-|--------|----------|-------------|------------|
-| Frontend | UI, component, React, CSS | `sdd-domain-frontend:frontend-operations` | via team commands |
-| Backend | API, endpoint, service, auth | `sdd-domain-backend:backend-operations` | via team commands |
-| Database | schema, migration, query, SQL | `sdd-domain-database:database-operations` | via team commands |
-| Testing | test, E2E, coverage, QA | `sdd-domain-testing:testing-operations` | via team commands |
-| Security | encryption, XSS, vulnerability | `sdd-domain-security:security-operations` | via team commands |
-| Performance | optimize, cache, benchmark | `sdd-domain-performance:performance-operations` | via team commands |
-| DevOps | deploy, CI/CD, Docker | `sdd-domain-devops:devops-operations` | via team commands |
+| Domain | Keywords | Brief | Loader |
+|--------|----------|-------|--------|
+| Frontend | UI, component, React, CSS | `plugins/loom-governance/domain-briefs/frontend.md` | `get_domain_brief frontend` |
+| Backend | API, endpoint, service, auth | `plugins/loom-governance/domain-briefs/backend.md` | `get_domain_brief backend` |
+| Database | schema, migration, query, SQL | `plugins/loom-governance/domain-briefs/database.md` | `get_domain_brief database` |
+| Testing | test, E2E, coverage, QA | `plugins/loom-governance/domain-briefs/testing.md` | `get_domain_brief testing` |
+| Security | encryption, XSS, vulnerability | `plugins/loom-governance/domain-briefs/security.md` | `get_domain_brief security` |
+| Performance | optimize, cache, benchmark | `plugins/loom-governance/domain-briefs/performance.md` | `get_domain_brief performance` |
+| DevOps | deploy, CI/CD, Docker | `plugins/loom-governance/domain-briefs/devops.md` | `get_domain_brief devops` |
 
-### Skill Injection Pattern
+### Brief Injection Pattern
 
 ```
-/build-team → extract_skill_brief("sdd-domain-backend", "backend-operations")
-            → Task(prompt=skill_brief + task, model=sonnet)
+/build-team → get_domain_brief backend
+            → Task(prompt=domain_brief + task, model=sonnet)
 ```
 
-Coordinators use Opus; domain workers use Sonnet with skill briefs.
+Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 
 ---
 
@@ -55,24 +65,24 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 
 ## Agent Registry (6 agents)
 
-### sdd-governance (1)
+### loom-governance (1)
 - **constitutional-governance-agent** — Primary entry point, governance enforcement (opus)
   - Hook-based: no `"agent"` field in settings.json, runs via `UserPromptSubmit` preflight hook
 
-### sdd-orchestrator (1)
+### loom-orchestrator (1)
 - **team-synthesizer** — Merges multi-LLM outputs, tribunal confidence scoring (opus)
 
-### sdd-creation (2)
+### loom-creation (2)
 - **prd-specialist** — PRD creation, product strategy (opus)
 - **subagent-architect** — Agent/plugin creation, SDD compliance (inherit)
 
-### sdd-maintenance (1)
+### loom-maintenance (1)
 - **framework-sync-agent** — Framework updates from upstream (opus)
 
-### sdd-memory (1)
+### loom-memory (1)
 - **memory-context-agent** — Memory search + context injection via preflight hook (haiku)
 
-### sdd-dev-loop (0 — skill-based)
+### loom-dev-loop (0 — skill-based)
 > All dev-loop agents removed. The `core-loop` skill handles all dev-loop functionality.
 
 ---
@@ -89,8 +99,8 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 - `sdd-tasks/SKILL.md` — Task decomposition (merged from tasks-agent)
 - `unified-specification/SKILL.md` — End-to-end spec pipeline (merged from specification-orchestrator)
 
-### Domain Skills (replaced 7 agents)
-- 7 `*-operations/SKILL.md` files with Task Brief sections (replaced frontend-specialist, backend-architect, database-specialist, security-specialist, testing-specialist, performance-engineer, devops-engineer)
+### Domain Briefs (replaced 7 domain plugins)
+- 7 `plugins/loom-governance/domain-briefs/<domain>.md` briefs, loaded via `get_domain_brief <domain>` and injected as isolated worker context (replaced the former `sdd-domain-*` operations skills/agents for frontend, backend, database, security, testing, performance, devops)
 
 ---
 
@@ -98,19 +108,19 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 
 | Command | Delegate | Plugin |
 |---------|----------|--------|
-| `/create-prd` | prd-specialist (agent) | sdd-creation |
+| `/create-prd` | prd-specialist (agent) | loom-creation |
 | `/specification` | unified-specification skill | sdd-specification |
 | `/specify` | sdd-specification skill | sdd-specification |
 | `/plan` | sdd-planning skill | sdd-specification |
 | `/tasks` | sdd-tasks skill | sdd-specification |
-| `/create-agent` | subagent-architect (agent) | sdd-creation |
-| `/research` | team-synthesizer (agent) | sdd-orchestrator |
-| `/swarm` | team-orchestration skill | sdd-orchestrator |
-| `/build-team` | team-orchestration skill | sdd-orchestrator |
-| `/fullstack-team` | team-orchestration skill | sdd-orchestrator |
-| `/review-team` | team-orchestration skill | sdd-orchestrator |
-| `/dev-loop` | core-loop skill | sdd-dev-loop |
-| `/update-framework` | framework-sync-agent (agent) | sdd-maintenance |
+| `/create-agent` | subagent-architect (agent) | loom-creation |
+| `/research` | team-synthesizer (agent) | loom-orchestrator |
+| `/swarm` | team-orchestration skill | loom-orchestrator |
+| `/build-team` | team-orchestration skill | loom-orchestrator |
+| `/fullstack-team` | team-orchestration skill | loom-orchestrator |
+| `/review-team` | team-orchestration skill | loom-orchestrator |
+| `/dev-loop` | core-loop skill | loom-dev-loop |
+| `/update-framework` | framework-sync-agent (agent) | loom-maintenance |
 
 ---
 
@@ -119,9 +129,9 @@ Coordinators use Opus; domain workers use Sonnet with skill briefs.
 ```
 START → Analyze task keywords
   ↓
-2+ domain keywords? → YES → team-orchestration skill (or team command)
+2+ domain keywords? → YES → /swarm or team-orchestration skill
   ↓ NO
-1 domain keyword? → YES → Load domain skill brief via team command
+1 domain keyword? → YES → get_domain_brief <domain> (via team command / swarm)
   ↓ NO
 Specification work? → YES → appropriate spec skill
   ↓ NO
@@ -135,15 +145,15 @@ Execute directly (simple task, no domain specialization needed)
 ```
 User: /swarm "Build auth with React UI, Express API, PostgreSQL"
        ↓
-Coordinator (Opus): analyzes domains, loads skill briefs, plans phases
+Coordinator (Opus 4.8): analyzes domains, loads domain briefs, plans phases
        ↓
-Phase 1: database-operations skill worker (Sonnet) → schema
+Phase 1: database worker (Sonnet, get_domain_brief database) → schema
        ↓
 Phase 2 (parallel):
-  ├── backend-operations skill worker (Sonnet) → API
-  └── frontend-operations skill worker (Sonnet) → UI
+  ├── backend worker (Sonnet, get_domain_brief backend) → API
+  └── frontend worker (Sonnet, get_domain_brief frontend) → UI
        ↓
-Phase 3: testing-operations + security-operations workers (Sonnet)
+Phase 3: testing + security workers (Sonnet, respective briefs)
        ↓
 Coordinator merges results
 ```
@@ -152,5 +162,5 @@ Coordinator merges results
 
 **Module Version**: 3.0.0
 **Last Updated**: 2026-02-15
-**Architecture**: Plugin-First v4.1 + Skill-Based Delegation v5.0.0
-**Constitutional Authority**: Principle X (Agent Delegation Protocol)
+**Architecture**: Plugin-First + domain-brief registry; hook-enforced governance
+**Constitutional Authority**: Principle X (Delegation & Context Isolation)

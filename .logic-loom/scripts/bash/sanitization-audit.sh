@@ -1,6 +1,7 @@
 #!/bin/bash
-# Comprehensive sanitization audit script for SDD Framework
-# Verifies that all Ioun AI project-specific elements have been removed
+# Comprehensive sanitization audit script for LogicLoom
+# Verifies that upstream project-specific elements (the original Ioun AI project
+# this framework was extracted from) have been removed — i.e. the framework is generic.
 
 # Don't exit on error - we want to run all checks
 set +e
@@ -16,7 +17,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}======================================${NC}"
-echo -e "${BLUE}  SDD Framework Sanitization Audit${NC}"
+echo -e "${BLUE}  LogicLoom Sanitization Audit${NC}"
 echo -e "${BLUE}======================================${NC}"
 echo ""
 echo "Repository Root: $REPO_ROOT"

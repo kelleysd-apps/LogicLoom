@@ -1,5 +1,21 @@
 # Plugin Marketplace — MCP Middleware Design
 
+> **⚠️ REMOVED / HISTORICAL** — This design is no longer part of the framework.
+> The in-house `mcp-servers/sdd-marketplace/` package and its GitHub plugin
+> registry were **cut**. Plugin discovery and install are now delegated to two
+> external ecosystems:
+>
+> 1. **Anthropic Claude Code Plugin Marketplace** — first-party plugin discovery
+>    and install (via the `/plugin` commands and the marketplace browser).
+> 2. **Docker MCP Toolkit** — 310+ containerized MCP servers via the unified
+>    gateway (`mcp-find`, `mcp-add`, `mcp-config-set`, `mcp-exec`, `code-mode`).
+>
+> The cross-project RL metrics described in the "RL Integration" section below
+> were also removed; the framework relies on native model judgment rather than
+> tracked `selection_weight`/`success_rate` telemetry. The remainder of this
+> document is retained verbatim **as historical record only** and does not
+> describe current behavior.
+
 **Status**: Phase A+B Complete — MCP Server + GitHub Registry Live
 **Spec**: 004-plugin-first-architecture (T4.6.1-T4.6.6)
 **Priority**: HIGH — User-requested for next milestone
@@ -125,7 +141,7 @@ marketplace-install sdd-domain-ai-ml
 ## Security Considerations
 
 - All published plugins validated against governance standards
-- `sdd-governance` dependency enforced for all registry plugins
+- `loom-governance` dependency enforced for all registry plugins
 - Plugin sandboxing via allowed-tools restrictions
 - Version pinning to prevent supply-chain attacks
 - Signature verification for community plugins (future)

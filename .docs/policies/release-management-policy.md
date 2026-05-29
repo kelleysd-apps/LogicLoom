@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle VIII (Documentation Synchronization)
+**Authority**: Constitution v3.1.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
 ---
@@ -752,7 +752,7 @@ git branch -d hotfix/critical-bug
 
 ## References
 
-- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
 - Semantic Versioning: https://semver.org/
 - Keep a Changelog: https://keepachangelog.com/
 - Conventional Commits: https://www.conventionalcommits.org/

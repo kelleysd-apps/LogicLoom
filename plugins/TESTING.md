@@ -16,7 +16,7 @@ bash tests/contract/plugins/test_plugin_lifecycle.sh
 **Checks**:
 - Valid JSON syntax
 - Required fields: `name`, `version`, `description`, `dependencies`
-- `sdd-governance` in dependencies
+- `loom-governance` in dependencies
 - `rl_metrics` object present with `success_rate`, `selection_weight`, `invocation_count`
 
 ### 2. Skill Structure Validation

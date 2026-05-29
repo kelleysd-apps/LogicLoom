@@ -137,17 +137,17 @@ For EACH agent in `plugins/*/agents/**/*.md`:
 - [ ] Verify no outdated principle references
 
 **Affected Agent Files** (check all 11 agents):
-- [ ] constitutional-governance-agent.md (sdd-governance)
-- [ ] team-synthesizer.md (sdd-orchestrator)
-- [ ] prd-specialist.md (sdd-creation)
-- [ ] subagent-architect.md (sdd-creation)
+- [ ] constitutional-governance-agent.md (loom-governance)
+- [ ] team-synthesizer.md (loom-orchestrator)
+- [ ] prd-specialist.md (loom-creation)
+- [ ] subagent-architect.md (loom-creation)
 - [ ] auto-debug-agent.md (sdd-debug)
-- [ ] framework-sync-agent.md (sdd-maintenance)
-- [ ] memory-context-agent.md (sdd-memory)
-- [ ] dev-loop-orchestrator.md (sdd-dev-loop)
-- [ ] debug-analyst.md (sdd-dev-loop)
-- [ ] quality-assessor.md (sdd-dev-loop)
-- [ ] tribunal-judge.md (sdd-dev-loop)
+- [ ] framework-sync-agent.md (loom-maintenance)
+- [ ] memory-context-agent.md (loom-memory)
+- [ ] dev-loop-orchestrator.md (loom-dev-loop)
+- [ ] debug-analyst.md (loom-dev-loop)
+- [ ] quality-assessor.md (loom-dev-loop)
+- [ ] tribunal-judge.md (loom-dev-loop)
 
 ### Step 4: Update Workflow Scripts
 

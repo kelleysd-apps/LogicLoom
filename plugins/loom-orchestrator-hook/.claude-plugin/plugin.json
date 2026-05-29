@@ -1,0 +1,23 @@
+{
+  "name": "loom-orchestrator-hook",
+  "version": "1.0.0",
+  "category": "orchestration",
+  "description": "Hook-based orchestration plugin -- domain detection, agent recommendations, governance reminders via UserPromptSubmit hook.",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "dependencies": [],
+  "agents": {
+    "count": 0,
+    "list": []
+  },
+  "skills": {
+    "count": 1,
+    "list": [
+      "orchestration-guidance"
+    ]
+  },
+  "commands": {
+    "count": 0,
+    "list": []
+  }
+}

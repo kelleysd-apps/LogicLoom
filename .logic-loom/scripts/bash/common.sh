@@ -562,6 +562,30 @@ extract_skill_brief() {
     echo "$brief"
 }
 
+# Return the consolidated worker brief for a technical domain from the
+# governance-core domain-brief registry (replaces the former sdd-domain-* plugins).
+#
+# Args:    $1=domain (e.g. "backend", "frontend")
+# Output:  Task Brief text for injection into a swarm/team worker prompt, or empty
+# Returns: 0 always (graceful degradation)
+get_domain_brief() {
+    local domain="${1:-}"
+    [ -n "$domain" ] || return 0
+
+    # Resolve the governance core plugin dir (loom-governance after rename;
+    # loom-governance before). First match wins.
+    local gov_dir
+    for gov_dir in loom-governance loom-governance; do
+        local brief_file="$REPO_ROOT/plugins/$gov_dir/domain-briefs/${domain}.md"
+        if [ -f "$brief_file" ]; then
+            # Emit content from the "## Task Brief" heading to EOF (skip the header).
+            awk '/^## Task Brief/{f=1;next} f' "$brief_file"
+            return 0
+        fi
+    done
+    return 0
+}
+
 # ==============================================================================
 # Logging Status
 # ==============================================================================

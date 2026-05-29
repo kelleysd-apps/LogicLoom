@@ -1,0 +1,35 @@
+{
+  "name": "loom-git",
+  "version": "1.0.0",
+  "description": "Git workflow safety plugin -- commit, push, PR with conflict resolution. All operations require user approval (Principle VI).",
+  "author": "kelleysd-apps",
+  "license": "MIT",
+  "keywords": [
+    "sdd",
+    "git",
+    "safety",
+    "PR",
+    "commit"
+  ],
+  "dependencies": [
+    "loom-governance"
+  ],
+  "agents": {
+    "count": 0,
+    "list": []
+  },
+  "skills": {
+    "count": 2,
+    "list": [
+      "finalize",
+      "git-push-workflow"
+    ]
+  },
+  "commands": {
+    "count": 2,
+    "list": [
+      "finalize",
+      "git-push"
+    ]
+  }
+}

@@ -20,12 +20,6 @@ constitutional_principles:
   - VI (Git Approval for branch operations)
   - VIII (Documentation Synchronization)
   - X (Skills-First Delegation)
-rl_metrics:
-  success_rate: 0.5
-  selection_weight: 0.5
-  invocation_count: 0
-  avg_tokens: 0
-  last_feedback: null
 ---
 
 # Unified Specification Skill

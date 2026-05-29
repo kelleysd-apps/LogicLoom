@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "RLMetrics entity template — Reinforcement learning performance metrics for a single skill/model combination, used for adaptive routing via EMA-weighted success rates and UCB1 exploration scores",
+  "schema_version": "1.0",
+
+  "skill_name": "core-loop",
+  "_comment_skill_name": "Name of the skill being tracked. MUST match a registered skill in the plugin's skills/ directory or plugin manifest (plugins/*/plugin.json).",
+
+  "model_name": "claude-opus-4-8",
+  "_comment_model_name": "AI model used during skill execution. Tracks per-model performance for model selection optimization (Principle XIV).",
+
+  "success_rate": 0.5,
+  "_comment_success_rate": "Exponential Moving Average (EMA) of success outcomes. Range: [0.0, 1.0]. Initialized at 0.5 (neutral prior). Updated after each invocation via EMA algorithm.",
+
+  "selection_weight": 0.5,
+  "_comment_selection_weight": "Routing weight derived from success_rate. Range: [0.1, 1.0]. Clamped to prevent any skill from being completely excluded. Higher = more likely to be selected.",
+  "_formula_selection_weight": "clamp(success_rate, 0.1, 1.0)",
+
+  "invocation_count": 0,
+  "_comment_invocation_count": "Total number of times this skill+model combination has been invoked. Monotonically increasing. Used in UCB1 exploration bonus calculation.",
+
+  "avg_tokens": 0,
+  "_comment_avg_tokens": "Running average of tokens consumed per invocation. Updated via cumulative moving average: new_avg = old_avg + (new_tokens - old_avg) / invocation_count.",
+
+  "avg_duration_ms": 0,
+  "_comment_avg_duration_ms": "Running average of execution duration in milliseconds per invocation. Updated via cumulative moving average: new_avg = old_avg + (new_duration - old_avg) / invocation_count.",
+
+  "last_feedback": null,
+  "_comment_last_feedback": "Most recent feedback entry. Null if never invoked. Snapshot of latest outcome for quick access without scanning history.",
+  "_example_last_feedback": {
+    "timestamp": "2026-02-07T15:30:00Z",
+    "outcome": "success",
+    "tokens": 45000,
+    "duration_ms": 120000
+  },
+
+  "ema_alpha": 0.1,
+  "_comment_ema_alpha": "Learning rate for Exponential Moving Average. Range: (0.0, 1.0). Default: 0.1. Lower = more stable (favors historical performance). Higher = more reactive (favors recent outcomes).",
+
+  "history": [],
+  "_comment_history": "Ordered array of feedback entries (oldest first). Each entry records one invocation outcome. Used for audit trail and offline analysis. May be truncated to last N entries for storage efficiency.",
+  "_example_history": [
+    {
+      "timestamp": "2026-02-07T14:30:00Z",
+      "outcome": "success",
+      "tokens": 42000,
+      "duration_ms": 95000
+    },
+    {
+      "timestamp": "2026-02-07T15:00:00Z",
+      "outcome": "failure",
+      "tokens": 68000,
+      "duration_ms": 180000
+    },
+    {
+      "timestamp": "2026-02-07T15:30:00Z",
+      "outcome": "success",
+      "tokens": 45000,
+      "duration_ms": 120000
+    }
+  ],
+
+  "per_task_type": {
+    "_comment": "Breakdown of metrics by task type (tactic vs strategy). Enables scope-aware routing decisions. Each sub-object mirrors the top-level metric structure.",
+
+    "tactic": {
+      "success_rate": 0.5,
+      "invocation_count": 0,
+      "avg_tokens": 0,
+      "avg_duration_ms": 0,
+      "_comment": "Metrics for tactic-scope tasks (small, focused changes). Tactic tasks typically consume fewer tokens and complete faster."
+    },
+    "strategy": {
+      "success_rate": 0.5,
+      "invocation_count": 0,
+      "avg_tokens": 0,
+      "avg_duration_ms": 0,
+      "_comment": "Metrics for strategy-scope tasks (large, cross-cutting changes). Strategy tasks typically consume more tokens and require more iterations."
+    }
+  },
+
+  "_ema_update_algorithm": {
+    "_comment": "Exponential Moving Average (EMA) update — called after each skill invocation to update success_rate and selection_weight",
+    "formula": "new_rate = (1 - alpha) * old_rate + alpha * outcome",
+    "expanded": "new_rate = (1 - 0.1) * old_rate + 0.1 * outcome_value",
+    "outcome_encoding": "success = 1.0, failure = 0.0",
+    "example_success": "old_rate = 0.5; new_rate = (1 - 0.1) * 0.5 + 0.1 * 1.0 = 0.45 + 0.10 = 0.55",
+    "example_failure": "old_rate = 0.5; new_rate = (1 - 0.1) * 0.5 + 0.1 * 0.0 = 0.45 + 0.00 = 0.45",
+    "weight_derivation": "selection_weight = clamp(new_rate, 0.1, 1.0)",
+    "steps": [
+      "1. Read current success_rate and ema_alpha",
+      "2. Encode outcome: success -> 1.0, failure -> 0.0",
+      "3. Compute: new_rate = (1 - ema_alpha) * success_rate + ema_alpha * outcome",
+      "4. Update success_rate = new_rate",
+      "5. Update selection_weight = clamp(new_rate, 0.1, 1.0)",
+      "6. Increment invocation_count",
+      "7. Update avg_tokens via cumulative moving average",
+      "8. Update avg_duration_ms via cumulative moving average",
+      "9. Append to history array",
+      "10. Update last_feedback snapshot",
+      "11. Update per_task_type sub-metrics for the relevant task type"
+    ]
+  },
+
+  "_ucb1_algorithm": {
+    "_comment": "Upper Confidence Bound 1 (UCB1) — used for exploration/exploitation balancing when selecting skills. Skills with fewer invocations get a higher exploration bonus.",
+    "formula": "ucb1_score = success_rate + sqrt(2 * ln(total_invocations_all_skills) / invocation_count)",
+    "notes": [
+      "total_invocations_all_skills = sum of invocation_count across all tracked skills",
+      "If invocation_count == 0, ucb1_score = Infinity (always explore untried skills)",
+      "The sqrt term decays as invocation_count grows, favoring exploitation of known-good skills",
+      "UCB1 is used alongside selection_weight for routing decisions"
+    ]
+  },
+
+  "_cumulative_moving_average": {
+    "_comment": "Used for avg_tokens and avg_duration_ms updates",
+    "formula": "new_avg = old_avg + (new_value - old_avg) / invocation_count",
+    "example": "old_avg = 40000 tokens, new_value = 50000, count = 3; new_avg = 40000 + (50000 - 40000) / 3 = 43333"
+  },
+
+  "_validation_rules": [
+    "success_rate MUST be in range [0.0, 1.0]",
+    "selection_weight MUST be in range [0.1, 1.0]",
+    "invocation_count MUST be >= 0 (integer)",
+    "avg_tokens MUST be >= 0",
+    "avg_duration_ms MUST be >= 0",
+    "ema_alpha MUST be in range (0.0, 1.0) exclusive",
+    "history array length SHOULD be <= invocation_count",
+    "per_task_type.tactic.invocation_count + per_task_type.strategy.invocation_count SHOULD equal invocation_count",
+    "last_feedback MUST be null when invocation_count == 0",
+    "last_feedback MUST NOT be null when invocation_count > 0",
+    "Each history entry MUST have timestamp (ISO8601), outcome (success|failure), tokens (integer >= 0), duration_ms (integer >= 0)"
+  ],
+
+  "_integration_points": {
+    "plugin_manifests": "plugins/*/plugin.json — selection_weight synced here for framework-wide routing",
+    "rl_metrics_store": ".docs/rl-metrics/skill-performance.json — detailed history persisted here",
+    "collect_feedback_script": ".logic-loom/scripts/bash/rl/collect-feedback.sh — CLI for recording outcomes",
+    "sync_metrics_script": ".logic-loom/scripts/bash/rl/sync-metrics.sh — syncs metrics to plugin manifests",
+    "dashboard_script": ".logic-loom/scripts/bash/rl/dashboard.sh — human-readable metrics view"
+  }
+}

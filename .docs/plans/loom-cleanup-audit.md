@@ -22,8 +22,8 @@
 
 | Plugin | Status | Reason |
 |---|---|---|
-| sdd-creation | ✓ KEEP | User-facing (/create-prd, /create-skill, /create-agent, /create-plugin) |
-| sdd-dev-loop | ✓ KEEP | User-facing (/dev-loop) — v3 keeps as legacy |
+| loom-creation | ✓ KEEP | User-facing (/create-prd, /create-skill, /create-agent, /create-plugin) |
+| loom-dev-loop | ✓ KEEP | User-facing (/dev-loop) — v3 keeps as legacy |
 | sdd-domain-backend | ✓ KEEP | User-facing skills — v3 keeps as legacy |
 | sdd-domain-database | ✓ KEEP | Same |
 | sdd-domain-devops | ✓ KEEP | Same |
@@ -31,12 +31,12 @@
 | sdd-domain-performance | ✓ KEEP | Same |
 | sdd-domain-security | ✓ KEEP | Same |
 | sdd-domain-testing | ✓ KEEP | Same |
-| sdd-git | ✓ KEEP | /git-push, /finalize |
-| sdd-governance | ✓ KEEP | Constitutional core, protected |
-| sdd-maintenance | ✓ KEEP | /update-framework, /initialize-project, mcp-server-setup |
-| sdd-memory | ✓ KEEP | Memory plugin |
-| sdd-orchestrator | ✓ KEEP | /swarm, /research, /review-team, /build-team, /fullstack-team |
-| sdd-orchestrator-hook | ✓ KEEP | Preflight orchestration |
+| loom-git | ✓ KEEP | /git-push, /finalize |
+| loom-governance | ✓ KEEP | Constitutional core, protected |
+| loom-maintenance | ✓ KEEP | /update-framework, /initialize-project, mcp-server-setup |
+| loom-memory | ✓ KEEP | Memory plugin |
+| loom-orchestrator | ✓ KEEP | /swarm, /research, /review-team, /build-team, /fullstack-team |
+| loom-orchestrator-hook | ✓ KEEP | Preflight orchestration |
 | sdd-specification | ✓ KEEP | /specification — v3 keeps as legacy |
 
 **Net**: 15 plugins, all kept.
@@ -47,12 +47,12 @@
 
 | Plugin | Skill | Status |
 |---|---|---|
-| sdd-creation | create-agent | ✓ KEEP |
-| sdd-creation | create-plugin | ✓ KEEP |
-| sdd-creation | create-prd | ✓ KEEP (modify Stage 7) |
-| sdd-creation | create-skill | ✓ KEEP |
-| sdd-creation | create-template | ✓ KEEP |
-| sdd-dev-loop | core-loop | ✓ KEEP (v3 legacy) |
+| loom-creation | create-agent | ✓ KEEP |
+| loom-creation | create-plugin | ✓ KEEP |
+| loom-creation | create-prd | ✓ KEEP (modify Stage 7) |
+| loom-creation | create-skill | ✓ KEEP |
+| loom-creation | create-template | ✓ KEEP |
+| loom-dev-loop | core-loop | ✓ KEEP (v3 legacy) |
 | sdd-domain-backend | api-design | ✓ KEEP |
 | sdd-domain-backend | backend-operations | ✓ KEEP |
 | sdd-domain-backend | service-architecture | ✓ KEEP |
@@ -65,31 +65,31 @@
 | sdd-domain-performance | performance-operations | ✓ KEEP |
 | sdd-domain-security | security-operations | ✓ KEEP |
 | sdd-domain-testing | testing-operations | ✓ KEEP |
-| sdd-git | finalize | ✓ KEEP (v3 legacy) |
-| sdd-git | git-push-workflow | ✓ KEEP |
-| sdd-governance | constitutional-compliance | ✓ KEEP |
-| sdd-governance | domain-detection | ✓ KEEP |
-| sdd-governance | file-organization | ✓ KEEP |
-| sdd-governance | governance-preflight | ✓ KEEP |
-| sdd-governance | message-preflight | ✓ KEEP |
-| sdd-governance | qa-validation | ✓ KEEP |
-| sdd-maintenance | framework-updater | ✓ KEEP |
-| sdd-maintenance | mcp-server-setup | ✓ KEEP |
-| sdd-maintenance | project-initialization | ✓ KEEP |
-| sdd-memory | context-injection | ✓ KEEP |
-| sdd-orchestrator | full-stack-feature | 🔵 DEFER consolidation | overlaps /swarm modes — keep for v3, consider folding later |
-| sdd-orchestrator | migration-workflow | 🔵 DEFER consolidation | same |
-| sdd-orchestrator | multi-skill-workflow | 🔵 DEFER consolidation | same |
-| sdd-orchestrator | team-orchestration | ✓ KEEP (modify Stages 6, 8) |
-| sdd-orchestrator-hook | orchestration-guidance | ✓ KEEP |
+| loom-git | finalize | ✓ KEEP (v3 legacy) |
+| loom-git | git-push-workflow | ✓ KEEP |
+| loom-governance | constitutional-compliance | ✓ KEEP |
+| loom-governance | domain-detection | ✓ KEEP |
+| loom-governance | file-organization | ✓ KEEP |
+| loom-governance | governance-preflight | ✓ KEEP |
+| loom-governance | message-preflight | ✓ KEEP |
+| loom-governance | qa-validation | ✓ KEEP |
+| loom-maintenance | framework-updater | ✓ KEEP |
+| loom-maintenance | mcp-server-setup | ✓ KEEP |
+| loom-maintenance | project-initialization | ✓ KEEP |
+| loom-memory | context-injection | ✓ KEEP |
+| loom-orchestrator | full-stack-feature | 🔵 DEFER consolidation | overlaps /swarm modes — keep for v3, consider folding later |
+| loom-orchestrator | migration-workflow | 🔵 DEFER consolidation | same |
+| loom-orchestrator | multi-skill-workflow | 🔵 DEFER consolidation | same |
+| loom-orchestrator | team-orchestration | ✓ KEEP (modify Stages 6, 8) |
+| loom-orchestrator-hook | orchestration-guidance | ✓ KEEP |
 | sdd-specification | unified-specification | ✓ KEEP (v3 legacy) |
 
 **Skills to ADD** (new in migration):
-- 🟢 ADD: sdd-orchestrator/skills/swarm-explore (Stage 6)
-- 🟢 ADD: sdd-orchestrator/skills/swarm-implement (Stage 6, 10)
-- 🟢 ADD: sdd-orchestrator/skills/review-evaluator (Stage 8)
-- 🟢 ADD: sdd-orchestrator/skills/plan-review (Stage 7b)
-- 🟢 ADD: sdd-orchestrator/skills/retro (Stage 11b)
+- 🟢 ADD: loom-orchestrator/skills/swarm-explore (Stage 6)
+- 🟢 ADD: loom-orchestrator/skills/swarm-implement (Stage 6, 10)
+- 🟢 ADD: loom-orchestrator/skills/review-evaluator (Stage 8)
+- 🟢 ADD: loom-orchestrator/skills/plan-review (Stage 7b)
+- 🟢 ADD: loom-orchestrator/skills/retro (Stage 11b)
 
 **Net**: 33 existing kept + 5 new = 38 skills post-migration.
 
@@ -99,12 +99,12 @@
 
 | Plugin | Agent | Status |
 |---|---|---|
-| sdd-governance | constitutional-governance-agent | ✓ KEEP |
-| sdd-memory | memory-context-agent | ✓ KEEP |
-| sdd-creation | subagent-architect | ✓ KEEP |
-| sdd-creation | prd-specialist | ✓ KEEP |
-| sdd-maintenance | framework-sync-agent | ✓ KEEP |
-| sdd-orchestrator | team-synthesizer | ✓ KEEP |
+| loom-governance | constitutional-governance-agent | ✓ KEEP |
+| loom-memory | memory-context-agent | ✓ KEEP |
+| loom-creation | subagent-architect | ✓ KEEP |
+| loom-creation | prd-specialist | ✓ KEEP |
+| loom-maintenance | framework-sync-agent | ✓ KEEP |
+| loom-orchestrator | team-synthesizer | ✓ KEEP |
 
 **Net**: 6 agents, all kept. No new agents in migration (all new functionality goes via skills).
 
@@ -214,10 +214,10 @@
 
 | Plugin | Hook | Status |
 |---|---|---|
-| sdd-governance | governance-preflight.cjs | ✓ KEEP | Active preflight |
-| sdd-governance | git-safety-gate.sh | ✓ KEEP | Principle VI enforcement |
-| sdd-governance | rl-metrics-capture.sh | 🟥 CUT-PLANNED (Stage 4) |
-| sdd-orchestrator | agent-stop-notification.sh | ✓ KEEP | /swarm coordination |
+| loom-governance | governance-preflight.cjs | ✓ KEEP | Active preflight |
+| loom-governance | git-safety-gate.sh | ✓ KEEP | Principle VI enforcement |
+| loom-governance | rl-metrics-capture.sh | 🟥 CUT-PLANNED (Stage 4) |
+| loom-orchestrator | agent-stop-notification.sh | ✓ KEEP | /swarm coordination |
 
 **Hooks to ADD** (Stage 11):
 - 🟢 ADD: .claude/hooks/worktree-port-namespace.sh
@@ -341,8 +341,8 @@
 
 ### Currently slated for cut (Stage 4 — RL telemetry)
 - `.logic-loom/scripts/bash/rl/` (8 scripts)
-- `plugins/sdd-governance/hooks/scripts/rl-metrics-capture.sh`
-- `plugins/sdd-governance/hooks/hooks.json` PostToolUse entry (surgical)
+- `plugins/loom-governance/hooks/scripts/rl-metrics-capture.sh`
+- `plugins/loom-governance/hooks/hooks.json` PostToolUse entry (surgical)
 - `rl_metrics` blocks in all `plugins/*/.claude-plugin/plugin.json` (script-driven)
 - `src/sdd/feedback/`, `src/sdd/metrics/`
 - `.docs/rl-metrics/`
@@ -362,14 +362,14 @@
 
 ### Defer (architectural decisions for later stages)
 - Plugin-local script duplication across sdd-{git,specification,orchestrator,governance} (Stage 13 architecture pickup)
-- `sdd-orchestrator/skills/full-stack-feature, multi-skill-workflow, migration-workflow` consolidation into /swarm modes (post-v6.0)
+- `loom-orchestrator/skills/full-stack-feature, multi-skill-workflow, migration-workflow` consolidation into /swarm modes (post-v6.0)
 - Playwright MCP vs chrome-devtools MCP for Stage 8 evaluator (decide at Stage 8)
 
 ### Items to ADD during migration
 | Where | What | Stage |
 |---|---|---|
-| plugins/sdd-orchestrator/skills/ | swarm-explore, swarm-implement, review-evaluator, plan-review, retro (5 new skills) | 6, 7b, 8, 10, 11b |
-| plugins/sdd-orchestrator/commands/ | plan-review.md, retro.md (2 new commands) | 7b, 11b |
+| plugins/loom-orchestrator/skills/ | swarm-explore, swarm-implement, review-evaluator, plan-review, retro (5 new skills) | 6, 7b, 8, 10, 11b |
+| plugins/loom-orchestrator/commands/ | plan-review.md, retro.md (2 new commands) | 7b, 11b |
 | .claude/hooks/ | worktree-port-namespace.sh, context-cap-warn.sh, freeze-write-scope.sh (3 hooks) | 11 |
 | .logic-loom/templates/ | vision-template.md | 5 |
 | features/ | New top-level dir + README.md | 5 |
