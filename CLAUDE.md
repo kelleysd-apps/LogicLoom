@@ -57,7 +57,8 @@ message. The hooks are the floor; the policies below are the standing intent.
 
 | Hook | Enforces |
 |---|---|
-| `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
+| `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies ANY git command from a subagent (detected via `agent_id` in the hook payload). Git is main-agent + direct-user-request only. |
+| `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — main-agent git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
 | `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
 | `freeze-write-scope.sh` (PreToolUse · Write/Edit) | Plan-as-DAG file ownership during `/swarm implement` |
 | `governance-preflight.sh` (UserPromptSubmit) | Injects domain guidance + memory context (and, in strict mode, the pre-flight recitation) |

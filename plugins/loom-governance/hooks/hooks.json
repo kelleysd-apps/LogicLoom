@@ -5,8 +5,16 @@
       "matcher": {
         "tool_name": "Bash"
       },
+      "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/subagent-git-guard.sh",
+      "description": "Deny ALL git operations from subagents (agent_id present); git is main-agent + user-request only (Principle VI)"
+    },
+    {
+      "event": "PreToolUse",
+      "matcher": {
+        "tool_name": "Bash"
+      },
       "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scripts/git-safety-gate.sh",
-      "description": "Gate git mutations requiring explicit user approval (Principle VI)"
+      "description": "Gate git mutations from the main agent requiring explicit user approval (Principle VI)"
     }
   ]
 }
