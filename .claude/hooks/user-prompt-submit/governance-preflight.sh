@@ -189,9 +189,17 @@ run_memory_search() {
     local message="$1"
     local memory_context=""
 
+    # Skip the (synchronous) search for trivial prompts — short acknowledgements
+    # like "yes"/"continue"/"ok" can't produce useful memory hits and shouldn't
+    # pay the grep cost on the interactive path.
+    if [ "${#message}" -lt "${MEMORY_MIN_QUERY_CHARS:-12}" ]; then
+        echo ""
+        return 0
+    fi
+
     if [ -x "$MEMORY_SEARCH" ]; then
-        # Run with 3-second timeout, capture output
-        memory_context=$(timeout 3 bash "$MEMORY_SEARCH" "$message" 2>/dev/null || echo "")
+        # Run with a bounded timeout, capture output
+        memory_context=$(timeout "${MEMORY_SEARCH_TIMEOUT:-2}" bash "$MEMORY_SEARCH" "$message" 2>/dev/null || echo "")
 
         # Log memory search (background, non-blocking)
         if [ -x "$MEMORY_LOG" ] && [ -n "$memory_context" ]; then
@@ -244,6 +252,16 @@ main() {
     local INPUT_SUMMARY
     INPUT_SUMMARY=$(echo "$INPUT" | head -c 500 | tr -d '\n\r')
 
+    # Extract the ACTUAL user prompt text (not the raw JSON envelope) for memory
+    # search. Searching the envelope keyworded session_id/transcript_path/cwd —
+    # noise that polluted every injection and inflated the grep. Fall back to the
+    # summary only if no prompt field is present.
+    local PROMPT_TEXT=""
+    if command -v jq >/dev/null 2>&1; then
+        PROMPT_TEXT=$(printf '%s' "$INPUT" | jq -r '.prompt // .message // empty' 2>/dev/null || true)
+    fi
+    [ -z "$PROMPT_TEXT" ] && PROMPT_TEXT="$INPUT_SUMMARY"
+
     # Detect slash command
     local COMMAND_NAME
     COMMAND_NAME=$(detect_slash_command "$INPUT")
@@ -270,7 +288,7 @@ main() {
 
     # Run memory context search (if available)
     local MEMORY_CONTEXT
-    MEMORY_CONTEXT=$(run_memory_search "$INPUT_SUMMARY")
+    MEMORY_CONTEXT=$(run_memory_search "$PROMPT_TEXT")
 
     # Combine guidance + memory context
     local FULL_CONTEXT="$GUIDANCE"

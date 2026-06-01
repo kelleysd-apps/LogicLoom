@@ -13,7 +13,8 @@
 # No-op silently when not in a worktree.
 #
 # Input:  Claude Code SessionStart hook JSON via stdin (may be empty)
-# Output: JSON {"hookEventName":"SessionStart","additionalContext":"..."}
+# Output: JSON {"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"..."}}
+#         (additionalContext MUST be nested under hookSpecificOutput or the harness drops it)
 
 set -euo pipefail
 
@@ -99,5 +100,5 @@ escaped=${context//\\/\\\\}
 escaped=${escaped//\"/\\\"}
 escaped=${escaped//$'\n'/\\n}
 
-printf '{"hookEventName":"SessionStart","additionalContext":"%s"}\n' "$escaped"
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"%s"}}\n' "$escaped"
 exit 0

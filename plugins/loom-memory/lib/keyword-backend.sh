@@ -49,8 +49,14 @@ _keyword_search_dir() {
 
     [ -e "$search_path" ] || return 0
 
+    # Exclude generated/noise trees so the live grep stays fast and does not
+    # match its own audit/search-log output (which otherwise grows unbounded and
+    # feeds back into every search). These are never legitimate memory content.
     local matches
-    matches=$(grep -ril "$keyword" "$search_path" 2>/dev/null | head -"$max_per_keyword") || true
+    matches=$(grep -ril \
+        --exclude-dir=audit --exclude-dir=.git --exclude-dir=node_modules \
+        --exclude='search-log.jsonl' --exclude='*.log' \
+        "$keyword" "$search_path" 2>/dev/null | head -"$max_per_keyword") || true
 
     for match_file in $matches; do
         [ -f "$match_file" ] || continue
@@ -106,6 +112,12 @@ backend_search() {
 
     local keywords
     keywords=$(_keyword_extract "$query")
+
+    # Cap keyword count to bound the per-message grep fan-out (search cost is
+    # paths * keywords). The most salient terms come first after extraction;
+    # 6 keeps recall high while keeping UserPromptSubmit latency in check.
+    keywords=$(echo "$keywords" | tr ' ' '\n' | grep -v '^$' | head -n "${KEYWORD_MAX_TERMS:-6}" | tr '\n' ' ')
+    keywords="${keywords% }"
 
     if [ -z "$keywords" ]; then
         return 0

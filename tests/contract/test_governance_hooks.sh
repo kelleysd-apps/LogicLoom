@@ -95,6 +95,19 @@ GATE_STATUS_JSON='{"tool_name":"Bash","tool_input":{"command":"git status"}}'
 GATE_STATUS_DECISION="$(printf '%s' "$GATE_STATUS_JSON" | bash "$GATE" | decision)"
 assert "main-agent git status -> gate allows (got '${GATE_STATUS_DECISION}')" "[ '${GATE_STATUS_DECISION}' = 'allow' ]"
 
+# ── Context-injecting hooks must use the nested hookSpecificOutput schema ──
+# A flat {"hookEventName":...,"additionalContext":...} emit is silently dropped
+# by the harness (the v6.1 schema regression guard). Counts computed outside the
+# assert eval to avoid quoting pitfalls.
+CCW="$ROOT_DIR/.claude/hooks/context-cap-warn.sh"
+WPN="$ROOT_DIR/.claude/hooks/worktree-port-namespace.sh"
+ccw_nested=$(grep -c 'hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext' "$CCW" 2>/dev/null)
+ccw_flat=$(grep -cE "printf '\{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext" "$CCW" 2>/dev/null)
+wpn_nested=$(grep -c 'hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext' "$WPN" 2>/dev/null)
+wpn_flat=$(grep -cE "printf '\{\"hookEventName\":\"SessionStart\",\"additionalContext" "$WPN" 2>/dev/null)
+assert "context-cap-warn additionalContext nested, not flat (nested=$ccw_nested flat=$ccw_flat)" "[ \"$ccw_nested\" -ge 1 ] && [ \"$ccw_flat\" -eq 0 ]"
+assert "worktree-port additionalContext nested, not flat (nested=$wpn_nested flat=$wpn_flat)" "[ \"$wpn_nested\" -ge 1 ] && [ \"$wpn_flat\" -eq 0 ]"
+
 echo ""
 echo "======================================="
 echo " Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"

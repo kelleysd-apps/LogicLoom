@@ -15,7 +15,8 @@
 # When no signal is available, no-op (do not fabricate warnings).
 #
 # Input:  Claude Code UserPromptSubmit JSON via stdin
-# Output: JSON {"hookEventName":"UserPromptSubmit","additionalContext":"..."} or empty
+# Output: JSON {"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"..."}}
+#         (additionalContext MUST be nested under hookSpecificOutput or the harness drops it)
 
 set -euo pipefail
 
@@ -110,5 +111,5 @@ escaped=${context//\\/\\\\}
 escaped=${escaped//\"/\\\"}
 escaped=${escaped//$'\n'/\\n}
 
-printf '{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}\n' "$escaped"
+printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$escaped"
 exit 0
