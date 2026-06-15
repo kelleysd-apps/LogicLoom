@@ -37,6 +37,13 @@ get_current_branch() {
     git rev-parse --abbrev-ref HEAD
 }
 
+# --- SDD waterfall pack helpers -------------------------------------------
+# The following three functions encode the SDD pack's branch/path convention
+# (NNN-name branches -> specs/NNN-name/). They are consumed ONLY by the SDD
+# pack scripts (validate-spec/plan/tasks.sh, setup-plan.sh, get-feature-paths.sh,
+# check-task-prerequisites.sh). The swarm pack (features/<name>/) and the
+# governance core do NOT use them and impose no 3-digit-branch requirement.
+# Do not treat "not on a feature branch" as a framework-wide gate.
 check_feature_branch() {
     local branch="$1"
     if [[ ! "$branch" =~ ^[0-9]{3}- ]]; then
@@ -73,6 +80,7 @@ QUICKSTART='$feature_dir/quickstart.md'
 CONTRACTS_DIR='$feature_dir/contracts'
 EOF
 }
+# --- end SDD waterfall pack helpers ----------------------------------------
 
 check_file() {
     local file="$1"
