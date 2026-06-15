@@ -222,13 +222,32 @@ fi
 REPO_ROOT="$_loom_saved_repo_root"
 unset _loom_saved_repo_root
 
+# Canonicalize BOTH the target and repo root before matching. This:
+#   (1) collapses '//' (macOS $TMPDIR ends in '/', producing double slashes that
+#       break a naive prefix match — REPO_ROOT is pwd-normalized, file_path is not),
+#   (2) resolves '..' / symlinks so a traversal like features/x/../../etc cannot
+#       escape the owns: scope (security hardening — realpath).
+# python3 os.path.realpath works on not-yet-created paths; fall back to a pure
+# bash '//'-collapse if python is unavailable.
+_canon() {
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1" 2>/dev/null && return
+    fi
+    # Fallback: collapse repeated slashes (does not resolve '..').
+    printf '%s' "$1" | sed 's://*:/:g'
+}
+canon_target="$(_canon "$file_path")"
+canon_root="$(_canon "$REPO_ROOT")"
+[ -n "$canon_target" ] || canon_target="$file_path"
+[ -n "$canon_root" ] || canon_root="$REPO_ROOT"
+
 # Normalize the target to a path relative to repo root for matching.
 # bash 3.2 quirk: ${var#"$prefix"} (quoted) does not strip when prefix
-# contains '/'. Use unquoted form — REPO_ROOT is a path with no glob chars.
-rel_target="$file_path"
-prefix="$REPO_ROOT/"
+# contains '/'. Use the substring form — paths have no glob chars after canon.
+rel_target="$canon_target"
+prefix="$canon_root/"
 case "$rel_target" in
-    "$REPO_ROOT"/*)
+    "$canon_root"/*)
         rel_target="${rel_target:${#prefix}}"
         ;;
 esac

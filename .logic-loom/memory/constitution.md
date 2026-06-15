@@ -136,12 +136,23 @@ no skills-first gate to "violate."
 
 Enforcement lives in hooks, not in model recitation:
 
+- `subagent-git-guard.sh` (PreToolUse · Bash) — Principle VI: denies ALL git
+  from subagents (`agent_id` present).
 - `git-safety-gate.sh` (PreToolUse · Bash) — Principle VI: git mutations force
   an approval prompt.
+- `protect-governance-files.sh` (PreToolUse · Write/Edit + Bash) — edits to the
+  governance surface (hooks, settings, this constitution, governance.conf) are
+  subagent-`deny` / main-`ask`, so the model cannot soften its own rules.
 - `guard-dangerous-commands.sh` (PreToolUse · Bash) — policy-based blocking.
-- `freeze-write-scope.sh` (PreToolUse · Write/Edit) — plan-as-DAG ownership.
+- `freeze-write-scope.sh` (PreToolUse · Write/Edit) — plan-as-DAG ownership
+  (paths canonicalized so `..`/symlink can't escape the owned scope).
 - `governance-preflight.sh` (UserPromptSubmit) — domain guidance + memory; in
   `strict` mode also injects the optional 4-step pre-flight.
+
+Hooks are a deterministic **floor, not a sandbox** — they do not see
+interpreter/`eval` indirection or every Bash write path. Governance is
+defense-in-depth; residual bypasses are tracked in
+`.docs/architecture/governance-threat-model.md`.
 
 #### Governance modes (capability-gated assist)
 

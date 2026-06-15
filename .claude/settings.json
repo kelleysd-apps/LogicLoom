@@ -35,6 +35,11 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash plugins/loom-governance/hooks/scripts/protect-governance-files.sh",
+            "timeout": 3000
+          },
+          {
+            "type": "command",
             "command": "bash .claude/hooks/freeze-write-scope.sh",
             "timeout": 3000
           }
@@ -45,7 +50,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": "bash plugins/loom-governance/hooks/scripts/protect-governance-files.sh",
+            "timeout": 3000
+          },
+          {
+            "type": "command",
             "command": "bash plugins/loom-governance/hooks/scripts/subagent-git-guard.sh",
+            "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "bash plugins/loom-governance/hooks/scripts/git-safety-gate.sh",
             "timeout": 3000
           },
           {

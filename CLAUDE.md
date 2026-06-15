@@ -58,9 +58,17 @@ message. The hooks are the floor; the policies below are the standing intent.
 |---|---|
 | `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies ANY git command from a subagent (detected via `agent_id` in the hook payload). Git is main-agent + direct-user-request only. |
 | `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — main-agent git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
+| `protect-governance-files.sh` (PreToolUse · Write/Edit + Bash) | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent **deny** / main **ask**. The model can't silently soften its own rules. |
 | `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
-| `freeze-write-scope.sh` (PreToolUse · Write/Edit) | Plan-as-DAG file ownership during `/swarm implement` |
+| `freeze-write-scope.sh` (PreToolUse · Write/Edit) | Plan-as-DAG file ownership during `/swarm implement`; paths canonicalized (`realpath`) so `..`/symlink can't escape `owns:` scope. |
 | `governance-preflight.sh` (UserPromptSubmit) | Injects domain guidance + memory context (and, in strict mode, the pre-flight recitation) |
+
+Hooks are a **deterministic floor, not a sandbox.** They make the high-impact
+failures hard (autonomous git, a subagent's `git clean`, the model rewriting its
+own hooks, writing outside an owned scope) — but a string gate cannot see
+interpreter/`eval` indirection or every Bash write path. Treat governance as
+defense-in-depth; the known residual bypasses are documented in
+`.docs/architecture/governance-threat-model.md`.
 
 ### Standing policies (respect without being asked)
 

@@ -108,6 +108,38 @@ wpn_flat=$(grep -cE "printf '\{\"hookEventName\":\"SessionStart\",\"additionalCo
 assert "context-cap-warn additionalContext nested, not flat (nested=$ccw_nested flat=$ccw_flat)" "[ \"$ccw_nested\" -ge 1 ] && [ \"$ccw_flat\" -eq 0 ]"
 assert "worktree-port additionalContext nested, not flat (nested=$wpn_nested flat=$wpn_flat)" "[ \"$wpn_nested\" -ge 1 ] && [ \"$wpn_flat\" -eq 0 ]"
 
+# ── protect-governance-files: the model can't soften its own rules ──
+PROT="$HOOK_DIR/protect-governance-files.sh"
+pdecision() { printf '%s' "$1" | bash "$PROT" | decision; }
+assert "protect-governance-files.sh exists" "[ -f '$PROT' ]"
+assert "protect-governance-files.sh passes bash -n" "bash -n '$PROT'"
+# subagent editing a hook -> deny
+SUB_HOOK="{\"tool_name\":\"Edit\",\"agent_id\":\"a1\",\"agent_type\":\"x\",\"tool_input\":{\"file_path\":\"$ROOT_DIR/.claude/hooks/freeze-write-scope.sh\"}}"
+D="$(pdecision "$SUB_HOOK")"; assert "subagent edit of a hook -> deny (got '$D')" "[ '$D' = 'deny' ]"
+# main editing the constitution -> ask
+MAIN_CONST="{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$ROOT_DIR/.logic-loom/memory/constitution.md\"}}"
+D="$(pdecision "$MAIN_CONST")"; assert "main edit of constitution -> ask (got '$D')" "[ '$D' = 'ask' ]"
+# main editing settings.json -> ask
+MAIN_SET="{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$ROOT_DIR/.claude/settings.json\"}}"
+D="$(pdecision "$MAIN_SET")"; assert "main edit of settings.json -> ask (got '$D')" "[ '$D' = 'ask' ]"
+# main editing a normal source file -> allow
+MAIN_SRC="{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$ROOT_DIR/src/app.ts\"}}"
+D="$(pdecision "$MAIN_SRC")"; assert "main edit of normal file -> allow (got '$D')" "[ '$D' = 'allow' ]"
+# subagent Bash redirect into settings.json -> deny
+SUB_BASH="{\"tool_name\":\"Bash\",\"agent_id\":\"a1\",\"tool_input\":{\"command\":\"echo x > .claude/settings.json\"}}"
+D="$(pdecision "$SUB_BASH")"; assert "subagent bash-write to settings.json -> deny (got '$D')" "[ '$D' = 'deny' ]"
+# main Bash READ of a governance file -> allow (reads are fine)
+MAIN_READ="{\"tool_name\":\"Bash\",\"tool_input\":{\"command\":\"cat .logic-loom/memory/constitution.md\"}}"
+D="$(pdecision "$MAIN_READ")"; assert "main bash-read of constitution -> allow (got '$D')" "[ '$D' = 'allow' ]"
+
+# ── Subagent inheritance: freeze-write-scope still fires inside a subagent ──
+# (PreToolUse hooks DO run in subagents — agent_id present — so freeze must still
+#  enforce. Default-allow when no active DAG context, which is the case here.)
+FZ="$ROOT_DIR/.claude/hooks/freeze-write-scope.sh"
+FZ_SUB="{\"tool_name\":\"Edit\",\"agent_id\":\"a1\",\"tool_input\":{\"file_path\":\"$ROOT_DIR/src/x.ts\"}}"
+FZ_D="$(printf '%s' "$FZ_SUB" | bash "$FZ" | decision)"
+assert "freeze-write-scope runs in subagent context (no-DAG -> allow, got '$FZ_D')" "[ '$FZ_D' = 'allow' ]"
+
 echo ""
 echo "======================================="
 echo " Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
