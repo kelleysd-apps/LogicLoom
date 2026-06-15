@@ -93,19 +93,15 @@ echo ""
 echo "T4.1.1: Swarm lifecycle"
 assert "loom-orchestrator has /swarm command" "[ -f plugins/loom-orchestrator/commands/swarm.md ]"
 assert "loom-orchestrator has team-orchestration skill" "[ -f plugins/loom-orchestrator/skills/team-orchestration/SKILL.md ]"
-assert "loom-orchestrator has launch-swarm.sh" "[ -f plugins/loom-orchestrator/scripts/launch-swarm.sh ]"
-assert "launch-swarm.sh is executable" "[ -x plugins/loom-orchestrator/scripts/launch-swarm.sh ]"
+# v6.2: orchestration uses the native Task tool, not a custom launch-swarm/tmux runner.
+assert "team-orchestration uses native Task tool" "grep -q 'Task tool' plugins/loom-orchestrator/skills/team-orchestration/SKILL.md"
+assert "dead launch-swarm.sh removed" "[ ! -f plugins/loom-orchestrator/scripts/launch-swarm.sh ]"
 
 echo ""
 echo "T4.1.2: Agent team templates"
 for team in build-team review-team fullstack-team; do
   assert "Has /${team} command" "[ -f plugins/loom-orchestrator/commands/${team}.md ]"
 done
-
-echo ""
-echo "T4.1.3: Budget controls"
-assert "Has budget-manager.sh" "[ -f plugins/loom-orchestrator/scripts/budget-manager.sh ]"
-assert "budget-manager.sh is executable" "[ -x plugins/loom-orchestrator/scripts/budget-manager.sh ]"
 
 echo ""
 echo "═══════════════════════════════════════"

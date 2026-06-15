@@ -25,18 +25,14 @@ assert "multi-skill-workflow skill exists" "[ -f plugins/loom-orchestrator/skill
 assert "orchestrator agents converted to skills" "[ ! -f plugins/loom-orchestrator/agents/swarm-coordinator.md ]"
 
 echo ""
-echo "T4.1.2: Launch script"
-assert "launch-swarm.sh exists" "[ -f plugins/loom-orchestrator/scripts/launch-swarm.sh ]"
-assert "launch-swarm.sh is executable" "[ -x plugins/loom-orchestrator/scripts/launch-swarm.sh ]"
-assert "launch-swarm.sh has tmux setup" "grep -q 'tmux' plugins/loom-orchestrator/scripts/launch-swarm.sh"
-assert "launch-swarm.sh has session management" "grep -q 'session' plugins/loom-orchestrator/scripts/launch-swarm.sh"
-
-echo ""
-echo "T4.1.3: Budget controls"
-assert "budget-manager.sh exists" "[ -f plugins/loom-orchestrator/scripts/budget-manager.sh ]"
-assert "budget-manager.sh is executable" "[ -x plugins/loom-orchestrator/scripts/budget-manager.sh ]"
-assert "budget-manager.sh has max cost logic" "grep -q 'max.*budget\|MAX.*BUDGET\|budget' plugins/loom-orchestrator/scripts/budget-manager.sh"
-assert "budget-manager.sh has fallback model" "grep -q 'fallback\|FALLBACK' plugins/loom-orchestrator/scripts/budget-manager.sh"
+echo "T4.1.2: Native-primitive orchestration (no custom runner)"
+# v6.2: orchestration leans on Claude Code's native Task tool + /workflow.
+# The old tmux/launch-swarm/budget-manager custom runner is removed.
+assert "dead launch-swarm.sh removed" "[ ! -f plugins/loom-orchestrator/scripts/launch-swarm.sh ]"
+assert "dead budget-manager.sh removed" "[ ! -f plugins/loom-orchestrator/scripts/budget-manager.sh ]"
+assert "team-orchestration uses native Task tool" "grep -q 'Task tool' plugins/loom-orchestrator/skills/team-orchestration/SKILL.md"
+assert "team-orchestration references /workflow primitive" "grep -q '/workflow' plugins/loom-orchestrator/skills/team-orchestration/SKILL.md"
+assert "team-orchestration drops tmux/state-file runner" "! grep -qE 'tmux|multi-agent-swarm' plugins/loom-orchestrator/skills/team-orchestration/SKILL.md"
 
 echo ""
 echo "T4.2: Agent team templates"

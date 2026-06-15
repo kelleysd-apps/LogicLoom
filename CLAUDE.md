@@ -36,12 +36,25 @@ The orchestration + governance runtime is **Claude-Code-native and assumes
 Anthropic flagship (Opus-class) models**. Model-tier agnosticism is supported
 within Anthropic via role→model config (`.logic-loom/config/models.conf`).
 Cross-provider models (OpenAI/Gemini/Mistral) are supported **only at the
-delegated research/verification layer** (`/research`, `tribunal-api.sh` + `.env`)
-— never for orchestration. It is not a provider-portable orchestration runtime.
+delegated research/verification layer** (the `/research` command spawns
+researchers that call those APIs via `.env` keys) — never for orchestration. It
+is not a provider-portable orchestration runtime.
+
+### Orchestration primitives (ride native; don't reimplement)
+
+LogicLoom is a **governance + dev layer on Claude Code's native orchestration**,
+not an orchestration engine. Spawn workers with the **Task tool** (parallel =
+multiple Task calls in one message); use **`/workflow`** for deterministic
+fan-out (loops, pipelines, adversarial verify) and **`/loop`** for recurring/
+self-paced cadence. There is no custom runner (no process manager, session
+multiplexer, or shared swarm-state file). What LogicLoom adds on top: hook-enforced
+governance, the plan-as-DAG **freeze** file-ownership, the behavioral evaluator,
+domain briefs, jury-on-demand `/research`, and memory.
 
 What was removed (not replaced): the `sdd-marketplace` MCP (defer to Anthropic's
-Claude Code Plugin Marketplace + Docker MCP Toolkit) and the RL telemetry
-infrastructure. Domain specialists were collapsed into a governance-core
+Claude Code Plugin Marketplace + Docker MCP Toolkit), the RL telemetry
+infrastructure, and the **dev-loop** pack (native `/workflow`/`/loop`/`/goal`
+supersede it). Domain specialists were collapsed into a governance-core
 **domain-brief registry** (`get_domain_brief`).
 
 ---

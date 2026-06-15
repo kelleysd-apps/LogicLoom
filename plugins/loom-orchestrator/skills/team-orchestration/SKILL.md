@@ -1,65 +1,62 @@
 ---
 name: team-orchestration
 description: |
-  Orchestrates agent team templates — spawns agents according to team composition,
-  manages execution phases, handles budget allocation, and coordinates result merging.
-  Includes domain-brief injection, swarm coordination, and domain-aware task
-  decomposition using the model's native routing judgment.
-allowed-tools: Read, Write, Bash, Grep, Glob
+  Coordinates multi-agent team workflows on Claude Code's NATIVE primitives —
+  the Task tool (subagents) and the /workflow tool (deterministic fan-out). It does
+  not run its own agent runtime; it adds the LogicLoom value on top: domain-brief
+  injection, governance gates, and result synthesis.
+allowed-tools: Read, Write, Bash, Grep, Glob, Task
 ---
 
 # Team Orchestration Skill
 
 ## Task Brief
 
-You are the central orchestration skill for multi-agent team workflows. Your job is to
-analyze incoming requests, decompose work into domain-specific tasks, spawn and
-coordinate workers, manage budgets, and merge results.
+You coordinate multi-agent team workflows. **You do not run a custom agent
+runtime — you use Claude Code's native primitives:**
 
-**Key responsibilities:**
-- Detect domains from user requests using native model judgment
-- Inject the matching domain brief into each worker via `get_domain_brief <domain>`
-  (registry at `plugins/loom-governance/domain-briefs/<domain>.md`)
-- Manage task graphs with dependency ordering for sequential/parallel execution
-- Allocate token budgets across workers proportional to task complexity
-- Monitor worker progress via state files (`.claude/multi-agent-swarm.local.md`)
-- Use tmux sessions for process management and git worktrees for parallel branch work
-- Handle capability gaps via the Anthropic Claude Code Plugin Marketplace or Docker
-  MCP Toolkit, or scaffold a new plugin with `/create-plugin`
-- Merge results from all workers and generate cost summaries
+- **Task tool** — spawn subagents directly (sequential or in parallel; send
+  multiple Task calls in one message for concurrency). This is the default.
+- **`/workflow`** — when the fan-out is large or needs deterministic control
+  flow (loops, conditionals, per-item pipelines, adversarial verify), author a
+  workflow script instead of hand-spawning.
+- **plan mode** — for drafting the plan before implementation.
 
-**Constitutional constraints:**
-- Principle VI: ALL git operations require explicit user approval
-- Principle X: Delegate specialized work to specialized domain agents
-- Principle XIV: Use the flagship Opus model by default (resolved via `models.conf`)
-- Principle XVI: All capabilities as discrete installable plugins
+There is **no separate process manager, no terminal-session runner, and no shared
+swarm-state file**. Subagents run in their own isolated context; the **main
+agent** collects their returned results and synthesizes. LogicLoom's job is the
+layer on top, not the orchestration engine.
 
-**When invoked:** Complex multi-domain requests, `/swarm`, `/build-team`,
-`/fullstack-team`, `/review-team` commands, or any task requiring 2+ domain agents.
+**What this skill adds (the durable value):**
+- **Domain-brief injection** — for each detected domain, call
+  `get_domain_brief <domain>` (`.logic-loom/scripts/bash/common.sh`; registry at
+  `plugins/loom-governance/domain-briefs/<domain>.md`) and place its output in the
+  worker's prompt. Routing is the model's native judgment (no RL scoring).
+- **Governance** — subagents cannot run git (`subagent-git-guard`) or edit the
+  governance surface (`protect-governance-files`); file-ownership is enforced by
+  `freeze-write-scope` during `/swarm implement`.
+- **Synthesis** — merge worker outputs in the main agent; for `/review-team` the
+  behavioral evaluator's Functionality verdict is a hard gate.
+
+**Constitutional constraints:** VI (git approval), X (delegate for isolation/
+parallelism), XIV (flagship via `models.conf`), XVI (plugins).
+
+**When invoked:** `/swarm`, `/build-team`, `/fullstack-team`, `/review-team`, or
+any task requiring 2+ workers.
 
 ## Procedure
 
-1. Load team template from command invocation
-2. Parse team composition (agents, execution mode, budget allocation)
-3. For sequential phases: spawn agents in order, wait for completion
-4. For parallel phases: spawn all agents simultaneously
-5. Monitor via state files and Stop hooks
-6. After all phases: invoke synthesizer to merge results
-7. Generate team execution report with cost breakdown
+1. Decompose the request into worker tasks; detect domain(s).
+2. For each worker, inject its `get_domain_brief <domain>` output into the prompt.
+3. **Spawn** via the Task tool — sequential (each worker's output feeds the next)
+   or parallel (multiple Task calls in one message). For large/looping fan-outs,
+   author a `/workflow` script instead.
+4. Assign file-ownership boundaries up front for parallel writers (the
+   `freeze-write-scope` hook enforces them during `/swarm implement`).
+5. Collect returned results in the main agent and **synthesize**; surface a brief
+   cost note from the budget the user set.
 
-## Domain-Brief Injection
-
-Before spawning workers, resolve the brief for each detected domain:
-
-1. **Match domains** from the user request using native model judgment (no RL
-   scoring — the model routes directly)
-2. **Inject the brief**: for each domain, call `get_domain_brief <domain>` from
-   `.logic-loom/scripts/bash/common.sh` and place its output in the worker's prompt
-3. **Gap detection**: if a capability is missing, browse the Anthropic Claude Code
-   Plugin Marketplace or the Docker MCP Toolkit (310+ containerized servers)
-4. **On-demand creation**: offer `/create-plugin` when no existing capability fits
-
-### Domain-Brief Registry
+## Domain-Brief Registry
 
 The seven technical-domain briefs live in the governance core (the former
 `sdd-domain-*` plugins were collapsed into this registry). Resolve via
@@ -75,68 +72,23 @@ The seven technical-domain briefs live in the governance core (the former
 | Performance | `plugins/loom-governance/domain-briefs/performance.md` |
 | DevOps | `plugins/loom-governance/domain-briefs/devops.md` |
 
-## Swarm Coordination Protocol
+## Execution patterns
 
-For multi-agent swarm execution:
+- **Sequential**: Task → worker A → worker B → worker C → synthesize.
+- **Parallel**: one message, N Task calls → collect all → synthesize.
+- **Validation**: primary work → reviewer worker(s) → quality gate.
+- **Large/looping**: author a `/workflow` (pipeline/parallel/loop-until-dry).
+- **Gap-fill**: no capability → Anthropic Claude Code Plugin Marketplace / Docker
+  MCP Toolkit, or `/create-plugin`.
 
-1. **Analyze** task description to detect domains and complexity
-2. **Create execution plan** with dependency graph and ordering
-3. **Spawn worker agents** with appropriate budget and model settings
-4. **Monitor progress** via state files per agent
-5. **Resolve dependencies** and trigger next-phase agents when predecessors complete
-6. **Merge results** from parallel agents into unified output
-7. **Report outcomes** with cost summary
+## Quality gates
 
-### Execution Patterns
+- **Pre**: request is clear; domains mapped to briefs; capability gaps identified.
+- **Mid**: each worker's output meets its task; cross-worker consistency.
+- **Post**: requirements met; solution complete; brief execution report.
 
-- **Sequential**: Task -> Agent A -> Agent B -> Agent C -> Result
-- **Parallel**: Task -> Agent A + Agent B (independent) -> Merged Result
-- **Validation**: Primary Work -> QA Agent -> Quality Gate
-- **Gap-Fill**: No Match -> Anthropic Marketplace / Docker MCP Toolkit -> Install/Create -> Route -> Execute
+## Error handling
 
-## Budget & Cost Management
-
-- Allocate token budgets proportional to task complexity per domain
-- Track actual usage vs. budget per agent
-- Include cost breakdown in final execution report
-
-## Quality Gates
-
-### Pre-Orchestration
-- Verify request is complete and clear
-- Map required domains to domain briefs via `get_domain_brief`
-- Identify capability gaps
-
-### Mid-Workflow
-- Verify each agent output meets requirements
-- Check cross-agent consistency
-- Validate dependencies are satisfied
-
-### Post-Workflow
-- Confirm all requirements met
-- Verify solution completeness
-- Generate execution report
-
-## Error Handling
-
-- **Capability not found**: Browse the Anthropic Marketplace / Docker MCP Toolkit, suggest install, or offer `/create-plugin`
-- **Agent failure**: Capture error, attempt recovery, route to auto-debug-agent if needed
-- **Dependency failure**: Block dependent agents, report to user
-- **Context loss**: Checkpoint intermediate results, enable workflow resumption
-
-## Context Handoff Format
-
-```json
-{
-  "workflow_id": "uuid",
-  "original_request": "user request",
-  "current_phase": "phase name",
-  "discovered_plugins": [],
-  "selected_agents": [],
-  "completed_tasks": [],
-  "pending_tasks": [],
-  "decisions": {},
-  "constraints": [],
-  "agent_outputs": {}
-}
-```
+- **Capability not found**: Anthropic Marketplace / Docker MCP Toolkit, or `/create-plugin`.
+- **Worker failure**: capture the error, retry or report to the user.
+- **Dependency failure**: block dependents, report.
