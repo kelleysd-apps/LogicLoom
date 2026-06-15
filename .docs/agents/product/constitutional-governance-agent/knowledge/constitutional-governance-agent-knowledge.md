@@ -64,7 +64,6 @@ than routing to a dedicated specialist plugin.
 | /debug | auto-debug-agent | Debug deployment/runtime issues |
 | /research | team-synthesizer agent | Multi-LLM tribunal research |
 | /swarm | team-orchestration skill | Multi-agent swarm execution |
-| /dev-loop | dev-loop-orchestrator agent | Recursive dev-loop with tribunal |
 
 ## Accumulated Learnings
 

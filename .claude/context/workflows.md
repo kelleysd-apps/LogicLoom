@@ -11,7 +11,6 @@ on top of it as **interchangeable packs** — none is primary or legacy:
 |------|----------|
 | **Vision / Swarm** (`features/<name>/`) | Exploratory or novel work; unclear scope |
 | **SDD waterfall** (`specs/###-name/`) | Well-understood feature with stable requirements |
-| **Dev-loop** | Autonomous edit-test-debug cycles on a bounded task |
 
 This module documents the **SDD waterfall pack** (spec → plan → tasks → finalize).
 All packs share the same built-in quality gates, constitutional compliance, and

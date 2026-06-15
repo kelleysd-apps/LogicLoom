@@ -29,7 +29,6 @@ Must be kebab-case. Check for existing agent with same name.
 Analyze description keywords to select target plugin:
 - Architecture: system, design, planning → `plugins/loom-creation/agents/`
 - Orchestration: swarm, team, review, research → `plugins/loom-orchestrator/agents/`
-- Dev loop: iterate, autonomous, edit-test-debug → `plugins/loom-dev-loop/agents/`
 - Git: commit, push, PR → `plugins/loom-git/agents/`
 - Governance: constitution, compliance, hook → `plugins/loom-governance/agents/`
 - Product/Spec: requirement, spec, user story → `plugins/sdd-specification/agents/`

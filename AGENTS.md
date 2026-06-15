@@ -1,11 +1,11 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.1.0
-**Last Updated**: 2026-05-28
+**Version**: 6.2.0
+**Last Updated**: 2026-05-31
 **Constitution**: v3.1.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 6
-**Plugins**: 9
+**Plugins**: 8
 
 ---
 
@@ -93,10 +93,6 @@ The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval
 |-------|---------|-------|
 | **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku |
 
-### loom-dev-loop (0 agents — skill-based)
-
-> All 4 dev-loop agents (dev-loop-orchestrator, debug-analyst, quality-assessor, tribunal-judge) were removed. The `core-loop` skill handles all dev-loop functionality directly.
-
 ---
 
 ## Workflow Packs over a shared governance core
@@ -109,9 +105,8 @@ is "primary" or "legacy" — pick the one that matches the problem shape:
 |------|--------------|----------|
 | **Vision / swarm** | `vision.md` → `/swarm explore` + `/research` → `/create-prd` → `/plan-review` → `/swarm implement` → `/review-team` → `/retro` | Exploratory or surface-bearing work with a behavioral quality bar |
 | **SDD waterfall** | `/specification` (spec → plan → tasks), `/build-team`, `/fullstack-team`, `/finalize` | Well-understood, contract-first features with a fully specified up-front design |
-| **Dev-loop** | `/dev-loop` | Recursive autonomous edit-test-debug cycles with tribunal voting |
 
-All packs share the same governance core, plugin chassis, and distribution
+Both packs share the same governance core, plugin chassis, and distribution
 machinery. Vision/swarm-internal gates (`vision.md`, `/plan-review`) belong to
 that pack, not to the framework as a whole.
 
@@ -213,7 +208,6 @@ Quick reference for delegation based on task domain:
 | **Agent Creation** | create agent, new agent | subagent-architect | agent | loom-creation | shared |
 | **Multi-Domain** | 2+ domains detected | team-orchestration skill | skill | loom-orchestrator | vision/swarm |
 | **Swarm** | swarm, team, parallel agents | team-orchestration skill | skill | loom-orchestrator | vision/swarm |
-| **Dev Loop** | /dev-loop, autonomous cycle | core-loop skill | skill | loom-dev-loop | dev-loop |
 
 ---
 
@@ -235,7 +229,6 @@ Quick reference for delegation based on task domain:
 | `/tasks` | sdd-tasks skill | sdd-specification | SDD waterfall pack — generate task list |
 | `/build-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — sequential architect→implementor→reviewer |
 | `/fullstack-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — parallel full-stack team |
-| `/dev-loop` | core-loop skill | loom-dev-loop | Dev-loop pack — recursive autonomous edit-test-debug |
 | `/finalize` | - | loom-git | Pre-commit compliance validation (no git execution) |
 | `/create-agent` | subagent-architect | loom-creation | Create new agent |
 | `/create-plugin` | subagent-architect | loom-creation | Create new plugin |
@@ -342,10 +335,8 @@ plugins/
 │   └── subagent-architect.md
 ├── loom-maintenance/agents/
 │   └── framework-sync-agent.md
-├── loom-memory/agents/
-│   └── memory-context-agent.md
-└── loom-dev-loop/skills/
-    └── core-loop/SKILL.md
+└── loom-memory/agents/
+    └── memory-context-agent.md
 ```
 
 ---
@@ -365,9 +356,9 @@ All agents enforce Constitution v3.1.0 (16 Principles), the durable governance c
 - **XVI: Plugin-First** — All capabilities as discrete plugins
 
 ### Interchangeable workflow packs
-- The vision/swarm, SDD-waterfall, and dev-loop packs are **peers** over the
-  shared governance core. None is privileged. `/specification`, validators,
-  DS-STAR refinement, `/build-team`, `/fullstack-team`, `/dev-loop`, and
+- The vision/swarm and SDD-waterfall packs are **peers** over the
+  shared governance core. Neither is privileged. `/specification`, validators,
+  DS-STAR refinement, `/build-team`, `/fullstack-team`, and
   `/finalize` are all first-class pack entry points — pick the pack that fits
   the problem shape.
 
@@ -399,7 +390,6 @@ Performance issues? ────────────────────
 Deploying/CI-CD? ──────────────────────────→ devops domain brief (via swarm/team)
 Creating new agent? ───────────────────────→ subagent-architect (agent)
 Contract-first, well-understood feature? ──→ /specification (unified) or /specify + /plan + /tasks
-Recursive autonomous loop? ────────────────→ /dev-loop (core-loop skill)
 ```
 
 ---
@@ -430,6 +420,7 @@ Recursive autonomous loop? ────────────────→ /
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6.2.0 | 2026-05-31 | Removed the dev-loop pack (`loom-dev-loop` / `/dev-loop` / `core-loop` skill) — superseded by Claude Code native `/workflow`, `/loop`, `/goal` primitives; runtime self-extension retired as a governance liability. Two workflow packs (swarm, SDD waterfall); 8 plugins |
 | 6.1.0 | 2026-05-28 | Governance core + interchangeable-packs reframe (no primary/legacy); hook-enforced governance with `LOOM_GOVERNANCE_MODE` lean/strict (mandatory 4-step ceremony removed from default); 7 `sdd-domain-*` plugins deleted → domain-brief registry under `plugins/loom-governance/domain-briefs/` via `get_domain_brief()`; constitution v3.1.0; flagship Opus 4.8 via `.logic-loom/config/models.conf`; 9 plugins |
 | 6.0.0 | 2026-05-27 | LogicLoom rename + workflow modernization — `/swarm` 3 modes, `/review-team` 4 reviewers, `/research` jury-on-demand, `plan-review` + `retro` skills, vision-driven `/create-prd`, `.logic-loom/` paths |
 | 5.1.0 | 2026-03-20 | Dead code cleanup — removed 4 orphaned dev-loop agents, sdd-debug plugin, sdd-domain-template; 6 agents, 16 plugins |

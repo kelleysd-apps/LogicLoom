@@ -41,8 +41,8 @@ assert "framework-sync-agent kept" "[ -f '$ROOT_DIR/plugins/loom-maintenance/age
 assert "prd-specialist kept" "[ -f '$ROOT_DIR/plugins/loom-creation/agents/prd-specialist.md' ]"
 assert "subagent-architect kept" "[ -f '$ROOT_DIR/plugins/loom-creation/agents/subagent-architect.md' ]"
 assert "team-synthesizer kept" "[ -f '$ROOT_DIR/plugins/loom-orchestrator/agents/team-synthesizer.md' ]"
-# dev-loop agents removed (converted to core-loop skill)
-assert "dev-loop agents directory removed" "[ ! -d '$ROOT_DIR/plugins/loom-dev-loop/agents' ]"
+# loom-dev-loop plugin removed (superseded by Claude Code native /workflow, /loop, /goal)
+assert "loom-dev-loop plugin removed" "[ ! -d '$ROOT_DIR/plugins/loom-dev-loop' ]"
 
 # v3.1.0: domain plugins collapsed into the governance-core domain-brief registry
 for domain in frontend backend database testing security performance devops; do
@@ -224,7 +224,7 @@ BRIDGE_COUNT=$(python3 -c "import json; d=json.load(open('$MANIFEST')); print(le
 assert "15+ bridged commands (found ${BRIDGE_COUNT})" "[ ${BRIDGE_COUNT} -ge 15 ]"
 
 # Verify key commands are bridged (specify/plan/tasks removed — use /specification)
-for cmd in specification research swarm build-team fullstack-team review-team finalize git-push dev-loop update-framework; do
+for cmd in specification research swarm build-team fullstack-team review-team finalize git-push update-framework; do
   assert "${cmd} is bridged" "python3 -c \"import json; d=json.load(open('$MANIFEST')); assert '${cmd}' in d['bridged']\""
 done
 

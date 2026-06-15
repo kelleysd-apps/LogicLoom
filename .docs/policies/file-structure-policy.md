@@ -96,7 +96,6 @@ project-root/
 │   └── constitutional-governance-agent.md
 ├── orchestration/              # Multi-agent coordination
 │   ├── team-synthesizer.md
-│   ├── dev-loop-orchestrator.md
 │   └── memory-context-agent.md
 ├── product/                    # Product agents
 │   └── prd-specialist.md

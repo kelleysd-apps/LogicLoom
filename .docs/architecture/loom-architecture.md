@@ -14,8 +14,8 @@
 - **Repository layout**: three-layer separation, see §2.
 - **Shape**: a durable **governance core** (constitution, hooks, memory, plugin
   chassis) plus **interchangeable workflow packs** layered on top. The
-  vision/swarm pack (§3), the SDD-waterfall pack (§4), and the dev-loop pack are
-  peers — none is privileged. Governance is preserved as-is from v5.0.0.
+  vision/swarm pack (§3) and the SDD-waterfall pack (§4) are peers — neither is
+  privileged. Governance is preserved as-is from v5.0.0.
 
 ## 2. Layers
 
@@ -75,9 +75,6 @@ A peer workflow pack to §3 — fully first-class, not a fallback:
 - `/build-team` — sequential architect → implementor → reviewer.
 - `/fullstack-team` — parallel frontend + backend + database team.
 - `/finalize` — pre-commit constitutional compliance validator.
-
-The recursive **dev-loop pack** (`/dev-loop`, edit-test-debug with tribunal
-voting) is a third peer pack with its own entry point.
 
 Choose the waterfall pack when the task is constrained, contract-first, and
 benefits from a fully specified up-front design. Choose the vision/swarm pack

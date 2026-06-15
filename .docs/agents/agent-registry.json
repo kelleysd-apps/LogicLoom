@@ -53,7 +53,7 @@
       "model": "haiku",
       "status": "active",
       "file": "plugins/loom-memory/agents/memory-context-agent.md"
-    },
+    }
   },
   "departments": {
     "governance": 1,

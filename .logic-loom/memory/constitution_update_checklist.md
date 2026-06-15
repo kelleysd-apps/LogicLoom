@@ -136,7 +136,7 @@ For EACH agent in `plugins/*/agents/**/*.md`:
 - [ ] Update delegation triggers if Principle X changed
 - [ ] Verify no outdated principle references
 
-**Affected Agent Files** (check all 11 agents):
+**Affected Agent Files** (check all 7 agents):
 - [ ] constitutional-governance-agent.md (loom-governance)
 - [ ] team-synthesizer.md (loom-orchestrator)
 - [ ] prd-specialist.md (loom-creation)
@@ -144,10 +144,6 @@ For EACH agent in `plugins/*/agents/**/*.md`:
 - [ ] auto-debug-agent.md (sdd-debug)
 - [ ] framework-sync-agent.md (loom-maintenance)
 - [ ] memory-context-agent.md (loom-memory)
-- [ ] dev-loop-orchestrator.md (loom-dev-loop)
-- [ ] debug-analyst.md (loom-dev-loop)
-- [ ] quality-assessor.md (loom-dev-loop)
-- [ ] tribunal-judge.md (loom-dev-loop)
 
 ### Step 4: Update Workflow Scripts
 

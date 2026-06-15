@@ -35,7 +35,6 @@ matches the problem shape:
 |------|----------|
 | **Vision / Swarm** (`features/<name>/`) | Exploratory or novel work; unclear scope |
 | **SDD waterfall** (`specs/###-name/`) | Well-understood feature with stable requirements |
-| **Dev-loop** | Autonomous edit-test-debug cycles on a bounded task |
 
 All packs share the same constitutional governance, plugin chassis, and
 distribution machinery.

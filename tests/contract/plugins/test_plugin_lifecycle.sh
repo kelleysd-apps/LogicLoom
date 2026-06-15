@@ -36,9 +36,9 @@ assert "plugin.json has required=true" "python3 -c 'import json; d=json.load(ope
 
 echo ""
 echo "T1.1.4: Plugin list returns valid data"
-# v3.1.0: 9 plugins after domain collapse (governance core + tooling + workflow packs)
+# 8 plugins after domain collapse + dev-loop removal (governance core + tooling + workflow packs)
 PLUGIN_COUNT=$(find plugins -name "plugin.json" -path "*/.claude-plugin/*" | wc -l | tr -d ' ')
-assert "All 9+ plugins have manifests (found $PLUGIN_COUNT)" "[ $PLUGIN_COUNT -ge 9 ]"
+assert "All 8+ plugins have manifests (found $PLUGIN_COUNT)" "[ $PLUGIN_COUNT -ge 8 ]"
 
 echo ""
 echo "═══ Core Plugin Contract Tests (T2.1.1-T2.1.4) ═══"

@@ -5,6 +5,28 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.0] - 2026-05-31
+
+**Removed the dev-loop pack** (superseded by native `/workflow`, `/loop`, `/goal`);
+orchestration now leans on Claude Code's native loop primitives. LogicLoom has
+**two** workflow packs over the governance core — swarm and SDD waterfall.
+
+### Removed
+- The `loom-dev-loop` plugin and the `/dev-loop` command (`core-loop` skill):
+  Claude Code now ships native `/workflow`, `/loop`, and `/goal` primitives that
+  supersede the autonomous edit-test-debug loop, and dev-loop's runtime
+  self-extension (gap detection → scaffold → register) was a governance
+  liability. Plugin count: 9 → 8.
+- The dev-loop subsystems that lived only inside that pack: the dev-loop tribunal
+  voting / grading engine, scope-detector, quality-grading, termination-engine,
+  RL-feedback engine, self-extension, and the dev-loop contract test suites.
+
+### Unchanged
+- `/research` and its jury-on-demand multi-LLM tribunal (in `loom-orchestrator`,
+  self-contained) are **kept** — they are not part of dev-loop.
+- The DS-STAR refinement subsystem and `.logic-loom/config/refinement.conf` are
+  **retained**, decoupled from governance.
+
 ## [6.1.0] - 2026-05-28
 
 **Opus 4.8 re-base + workflow-agnostic core.** Removed harness scaffolding made

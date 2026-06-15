@@ -2,7 +2,7 @@
 
 **A governed, Claude-Code-native multi-agent harness: a constitutional governance core with interchangeable workflow packs.**
 
-LogicLoom is a Claude Code harness for building software with disciplined multi-agent loops. Its durable core is **constitutional governance, enforced by hooks** (not by per-message ceremony). On top of that core sit **interchangeable workflow packs** — none privileged: a **swarm** pack (vision → PRD → plan → scope-bounded swarm), an **SDD waterfall** pack (`/specification`), and a **dev-loop** pack. Pick the pack that matches the problem.
+LogicLoom is a Claude Code harness for building software with disciplined multi-agent loops. Its durable core is **constitutional governance, enforced by hooks** (not by per-message ceremony). On top of that core sit **interchangeable workflow packs** — none privileged: a **swarm** pack (vision → PRD → plan → scope-bounded swarm) and an **SDD waterfall** pack (`/specification`). Pick the pack that matches the problem.
 
 ---
 
@@ -36,8 +36,7 @@ claude
 ## The swarm workflow pack (flagship example)
 
 One of the interchangeable packs — best for exploratory or novel work. (For
-well-specified features use the SDD waterfall pack; for a contained autonomous
-task use the dev-loop pack.)
+well-specified features use the SDD waterfall pack.)
 
 ```
 EnterWorktree
@@ -95,7 +94,6 @@ LogicLoom's own plugins live in `plugins/` and are loaded directly — see Plugi
 | `loom-git` | core | `/git-push`, `/finalize` (`/code-review` is an external Claude Code command, not shipped here) |
 | `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
 | `sdd-specification` | SDD pack | `/specification` waterfall (keeps `sdd-` — it *is* the SDD workflow) |
-| `loom-dev-loop` | dev-loop pack | `/dev-loop` autonomous loop |
 
 Domain expertise is **not** a plugin: the 7 domains (frontend, backend, database, testing, security, performance, devops) are **briefs** in `plugins/loom-governance/domain-briefs/`, injected into swarm/team workers via `get_domain_brief`.
 
@@ -126,7 +124,6 @@ A peer workflow pack — best for well-understood features with stable requireme
 | `/tasks` | Generate task list |
 | `/build-team` | Sequential architect → implementor → reviewer |
 | `/fullstack-team` | Parallel full-stack team |
-| `/dev-loop` | Recursive autonomous edit-test-debug cycle |
 | `/finalize` | Pre-commit compliance validation |
 
 Pick the layout that matches the problem shape. New exploratory work belongs in `features/`; stable, well-spec'd work can use either.
@@ -173,7 +170,6 @@ plugins/                              # Plugin-First Architecture
 +-- loom-git/                          # Git operations
 +-- loom-maintenance/                  # Framework maintenance
 +-- sdd-specification/                # SDD waterfall pack
-+-- loom-dev-loop/                     # Dev-loop pack
                                        # (domains are briefs in loom-governance/domain-briefs/, not plugins)
 
 .logic-loom/
@@ -222,7 +218,7 @@ MIT
 
 ---
 
-**Framework**: LogicLoom v6.1.0
+**Framework**: LogicLoom v6.2.0
 **Constitution**: v3.1.0 (16 principles)
-**Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall / dev-loop)
+**Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

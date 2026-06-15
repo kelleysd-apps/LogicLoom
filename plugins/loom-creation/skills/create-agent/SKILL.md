@@ -30,7 +30,6 @@ Analyze description keywords to select the target plugin:
 |----------|--------------|
 | system, design, planning, architecture | loom-creation |
 | orchestration, swarm, team, review, research | loom-orchestrator |
-| dev-loop, iterate, autonomous | loom-dev-loop |
 | commit, push, PR, git | loom-git |
 | constitution, compliance, hook, governance | loom-governance |
 | requirement, spec, user story | sdd-specification |

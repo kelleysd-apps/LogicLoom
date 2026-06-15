@@ -11,7 +11,7 @@
 This is the LogicLoom Constitution with 16 enforceable principles, including
 Plugin-First Architecture (Principle XVI). The constitution is the **durable
 core** of the harness: it governs all agents, skills, and workflows regardless of
-which workflow pack (SDD waterfall, vision/swarm, dev-loop, …) is in use. No
+which workflow pack (SDD waterfall, vision/swarm, …) is in use. No
 principle privileges a particular workflow.
 
 ## Changes Summary (v3.1.0)
@@ -223,7 +223,7 @@ Plugin Structure:
 |----------|----------|-------------|
 | **Governance core** | `loom-governance` | ❌ Never (protected) |
 | **Core tooling** | `loom-memory`, `loom-creation`, `loom-git`, `loom-maintenance` | ⚠️ With warning |
-| **Workflow pack** | `sdd-specification` (SDD), `loom-orchestrator` (swarm), `loom-dev-loop` | ✅ Yes |
+| **Workflow pack** | `sdd-specification` (SDD waterfall), `loom-orchestrator` (swarm) | ✅ Yes |
 | **Community** | Third-party plugins | ✅ Yes |
 
 No workflow pack is privileged; governance is the only protected layer.
@@ -256,5 +256,5 @@ Immutable principles (I–III) cannot be amended or overridden.
 
 ---
 
-*v3.1.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall,
-vision/swarm, and dev-loop are interchangeable workflow packs.*
+*v3.1.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall
+and vision/swarm are interchangeable workflow packs.*

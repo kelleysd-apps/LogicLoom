@@ -103,7 +103,6 @@ Then open Claude Code in the repo and pick a workflow pack (none is privileged):
   `/plan-review` → `/swarm implement` → `/review-team` → `/git-push`
 - **SDD waterfall** (well-specified): `/specification` → `/build-team` /
   `/fullstack-team` → `/finalize`
-- **Dev-loop** (contained autonomous task): `/dev-loop`
 
 See `START_HERE.md` for the full walkthrough and `CLAUDE.md` for governance.
 

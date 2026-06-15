@@ -5,10 +5,10 @@ workflow pack: vision → exploration/research → PRD → plan → swarm implem
 review → retro.
 
 LogicLoom is a durable **governance core** (constitution, hooks, memory, plugin
-chassis) with several **interchangeable workflow packs** layered on top. The
+chassis) with **interchangeable workflow packs** layered on top. The
 vision/swarm pack documented here is one peer; the SDD-waterfall pack
-(`specs/###-feature/`, see `.logic-loom/templates/spec-template.md`) and the
-dev-loop pack are equals — none is privileged. Each subdirectory under
+(`specs/###-feature/`, see `.logic-loom/templates/spec-template.md`) is its
+equal — neither is privileged. Each subdirectory under
 `features/` is one feature, owned end-to-end through this pack's loop. Pick the
 pack that matches the problem shape.
 

@@ -24,7 +24,6 @@ machinery. Pick by problem shape — there is no "primary" or "legacy" path:
 |---|---|---|
 | **Swarm** (vision/PRD/plan/swarm) | `vision.md` → `/swarm explore` + `/research` → `/create-prd` → plan mode → `/plan-review` → `/swarm implement` → `/review-team` → `/git-push` → `/retro` | Exploratory or novel work; unclear scope (`features/<name>/`) |
 | **SDD waterfall** | `/specification` → `/build-team` / `/fullstack-team` → `/finalize` | Well-understood feature with stable requirements (`specs/###-name/`) |
-| **Dev-loop** | `/dev-loop` | Autonomous edit-test-debug cycles on a contained task |
 | _(none)_ | direct execution | Quick fix, no significant unknowns |
 
 The swarm pack's `vision.md` and `/plan-review` are **gates within that pack**
@@ -157,14 +156,13 @@ See `features/README.md` for the full convention.
 
 ---
 
-## Quick Command Reference — SDD waterfall + dev-loop packs
+## Quick Command Reference — SDD waterfall pack + tooling
 
 | Command | Purpose | Plugin |
 |---|---|---|
 | `/specification` | Unified SDD waterfall — spec, plan, tasks in one command | sdd-specification |
 | `/build-team` | Sequential architect → implementor → reviewer | loom-orchestrator |
 | `/fullstack-team` | Parallel frontend + backend + database workers (domain briefs) | loom-orchestrator |
-| `/dev-loop` | Recursive autonomous edit-test-debug cycles | loom-dev-loop |
 | `/finalize` | Pre-commit compliance validation (no git execution) | loom-git |
 | `/create-agent` | Create specialized subagent | loom-creation |
 | `/create-plugin` | Create new LogicLoom plugin | loom-creation |
@@ -264,7 +262,6 @@ All framework capabilities are **discrete installable plugins** under
 | `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
 | `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/plan-review`, `/review-team`, `/retro`, `/build-team`, `/fullstack-team` |
 | `sdd-specification` | SDD pack | `/specification` unified waterfall (keeps `sdd-` — it *is* the SDD workflow) |
-| `loom-dev-loop` | dev-loop pack | `/dev-loop` recursive autonomous loop |
 
 Domain expertise is no longer a plugin: the 7 domains (frontend/backend/database/
 testing/security/performance/devops) are **briefs** in
@@ -425,6 +422,14 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 
 ---
 
+## What changed in v6.2 (dev-loop removed)
+
+- **Removed the dev-loop pack** (`loom-dev-loop` / `/dev-loop`): superseded by
+  Claude Code's native `/workflow`, `/loop`, and `/goal` primitives, and its
+  runtime self-extension was a governance liability. There are now **two**
+  workflow packs — swarm and SDD waterfall — over the governance core. Plugin
+  count: 8.
+
 ## What changed in v6.1 (Opus 4.8 re-base + agnostic core)
 
 - **Governance is now hook-enforced** (not model-recited): `git-safety-gate.sh`
@@ -432,7 +437,7 @@ The framework's cloner-init machinery is **UNTOUCHED**:
   mandatory per-message 4-step ceremony is gone. New `LOOM_GOVERNANCE_MODE`
   (`lean` default / `strict` for weaker models).
 - **Workflow-agnostic reframe**: governance core + interchangeable packs
-  (swarm, SDD waterfall, dev-loop) — no "primary" or "legacy" path.
+  (swarm, SDD waterfall) — no "primary" or "legacy" path.
 - **Domains collapsed**: the 7 `sdd-domain-*` plugins → governance-core
   domain-brief registry (`get_domain_brief`).
 - **Model selection config-driven**: `.logic-loom/config/models.conf`
@@ -446,8 +451,8 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 
 ---
 
-**Framework**: logic-loom v6.1.0 (brand: **LogicLoom**)
+**Framework**: logic-loom v6.2.0 (brand: **LogicLoom**)
 **Constitution**: v3.1.0 (16 Principles)
-**Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall / dev-loop)
+**Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
-**Last Updated**: 2026-05-28
+**Last Updated**: 2026-05-31

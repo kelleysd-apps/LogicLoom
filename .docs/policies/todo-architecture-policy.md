@@ -177,10 +177,7 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 │       └── decisions/
 │           └── tasks/
 ├── orchestration/
-│   ├── team-synthesizer/
-│   │   └── decisions/
-│   │       └── tasks/
-│   └── dev-loop-orchestrator/
+│   └── team-synthesizer/
 │       └── decisions/
 │           └── tasks/
 └── shared/

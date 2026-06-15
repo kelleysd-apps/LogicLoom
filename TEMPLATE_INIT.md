@@ -19,9 +19,8 @@ Then open Claude Code in the repo and pick a workflow pack (none is privileged):
   `/plan-review` → `/swarm implement` → `/review-team` → `/git-push`
 - **SDD waterfall** (well-specified): `/specification` → `/build-team` /
   `/fullstack-team` → `/finalize`
-- **Dev-loop** (contained autonomous task): `/dev-loop`
 
 See `START_HERE.md` for the full walkthrough and `CLAUDE.md` for governance.
 
-**Framework**: LogicLoom v6.1.0 · **Constitution**: v3.1.0 (16 principles) ·
+**Framework**: LogicLoom v6.2.0 · **Constitution**: v3.1.0 (16 principles) ·
 **Architecture**: governance core + interchangeable workflow packs

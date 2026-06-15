@@ -1,9 +1,0 @@
-{
-  "quality_threshold": 0.95,
-  "quality_threshold_min": 0.80,
-  "quality_threshold_max": 0.99,
-  "convergence_delta": 0.001,
-  "convergence_window": 3,
-  "grading_timeout_seconds": 30,
-  "scope_detection_timeout_seconds": 5
-}

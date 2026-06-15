@@ -2,7 +2,7 @@
 
 **A governed Claude Code harness: a constitutional governance core with interchangeable workflow packs.**
 
-This guide walks new users through their first feature using the **swarm pack** (one of several interchangeable workflow packs). For the **SDD waterfall pack** (`/specification`, `/specify`, `/plan`, `/tasks`) and the **dev-loop pack** (`/dev-loop`), see the section near the end. None is privileged — pick by problem shape.
+This guide walks new users through their first feature using the **swarm pack** (one of two interchangeable workflow packs). For the **SDD waterfall pack** (`/specification`, `/specify`, `/plan`, `/tasks`), see the section near the end. Neither is privileged — pick by problem shape.
 
 ---
 
@@ -32,7 +32,7 @@ Launch Claude Code with `claude`. The governance preflight hook fires on every m
 
 ## The swarm pack — 14-step loop
 
-Run each step from inside Claude Code unless noted. Outputs live under `features/<feature-name>/`. (This is the swarm pack; the SDD waterfall and dev-loop packs are summarized later.)
+Run each step from inside Claude Code unless noted. Outputs live under `features/<feature-name>/`. (This is the swarm pack; the SDD waterfall pack is summarized later.)
 
 ### 2. EnterWorktree
 
@@ -126,9 +126,9 @@ You don't invoke these; they fire from `.claude/hooks/`.
 
 ---
 
-## SDD waterfall + dev-loop packs
+## SDD waterfall pack
 
-Peer workflow packs. The **SDD waterfall** suits well-understood features with stable requirements; its specs live under `specs/###-feature-name/`. The **dev-loop** pack (`/dev-loop`) runs a contained autonomous edit-test-debug cycle.
+The peer workflow pack. The **SDD waterfall** suits well-understood features with stable requirements; its specs live under `specs/###-feature-name/`.
 
 | Command | Purpose |
 |---------|---------|
@@ -138,7 +138,6 @@ Peer workflow packs. The **SDD waterfall** suits well-understood features with s
 | `/tasks` | Generate dependency-ordered task list |
 | `/build-team` | Sequential architect → implementor → reviewer |
 | `/fullstack-team` | Parallel full-stack team |
-| `/dev-loop` | Recursive autonomous edit-test-debug |
 | `/finalize` | Pre-commit compliance validation |
 
 Pick the layout that matches the problem shape. Exploratory work belongs in `features/`; stable, well-spec'd work can use either.

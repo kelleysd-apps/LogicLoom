@@ -59,7 +59,6 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 | Swarm | /swarm, parallel agents | team-orchestration skill | skill |
 | PRD/Product | PRD, product, vision | prd-specialist | agent |
 | Agent Creation | create agent/plugin | subagent-architect | agent |
-| Dev Loop | /dev-loop, autonomous cycle | core-loop skill | skill |
 
 ---
 
@@ -81,9 +80,6 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 
 ### loom-memory (1)
 - **memory-context-agent** — Memory search + context injection via preflight hook (haiku)
-
-### loom-dev-loop (0 — skill-based)
-> All dev-loop agents removed. The `core-loop` skill handles all dev-loop functionality.
 
 ---
 
@@ -119,7 +115,6 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 | `/build-team` | team-orchestration skill | loom-orchestrator |
 | `/fullstack-team` | team-orchestration skill | loom-orchestrator |
 | `/review-team` | team-orchestration skill | loom-orchestrator |
-| `/dev-loop` | core-loop skill | loom-dev-loop |
 | `/update-framework` | framework-sync-agent (agent) | loom-maintenance |
 
 ---

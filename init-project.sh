@@ -102,7 +102,6 @@ Pick a workflow pack (none is privileged):
 - **Swarm** (exploratory): \`/swarm explore\` → \`/create-prd\` → plan mode →
   \`/plan-review\` → \`/swarm implement\` → \`/review-team\` → \`/git-push\`
 - **SDD waterfall** (well-specified): \`/specification\` → \`/build-team\` → \`/finalize\`
-- **Dev-loop** (contained autonomous task): \`/dev-loop\`
 
 Governance (no autonomous git, test-first, etc.) is enforced by hooks. See
 \`FRAMEWORK_README.md\` and \`START_HERE.md\`.
