@@ -247,7 +247,7 @@ In `.claude/commands/`:
 
 ### Step 8: Update Case Studies / Examples
 
-**case-studies/ioun-ai.md** (and any others):
+**case-studies/<your-project>.md** (and any others):
 - [ ] Add examples of new principle application
 - [ ] Update existing examples if principles changed
 - [ ] Document how principle was applied in practice

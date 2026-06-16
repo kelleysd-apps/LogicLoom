@@ -1,0 +1,96 @@
+# =============================================================================
+# LogicLoom — template strip manifest (harness-dev → sanitized public main)
+# -----------------------------------------------------------------------------
+# SINGLE SOURCE OF TRUTH for the "harness-dev artifact" concern. Consumed by:
+#   - strip-harness-dev.sh   (REMOVES / stubs these paths when building a
+#                             sanitized snapshot from a dev-main checkout)
+#   - leak-guard.sh          (ASSERTS these paths are ABSENT from the snapshot;
+#                             exit 1 on any leak)
+#   - sanitization-audit.sh  (Check 7 delegates to leak-guard.sh, but only when
+#                             this manifest + leak-guard.sh are present)
+#
+# TOPOLOGY (decided 2026-06-15): the customer template `main` is PUBLIC, so
+# dev-main lives in a SEPARATE PRIVATE repo and this manifest + the whole release
+# plumbing are themselves harness-dev — they are STRIPPED so they never ship to
+# customers. The promotion build runs in the private repo; only single-parent
+# sanitized snapshots are pushed to the public template.
+#
+# This is ORTHOGONAL to sanitize-for-template.sh (per-PROJECT generated artifacts)
+# and to sanitization-audit.sh Checks 1-6 (assert the ORIGINAL ioun-ai project +
+# absolute /workspaces paths were scrubbed). This manifest covers OUR harness-
+# development record.
+#
+# TRACKED-CONTENT MODEL: the stripper and leak-guard operate on GIT-TRACKED
+# content (`git ls-files`), NOT the working-tree filesystem. Gitignored runtime
+# state (memory tiers' working/recall/archival contents, .logic-loom/logs,
+# .loom-worktree-env, egg-info) is never tracked, so it never enters a CI
+# checkout and needs no strip entry — only its tracked `.gitkeep` survives.
+#
+# Grammar (one entry per line; `#` begins a comment):
+#   <path-or-glob>     -> REMOVED by stripper; asserted ABSENT by leak-guard
+#   stub: <path>       -> CONTENT-REPLACED with the project-vision template stub;
+#                         asserted to carry NO harness-dev markers (not absent)
+#   warn: <path-glob>  -> NOT stripped; leak-guard emits a WARNING (non-fatal).
+#                         Use for deferred decisions so nothing silently ships.
+# Globs are matched against `git ls-files` output (tracked paths only).
+# =============================================================================
+
+# --- Root product vision: NAME is the customer's slot, CONTENT is our harness
+#     roadmap (cites loom-migration / PR #56 / freeze residual). Ship the stub so
+#     the constitution / CLAUDE.md / AGENTS.md references resolve on a fresh
+#     clone; /initialize-project then fills it in place. ---
+stub: VISION.md
+
+# --- Release plumbing: PRIVATE-only. This is how WE ship; customers neither need
+#     nor should see it. Stripped from the public template. (The public repo's
+#     lightweight identity-marker backstop lives in leak-guard.yml, which is
+#     self-contained and does NOT reference these files.) ---
+.github/workflows/promote-to-main.yml
+.logic-loom/scripts/bash/strip-harness-dev.sh
+.logic-loom/scripts/bash/leak-guard.sh
+.logic-loom/scripts/bash/template-strip-manifest.txt
+
+# --- Harness-dev documentation record (tracked) ---
+.docs/features          # DS-STAR feature dev record (SOW/reports/status)
+.docs/archive           # archived feature-003 plans + upstream-sync reports
+.docs/reports           # references the external ../../kelleysd.com private repo
+.docs/design            # marketplace-mcp-middleware.md (REMOVED / historical)
+.docs/guides/dev-main-template-split.md   # OUR release runbook (maintainer-only)
+.logic-loom/plans       # our dev planning (docker-mcp-toolkit-integration.md)
+CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.)
+
+# --- LogicLoom-contribution scaffolding (about contributing TO the harness, not
+#     a customer's own project) ---
+.github/ISSUE_TEMPLATE
+.github/pull_request_template.md
+
+# --- Tracked runtime/agent records that slipped into git (belt-and-suspenders:
+#     leak-guard fails loudly if any are tracked on the snapshot) ---
+.docs/memory            # search-log.jsonl query telemetry
+.docs/governance/audit  # session audit logs
+.docs/agents/*/*/decisions   # runtime agent decision JSON (any department)
+.loom-active-feature    # generated active-feature marker
+
+# --- DEFERRED (review post other items): DS-STAR (Feature 001) subsystem. NOT
+#     stripped yet, but flagged so it can never SILENTLY ship; src/sdd carries 33
+#     internal /workspaces/logic-loom paths and the Feature-001 context-analyzer
+#     tests hardcode the same. When you decide ship-scrubbed vs strip, treat the
+#     code AND its tests as one unit, then move these entries. ---
+warn: src/sdd
+warn: tests/contract/test_context_contract.py
+warn: tests/integration/test_context_retrieval.py
+
+# --- Intentionally NOT stripped (documented so reviewers see the decision):
+#   README.md                 : init-project.sh archives -> FRAMEWORK_README.md
+#   CLAUDE.md / AGENTS.md      : harness operating instructions (ship)
+#   .docs/architecture/*       : authoritative contract docs (ship)
+#   .docs/policies, guides, references, troubleshooting : downstream-facing (ship)
+#   .logic-loom/templates/*    : scaffolding incl. project-vision-template (ship)
+#   .logic-loom/memory/constitution.md : governance core (ship)
+#   plugins/** , .claude/hooks/** : the harness itself (ship)
+#   tests/** , .logic-loom/tests/** : governance-integrity regression suite (ship)
+#   .github/workflows/leak-guard.yml  : self-contained public backstop (ship)
+#   .github/workflows/plugin-tests.yml: validates the shipped harness (ship)
+#   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
+#   .sdd-sync-ref              : /update-framework upstream pointer (ship)
+# =============================================================================

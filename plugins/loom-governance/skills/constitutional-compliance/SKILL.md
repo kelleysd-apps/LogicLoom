@@ -317,7 +317,7 @@ Verify the skill executed correctly:
 
 **Solution**:
 - Run from repository root
-- Use absolute path to constitution: `/workspaces/logic-loom/.logic-loom/memory/constitution.md`
+- Use absolute path to constitution: `<repo-root>/.logic-loom/memory/constitution.md`
 
 ### Issue: Many principles show "SKIPPED"
 

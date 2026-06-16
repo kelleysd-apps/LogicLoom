@@ -304,9 +304,11 @@ Commands are synced from plugins to `.claude/commands/` via the bridge:
 ### Directory structure
 
 ```
+VISION.md                              # Foundational product north-star (living; peer to the constitution)
+
 .logic-loom/
   memory/
-    constitution.md                    # 16 principles (v3.1.0)
+    constitution.md                    # 16 principles (v3.2.0)
     constitution_update_checklist.md
   scripts/bash/                        # Workflow automation + plugin bridge
   templates/                           # vision-template, prd-template, plan-template, ...
@@ -431,10 +433,11 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 ```
 
 **See Also**:
+- `VISION.md` — **foundational** product north-star (living); the *what/why* the constitution defers to (peer to the constitution, distinct from per-feature `features/<name>/vision.md`)
 - `.docs/architecture/loom-architecture.md` — full architectural reference (LogicLoom shape)
 - `.docs/architecture/evaluator-protocol.md` — `/review-team` evaluator contract
 - `.docs/architecture/freeze-scope-protocol.md` — `/freeze` hook contract
-- `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.1.0)
+- `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.2.0)
 - `.logic-loom/config/models.conf` — documented role→tier convention + current flagship
 - `.logic-loom/config/governance.conf` — governance mode (lean/strict)
 - `features/README.md` — per-feature folder convention
@@ -473,7 +476,7 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 ---
 
 **Framework**: logic-loom v6.2.0 (brand: **LogicLoom**)
-**Constitution**: v3.1.0 (16 Principles)
+**Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
 **Last Updated**: 2026-05-31

@@ -1,0 +1,174 @@
+name: Promote dev-main → sanitized public template
+
+# =============================================================================
+# PUBLIC-TOPOLOGY release: build a sanitized snapshot of dev-main and publish it
+# to the SEPARATE, PUBLIC customer-template repository. This workflow lives in
+# the PRIVATE dev repo (where dev-main is). It NEVER auto-runs — a release to
+# customers is deliberate.
+#
+# LOAD-BEARING SECURITY INVARIANTS (do not weaken):
+#   • The published commit is SINGLE-PARENT: its only parent is the public
+#     template's current main. dev-main is NEVER a git parent — a second parent
+#     would make the entire unsanitized dev history reachable from the public
+#     repo (a customer could `git show <devsha>:VISION.md`). Provenance is a
+#     `Source-dev-main:` trailer (a plain string), not an object reference.
+#   • The two repos are SEPARATE. No dev-main objects are ever pushed to public;
+#     only the sanitized snapshot tree is.
+#   • The `release` environment is the human-approval gate that substitutes for
+#     Principle VI — the Claude Code git hooks do NOT run in GitHub Actions.
+#     CONFIGURE required reviewers on it in repo Settings, or the bot publishes
+#     unattended.
+#
+# REQUIRED SETUP (see .docs/guides/dev-main-template-split.md):
+#   • Repo variable  PUBLIC_TEMPLATE_REPO  = "<owner>/<public-template-repo>"
+#   • Repo secret    PUBLIC_REPO_TOKEN     = a GitHub App installation token or
+#                    fine-grained PAT with contents:write + pull_requests:write
+#                    on the PUBLIC template repo ONLY.
+#   • A `release` environment with required reviewers.
+# =============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag (e.g. v6.2.0)"
+        required: true
+      publish_mode:
+        description: "How to land the sanitized snapshot on the public main"
+        type: choice
+        default: pr
+        options: [pr, direct-push]
+
+permissions:
+  contents: read          # this (private) repo: read-only; writes go to PUBLIC via PAT
+
+jobs:
+  # ---- GATE: tests + constitution + ORIGIN sanitization on UNsanitized dev-main
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: dev-main, fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Contract suite
+        run: |
+          set -e
+          for t in tests/contract/test_constitution.sh \
+                   tests/contract/plugins/test_plugin_lifecycle.sh \
+                   tests/contract/plugins/test_swarm_lifecycle.sh \
+                   tests/contract/test_governance_hooks.sh \
+                   tests/contract/test_freeze_scope.sh; do
+            [ -f "$t" ] && bash "$t"
+          done
+      - name: Constitutional check
+        run: bash .logic-loom/scripts/bash/constitutional-check.sh
+      - name: Origin sanitization audit (Checks 1-6, pre-strip)
+        # --origin-only: Check 7 (harness-dev absence) is meaningless here because
+        # dev-main legitimately STILL CONTAINS harness-dev. It is asserted post-strip
+        # in the release job instead.
+        run: bash .logic-loom/scripts/bash/sanitization-audit.sh --origin-only
+
+  # ---- RELEASE: strip → sanitize → re-audit → single-parent snapshot → publish
+  release:
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: release        # human-approval gate (configure reviewers!)
+    env:
+      PUBLIC_REPO: ${{ vars.PUBLIC_TEMPLATE_REPO }}
+      GH_TOKEN: ${{ secrets.PUBLIC_REPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: dev-main, fetch-depth: 0 }
+
+      - name: Validate setup
+        run: |
+          test -n "$PUBLIC_REPO"          || { echo "::error::vars.PUBLIC_TEMPLATE_REPO unset"; exit 1; }
+          test -n "$GH_TOKEN"             || { echo "::error::secrets.PUBLIC_REPO_TOKEN unset"; exit 1; }
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "logicloom-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+
+      - name: Add PUBLIC template remote + fetch its main
+        run: |
+          git remote add public "https://x-access-token:${GH_TOKEN}@github.com/${PUBLIC_REPO}.git"
+          git fetch public main
+
+      # PRESERVE the audit tooling OUTSIDE the tree first: strip removes
+      # leak-guard.sh + the manifest from the tree (they are private plumbing),
+      # so the post-strip audit must run from a copy taken BEFORE the strip.
+      - name: Preserve audit tooling (it strips itself)
+        run: cp -R .logic-loom/scripts/bash /tmp/loom-audit-tools
+
+      # BUILD: strip harness-dev, then per-project sanitize. Operates on the
+      # checked-out dev-main tree (a fresh CI runner — nothing else lives here).
+      - name: Build sanitized tree from dev-main
+        run: |
+          bash .logic-loom/scripts/bash/strip-harness-dev.sh
+          bash .logic-loom/scripts/bash/sanitize-for-template.sh
+
+      # STAGE the stripped/stubbed state so `git ls-files` (and the eventual
+      # write-tree) reflect the snapshot BEFORE the audit asserts on it.
+      - name: Stage sanitized tree
+        run: git add -A
+
+      # RE-AUDIT the sanitized tree from the PRESERVED tooling, pointed at the
+      # tree via LOOM_AUDIT_ROOT. Full 1-7 (Check 7 leak-guard now meaningful).
+      - name: Sanitization audit on sanitized tree (1-7)
+        run: LOOM_AUDIT_ROOT="$PWD" bash /tmp/loom-audit-tools/sanitization-audit.sh
+
+      # COMPOSE: SINGLE-PARENT commit. Parent = PUBLIC main only. dev-main sha is
+      # recorded as a trailer string, NOT as a -p parent. This is the invariant.
+      - name: Compose single-parent release commit
+        id: compose
+        run: |
+          git add -A
+          TREE=$(git write-tree)
+          PARENT=$(git rev-parse public/main)
+          SRC=$(git rev-parse HEAD)            # dev-main tip (string only)
+          MSG="release: ${{ inputs.version }} sanitized template"
+          C1=$(printf '%s\n\nSource-dev-main: %s\n' "$MSG" "$SRC" \
+                 | git commit-tree "$TREE" -p "$PARENT")
+          echo "commit=$C1" >> "$GITHUB_OUTPUT"
+          echo "Composed $C1 (parent=$PARENT, source dev-main=$SRC)"
+
+      # SYNC-REF: advance .sdd-sync-ref to the release commit so /update-framework
+      # on customer clones detects the new release. Child commit C2 (parent C1).
+      - name: Advance .sdd-sync-ref
+        id: sync
+        run: |
+          C1="${{ steps.compose.outputs.commit }}"
+          git read-tree "$C1"
+          git checkout-index -a -f
+          echo "$C1" > .sdd-sync-ref
+          git add .sdd-sync-ref
+          TREE2=$(git write-tree)
+          C2=$(printf 'chore: advance .sdd-sync-ref to %s\n' "${{ inputs.version }}" \
+                 | git commit-tree "$TREE2" -p "$C1")
+          echo "commit=$C2" >> "$GITHUB_OUTPUT"
+
+      # PUBLISH (default): push a release branch to PUBLIC + open a PR there, so
+      # leak-guard.yml (which lives on the public main) re-runs as the second gate.
+      # A human merges with a MERGE COMMIT; the tag is applied AFTER merge.
+      - name: Publish via PR to public template
+        if: ${{ inputs.publish_mode == 'pr' }}
+        run: |
+          BR="release/${{ inputs.version }}"
+          git push public "${{ steps.sync.outputs.commit }}:refs/heads/$BR"
+          gh pr create --repo "$PUBLIC_REPO" --base main --head "$BR" \
+            --title "Release ${{ inputs.version }}: sanitized template" \
+            --body "Automated single-parent promotion from dev-main. Leak-guard re-runs on this PR. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. Tag ${{ inputs.version }} is applied to the merge commit AFTER merge."
+
+      # PUBLISH (alt): fast-forward push straight to public main + tag immediately.
+      # Use only if the public main protection permits the bot and you accept
+      # skipping the PR-level leak-guard re-run (the release-job audit already ran).
+      - name: Publish via direct push
+        if: ${{ inputs.publish_mode == 'direct-push' }}
+        run: |
+          git push public "${{ steps.sync.outputs.commit }}:main"
+          git tag "${{ inputs.version }}" "${{ steps.compose.outputs.commit }}"
+          git push public "${{ inputs.version }}"

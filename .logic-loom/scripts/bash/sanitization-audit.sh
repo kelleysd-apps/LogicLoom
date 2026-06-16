@@ -7,7 +7,21 @@
 set +e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+# REPO_ROOT may be overridden via LOOM_AUDIT_ROOT so the audit can run from a
+# PRESERVED copy (outside the tree) against a sanitized tree — the release build
+# strips leak-guard.sh + manifest from the tree, so the post-strip audit must run
+# from a copy taken before the strip. Inherited by Check 7's leak-guard.sh call.
+REPO_ROOT="${LOOM_AUDIT_ROOT:-$(cd "$SCRIPT_DIR/../../.." && pwd)}"
+
+# --origin-only: run Checks 1-6 (ioun-ai origin scrub) only, skipping the
+# harness-dev Check 7. Used by the promotion GATE, which runs on un-stripped
+# dev-main where harness-dev artifacts are legitimately still present.
+ORIGIN_ONLY=0
+for arg in "$@"; do
+    case "$arg" in
+        --origin-only) ORIGIN_ONLY=1 ;;
+    esac
+done
 
 # Colors for output
 RED='\033[0;31m'
@@ -167,13 +181,36 @@ else
 fi
 echo ""
 
-# Results Summary
+# Check 7: Harness-dev artifact absence (manifest-driven, TRACKED content).
+# Asserts OUR harness-development record (VISION content, dev docs, release
+# plumbing) is ABSENT from a sanitized template snapshot. Delegates to
+# leak-guard.sh. Runs ONLY in the private dev repo during a promotion build
+# (post-strip). Skipped with --origin-only (the gate runs on un-stripped
+# dev-main) and on the PUBLIC template, where leak-guard.sh + the manifest are
+# themselves stripped and so absent.
+if [ "$ORIGIN_ONLY" -eq 0 ] && [ -f "$SCRIPT_DIR/leak-guard.sh" ] && [ -f "$SCRIPT_DIR/template-strip-manifest.txt" ]; then
+    echo -e "${BLUE}[7] Checking for harness-dev artifacts (manifest)...${NC}"
+    if bash "$SCRIPT_DIR/leak-guard.sh"; then
+        echo -e "   ${GREEN}✅ PASS${NC}: No harness-dev artifacts present"
+        ((PASS_COUNT++))
+    else
+        echo -e "   ${RED}❌ FAIL${NC}: harness-dev artifacts present (see above)"
+        record_fail "Harness-dev artifacts present on template tree (VISION/dev docs/release plumbing)"
+    fi
+    echo ""
+else
+    echo -e "${BLUE}[7] Harness-dev artifact check: ${YELLOW}skipped${NC} (origin-only mode, or leak-guard not present on this tree)"
+    echo ""
+fi
+
+# Results Summary (dynamic denominator: only checks that actually ran)
+TOTAL=$((PASS_COUNT + FAIL_COUNT))
 echo -e "${BLUE}======================================${NC}"
 echo -e "${BLUE}  Audit Results${NC}"
 echo -e "${BLUE}======================================${NC}"
 echo ""
-echo -e "${GREEN}✅ Passed:${NC} $PASS_COUNT/6"
-echo -e "${RED}❌ Failed:${NC} $FAIL_COUNT/6"
+echo -e "${GREEN}✅ Passed:${NC} $PASS_COUNT/$TOTAL"
+echo -e "${RED}❌ Failed:${NC} $FAIL_COUNT/$TOTAL"
 echo ""
 
 if [ $FAIL_COUNT -eq 0 ]; then

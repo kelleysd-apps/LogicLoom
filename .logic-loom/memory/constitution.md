@@ -1,7 +1,7 @@
-# LogicLoom Constitution v3.1.0
+# LogicLoom Constitution v3.2.0
 
 **Status**: RATIFIED
-**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0)
+**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0) · 2026-06-15 (v3.2.0)
 **Effective Date**: 2026-01-13
 
 ---
@@ -13,6 +13,12 @@ Plugin-First Architecture (Principle XVI). The constitution is the **durable
 core** of the harness: it governs all agents, skills, and workflows regardless of
 which workflow pack (SDD waterfall, vision/swarm, …) is in use. No
 principle privileges a particular workflow.
+
+## Changes Summary (v3.2.0)
+
+| Section | Change | Rationale |
+|---------|--------|-----------|
+| Preamble | Added **Governance vs. direction** clause deferring product direction to root `VISION.md` | The constitution governs *how* (the floor); the project's foundational `VISION.md` is the authority for *what/why*. No principle added — numbering stable |
 
 ## Changes Summary (v3.1.0)
 
@@ -34,6 +40,16 @@ This Constitution establishes the governance framework for **LogicLoom**, a
 multi-agent harness for building software with Claude Code. Governance is the
 core; workflow packs plug into it. All agents, skills, and workflows operating
 within this framework MUST adhere to these principles.
+
+**Governance vs. direction.** This Constitution governs *how* work is done — the
+safety, quality, and process floor that holds regardless of task. It does NOT set
+product direction. For *what* the project is building and *why* — its priorities,
+scope, and north-star for anything new-project-related — the authoritative source
+is the project's foundational `VISION.md` at the repository root. Where this
+Constitution is silent on direction, agents defer to `VISION.md`. Where the two
+appear to conflict, governance (the floor) prevails on *how* and `VISION.md`
+prevails on *what/why*. `VISION.md` is a living steering document; it is never
+itself a governance authority and can never relax this floor.
 
 ---
 
@@ -264,6 +280,7 @@ Immutable principles (I–III) cannot be amended or overridden.
 | 2.0.0 | 2026-01-13 | Skills-first Principle X rewrite (ratified) |
 | 3.0.0 | 2026-01-15 | Added Principle XVI: Plugin-First Architecture |
 | 3.1.0 | 2026-05-28 | LogicLoom identity; Principle X → Delegation & Context Isolation (hook-enforced governance, lean/strict modes); Opus 4.8 + config-driven model selection; dropped `rl_metrics` mandate; workflow-agnostic framing |
+| 3.2.0 | 2026-06-15 | Preamble **Governance vs. direction** clause: constitution defers new-project direction to the foundational root `VISION.md`; floor stays supreme. No principle added (numbering stable) |
 
 ---
 

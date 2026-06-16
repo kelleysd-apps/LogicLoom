@@ -130,7 +130,7 @@ ls .logic-loom/templates/
 **ALWAYS use absolute paths from repository root**:
 
 ```
-CORRECT: /workspaces/project/plugins/sdd-specification/agents/new-agent.md
+CORRECT: <repo-root>/plugins/sdd-specification/agents/new-agent.md
 WRONG:   agents/new-agent.md
 WRONG:   ./plugins/sdd-specification/agents/new-agent.md
 ```

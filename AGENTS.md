@@ -1,8 +1,8 @@
 # LogicLoom Agent Registry
 
 **Version**: 6.2.0
-**Last Updated**: 2026-05-31
-**Constitution**: v3.1.0 (16 Principles)
+**Last Updated**: 2026-06-15
+**Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 6
 **Plugins**: 8
@@ -343,7 +343,7 @@ plugins/
 
 ## Constitutional Compliance
 
-All agents enforce Constitution v3.1.0 (16 Principles), the durable governance core for every workflow pack:
+All agents enforce Constitution v3.2.0 (16 Principles), the durable governance core for every workflow pack:
 
 ### Immutable Principles (I-III)
 - **I: Library-First** — Features as standalone libraries
@@ -420,6 +420,7 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6.2.1 | 2026-06-15 | Constitution **v3.2.0** (Preamble Governance-vs-direction clause). Foundational `VISION.md` as a first-class artifact (peer to the constitution); `/initialize-project` Step 1.5 scaffolds it; new `project-vision-template.md`. dev-main (private) → sanitized **public** template release model: `promote-to-main.yml` (single-parent snapshots), `leak-guard.yml` (public backstop), `strip-harness-dev.sh` + `leak-guard.sh` + `template-strip-manifest.txt` (tracked-content model) |
 | 6.2.0 | 2026-05-31 | Removed the dev-loop pack (`loom-dev-loop` / `/dev-loop` / `core-loop` skill) — superseded by Claude Code native `/workflow`, `/loop`, `/goal` primitives; runtime self-extension retired as a governance liability. Two workflow packs (swarm, SDD waterfall); 8 plugins |
 | 6.1.0 | 2026-05-28 | Governance core + interchangeable-packs reframe (no primary/legacy); hook-enforced governance with `LOOM_GOVERNANCE_MODE` lean/strict (mandatory 4-step ceremony removed from default); 7 `sdd-domain-*` plugins deleted → domain-brief registry under `plugins/loom-governance/domain-briefs/` via `get_domain_brief()`; constitution v3.1.0; flagship Opus 4.8 via `.logic-loom/config/models.conf`; 9 plugins |
 | 6.0.0 | 2026-05-27 | LogicLoom rename + workflow modernization — `/swarm` 3 modes, `/review-team` 4 reviewers, `/research` jury-on-demand, `plan-review` + `retro` skills, vision-driven `/create-prd`, `.logic-loom/` paths |
@@ -435,4 +436,4 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 **Registry Maintainer**: subagent-architect
 **Review Cycle**: On any agent change
-**Cross-Reference**: CLAUDE.md, `.logic-loom/memory/constitution.md`, `features/README.md`
+**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `features/README.md`
