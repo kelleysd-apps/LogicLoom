@@ -83,7 +83,7 @@ Verbosity is set by `LOOM_GOVERNANCE_MODE` in
 5. Refactor for quality (refactor)
 
 **Quality Gates**:
-- Test coverage ≥80% (from refinement.conf)
+- Test coverage ≥80% (Principle II)
 - All tests pass before merge
 - Contract tests for all API endpoints
 - Integration tests for user stories

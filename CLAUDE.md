@@ -468,8 +468,8 @@ The framework's cloner-init machinery is **UNTOUCHED**:
   (flagship Opus 4.8); pinned version strings removed.
 - **Removed**: RL telemetry (incl. `rl_metrics` fields), the FR-707 compliance
   ceremony, `sdd-marketplace` MCP, migration scaffolding. (The DS-STAR refinement
-  subsystem is **retained** as an optional quality tool — it is simply no longer
-  coupled to mandatory governance.)
+  subsystem was later **removed** as well — redundant with Claude Code's native
+  `/goal`, `/workflow`, and `/loop`; see the CHANGELOG.)
 - **Renamed**: core/tooling/non-SDD packs `sdd-*` → `loom-*`; `sdd-specification`
   keeps its prefix (it *is* the SDD workflow).
 

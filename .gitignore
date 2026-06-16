@@ -112,4 +112,5 @@ __pycache__/
 *$py.class
 *.pyc
 *.pyo
+*.egg-info/
 .loom-worktree-env

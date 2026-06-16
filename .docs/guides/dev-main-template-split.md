@@ -39,9 +39,7 @@ Two repositories, opposite confidentiality:
 
 The strip + leak-guard operate on **git-tracked content** (`git ls-files`), so a
 customer's regenerated runtime state can never trip them and tracked `.gitkeep`
-files survive. The manifest's `warn:` entries (currently `src/sdd` / DS-STAR) are
-**not** stripped — they surface as non-fatal warnings so nothing silently ships;
-decide each, then move it to a strip entry.
+files survive.
 
 ## One-time setup
 
@@ -102,6 +100,3 @@ a human merges with a **merge commit** → tag the merge commit.
   accepted.
 - **Denylist rot**: as the agent tree / docs grow, new runtime artifacts may
   appear under unlisted paths. Re-review the manifest each release.
-- **DS-STAR (`src/sdd`)** carries internal `/workspaces/logic-loom` paths; it is a
-  `warn:` entry pending the ship-scrubbed-vs-strip decision — do not let it move
-  to a silent ship.

@@ -51,7 +51,7 @@ stub: VISION.md
 .logic-loom/scripts/bash/template-strip-manifest.txt
 
 # --- Harness-dev documentation record (tracked) ---
-.docs/features          # DS-STAR feature dev record (SOW/reports/status)
+.docs/features          # harness-dev feature records, if any (defensive)
 .docs/archive           # archived feature-003 plans + upstream-sync reports
 .docs/reports           # references the external ../../kelleysd.com private repo
 .docs/design            # marketplace-mcp-middleware.md (REMOVED / historical)
@@ -70,15 +70,6 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 .docs/governance/audit  # session audit logs
 .docs/agents/*/*/decisions   # runtime agent decision JSON (any department)
 .loom-active-feature    # generated active-feature marker
-
-# --- DEFERRED (review post other items): DS-STAR (Feature 001) subsystem. NOT
-#     stripped yet, but flagged so it can never SILENTLY ship; src/sdd carries 33
-#     internal /workspaces/logic-loom paths and the Feature-001 context-analyzer
-#     tests hardcode the same. When you decide ship-scrubbed vs strip, treat the
-#     code AND its tests as one unit, then move these entries. ---
-warn: src/sdd
-warn: tests/contract/test_context_contract.py
-warn: tests/integration/test_context_retrieval.py
 
 # --- Intentionally NOT stripped (documented so reviewers see the decision):
 #   README.md                 : init-project.sh archives -> FRAMEWORK_README.md

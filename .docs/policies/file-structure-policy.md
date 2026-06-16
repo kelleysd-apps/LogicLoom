@@ -302,7 +302,7 @@ Before creating ANY file:
 | Policy | `[topic]-policy.md` | `testing-policy.md` |
 | Feature spec | `###-[name]/` | `001-user-auth/` |
 | Test file | `test_[name].py` | `test_user_service.py` |
-| Config | `[name].config.[ext]` | `refinement.conf` |
+| Config | `[name].config.[ext]` | `database.config.json` |
 
 **General Rules**:
 - Use **kebab-case** for directories and multi-word files

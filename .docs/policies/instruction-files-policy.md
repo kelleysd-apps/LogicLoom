@@ -30,7 +30,6 @@ This policy defines the relationship, responsibilities, and tandem update rules 
 - Task management (SSOT) rules
 - Feature workflow instructions
 - Testing approach
-- DS-STAR enhancements
 - Available agents summary (brief)
 
 **Audience**: Claude Code (primary), developers (reference)

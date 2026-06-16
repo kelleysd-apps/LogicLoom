@@ -13,10 +13,6 @@ Each feature gets its own subdirectory with the format `###-feature-name/` conta
 - `quickstart.md` - Test scenarios
 - `tasks.md` - Implementation tasks
 
-## Example
-
-See `001-ds-star-multi/` for a complete example of the DS-STAR Multi-Agent Enhancement feature specification.
-
 ## Workflow
 
 1. **Create Specification**: Use `/specify` command

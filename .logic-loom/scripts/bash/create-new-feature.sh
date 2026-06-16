@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Create a new feature with branch, directory structure, and template
-# NOTE: DS-STAR verification removed - verification happens in skill AFTER content generation
 set -e
 
 # Source common functions
@@ -60,8 +59,7 @@ TEMPLATE="$REPO_ROOT/.logic-loom/templates/spec-template.md"
 SPEC_FILE="$FEATURE_DIR/spec.md"
 if [ -f "$TEMPLATE" ]; then cp "$TEMPLATE" "$SPEC_FILE"; else touch "$SPEC_FILE"; fi
 
-# NOTE: DS-STAR verification is now handled by the unified-specification skill
-# AFTER the AI generates the actual spec content. This script only scaffolds.
+# This script only scaffolds; the AI generates the actual spec content afterward.
 echo ""
 echo "=========================================="
 echo "Feature scaffolding complete"
@@ -69,7 +67,7 @@ echo "=========================================="
 echo "Branch: $BRANCH_NAME"
 echo "Spec file: $SPEC_FILE (template copied)"
 echo ""
-echo "Next: AI will generate spec content, then DS-STAR verification runs"
+echo "Next: AI will generate spec content"
 echo "=========================================="
 echo ""
 

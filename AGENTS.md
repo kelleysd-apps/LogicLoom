@@ -358,9 +358,8 @@ All agents enforce Constitution v3.2.0 (16 Principles), the durable governance c
 ### Interchangeable workflow packs
 - The vision/swarm and SDD-waterfall packs are **peers** over the
   shared governance core. Neither is privileged. `/specification`, validators,
-  DS-STAR refinement, `/build-team`, `/fullstack-team`, and
-  `/finalize` are all first-class pack entry points — pick the pack that fits
-  the problem shape.
+  `/build-team`, `/fullstack-team`, and `/finalize` are all first-class pack
+  entry points — pick the pack that fits the problem shape.
 
 ### All Agents Must
 - Reference constitution in their system prompt

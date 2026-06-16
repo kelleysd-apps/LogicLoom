@@ -5,6 +5,20 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.1] - 2026-06-15
+
+**Removed the DS-STAR refinement subsystem.** The orphaned, experimental,
+never-wired heuristic quality-gate is gone — Claude Code's native `/goal`,
+`/workflow`, and `/loop` primitives cover the same ground.
+
+### Removed
+- The DS-STAR refinement subsystem (`src/sdd/` Python library + the Python
+  agent/refinement wrappers, their tests, packaging, and
+  `.logic-loom/config/refinement.conf`) — orphaned/experimental and redundant
+  with native `/goal`, `/workflow`, and `/loop`. Earlier release notes
+  (v6.1 / v6.2.0) described DS-STAR as "retained"; that is now superseded — it
+  is fully removed.
+
 ## [6.2.0] - 2026-05-31
 
 **Removed the dev-loop pack** (superseded by native `/workflow`, `/loop`, `/goal`);

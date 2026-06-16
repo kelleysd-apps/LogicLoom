@@ -88,13 +88,6 @@ multi-agent coordination.
 - Constraints and dependencies
 - Success metrics
 
-**Quality Validation**:
-- Automatically invokes a refinement loop after spec generation
-- Verifies specification quality against thresholds (completeness ≥0.90)
-- Iteratively refines until sufficient or max 20 rounds
-- Provides actionable feedback for improvements
-- Escalates to human if quality threshold not met
-
 **Skill Reference**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
 
 **Usage**:
@@ -133,13 +126,6 @@ multi-agent coordination.
 - `data-model.md` - Entity definitions with fields, relationships, validation rules
 - `contracts/` - API contract schemas (OpenAPI/GraphQL)
 - `quickstart.md` - Test scenarios and integration test plan
-
-**Quality Validation**:
-- Automatically invokes a verification gate after plan generation
-- Verifies plan quality against thresholds (completeness ≥0.85, spec alignment ≥0.90)
-- **Blocks progression to /tasks if quality insufficient**
-- Provides actionable feedback for improvements
-- MUST address feedback before proceeding
 
 **Constitutional Validation**:
 - Enforces Library-First, Test-First, Contract-First principles
@@ -295,7 +281,6 @@ Phase 1: Feature Specification
 │ - Acceptance criteria            │
 │ - Constraints                    │
 │ Output: specs/###/spec.md        │
-│ ✓ Quality Refinement Loop       │
 └──────────────────────────────────┘
    ↓
 Phase 2: Implementation Planning
@@ -313,7 +298,6 @@ Phase 2: Implementation Planning
 │ Constitution Check Gate ✓        │
 │ Output: plan.md, research.md,    │
 │         data-model.md, contracts/│
-│ ✓ Quality Verification Gate     │
 └──────────────────────────────────┘
    ↓
 Phase 3: Task Generation
@@ -418,8 +402,8 @@ Manual Git Operations (User Approval Required)
 │   ├── common.sh                          # Shared functions + git approval
 │   ├── constitutional-check.sh            # 16-principle compliance validator
 │   ├── sanitization-audit.sh              # Framework sanitization checker
-│   ├── create-new-feature.sh              # Feature initialization + refinement
-│   ├── setup-plan.sh                      # Planning workflow + verification
+│   ├── create-new-feature.sh              # Feature initialization
+│   ├── setup-plan.sh                      # Planning workflow
 │   ├── check-task-prerequisites.sh        # Task generation validator
 │   └── finalize-feature.sh                # Pre-commit compliance validation
 ├── templates/                             # Document templates
@@ -428,7 +412,8 @@ Manual Git Operations (User Approval Required)
 │   ├── tasks-template.md                  # Task list generation
 │   └── agent-file-template.md             # New agent template
 ├── config/                                # Configuration files
-│   └── refinement.conf                    # Refinement engine settings
+│   ├── models.conf                        # Role→model tier convention
+│   └── governance.conf                    # Governance mode (lean/strict)
 
 specs/###-feature-name/                     # Per-feature documentation
 ├── spec.md                                # Feature requirements
@@ -447,8 +432,8 @@ specs/###-feature-name/                     # Per-feature documentation
 ### Core Scripts
 
 - **common.sh**: Shared functions for branch/path management, git approval
-- **create-new-feature.sh**: Initialize feature branch and spec + quality refinement loop
-- **setup-plan.sh**: Prepare implementation planning + quality verification gate
+- **create-new-feature.sh**: Initialize feature branch and spec
+- **setup-plan.sh**: Prepare implementation planning
 - **check-task-prerequisites.sh**: Verify design artifacts exist before task generation
 - **finalize-feature.sh**: Pre-commit compliance validation (no auto-git)
 - **update-agent-context.sh**: Update AI assistant context files
@@ -463,42 +448,6 @@ specs/###-feature-name/                     # Per-feature documentation
 ./.logic-loom/scripts/bash/constitutional-check.sh
 ./.logic-loom/scripts/bash/sanitization-audit.sh
 ```
-
----
-
-## Quality Validation Subsystem
-
-The SDD waterfall pack uses a quality-validation subsystem (the DS-STAR
-refinement engine) to verify and iteratively refine specs and plans. It is a
-workflow-pack quality aid, not part of constitutional governance.
-
-### Quality Gates
-
-- **Automatic Verification**: Specs and plans automatically verified for quality
-- **Iterative Refinement**: Specs refined up to 20 rounds until quality thresholds met
-- **Blocking Gates**: Insufficient plans block progression to tasks phase
-- **Actionable Feedback**: Clear guidance provided for improvements
-
-### Configuration
-
-Quality thresholds configured in `.logic-loom/config/refinement.conf`:
-
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `MAX_REFINEMENT_ROUNDS` | 20 | Maximum iterations before escalation |
-| `EARLY_STOP_THRESHOLD` | 0.95 | Stop if quality exceeds this |
-| `SPEC_COMPLETENESS_THRESHOLD` | 0.90 | Specification quality requirement |
-| `PLAN_QUALITY_THRESHOLD` | 0.85 | Plan quality requirement |
-| `TEST_COVERAGE_THRESHOLD` | 0.80 | Code coverage requirement (Principle II) |
-
-### Graceful Degradation
-
-If the quality-validation components are unavailable (Python not installed,
-dependencies missing):
-- Workflow continues without quality gates
-- Warning messages displayed
-- Manual review recommended
-- No workflow blocking
 
 ---
 

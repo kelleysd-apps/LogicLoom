@@ -23,10 +23,6 @@ agent-invocations:
       - template_purpose
       - variables
     expected-output: template_file
-ds-star:
-  pre-execution: validation/message-preflight
-  post-verification: true
-  auto-debug: conditional
 ---
 
 # Create Template

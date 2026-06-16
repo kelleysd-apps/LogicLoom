@@ -326,9 +326,6 @@ feed the next phase.
 - Make architectural decisions (delegate to domain specialists)
 - Skip phases (workflow enforces sequence)
 
-**DS-STAR integration**: Verifier validates spec/plan quality at each gate.
-Refinement loop allows up to 3 retries per phase. Finalizer runs pre-commit checks.
-
 **Phase sequencing**:
 1. Spec phase: generate spec.md, validate >= 90% quality
 2. Plan phase: generate plan.md + 4 artifacts, validate >= 85% quality

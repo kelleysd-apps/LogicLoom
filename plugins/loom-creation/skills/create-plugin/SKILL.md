@@ -25,10 +25,6 @@ agent-invocations:
       - commands
       - agents
     expected-output: plugin_scaffold
-ds-star:
-  pre-execution: validation/message-preflight
-  post-verification: true
-  auto-debug: conditional
 ---
 
 # Create Plugin
