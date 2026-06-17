@@ -6,7 +6,7 @@ description: |
   alongside security, quality, and performance. Grades UI changes via
   chrome-devtools accessibility-tree snapshots and emits a verdict + rubric
   scores at features/<name>/sprints/<NN>/<task-id>/evaluator-report.md.
-allowed-tools: Read, Write, Bash, mcp__chrome-devtools__*
+allowed-tools: Read, Write, Bash, mcp__chrome-devtools__*, mcp__ide__getDiagnostics, LSP
 triggers: ["evaluator", "behavioral review"]
 category: orchestration
 constitutional_principles: [II, X]
@@ -30,12 +30,17 @@ The evaluator has two branches:
    uses chrome-devtools MCP to capture accessibility-tree snapshots of the
    running surface and grades them against the rubric.
 
-2. **Property-based branch (deferred to v6.0)**: For pure-function and library
-   changes with no UI surface, the future version will generate Hypothesis-style
-   (Python) or fast-check (JS/TS) property tests. For v0.1 this branch is a
-   placeholder — the evaluator notes "non-UI surface; property-based grading
-   deferred" and emits a pass-with-caveat verdict driven only by the changed-file
-   inventory and the static reviewers' confidence.
+2. **Non-UI / diagnostics branch (active in v0.1)**: For pure-function,
+   backend, and library changes with no UI surface, the evaluator runs native
+   IDE diagnostics / LSP (`mcp__ide__getDiagnostics`, and/or the native `LSP`
+   tool) over the *changed files* and fails the **Functionality** rubric item on
+   any type/diagnostic error. When no language server / IDE diagnostics are
+   connected, it degrades gracefully to a scoped build/typecheck run (the
+   project's typecheck or build command, restricted to the changed scope). If
+   neither a diagnostics surface nor a toolchain is available, it FAILS OPEN to a
+   clearly-labeled caveat ("non-UI functionality UNVERIFIED: no
+   diagnostics/toolchain available") — it never becomes a phantom hard gate that
+   blocks when verification simply isn't available.
 
 ## When to Use
 
@@ -62,7 +67,7 @@ performance) read source; you exercise the surface.
 `--changed-files` or derived from `git diff --name-only main...HEAD`). If any
 file matches the UI globs (`*.tsx`, `*.jsx`, `*.vue`, `*.svelte`, `*.html`,
 `*.css`, `*.scss`), branch to UI grading. Otherwise, branch to non-UI grading
-(placeholder for v0.1).
+(diagnostics/LSP grading; see Step 4).
 
 **Step 2 (UI branch) — Snapshot the surface.** Default mode is `snapshot`
 (accessibility tree via `mcp__chrome-devtools__take_snapshot`), which is more
@@ -92,11 +97,30 @@ with a one-line justification grounded in the snapshot / screenshot:
   or a failing one. This is the load-bearing item — a beautiful UI that does
   not satisfy the vision is a `fail` here regardless of the other items.
 
-**Step 4 (non-UI branch, v0.1 placeholder) — Functionality only.** Read the
-changed files and the contracts they implement. Confirm by file-inventory that
-each PRD success criterion has a corresponding test file. Do not generate
-property tests in v0.1 — that work is deferred. Emit a `pass-with-caveat`
-verdict noting "non-UI grading deferred to v6.0 property-based branch".
+**Step 4 (non-UI branch) — Functionality via diagnostics/LSP.** Grade the
+behavior of the changed non-UI surface, in this order:
+
+1. **Diagnostics/LSP first.** Run `mcp__ide__getDiagnostics` (and/or the native
+   `LSP` tool) scoped to the changed files. Treat any error-severity diagnostic
+   (type errors, unresolved symbols, compile errors) as a **fail** of the
+   Functionality rubric item; record the offending `file:line` and message in
+   the vision-criterion trace. Warnings alone are a `concern`, not a `fail`.
+2. **Build/typecheck fallback.** If no language server / IDE diagnostics are
+   connected, degrade gracefully to a scoped build or typecheck run — the
+   project's `typecheck`/`build` command restricted to the changed scope (e.g.
+   `tsc --noEmit`, `npm run typecheck`, `cargo check`, `go build ./...`, or
+   `mypy`/`pyright` over the changed paths). A non-zero exit fails Functionality;
+   capture the failing output.
+3. **Fail open if nothing is available.** If neither a diagnostics surface nor a
+   detectable toolchain exists, do NOT hard-fail. Emit a `pass-with-caveat`
+   verdict with the labeled caveat "non-UI functionality UNVERIFIED: no
+   diagnostics/toolchain available", and still map each PRD success criterion to
+   its corresponding test file by inventory so the gap is visible. This branch
+   must never become a phantom hard gate that blocks merely because verification
+   tooling is absent.
+
+The UI-only rubric items (Design Quality, Originality, Craft) are `n/a` on this
+branch; Functionality is the load-bearing item.
 
 **Step 5 — Synthesize and write the report.** Combine rubric results into one
 verdict using this rule:
@@ -129,8 +153,12 @@ verdict using this rule:
    d. If `--mode screenshot` or rubric requires it,
       `mcp__chrome-devtools__take_screenshot` and store path.
    e. Apply Design Quality / Originality / Craft / Functionality rubric.
-6. **Non-UI branch** (v0.1 placeholder): Emit the pass-with-caveat per Step 4
-   of the Task Brief.
+6. **Non-UI branch**: Run diagnostics/LSP (`mcp__ide__getDiagnostics` / `LSP`)
+   over the changed files and fail Functionality on any error-severity
+   diagnostic; if no language server is connected, fall back to a scoped
+   build/typecheck run; if no toolchain is detectable either, fail open to the
+   labeled "non-UI functionality UNVERIFIED" caveat — per Step 4 of the Task
+   Brief.
 7. **Write report** to
    `features/<feature-name>/sprints/<NN>/<task-id>/evaluator-report.md`
    using the schema below. Create the sprint directory via `mkdir -p` if it
@@ -209,9 +237,11 @@ Write `features/<feature-name>/sprints/<NN>/<task-id>/evaluator-report.md`:
 
 **Promotion criteria (v0.1 → v0.2):**
 
-When the non-UI / property-based branch lands (v6.0+), the placeholder
-pass-with-caveat is replaced with real fast-check / Hypothesis property runs.
-Also defer-tracked: screen-recording on failure (Devin 2.2 pattern) for the UI
+The non-UI branch now grades Functionality via diagnostics/LSP with a scoped
+build/typecheck fallback (and a fail-open labeled caveat when no toolchain is
+available). A future enhancement layers property-based runs (fast-check /
+Hypothesis) on top of the diagnostics pass for deeper behavioral coverage. Also
+defer-tracked: screen-recording on failure (Devin 2.2 pattern) for the UI
 branch.
 
 ## Constitutional alignment

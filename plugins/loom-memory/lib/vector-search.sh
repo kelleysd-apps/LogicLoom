@@ -359,11 +359,6 @@ def reindex_all(repo_root, vector_dir, metadata_dir, chunk_size=512, overlap=64)
         os.path.join(repo_root, "plugins"),
     ]
 
-    # Also index .devloop/sessions if it exists
-    devloop_sessions = os.path.join(repo_root, ".devloop", "sessions")
-    if os.path.isdir(devloop_sessions):
-        search_dirs.append(devloop_sessions)
-
     indexed = 0
     skipped = 0
     errors = 0
@@ -375,12 +370,12 @@ def reindex_all(repo_root, vector_dir, metadata_dir, chunk_size=512, overlap=64)
         if not os.path.isdir(search_dir):
             continue
         for root, _dirs, files in os.walk(search_dir):
-            # Skip hidden directories (except .logic-loom, .docs, .devloop)
+            # Skip hidden directories (except .logic-loom, .docs)
             rel_root = os.path.relpath(root, repo_root)
             parts = rel_root.split(os.sep)
             skip = False
             for part in parts:
-                if part.startswith(".") and part not in (".logic-loom", ".docs", ".devloop"):
+                if part.startswith(".") and part not in (".logic-loom", ".docs"):
                     skip = True
                     break
             if skip:
@@ -532,11 +527,9 @@ _vector_search_paths() {
 
     if [ "$scope" = "session" ]; then
         [ -d "$VECTOR_REPO_ROOT/specs" ] && paths+=("$VECTOR_REPO_ROOT/specs")
-        [ -d "$VECTOR_REPO_ROOT/.devloop/sessions" ] && paths+=("$VECTOR_REPO_ROOT/.devloop/sessions")
         [ -d "$VECTOR_REPO_ROOT/.docs" ] && paths+=("$VECTOR_REPO_ROOT/.docs")
     else
         [ -d "$VECTOR_REPO_ROOT/specs" ] && paths+=("$VECTOR_REPO_ROOT/specs")
-        [ -d "$VECTOR_REPO_ROOT/.devloop/sessions" ] && paths+=("$VECTOR_REPO_ROOT/.devloop/sessions")
         [ -d "$VECTOR_REPO_ROOT/.docs" ] && paths+=("$VECTOR_REPO_ROOT/.docs")
         [ -d "$VECTOR_REPO_ROOT/.logic-loom/memory" ] && paths+=("$VECTOR_REPO_ROOT/.logic-loom/memory")
         [ -d "$VECTOR_REPO_ROOT/plugins" ] && paths+=("$VECTOR_REPO_ROOT/plugins")

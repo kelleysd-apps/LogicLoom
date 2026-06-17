@@ -21,7 +21,18 @@ The update process must NEVER compare downstream content against upstream — it
 looks at what upstream changed in its own history and offers those changes as
 discrete, independently-adoptable enhancement proposals.
 
-**Key insight**: Never `diff downstream..upstream`. Only `diff sync-ref..upstream/main`.
+**Key insight**: Never `diff downstream..upstream`. Only `diff sync-ref..refs/loom-upstream/main`.
+
+> **Safety invariants (misfire-proof — do not violate):**
+> - **Fetch-only, no remote.** `extract-proposals.sh` fetches the upstream AD-HOC
+>   into `refs/loom-upstream/main`. LogicLoom NEVER runs `git remote add upstream`,
+>   so there is no `upstream` remote and `git push upstream …` cannot happen.
+> - **Origin-only commits.** Every accepted change commits to YOUR current branch
+>   on `origin`. NEVER push / pull / merge upstream.
+> - **Config-driven URL** from `.logic-loom/config/framework-upstream.conf` (or
+>   `$LOOM_UPSTREAM_URL`); NEVER derived from `origin`.
+> - Optional cleanup: if an old clone still has a stale pushable `upstream` remote,
+>   offer `git remote remove upstream` (approval-gated) — it is unused and a footgun.
 
 ## When to Use
 
@@ -64,30 +75,20 @@ Use `/update-framework` when:
 **Action**: Diff upstream's own history using sync-ref
 
 **Tasks**:
-1. Check upstream remote exists:
-   ```bash
-   git remote -v | grep -q 'logic-loom' || \
-     git remote add upstream https://github.com/kelleysd-apps/logic-loom.git
-   ```
-
-2. Fetch upstream:
-   ```bash
-   git fetch upstream main
-   ```
-
-3. Read sync reference:
-   ```bash
-   SYNC_REF=$(cat .sdd-sync-ref)
-   ```
-
-4. Run proposal extraction:
+1. Run proposal extraction — it performs the ad-hoc, FETCH-ONLY retrieval:
    ```bash
    bash plugins/loom-maintenance/scripts/extract-proposals.sh
    ```
+   This resolves the upstream URL from config, fetches it into
+   `refs/loom-upstream/main` (NO `upstream` git remote is created), reads
+   `.sdd-sync-ref`, and emits proposals from upstream's OWN history. If the URL
+   is unconfigured it exits with guidance — set `LOOM_UPSTREAM_REPO` in
+   `.logic-loom/config/framework-upstream.conf` (the PUBLIC template repo) or
+   `export LOOM_UPSTREAM_URL=…`, then re-run.
 
-**CRITICAL**: This diffs `sync-ref..upstream/main` (upstream's own history).
-It does NOT diff `HEAD..upstream/main` (which would show downstream customizations
-as conflicts).
+**CRITICAL**: This diffs `sync-ref..refs/loom-upstream/main` (upstream's own
+history). It does NOT diff `HEAD..upstream` (which would show downstream
+customizations as conflicts), and it NEVER adds an `upstream` git remote.
 
 **Validation**: Proposals extracted as JSON
 
@@ -102,7 +103,7 @@ as conflicts).
 Framework Enhancement Proposals
 ================================
 
-Source: upstream/main (last sync: <sync-ref-date>)
+Source: refs/loom-upstream/main (last sync: <sync-ref-date>)
 Changes: <N> files changed in upstream since last sync
 Releases: v5.0.0 (2026-02-15), v5.1.0 (2026-03-01)
 
@@ -122,8 +123,13 @@ Releases: v5.0.0 (2026-02-15), v5.1.0 (2026-03-01)
 field comes from `extract-proposals.sh`. This lets users adopt per-release
 (e.g., "accept all v5.0.0 changes") or per-file.
 
-**For each proposal**: Show what upstream changed (not how downstream differs).
-User accepts or rejects each independently.
+**For each proposal**: show what upstream changed (not how downstream differs),
+AND flag conflicts. Each proposal carries `conflict` + `resolution` from
+extract-proposals.sh — mark every `conflict: true` item with
+"⚠️ CONFLICT — you have customized this file" so the user sees, per item, whether
+adopting it would touch their own work. Suggested grouping: clean
+additions/updates · ⚠️ conflicts (your customizations) · already-present (skip) ·
+informational (upstream deletions). The user accepts or rejects each independently.
 
 ---
 
@@ -135,53 +141,65 @@ Ask user which proposals to accept. Respect selective adoption.
 
 ---
 
-### Step 6: Backup Current State
+### Step 6: Checkpoint Current State
 
-**Action**: Create safety backup before applying
-
-```
-"Creating backup branch before applying enhancements. Approve? [y/N]"
-```
+**Action**: Tag current HEAD as a restore point. Do NOT switch branches — accepted
+changes apply to the CURRENT branch, so verify you are on the intended branch FIRST.
 
 ```bash
-BACKUP_BRANCH="backup-pre-update-$(date +%Y%m%d-%H%M%S)"
-git checkout -b "$BACKUP_BRANCH"
-git add -A && git commit -m "Backup before framework enhancement"
-git checkout -
+git tag "loom/pre-update-$(date +%Y%m%d-%H%M%S)" HEAD
 ```
+
+Undo later with `git reset --hard <that-tag>`. (A lightweight tag avoids the
+`checkout -b` / `checkout -` dance that could strand changes on the wrong branch.)
 
 ---
 
 ### Step 7: Apply Accepted Proposals
 
-**For new files (type: new-file)**:
-```bash
-git show upstream/main:"$file_path" > "$file_path"
-```
+Apply each ACCEPTED proposal according to its **`resolution`** field (computed by
+extract-proposals.sh via a 3-way comparison: baseline `sync-ref:<file>` vs your
+working file vs upstream). Never overwrite a customization without explicit consent.
 
-**For modified files (type: modified-content)**:
-- Show user what upstream changed (diff sync-ref..upstream/main for that file)
-- If downstream has NOT modified the file: safe to replace
-- If downstream HAS modified the file: extract new sections from upstream diff
-  and present as additive insertions
-- NEVER overwrite downstream customizations
+- **`clean-add`** — file absent downstream; add upstream's version:
+  ```bash
+  git show refs/loom-upstream/main:"$file_path" > "$file_path"
+  ```
+- **`clean-apply`** — downstream is identical to the baseline (you did NOT
+  customize it); safe to update to upstream's version (same command). No
+  customization is at risk.
+- **`already-present`** — your file already equals upstream's version. Skip (no-op).
+- **`conflict-review`** ⚠️ — you customized this file AND upstream changed it.
+  **NEVER overwrite.** Show BOTH sides and let the user choose, per file:
+    - upstream's change:        `git diff <sync-ref>..refs/loom-upstream/main -- "$file_path"`
+    - your customization:        `git diff <sync-ref> -- "$file_path"`
+  Offer: (a) keep mine (skip), (b) take upstream (explicit overwrite — confirm),
+  (c) additively insert only upstream's NEW sections (preserve your edits),
+  (d) manual merge. Default to the NON-destructive option. One file at a time.
+- **`info-upstream-deleted`** — upstream removed this file; inform the user, do
+  NOT auto-delete their copy. They decide.
 
-**For structural changes (type: structural-change)**:
-- Present full details for manual review
-- Do NOT attempt automated merge
+For **structural changes** (renames/`type: structural-change`): present full
+details for manual review; do NOT attempt an automated move/merge.
+
+NEVER run `git merge` or `git cherry-pick`. All writes go to the current branch on
+`origin`; the git-safety-gate hook gates the commit (Principle VI).
 
 ---
 
 ### Step 8: Update Sync Reference
 
-**ALWAYS** update sync ref after completion, regardless of which proposals
-were accepted or rejected:
+Update the sync ref after completion **only if ≥1 proposal was accepted** (or the
+user explicitly chose "mark reviewed"). If ALL proposals were deferred, leave it
+unchanged so the same proposals reappear next run.
 
 ```bash
-git rev-parse upstream/main > .sdd-sync-ref
+git rev-parse refs/loom-upstream/main > .sdd-sync-ref
 ```
 
-This ensures the next `/update-framework` run only shows NEW changes.
+This ensures the next `/update-framework` run shows only NEW changes. The scratch
+ref is pruned after the run (`git update-ref -d refs/loom-upstream/main`) and is
+re-fetched next time.
 
 ---
 

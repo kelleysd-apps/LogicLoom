@@ -78,9 +78,14 @@ Run in order. Each step here is the **gated** work that needs explicit approval.
   (must be all-pass) → compose a single-parent commit (parent = public `main`, or
   the empty-repo root for the very first one) → push to the public `main` → tag.
   In practice this is the `promote-to-main.yml` workflow with `version: v6.2.x`.
-- **Phase 4 — Repoint upstream.** Update the 3 `/update-framework` references
-  from the dead `logic-loom.git` to the live upstream via `git remote set-url`
-  (not add-if-absent, which strands clones that already added the dead remote).
+- **Phase 4 — Upstream config is auto-stamped (no remote to repoint).**
+  `/update-framework` is now config-driven and remote-free: `promote-to-main.yml`
+  stamps `.logic-loom/config/framework-upstream.conf` from `vars.PUBLIC_TEMPLATE_REPO`
+  at each release, and the flow fetches that URL ad-hoc into `refs/loom-upstream/main`
+  — it NEVER creates an `upstream` git remote. Nothing to repoint by hand; just
+  ensure the dev default in `framework-upstream.conf` is the real public template
+  repo. (Legacy clones with a stale pushable `upstream` remote are ignored by the
+  new flow; users can `git remote remove upstream`.)
 
 ## Steady-state release loop
 

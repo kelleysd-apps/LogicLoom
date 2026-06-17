@@ -62,6 +62,16 @@ GEMINI_API_KEY=AIza...       # Google Gemini 2.5 Pro for research + tribunal vot
 If the user doesn't have these keys yet, note it as a setup TODO and continue.
 The `/research` command will validate keys are present before executing.
 
+### Step 4c: Verify Framework-Update Config
+Confirm `.logic-loom/config/framework-upstream.conf` exists with `LOOM_UPSTREAM_REPO`
+set (stamped templates already have it). If absent — e.g. a custom fork — ask the
+user for the upstream `<owner>/<repo>` (the PUBLIC framework/template repo, NOT
+their own origin) and write it:
+```bash
+printf 'LOOM_UPSTREAM_REPO="%s"\n' "<owner>/<repo>" > .logic-loom/config/framework-upstream.conf
+```
+Do NOT add a git remote — `/update-framework` fetches fetch-only into a namespaced ref.
+
 ### Step 5: Validate Compliance
 Run `.logic-loom/scripts/bash/constitutional-check.sh`
 

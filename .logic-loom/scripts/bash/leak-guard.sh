@@ -7,11 +7,15 @@
 #          runtime state (gitignored memory tiers, logs, worktree env) can never
 #          trip it, and a tracked `.gitkeep` under a stripped dir is preserved.
 #
-# Asserts three things on the tracked tree:
+# Asserts four things on the tracked tree:
 #   1. No tracked path matches a manifest STRIP entry (harness-dev paths absent).
 #   2. The shipped VISION.md stub carries no harness-dev roadmap markers.
 #   3. No tracked file contains a SENSITIVE identity marker (owner email,
 #      ioun-ai, absolute /workspaces paths, the kelleysd.com private-repo path).
+#   4. No shipped file carries dev-history NARRATIVE (changelogs, migration
+#      provenance, dated stamps, build-stage refs) — the post-history-scrub gate
+#      so the template reads as a fresh harness. KEEP zones (tests/policies/
+#      framework-updater) excluded per the history-surface coverage note.
 #   `warn:` manifest entries are surfaced as NON-FATAL warnings (deferred items).
 #
 # Exit 0 = clean. Exit 1 = leak. Manifest-driven (template-strip-manifest.txt).
@@ -113,6 +117,8 @@ EXCLUDES=(
   ":(exclude).logic-loom/scripts/bash/sanitization-audit.sh"
   ":(exclude).github/workflows/promote-to-main.yml"
   ":(exclude).github/workflows/leak-guard.yml"
+  ":(exclude).logic-loom/scripts/bash/history-scrub.sh"
+  ":(exclude).logic-loom/scripts/bash/history-scrub-rules.json"
   ":(exclude).docs/troubleshooting/*"
 )
 for p in "${WARN_PATHS[@]}"; do EXCLUDES+=(":(exclude)$p" ":(exclude)$p/**"); done
@@ -121,6 +127,32 @@ id_hits="$(git -C "$REPO_ROOT" grep -nIE "$ID_MARKERS" -- . "${EXCLUDES[@]}" 2>/
 if [ -n "$id_hits" ]; then
   echo -e "${RED}LEAK${NC}: sensitive identity marker(s) in tracked content:"
   printf '%s\n' "$id_hits" | head -15 | sed 's/^/     /'
+  FAIL=1
+fi
+
+# --- Pass 3: dev-history NARRATIVE scan (template must read as a fresh harness) ---
+# Post-scrub gate: assert development-PROCESS history was scrubbed from SHIPPED
+# files (changelogs, migration provenance, dated stamps, OUR build-stage refs).
+# Markers are kept literal here so the gate is dependency-free (like ID_MARKERS);
+# they mirror history-scrub-rules.json's leakGuardHistoryMarkers. KEEP zones are
+# excluded per the history-surface coverage note: tests (current-state regression
+# guards that name removed subsystems), policies (effective-date metadata),
+# framework-updater (illustrative release examples) — plus the plumbing (EXCLUDES).
+# Runs meaningfully POST-scrub; on un-stripped dev-main it will (correctly) flag
+# the live history, exactly like the strip-path checks above.
+HISTORY_MARKERS='What changed in v|What was removed \(not replaced\)|## Version History|Changes Summary \(v3|Migration source|loom-migration|DS-STAR|gstack-D|Loom migration, Stage|Stage 8 integrator|\(Stage 9|Stage 11|Stage 13|Stage-5 addition|retargeted in Stage|created in Stages|\*\*Last Updated\*\*: 20|\*\*Created\*\*: 20|Sprint 3 Task|\(NEW - Sprint|[Rr]emoval [Tt]arget: v|Plugin-First Architecture v4|Skill-Based Delegation v5|Plugin-First v4|Feature 003|introduced in v5.0.0|preserved from v5.0.0|preserves the v5.0.0|from v5.0.0|deferred to v0.2|deferred from v0.1|were converted to enhanced skills|RL telemetry was removed|\(legacy\)'
+HIST_EXCLUDES=(
+  "${EXCLUDES[@]}"
+  ":(exclude)tests/*"
+  ":(exclude).docs/policies/*"
+  ":(exclude)plugins/loom-maintenance/skills/framework-updater/*"
+  ":(exclude)plugins/loom-maintenance/scripts/extract-proposals.sh"
+)
+for p in "${WARN_PATHS[@]}"; do HIST_EXCLUDES+=(":(exclude)$p" ":(exclude)$p/**"); done
+hist_hits="$(git -C "$REPO_ROOT" grep -nIE "$HISTORY_MARKERS" -- . "${HIST_EXCLUDES[@]}" 2>/dev/null)"
+if [ -n "$hist_hits" ]; then
+  echo -e "${RED}LEAK${NC}: dev-history narrative in shipped content (run history-scrub.sh):"
+  printf '%s\n' "$hist_hits" | head -20 | sed 's/^/     /'
   FAIL=1
 fi
 

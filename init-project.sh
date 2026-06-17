@@ -145,7 +145,7 @@ Follow the constitutional principles in \`.logic-loom/memory/constitution.md\`.
 
 ---
 
-Built with [LogicLoom](https://github.com/kelleysd-apps/logic-loom)
+Built with [LogicLoom](https://github.com/kelleysd-apps/logic-loom-template)
 EOF
 
 echo -e "${GREEN}✓${NC} Project README created"
@@ -182,16 +182,12 @@ else
     echo -e "${YELLOW}ℹ${NC}  Git repository already exists"
 fi
 
-# Configure upstream remote for /update-framework
-UPSTREAM_URL="https://github.com/kelleysd-apps/logic-loom.git"
-if git remote get-url upstream &>/dev/null 2>&1; then
-    echo -e "${GREEN}✓${NC} Upstream remote already configured"
-else
-    echo -e "${BLUE}Configuring upstream remote for framework updates...${NC}"
-    git remote add upstream "$UPSTREAM_URL" 2>/dev/null && \
-        echo -e "${GREEN}✓${NC} Upstream remote added: $UPSTREAM_URL" || \
-        echo -e "${YELLOW}⚠${NC}  Could not add upstream remote (not a git repo yet)"
-fi
+# Framework updates: /update-framework fetches the configured upstream
+# (.logic-loom/config/framework-upstream.conf) AD-HOC and FETCH-ONLY into a
+# namespaced ref. It deliberately does NOT add an `upstream` git remote — so a
+# stray `git push upstream` is structurally impossible and your commits can only
+# go to `origin`. Nothing to configure here.
+echo -e "${GREEN}✓${NC} Framework updates: run /update-framework (fetch-only; upstream in .logic-loom/config/framework-upstream.conf)"
 
 # ====================================
 # Docker MCP Toolkit Installation

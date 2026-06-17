@@ -88,20 +88,50 @@ touch "$WARN_MARKER" 2>/dev/null || true
 
 pct=$((tokens * 100 / WINDOW_TOKENS))
 
+# ── Dependency-preserving handoff (humanlayer ace-fca pattern; Hermes head/tail
+# protection). Capture the active plan-as-DAG structure from state files the
+# harness already maintains, so a post-reset agent retains "what blocks what /
+# what I own" — edges a naive context summary would flatten. Best-effort and
+# errexit-safe (every probe guarded); never blocks.
+DAG_STATE=""
+_marker="$REPO_ROOT/.loom-active-feature"
+if [ -f "$_marker" ]; then
+    _feat=$(sed -n 's/^feature:[[:space:]]*//p' "$_marker" 2>/dev/null | head -1 || true)
+    _task=$(sed -n 's/^task:[[:space:]]*//p' "$_marker" 2>/dev/null | head -1 || true)
+    _owns=$(awk '/^owns:/{f=1;next} /^[a-zA-Z_]+:/{f=0} f&&/^[[:space:]]*-/{sub(/^[[:space:]]*-[[:space:]]*/,"");print "     - "$0}' "$_marker" 2>/dev/null || true)
+    DAG_STATE="   - Active feature/task: ${_feat:-<none>} / ${_task:-<none>}"
+    [ -n "$_owns" ] && DAG_STATE="${DAG_STATE}
+   - Owned scope (do NOT lose — the freeze contract for this task):
+${_owns}"
+    _plan="$REPO_ROOT/features/${_feat}/plan.md"
+    if [ -n "$_feat" ] && [ -f "$_plan" ]; then
+        _edges=$(grep -nE '^[[:space:]]*-?[[:space:]]*(id|depends_on):' "$_plan" 2>/dev/null | sed 's/^/       /' | head -30 || true)
+        [ -n "$_edges" ] && DAG_STATE="${DAG_STATE}
+   - DAG edges (task ids + depends_on — preserve the blocking order):
+${_edges}"
+    fi
+fi
+[ -n "$DAG_STATE" ] || DAG_STATE="   - (no active plan-as-DAG marker; capture the working goal + next concrete step yourself)"
+
 context=$(cat <<CTX
 **CONTEXT CAP WARNING** (${tokens} of ${WINDOW_TOKENS} tokens — ${pct}%):
 
 You have crossed the 80% context threshold (${THRESHOLD_TOKENS}). Long contexts
-degrade reasoning and bias the model toward premature wrap-up.
+degrade reasoning and bias the model toward premature wrap-up. Augment native
+compaction with a DEPENDENCY-PRESERVING handoff so structure is not flattened.
 
-**Recommended action**: summarize current progress to a handoff artifact and
-start a fresh session.
+**Preserve VERBATIM across the reset (head + tail):**
+- HEAD: the active goal/objective + the constitution pointer (.logic-loom/memory/constitution.md).
+- TAIL: the last few exchanges (most recent decisions + the in-flight step).
+The MIDDLE may be summarized — delegate that summary to a cheap model / the memory tier.
 
-1. Write a handoff to .docs/handoffs/handoff-\$(date +%Y%m%d-%H%M).md covering:
-   - Active feature + task
-   - Decisions made this session
-   - Open questions / next concrete step
-   - File touchpoints (paths only)
+**Active plan-as-DAG state to carry forward (so 'what blocks what' survives):**
+${DAG_STATE}
+
+**Recommended action**: write the handoff, then start a fresh session.
+1. Write .docs/handoffs/handoff-\$(date +%Y%m%d-%H%M).md covering: active feature+task,
+   the DAG state above (owned scope + depends_on order), decisions made this session,
+   open questions / next concrete step, and file touchpoints (paths only).
 2. Inform the user the handoff is ready and recommend /clear or a new session.
 3. Do NOT silently rush to finish — quality matters more than closure.
 CTX

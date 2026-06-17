@@ -5,7 +5,7 @@ description: |
   Read-only multi-agent investigation mode of `/swarm`. Spawns N parallel
   investigators (Task tool, read-only allowed_tools) over slices of a topic
   and synthesizes their findings into a single exploration report.
-allowed-tools: Task, Read, Write
+allowed-tools: Task, Read, Write, Grep, Bash
 triggers: ["swarm explore", "/swarm explore"]
 category: orchestration
 constitutional_principles: [X]
@@ -54,8 +54,34 @@ restriction, collect their reports, and synthesize one document.
 - Default `N = 3`, max `N = 5`. The user can override with `--agents N`.
 - Slices must be **independent** (no shared state, no ordering). If you cannot
   decompose into independent slices, return `N = 1` and explain in the report.
-- Each slice gets: a one-paragraph charter, a list of suggested entry points
-  (paths, queries, URLs), and an explicit "what to return" rubric.
+- Each slice gets: a one-paragraph charter, a **`## Repo map (ranked)`**
+  section (see below) computed over the slice's entry-point area, and an
+  explicit "what to return" rubric. The ranked repo map replaces the old
+  free-form "suggested entry points" list — it IS the grounded, ranked set of
+  entry points. External URLs that have no repo footprint may still be named
+  inline in the charter prose.
+
+**Repo map (ranked) — slice charter grounding:**
+
+For each slice, you (the orchestrator) pre-compute a LIGHT, ranked skeleton over
+the slice's entry-point area (its touch-set) and embed it in the slice charter
+under a section titled exactly `## Repo map (ranked)`. This grounds each
+investigator in the concrete code surface before it starts reading.
+
+- **Contents**: per file in the slice's entry-point area, its key
+  symbols/signatures plus the top references (call sites / importers) to those
+  symbols. Rank by reference count, then embed the highest-ranked first.
+- **Size cap**: the whole section is **<= ~40 lines** — drop the lowest-ranked
+  entries to stay under the cap. This is a sketch, not an inventory.
+- **How it is built**: native `Grep`/`Read` for symbol and reference discovery;
+  IF `command -v ctags` or `command -v tree-sitter` succeeds (checked via
+  `Bash`), use that for richer signatures. Gracefully fall back to Grep-only
+  when neither is present. This is read-only repo inspection by the
+  orchestrator — it writes nothing into the repo.
+- **What it is NOT**: not a full PageRank / global-importance index. It is a
+  cheap, local, ranked sketch scoped to one slice's entry-point area.
+- The map is auto-included in the slice charter; the read-only investigator
+  still only reads.
 
 **Dispatch contract (read-only enforcement):**
 
@@ -69,7 +95,8 @@ Each investigator is spawned via the Task tool with:
   `allowed_tools` restriction, embed an explicit instruction in the prompt:
   "You are read-only. You MUST NOT call Write, Edit, Bash, or any tool that
   mutates filesystem, repo, or remote state. Return findings as markdown."
-- prompt: the slice charter + entry points + return rubric.
+- prompt: the slice charter (which embeds the `## Repo map (ranked)` section) +
+  return rubric.
 
 **Synthesis:**
 
@@ -92,7 +119,11 @@ as `Open questions` rather than collapsing them.
      `-`, trimmed, truncated to 60 chars.
    - Create parent directory if missing.
 3. **Decompose topic into N slices**: Produce `N` slice charters per the Task
-   Brief. If the topic is genuinely single-thread, set `N = 1` and proceed.
+   Brief. For each slice, compute its `## Repo map (ranked)` section over the
+   slice's entry-point area (native `Grep`/`Read`, plus ctags/tree-sitter via
+   `Bash` when `command -v` finds them; Grep-only fallback otherwise), cap it at
+   ~40 lines, and embed it in the charter. If the topic is genuinely
+   single-thread, set `N = 1` and proceed.
 4. **Dispatch investigators in parallel**: Make `N` Task tool calls in a
    single batch. Each call carries the read-only `allowed_tools` restriction
    (or the embedded read-only instruction if restriction is not supported).

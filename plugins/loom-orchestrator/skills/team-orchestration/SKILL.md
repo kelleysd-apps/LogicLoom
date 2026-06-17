@@ -86,6 +86,15 @@ The seven technical-domain briefs live in the governance core (the former
 - **Pre**: request is clear; domains mapped to briefs; capability gaps identified.
 - **Mid**: each worker's output meets its task; cross-worker consistency.
 - **Post**: requirements met; solution complete; brief execution report.
+- **Worker-completion contract** (mirrors `/swarm implement`): before any worker
+  may report its task done, it MUST run its rubric's tests/build **in its own
+  context** and paste the green evidence (the command(s) plus the exit-0 /
+  passing summary) into its returned result. A red run forces a BOUNDED
+  in-worker fix loop with an explicit cap of **3 attempts**; on cap exhaustion
+  the worker returns failed with the diagnosis, never a false pass. This
+  in-worker proof is the first gate; `/review-team` remains the INDEPENDENT
+  second gate. It operationalizes **Principle II (Test-First)** at the worker
+  boundary.
 
 ## Error handling
 

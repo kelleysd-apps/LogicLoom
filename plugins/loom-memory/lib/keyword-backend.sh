@@ -132,16 +132,36 @@ backend_search() {
     if [ "$scope" = "session" ]; then
         # Session scope: working + recall tiers only
         [ -d "$KEYWORD_REPO_ROOT/specs" ] && search_paths+=("$KEYWORD_REPO_ROOT/specs")
-        [ -d "$KEYWORD_REPO_ROOT/.devloop/sessions" ] && search_paths+=("$KEYWORD_REPO_ROOT/.devloop/sessions")
         [ -d "$KEYWORD_REPO_ROOT/.docs" ] && search_paths+=("$KEYWORD_REPO_ROOT/.docs")
     else
         # Global scope: all tiers
         [ -d "$KEYWORD_REPO_ROOT/specs" ] && search_paths+=("$KEYWORD_REPO_ROOT/specs")
-        [ -d "$KEYWORD_REPO_ROOT/.devloop/sessions" ] && search_paths+=("$KEYWORD_REPO_ROOT/.devloop/sessions")
         [ -d "$KEYWORD_REPO_ROOT/.docs" ] && search_paths+=("$KEYWORD_REPO_ROOT/.docs")
         [ -d "$KEYWORD_REPO_ROOT/.logic-loom/memory" ] && search_paths+=("$KEYWORD_REPO_ROOT/.logic-loom/memory")
         [ -d "$KEYWORD_REPO_ROOT/plugins" ] && search_paths+=("$KEYWORD_REPO_ROOT/plugins")
     fi
+
+    # features/ recall tier — scoped to SUMMARY files only (retro.md,
+    # plan-review.md, prd.md, sprints/**/result.md) so raw exploration/ dumps
+    # don't add noise. /retro and the swarm pack write these; neither path was
+    # searched before. Searched in every scope.
+    if [ -d "$KEYWORD_REPO_ROOT/features" ]; then
+        local feature_summary
+        while IFS= read -r feature_summary; do
+            [ -n "$feature_summary" ] && search_paths+=("$feature_summary")
+        done < <(find "$KEYWORD_REPO_ROOT/features" -type f \
+            \( -name 'retro.md' -o -name 'plan-review.md' -o -name 'prd.md' \
+               -o \( -path '*/sprints/*' -name 'result.md' \) \) 2>/dev/null)
+    fi
+
+    # Home retro-memory tier — where /retro writes durable lessons. The slug is
+    # the repo path with '/' replaced by '-' (matches retro/SKILL.md's
+    # `pwd | sed 's|/|-|g'` derivation, e.g.
+    # $HOME/.claude/projects/-Users-...-logic-loom/memory/).
+    local memory_slug home_memory
+    memory_slug=$(printf '%s' "$KEYWORD_REPO_ROOT" | sed 's|/|-|g')
+    home_memory="$HOME/.claude/projects/${memory_slug}/memory"
+    [ -d "$home_memory" ] && search_paths+=("$home_memory")
 
     # Search across all paths for all keywords, collect results
     local all_results=""

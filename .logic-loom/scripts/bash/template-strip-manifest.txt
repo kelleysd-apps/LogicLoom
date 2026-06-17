@@ -49,6 +49,8 @@ stub: VISION.md
 .logic-loom/scripts/bash/strip-harness-dev.sh
 .logic-loom/scripts/bash/leak-guard.sh
 .logic-loom/scripts/bash/template-strip-manifest.txt
+.logic-loom/scripts/bash/history-scrub.sh
+.logic-loom/scripts/bash/history-scrub-rules.json
 
 # --- Harness-dev documentation record (tracked) ---
 .docs/features          # harness-dev feature records, if any (defensive)
@@ -84,4 +86,6 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #   .github/workflows/plugin-tests.yml: validates the shipped harness (ship)
 #   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
 #   .sdd-sync-ref              : /update-framework upstream pointer (ship)
+#   .logic-loom/config/framework-upstream.conf : /update-framework upstream URL,
+#                                stamped at release from PUBLIC_TEMPLATE_REPO (ship)
 # =============================================================================

@@ -8,7 +8,7 @@ description: |
   resolved owns/freeze scope) so the freeze-write-scope hook gates writes, and
   verifies each task's rubric via /review-team before dispatching its
   dependents.
-allowed-tools: Task, Read, Write, Bash
+allowed-tools: Task, Read, Write, Bash, Grep
 triggers: ["swarm implement", "/swarm implement"]
 category: orchestration
 constitutional_principles: [II, X]
@@ -29,8 +29,9 @@ constrained by:
 4. A `rubric` of acceptance predicates.
 
 The scheduler dispatches a task only after all of its `depends_on` tasks have
-completed AND passed their rubric. v0.1 may execute a sprint sequentially; the
-DAG semantics, ownership enforcement, and rubric gating still apply.
+completed AND passed their rubric. This skill executes a sprint sequentially
+(parallel DAGs ride `/workflow` — see §5); the DAG semantics, ownership
+enforcement, and rubric gating still apply.
 
 ## When to Use
 
@@ -68,6 +69,11 @@ Load the YAML frontmatter from `features/<feature>/plan.md`. Validate:
   cross-sprint dependencies in v0.1).
 - The dependency graph within a sprint is acyclic (Kahn's algorithm — if any
   node remains with unresolved deps after the sort, the graph has a cycle).
+- `produces` and `consumes` are OPTIONAL typed-edge keys. When present, each is
+  a list of `<kind>: <path>#<symbol-or-anchor>` refs, and every `consumes` ref
+  should match some upstream task's `produces` entry (string equality on the
+  ref). These feed the brief's `## Upstream interfaces` section (step 6.1);
+  legacy plans with neither key parse unchanged.
 
 ### 3. Detect file-ownership conflicts (pre-dispatch)
 
@@ -86,9 +92,15 @@ sprints started" and exit without dispatching.
 
 ### 5. Schedule
 
-Topologically sort the sprint's tasks. In v0.1, execute the sorted list
-sequentially. (v0.2 will group tasks with no remaining dependencies into a
-"wave" and dispatch the wave in parallel via concurrent Task calls.)
+Topologically sort the sprint's tasks and dispatch them in dependency order.
+This skill itself dispatches **sequentially** — simple, governed, no scheduler to
+maintain. For genuinely parallel DAGs, do NOT hand-roll wave scheduling here;
+ride the native primitive: author a `/workflow` that fans the ready tasks out
+with `parallel()`/`pipeline()` (deterministic Kahn-style barriers) and
+`isolation: 'worktree'`, which gives each concurrent worker its own checkout +
+worktree-local `.loom-active-feature` marker, so the freeze-write-scope hook
+enforces ownership per-worker automatically. The plan's `depends_on`/`owns`
+edges are the workflow's input; this skill stays the governed sequential path.
 
 ### 6. Dispatch each task
 
@@ -96,6 +108,47 @@ For task `<id>`:
 
 1. Create `features/<feature>/sprints/<NN-sprint-name>/<id>/` and write a
    `brief.md` containing the task description, `owns`, `freeze`, and `rubric`.
+   The `brief.md` MUST also state the **worker-completion contract** — a
+   precondition the worker must satisfy before it may report success:
+   - **Prove the rubric green in-context.** Before the worker writes
+     `status: passed` into its `result.md`, it MUST run the rubric's
+     tests/build **in its own context** and paste the green evidence (the exact
+     command(s) plus the exit-0 / passing summary) into `result.md`. A
+     `status: passed` with no pasted green evidence is invalid (the scheduler
+     rejects it in step 8).
+   - **Bounded fix loop on red.** If the rubric run comes back red, the worker
+     enters an in-worker fix loop with an explicit cap of **3 attempts** (fix →
+     re-run the rubric → re-check). On cap exhaustion it returns
+     `status: failed` with the diagnosis (the last red command and its output)
+     and NEVER reports a false `status: passed`.
+   - **`/review-team` is still the independent second gate.** This in-worker
+     proof is the *first* gate, not a replacement: it makes each worker
+     responsible for its own rubric before returning. `/review-team` (step 7)
+     remains the INDEPENDENT second gate, run by the orchestrator against the
+     returned diff. This operationalizes **Principle II (Test-First)** at the
+     worker boundary.
+
+   The `brief.md` MUST also embed two auto-generated grounding sections (in
+   addition to the task description / `owns` / `freeze` / `rubric` and the
+   worker-completion contract above):
+
+   - **`## Repo map (ranked)`** — a LIGHT, size-capped (<= ~40 lines) ranked
+     skeleton over the task's touch-set (the `owns` scope for implement). For
+     each file in scope, list its key symbols/signatures plus the top
+     references to them. Build it with native `Grep`/`Read`, and use
+     `ctags`/`tree-sitter` via `Bash` IF available (gate each on `command -v`),
+     gracefully falling back to `Grep`-only when neither is present. This is
+     explicitly NOT a full PageRank index — keep it under the cap. The section
+     title MUST be exactly `## Repo map (ranked)`.
+   - **`## Upstream interfaces`** — resolve each `consumes:` ref declared on
+     this task (parsed in step 2) against the matching `produces:` entry of the
+     COMPLETED upstream task (string equality on the
+     `<kind>: <path>#<symbol-or-anchor>` ref). For each resolved ref, read the
+     concrete interface at `path#symbol` and embed it here so the worker codes
+     against the real signature rather than a guess. An unresolved ref => WARN
+     (surface it; do NOT block dispatch). When the task declares no `consumes:`
+     (legacy plans), omit this section entirely. The section title MUST be
+     exactly `## Upstream interfaces`.
 2. **Establish the active-task freeze context BEFORE dispatch.** This is the
    step that arms the `freeze-write-scope.sh` PreToolUse hook. Without it the
    hook has no active DAG context and default-allows every write — i.e. the
@@ -149,9 +202,24 @@ do NOT dispatch dependents. Surface the failure to the user.
 
 ### 8. Record completion
 
-On rubric pass, write `features/<feature>/sprints/<NN>/<id>/result.md` with
-`status: passed`, the rubric outcomes, and pointers to the diff. This is the
-signal the scheduler uses to dispatch dependents.
+The worker writes `features/<feature>/sprints/<NN>/<id>/result.md` with its
+`status`, the rubric outcomes, and pointers to the diff. **Gate before trusting
+it:** a `status: passed` is valid only if `result.md` contains the pasted green
+rubric evidence required by the worker-completion contract (step 6.1) — the
+command(s) run in the worker's own context and their exit-0 / passing summary.
+If `status: passed` is present without that evidence, treat the task as
+`failed`, do NOT dispatch dependents, and surface the missing proof to the user.
+A valid passed result is the signal the scheduler uses to dispatch dependents;
+`/review-team` (step 7) remains the independent second gate over and above this
+in-worker self-proof.
+
+**Optional `## Fix recipes` block (only-on-red).** When any rubric predicate
+started red during the worker's in-context run (step 6.1's bounded fix loop),
+the worker SHOULD append a block titled exactly `## Fix recipes` to its
+`result.md`. Each entry is a single QUALITATIVE line in the format
+`- symptom: <...> | root cause: <...> | fix: <...>` — never metrics, counts, or
+scores. Omit the block entirely when no predicate ever went red. `/retro` reads
+these blocks directly as lesson input.
 
 ## Procedure
 
@@ -179,8 +247,8 @@ Each invocation writes under `features/<feature>/sprints/<NN-sprint-name>/`:
 sprints/
   01-foundations/
     t1/
-      brief.md       # task description, owns, freeze, rubric (input to worker)
-      result.md      # status: passed | failed, rubric outcomes, diff pointer
+      brief.md       # task description, owns, freeze, rubric + "## Repo map (ranked)" + (when consumes set) "## Upstream interfaces" (input to worker)
+      result.md      # status: passed | failed + pasted in-context green rubric evidence, rubric outcomes, diff pointer; optional "## Fix recipes" (only-on-red)
       review.md      # evaluator output (only on failure or if --verbose)
     t2/
       ...
@@ -207,22 +275,33 @@ tooling reads the per-task `result.md` files to determine sprint state.
   `Overall verdict: go`, default to it.
 - Else error and list candidates.
 
-**v0.1 vs future versions:**
+**Execution model:**
 
-- **v0.1 (this version)**: sequential execution within a sprint;
-  one-task-one-owner check via literal string equality on `owns`; per-task
-  rubric verification via /review-team; the `.loom-active-feature` marker
-  (written per-dispatch, torn down after) arms the freeze-write-scope hook so
-  it enforces writes against the active task's `owns`/`freeze` scope.
-- **v0.2 (deferred)**: parallel wave dispatch (Kahn-style barrier between
-  waves); glob-aware overlap detection in `owns`; cross-sprint dependencies;
-  automatic retry on transient evaluator failure.
+- **This skill = the governed sequential path**: sequential execution within a
+  sprint; one-task-one-owner check via literal string equality on `owns`;
+  per-task rubric verification via /review-team; the `.loom-active-feature`
+  marker (written per-dispatch, torn down after) arms the freeze-write-scope
+  hook so it enforces writes against the active task's `owns`/`freeze` scope.
+- **Parallel DAG execution = ride `/workflow`, not a bespoke scheduler**: earlier
+  drafts deferred a hand-rolled "v0.2 wave-parallel" mode; that is intentionally
+  NOT built. Native `/workflow` already provides deterministic Kahn-style fan-out
+  (`parallel()`/`pipeline()` with barriers) and `isolation: 'worktree'` for
+  conflict-free parallel writes — so a bespoke scheduler here would reimplement
+  the orchestration engine the harness rides on. Drive parallel waves from a
+  `/workflow` over the plan's `depends_on`/`owns` edges. (Mirrors the
+  team-orchestration guidance: "for large/looping fan-outs, author a `/workflow`
+  script instead.")
+- **Still open (orthogonal to parallelism)**: glob-aware overlap detection in
+  `owns` (literal-string today); cross-sprint dependencies.
 
 ## Constitutional alignment
 
-- **Principle II (Test-First)**: Every task's rubric is verified by
-  `/review-team` before any dependent task is dispatched. Tasks ship with
-  testable predicates or they fail review at plan-stage (`/plan-review`).
+- **Principle II (Test-First)**: Each task worker must prove its rubric green
+  **in its own context** (the worker-completion contract) before it may report
+  `status: passed` — the first gate — and `/review-team` then re-verifies the
+  rubric as the INDEPENDENT second gate before any dependent task is dispatched.
+  Tasks ship with testable predicates or they fail review at plan-stage
+  (`/plan-review`).
 - **Principle X (Agent Delegation)**: Implementation work is dispatched to
   Task workers scoped by `owns`/`freeze`/`rubric`. The orchestrator does not
   inline implementation; it gates, dispatches, and verifies.

@@ -20,6 +20,20 @@ Semantics:
   Concurrent writes to the same file are never allowed.
 - `freeze`: optional explicit denylist for tasks that need to assert they will
   not touch a sibling area (defense-in-depth on top of `owns`).
+- Typed edges (optional): a task may declare two keys that enrich `depends_on`
+  with the concrete interface a downstream task needs:
+    - `produces`: a list of "<kind>: <path>#<symbol-or-anchor>" strings naming
+      the interfaces this task creates,
+      e.g. "api-contract: src/auth/types.ts#LoginRequest".
+    - `consumes`: a list of refs that each match, VERBATIM, an upstream task's
+      `produces` entry (same string).
+  Quote these scalars in YAML — the embedded `: ` would otherwise parse as a
+  mapping rather than a string. At brief-authoring time `/swarm implement`
+  resolves each `consumes` ref against the COMPLETED upstream task's `produces`,
+  reads the named `path#symbol`, and embeds it in that worker's brief.md under a
+  section titled "## Upstream interfaces". Both keys are OPTIONAL and
+  warn-not-block: an unresolved `consumes` ref WARNs (it never blocks dispatch),
+  and legacy plans declaring neither key parse unchanged.
 - Rubric: each task ships acceptance predicates that the evaluator
   (/review-team) checks before downstream tasks are dispatched. A task with a
   failing rubric blocks its dependents.
@@ -50,6 +64,8 @@ sprints:
         freeze:
           - src/payments/**
         depends_on: []
+        produces:                       # optional typed-edge outputs (quote the scalars)
+          - "api-contract: src/auth/types.ts#LoginRequest"
         rubric:
           - login form renders without runtime errors
           - submits credentials via POST /api/auth
@@ -60,6 +76,8 @@ sprints:
         freeze: []
         depends_on:
           - t1
+        consumes:                       # optional; each ref must match an upstream `produces` string verbatim
+          - "api-contract: src/auth/types.ts#LoginRequest"
         rubric:
           - session token written to httpOnly cookie
           - integration test passes for login -> protected route
@@ -73,7 +91,7 @@ sprints:
         depends_on:
           - t2
         rubric:
-          - >80% line coverage on src/auth/**
+          - ">80% line coverage on src/auth/**"
 ---
 
 # Plan: <feature-name>

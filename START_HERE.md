@@ -28,6 +28,10 @@ bash init-project.sh
 
 Launch Claude Code with `claude`. The governance preflight hook fires on every message, injecting domain briefs and memory context. Governance is **hook-enforced** (git-safety gate, freeze-scope) — there is no per-message compliance ceremony in the default `lean` mode; set `LOOM_GOVERNANCE_MODE=strict` to re-add a recitation for weaker models.
 
+### Framework updates
+
+Run `/update-framework` inside Claude Code to pull upstream framework enhancements as reviewable, **proposal-based** changes. It is **fetch-only** — it never adds an `upstream` git remote, never pushes/pulls/merges upstream, and commits accepted changes only to **your** current branch. The upstream is configured in `.logic-loom/config/framework-upstream.conf`. See `.docs/guides/FRAMEWORK_SYNC_GUIDE.md`.
+
 ---
 
 ## The swarm pack — 14-step loop

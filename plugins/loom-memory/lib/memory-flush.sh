@@ -214,21 +214,7 @@ memory_flush() {
     # Collect session content from multiple sources
     local session_content=""
 
-    # Source 1: Recent devloop session files (if they exist)
-    local devloop_sessions_dir="$FLUSH_REPO_ROOT/.devloop/sessions"
-    if [ -d "$devloop_sessions_dir" ]; then
-        local recent_files
-        recent_files=$(find "$devloop_sessions_dir" -name "*.md" -type f -mmin -120 2>/dev/null | head -5) || true
-        for f in $recent_files; do
-            [ -f "$f" ] || continue
-            local file_content
-            file_content=$(cat "$f" 2>/dev/null || true)
-            session_content="${session_content}
-${file_content}"
-        done
-    fi
-
-    # Source 2: Recent memory log entries
+    # Source 1: Recent memory log entries
     local memory_log="$FLUSH_REPO_ROOT/.docs/memory/search-log.jsonl"
     if [ -f "$memory_log" ]; then
         local recent_log
@@ -237,7 +223,7 @@ ${file_content}"
 ${recent_log}"
     fi
 
-    # Source 3: Recent git commit messages (last 10 commits from this session)
+    # Source 2: Recent git commit messages (last 10 commits from this session)
     local git_messages
     git_messages=$(git -C "$FLUSH_REPO_ROOT" log --oneline -10 --format="%s" 2>/dev/null || true)
     if [ -n "$git_messages" ]; then
@@ -245,7 +231,7 @@ ${recent_log}"
 ${git_messages}"
     fi
 
-    # Source 4: Any existing working memory files from this session
+    # Source 3: Any existing working memory files from this session
     if [ -d "$FLUSH_OUTPUT_DIR" ]; then
         for f in "$FLUSH_OUTPUT_DIR"/*; do
             [ -f "$f" ] || continue

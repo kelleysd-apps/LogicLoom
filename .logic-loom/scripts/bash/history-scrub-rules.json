@@ -1,0 +1,1112 @@
+{
+  "_comment": "Build-time history-scrub ruleset (harness-dev; stripped from public template). Consumed by history-scrub.sh; generated from the history-surface classification. Ops: drop-section|delete-line|genericize.",
+  "scrubRules": [
+    {
+      "path": "CLAUDE.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "What was removed (not replaced): the `sdd-marketplace` MCP (defer to Anthropic's\nClaude Code Plugin Marketplace + Docker MCP Toolkit), the RL telemetry\ninfrastructure, and the **dev-loop** pack (native `/workflow`/`/loop`/`/goal`\nsupersede it). Domain specialists were collapsed into a governance-core\n**domain-brief registry** (`get_domain_brief`).",
+          "replacement": "",
+          "note": "Removed-subsystem narrative paragraph; the domain-brief registry is documented elsewhere in present tense. Drop the whole paragraph and its trailing blank line."
+        },
+        {
+          "op": "drop-section",
+          "match": "## What changed in v6.2 (dev-loop removed)",
+          "replacement": "",
+          "note": "Embedded changelog. Drop heading through the line before the next '## What changed in v6.1' heading."
+        },
+        {
+          "op": "drop-section",
+          "match": "## What changed in v6.1 (Opus 4.8 re-base + agnostic core)",
+          "replacement": "",
+          "note": "Embedded changelog. Drop heading through the trailing '---' before the Framework/Constitution footer; collapse the resulting duplicate '---' separators."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-05-31",
+          "replacement": "",
+          "note": "Dated footer stamp. KEEP the adjacent Framework/Constitution/Architecture/Runtime identity lines."
+        }
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-06-15",
+          "replacement": "",
+          "note": "Dated header stamp. KEEP Version/Constitution/Architecture/Total Agents/Plugins identity lines."
+        },
+        {
+          "op": "genericize",
+          "match": "> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow (now 9 skills total in this plugin).",
+          "replacement": "> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, and `retro` (9 skills total in this plugin).",
+          "note": "Strip 'were converted...in v5.0.0' / 'v6.0.0 added' evolution narrative; keep current skill inventory."
+        },
+        {
+          "op": "genericize",
+          "match": "> All 4 specification agents (specification-agent, planning-agent, tasks-agent, specification-orchestrator) were converted to enhanced skills with Task Brief sections in v5.0.0. Skills: `sdd-specification`, `sdd-planning`, `sdd-tasks`, `unified-specification`. These back the SDD-waterfall workflow pack.",
+          "replacement": "> Specification work is skill-based: `sdd-specification`, `sdd-planning`, `sdd-tasks`, `unified-specification` back the SDD-waterfall workflow pack.",
+          "note": "Strip 'were converted...in v5.0.0' provenance; keep current skill inventory."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "Full v1.0.0→v6.2.1 changelog table. Drop heading through the line before the trailing '---' / 'Registry Maintainer' footer; keep the footer."
+        }
+      ]
+    },
+    {
+      "path": ".docs/architecture/loom-architecture.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Migration source**: SDD-Workflow v5.0.0 → LogicLoom (workflow-scope cutover)",
+          "replacement": "",
+          "note": "Migration/extraction provenance header line."
+        },
+        {
+          "op": "genericize",
+          "match": "**Status**: v6.1.0 (authoritative)",
+          "replacement": "**Status**: v6.2.0 (authoritative)",
+          "note": "Bump stale self-version to current canonical identity (avoid conflicting v6.1 vs CLAUDE.md v6.2 narrative)."
+        },
+        {
+          "op": "genericize",
+          "match": "**Constitution**: v3.1.0 (16 principles)",
+          "replacement": "**Constitution**: v3.2.0 (16 principles)",
+          "note": "Bump stale constitution pointer to canonical v3.2.0."
+        },
+        {
+          "op": "genericize",
+          "match": "- **Version**: v6.1.0",
+          "replacement": "- **Version**: v6.2.0",
+          "note": "Bump stale Identity version to current."
+        },
+        {
+          "op": "genericize",
+          "match": "Governance is preserved as-is from v5.0.0.",
+          "replacement": "Governance is the durable core.",
+          "note": "Remove v5.0.0 provenance; present-tense identity."
+        },
+        {
+          "op": "genericize",
+          "match": "LogicLoom keeps the three-layer separation introduced in v5.0.0; only the\nnamespace of layer-1 changes (`.specify/` → `.logic-loom/`).",
+          "replacement": "LogicLoom maintains a three-layer separation; layer-1 infrastructure lives under `.logic-loom/`.",
+          "note": "Remove 'introduced in v5.0.0' and the '.specify/ →' rename provenance."
+        },
+        {
+          "op": "genericize",
+          "match": "`specs/###-name/` from v5.0.0. Both coexist — one per pack.",
+          "replacement": "`specs/###-name/`. Both coexist — one per pack.",
+          "note": "Remove 'from v5.0.0' provenance."
+        },
+        {
+          "op": "genericize",
+          "match": "Within a sprint, v0.1\n  dispatches tasks sequentially in topological order; **parallel waves are\n  deferred to v0.2**.",
+          "replacement": "Within a sprint, tasks are dispatched sequentially in topological order.",
+          "note": "Remove v0.1/v0.2 roadmap narrative; describe current behavior."
+        },
+        {
+          "op": "genericize",
+          "match": "### Governance-core hooks (preserved from v5.0.0)",
+          "replacement": "### Governance-core hooks",
+          "note": "Remove 'preserved from v5.0.0' provenance from heading."
+        },
+        {
+          "op": "genericize",
+          "match": "preserves the v5.0.0 behavior.",
+          "replacement": "preserves backward-compatible behavior.",
+          "note": "generic mode bullet; remove version provenance."
+        },
+        {
+          "op": "genericize",
+          "match": "The `--judges all` flag preserves the v5.0.0 behavior for callers that want",
+          "replacement": "The `--judges all` flag preserves backward-compatible behavior for callers that want",
+          "note": "Remove v5.0.0 provenance; keep feature description."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Deferred**: a 3rd-party memory tier (Mem0 / Letta) was scoped during\nmigration research and **deferred** as out-of-scope. See §13.",
+          "replacement": "",
+          "note": "Narrates OUR scoping process + backref to dropped §13."
+        },
+        {
+          "op": "delete-line",
+          "match": "The v5.0.0 `mcp-servers/sdd-marketplace/` MCP server is retired.",
+          "replacement": "",
+          "note": "Removed-subsystem narrative (retired component)."
+        },
+        {
+          "op": "genericize",
+          "match": "The 16-principle constitution (v3.1.0) at `.logic-loom/memory/constitution.md`",
+          "replacement": "The 16-principle constitution (v3.2.0) at `.logic-loom/memory/constitution.md`",
+          "note": "Bump stale inline constitution version pointer."
+        },
+        {
+          "op": "drop-section",
+          "match": "## 13. Future work",
+          "replacement": "",
+          "note": "Cross-version deferred roadmap ('scoped during May 2026 frontier-research review'). Drop heading through the line before '## 14. References'; keep §14."
+        }
+      ]
+    },
+    {
+      "path": ".docs/architecture/evaluator-protocol.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "**Status**: v0.1 (Loom migration, Stage 8)",
+          "replacement": "**Status**: v0.1",
+          "note": "Keep protocol version; remove OUR migration/build-stage reference."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Future work (deferred from v0.1)",
+          "replacement": "",
+          "note": "Deferred-roadmap ('tracked for v6.0+'). Drop heading through the line before '## Reference'; keep References."
+        },
+        {
+          "op": "genericize",
+          "match": "the 4th reviewer\n  (wired by the Stage 8 integrator, not this worker).",
+          "replacement": "the 4th reviewer.",
+          "note": "Remove OUR build-stage integrator aside."
+        }
+      ]
+    },
+    {
+      "path": ".docs/architecture/freeze-scope-protocol.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "**Status**: v0.1 (Loom migration, Stage 11)",
+          "replacement": "**Status**: v0.1",
+          "note": "Keep protocol version; remove migration/build-stage reference."
+        },
+        {
+          "op": "genericize",
+          "match": "Hook-level enforcement was a locked decision (Q4 of the Stage 11 design\nreview): a prompt-level reminder",
+          "replacement": "Hook-level enforcement is a deliberate design decision: a prompt-level reminder",
+          "note": "Remove 'was a locked decision (Q4 of the Stage 11 design review)' build-timeline framing; keep rationale."
+        },
+        {
+          "op": "genericize",
+          "match": "The workaround is local to the hook. The fix — adding `: \"${DEBUG:=0}\"` (or\nequivalent) at the top of `logging.sh` — is tracked as cleanup for a future\nstage.",
+          "replacement": "The workaround is local to the hook. The definitive fix is to add `: \"${DEBUG:=0}\"` (or\nequivalent) at the top of `logging.sh`.",
+          "note": "Remove 'tracked as cleanup for a future stage' process note."
+        },
+        {
+          "op": "genericize",
+          "match": "`worktree-port-namespace.sh` (Stage 11, separate hook) writes a sidecar",
+          "replacement": "`worktree-port-namespace.sh` (a separate hook) writes a sidecar",
+          "note": "Remove '(Stage 11, ...)' build-stage provenance."
+        },
+        {
+          "op": "genericize",
+          "match": "This file should be added to `.gitignore`. The gitignore edit is **deferred\n— outside Stage 11 file ownership**. Track as a Stage 13+ cleanup item.",
+          "replacement": "This file should be added to `.gitignore`.",
+          "note": "Remove Stage 11/13 build-process cleanup narrative."
+        }
+      ]
+    },
+    {
+      "path": ".docs/guides/unified-specification-guide.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Replaces**: `/specify` + `/plan` + `/tasks`",
+          "replacement": "",
+          "note": "Command-evolution provenance header line."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Migration from Old Commands",
+          "replacement": "",
+          "note": "Before/After command-migration narrative. Drop heading through the trailing '---' before '## Constitutional Compliance'; collapse duplicate separators."
+        }
+      ]
+    },
+    {
+      "path": "features/README.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "- PRD: `.logic-loom/templates/prd-template.md` (retargeted in Stage 7)",
+          "replacement": "- PRD: `.logic-loom/templates/prd-template.md`",
+          "note": "Strip '(retargeted in Stage 7)' build-stage aside; keep template reference."
+        },
+        {
+          "op": "genericize",
+          "match": "- Plan / sprints / retro: documented in their respective skill SKILL.md files\n  (created in Stages 6, 7b, 10, 11b)",
+          "replacement": "- Plan / sprints / retro: documented in their respective skill SKILL.md files",
+          "note": "Strip '(created in Stages ...)' build-stage aside."
+        },
+        {
+          "op": "delete-line",
+          "match": "*This convention is a Stage-5 addition to LogicLoom. No existing functionality\nis affected. See `.docs/plans/loom-migration.md` for the full migration plan.*",
+          "replacement": "",
+          "note": "Stage-5 build milestone + reference to removed loom-migration plan doc."
+        }
+      ]
+    },
+    {
+      "path": ".docs/guides/FRAMEWORK_SYNC_GUIDE.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Date**: 2026-01-09",
+          "replacement": "",
+          "note": "Dated header stamp."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-01-09",
+          "replacement": "",
+          "note": "Dated footer stamp. KEEP the '**Version**: 1.0.0' identity line above it."
+        }
+      ]
+    },
+    {
+      "path": ".docs/agents/agent-registry.json",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "  \"architecture\": \"Skill-Based Delegation v5.0 + Plugin-First v4.1\",\n  \"last_updated\": \"2026-02-15\"\n}",
+          "replacement": "  \"architecture\": \"Skill-Based Delegation + Plugin-First\"\n}",
+          "note": "Strip version tags from architecture pattern AND drop last_updated; rewrites the trailing comma so the JSON stays valid."
+        }
+      ]
+    },
+    {
+      "path": ".docs/policies/instruction-files-policy.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "- `CLAUDE.md`: \"11 agents (after v5.0 skill migration)\"",
+          "replacement": "- `CLAUDE.md`: agent count (quick reference)",
+          "note": "Remove stale count + 'v5.0 skill migration' narrative; keep the sync-point as an evergreen example."
+        },
+        {
+          "op": "genericize",
+          "match": "- `AGENTS.md`: \"Total Agents: 11, across 5 departments\"",
+          "replacement": "- `AGENTS.md`: authoritative `Total Agents` count",
+          "note": "Remove stale hardcoded count; keep sync-point."
+        },
+        {
+          "op": "genericize",
+          "match": "**Sync Rule**: Must match exactly. Note: 14 agents were converted to enhanced skills in v5.0.",
+          "replacement": "**Sync Rule**: Must match exactly.",
+          "note": "Remove 'converted to enhanced skills in v5.0' migration narrative."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "Changelog table. Drop heading through the line before the trailing '---' / '## References'; keep References."
+        }
+      ]
+    },
+    {
+      "path": ".docs/governance/browser-automation-examples.md",
+      "ops": [
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "v1.0.0 changelog block. Drop heading through the trailing '---'."
+        },
+        {
+          "op": "delete-line",
+          "match": "*This guide is part of Feature 003: Governance Browser Enhancement*",
+          "replacement": "",
+          "note": "OUR dev-spec (Feature 003) provenance footer."
+        }
+      ]
+    },
+    {
+      "path": ".docs/governance/browser-mcp-setup.md",
+      "ops": [
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "v1.0.0 changelog block (end of file). Drop heading through the trailing '---'."
+        },
+        {
+          "op": "delete-line",
+          "match": "*This guide is part of Feature 003: Governance Browser Enhancement*",
+          "replacement": "",
+          "note": "OUR dev-spec (Feature 003) provenance footer."
+        }
+      ]
+    },
+    {
+      "path": ".docs/governance/hybrid-architecture.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "*This architecture is part of Feature 003: Governance Browser Enhancement*",
+          "replacement": "",
+          "note": "OUR dev-spec (Feature 003) provenance footer."
+        }
+      ]
+    },
+    {
+      "path": ".claude/hooks/user-prompt-submit/README.md",
+      "ops": [
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "v1.0.0 changelog block (incl. stale 'Constitutional v1.6.0 (15 principles)'). Drop heading through the trailing '---'."
+        },
+        {
+          "op": "delete-line",
+          "match": "*This hook is part of Feature 003: Governance Browser Enhancement*",
+          "replacement": "",
+          "note": "OUR dev-spec (Feature 003) provenance footer."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/memory/constitution.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0) · 2026-06-15 (v3.2.0)",
+          "replacement": "",
+          "note": "Dated amendment-history line. KEEP the title 'LogicLoom Constitution v3.2.0' and '**Status**: RATIFIED'."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Effective Date**: 2026-01-13",
+          "replacement": "",
+          "note": "Dated stamp."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Changes Summary (v3.2.0)",
+          "replacement": "",
+          "note": "Embedded release notes. Drop heading through the line before '## Changes Summary (v3.1.0)'."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Changes Summary (v3.1.0)",
+          "replacement": "",
+          "note": "Embedded release notes. Drop heading through the trailing '---' before '## Overview' body; collapse separators."
+        },
+        {
+          "op": "genericize",
+          "match": "**Status**: REWRITTEN (v3.1.0)",
+          "replacement": "**Status**: Current",
+          "note": "Principle status: remove amendment-version tag."
+        },
+        {
+          "op": "genericize",
+          "match": "**Status**: MODIFIED (v3.1.0)",
+          "replacement": "**Status**: Current",
+          "note": "Principle status: remove amendment-version tag."
+        },
+        {
+          "op": "genericize",
+          "match": "**Status**: NEW (v3.0.0)",
+          "replacement": "**Status**: Active",
+          "note": "Principle status: remove amendment-version tag."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "v1.0.0→v3.2.0 changelog table. Drop heading through the trailing '---' before the footer."
+        },
+        {
+          "op": "genericize",
+          "match": "*v3.1.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall\nand vision/swarm are interchangeable workflow packs.*",
+          "replacement": "*LogicLoom Constitution v3.2.0. Governance is the durable core; workflow packs are interchangeable.*",
+          "note": "Footer: bump stale v3.1.0 to canonical v3.2.0; keep present-tense identity."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/memory/constitution_update_checklist.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2025-11-06",
+          "replacement": "",
+          "note": "Dated stamp. KEEP the blank '**Date**: _________' form fields (user-fillable scaffold)."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/memory/agent-collaboration-triggers.md",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-02-15",
+          "replacement": "",
+          "note": "Dated stamp."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "Changelog table incl. 'Updated for v5.0 refactor: 14 agents converted'. Drop heading through the trailing '---'."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/config/architecture.conf",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "# NOTE: RL telemetry was removed in the LogicLoom migration. There is\n# intentionally no RL or legacy-blocking configuration in this file.",
+          "replacement": "",
+          "note": "Removed-subsystem (RL telemetry) migration narrative."
+        },
+        {
+          "op": "genericize",
+          "match": "CONSTITUTION_VERSION=3.1.0",
+          "replacement": "CONSTITUTION_VERSION=3.2.0",
+          "note": "Bump stale constitution pointer to canonical v3.2.0. KEEP ARCHITECTURE_VERSION=6.2.0."
+        },
+        {
+          "op": "delete-line",
+          "match": "# Last updated\nCONFIG_UPDATED=2026-06-15",
+          "replacement": "",
+          "note": "Dated config stamp + its comment."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/templates/agent-template.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "- **Primary Authority**: `.logic-loom/memory/constitution.md` (v3.0.0 - 16 principles)",
+          "replacement": "- **Primary Authority**: `.logic-loom/memory/constitution.md` (v3.2.0 - 16 principles)",
+          "note": "Bump stale constitution pointer. KEEP the blank '## Update History' scaffold (with {{CREATION_DATE}}) — that is product behavior for generated agents."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/templates/skill-template.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "- Constitution v3.0.0: `.logic-loom/memory/constitution.md`",
+          "replacement": "- Constitution v3.2.0: `.logic-loom/memory/constitution.md`",
+          "note": "Bump stale constitution pointer."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2025-11-07",
+          "replacement": "",
+          "note": "Dated template stamp."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/templates/plan-template.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "The freeze-write-scope hook (Stage 11) enforces this at write time.",
+          "replacement": "The freeze-write-scope hook enforces this at write time.",
+          "note": "Strip '(Stage 11)' build-stage provenance from a shipped template."
+        }
+      ]
+    },
+    {
+      "path": ".claude/context/core.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "<!-- Auto-generated from CLAUDE.md - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->",
+          "replacement": "<!-- Auto-generated from CLAUDE.md -->",
+          "note": "Strip version-evolution tags from the generation comment; keep 'auto-generated' provenance."
+        },
+        {
+          "op": "genericize",
+          "match": "## Context Loading (NEW - Sprint 3)",
+          "replacement": "## Context Loading",
+          "note": "Remove '(NEW - Sprint 3)' dev-process marker."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Created**: 2026-01-09 (Sprint 3 Task T028)",
+          "replacement": "",
+          "note": "Dated/Sprint stamp. KEEP '**Module Version**: 2.0.0' and '**Constitutional Authority**'."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-02-07",
+          "replacement": "",
+          "note": "Dated stamp."
+        },
+        {
+          "op": "genericize",
+          "match": "- `.logic-loom/memory/constitution.md` (v3.1.0)",
+          "replacement": "- `.logic-loom/memory/constitution.md` (v3.2.0)",
+          "note": "Bump stale constitution pointer in Source Documents."
+        }
+      ]
+    },
+    {
+      "path": ".claude/context/governance.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "<!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->",
+          "replacement": "<!-- Auto-generated from CLAUDE.md -->",
+          "note": "Strip version-evolution tag from generation comment."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Created**: 2026-01-09 (Sprint 3 Task T024)",
+          "replacement": "",
+          "note": "Dated/Sprint stamp."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-02-07",
+          "replacement": "",
+          "note": "Dated stamp."
+        },
+        {
+          "op": "genericize",
+          "match": "- `.logic-loom/memory/constitution.md` (v3.1.0)",
+          "replacement": "- `.logic-loom/memory/constitution.md` (v3.2.0)",
+          "note": "Bump stale constitution pointer."
+        }
+      ]
+    },
+    {
+      "path": ".claude/context/agents.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "<!-- Auto-generated from AGENTS.md and plugin files - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->",
+          "replacement": "<!-- Auto-generated from AGENTS.md and plugin files -->",
+          "note": "Strip version-evolution tags from generation comment."
+        },
+        {
+          "op": "genericize",
+          "match": "The 7 former `sdd-domain-*` plugins have been deleted. Domain work is now handled\nby a lightweight **domain-brief registry** — one markdown brief per domain —\nloaded on demand via `get_domain_brief <domain>` (in `common.sh`):",
+          "replacement": "Domain expertise is organized in a lightweight **domain-brief registry** — one markdown brief per domain —\nloaded on demand via `get_domain_brief <domain>` (in `common.sh`):",
+          "note": "Remove deletion narrative; describe current state."
+        },
+        {
+          "op": "genericize",
+          "match": "loaded via `get_domain_brief <domain>` and injected as isolated worker context (replaced the former `sdd-domain-*` operations skills/agents for frontend, backend, database, security, testing, performance, devops)",
+          "replacement": "loaded via `get_domain_brief <domain>` and injected as isolated worker context (one brief per domain: frontend, backend, database, security, testing, performance, devops)",
+          "note": "Remove 'replaced the former sdd-domain-*' narrative; keep domain list."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-02-15",
+          "replacement": "",
+          "note": "Dated stamp. KEEP Module Version/Architecture/Authority lines."
+        }
+      ]
+    },
+    {
+      "path": ".claude/context/skills.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "<!-- Auto-generated from plugin skill files - Plugin-First Architecture v4.1 -->",
+          "replacement": "<!-- Auto-generated from plugin skill files -->",
+          "note": "Strip version-evolution tag from generation comment."
+        },
+        {
+          "op": "genericize",
+          "match": "The 7 former `sdd-domain-*` plugins are replaced by a lightweight **domain-brief\nregistry** — one markdown brief per domain — loaded on demand:",
+          "replacement": "Domain expertise is organized in a lightweight **domain-brief\nregistry** — one markdown brief per domain — loaded on demand:",
+          "note": "Remove replacement narrative; describe current state."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Created**: 2026-01-09 (Sprint 3 Task T024)",
+          "replacement": "",
+          "note": "Dated/Sprint stamp."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-02-07",
+          "replacement": "",
+          "note": "Dated stamp."
+        },
+        {
+          "op": "genericize",
+          "match": "## New Commands (v5.0.0)",
+          "replacement": "## Commands",
+          "note": "Strip 'New'/'(v5.0.0)' evolution framing from heading; KEEP the /specification and /git-push command docs that follow."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Replaces**: `/specify` → `/plan` → `/tasks`",
+          "replacement": "",
+          "note": "Command-migration provenance line inside the commands section."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Deprecated Commands",
+          "replacement": "",
+          "note": "Deprecation-evolution table (end of file). Drop to EOF; the /specify,/plan,/tasks commands remain documented as current in the sdd-specification README."
+        }
+      ]
+    },
+    {
+      "path": ".claude/context/workflows.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "<!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->",
+          "replacement": "<!-- Auto-generated from CLAUDE.md -->",
+          "note": "Strip version-evolution tag from generation comment."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Created**: 2026-01-09 (Sprint 3 Task T024)",
+          "replacement": "",
+          "note": "Dated/Sprint stamp."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Last Updated**: 2026-02-07",
+          "replacement": "",
+          "note": "Dated stamp."
+        },
+        {
+          "op": "genericize",
+          "match": "## Unified Specification Workflow (NEW)",
+          "replacement": "## Unified Specification Workflow",
+          "note": "Remove '(NEW)' marker; KEEP the section as current product feature."
+        },
+        {
+          "op": "genericize",
+          "match": "## Git Push Workflow (NEW)",
+          "replacement": "## Git Push Workflow",
+          "note": "Remove '(NEW)' marker; KEEP the section as current product feature."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-governance/README.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "This plugin also owns the **domain-brief registry** (`domain-briefs/<domain>.md`), the\nconsolidated worker briefs that replaced the former seven `sdd-domain-*` plugins.",
+          "replacement": "This plugin also owns the **domain-brief registry** (`domain-briefs/<domain>.md`), the\nconsolidated worker briefs for all core domains.",
+          "note": "Remove 'replaced the former seven sdd-domain-*' narrative."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Version History",
+          "replacement": "",
+          "note": "Changelog table incl. 'FR-707 ceremony removed; ... RL metrics removed; constitution v3.1.0' (end of file). Drop to EOF."
+        }
+      ]
+    },
+    {
+      "path": "plugins/sdd-specification/README.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "SDD specification lifecycle plugin providing the unified `/specification` command and legacy `/specify`, `/plan`, `/tasks` commands.",
+          "replacement": "SDD specification lifecycle plugin providing specification workflow commands.",
+          "note": "Remove 'legacy' deprecation framing."
+        },
+        {
+          "op": "genericize",
+          "match": "| `/specify` | Create feature specification (legacy) |",
+          "replacement": "| `/specify` | Create feature specification |",
+          "note": "Remove '(legacy)' marker; current command."
+        },
+        {
+          "op": "genericize",
+          "match": "| `/plan` | Generate implementation plan (legacy) |",
+          "replacement": "| `/plan` | Generate implementation plan |",
+          "note": "Remove '(legacy)' marker; current command."
+        },
+        {
+          "op": "genericize",
+          "match": "| `/tasks` | Generate task list (legacy) |",
+          "replacement": "| `/tasks` | Generate task list |",
+          "note": "Remove '(legacy)' marker; current command."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-governance/skills/file-organization/SKILL.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "- Agent files MUST be in plugin agent directories (only 11 agents remain in v5.0)",
+          "replacement": "- Agent files MUST be in plugin agent directories",
+          "note": "Strip stale '(only 11 agents remain in v5.0)' count/version aside."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-governance/agents/constitutional-governance-agent.md",
+      "ops": [
+        {
+          "op": "drop-section",
+          "match": "## Update History",
+          "replacement": "",
+          "note": "Per-agent changelog table. Drop heading through the trailing '---'. KEEP '**Agent Version**: 1.0.0'."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Created**: 2025-12-05",
+          "replacement": "",
+          "note": "Dated stamp. KEEP the Agent Version identity line."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-creation/agents/subagent-architect.md",
+      "ops": [
+        {
+          "op": "drop-section",
+          "match": "## Update History",
+          "replacement": "",
+          "note": "Per-agent changelog table incl. 'v5.0 Architecture' / constitution-version evolution. Drop heading through the trailing '---'. KEEP '**Agent Version**: 1.2.0'."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Created**: 2025-09-18",
+          "replacement": "",
+          "note": "Dated stamp."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-creation/skills/create-plugin/SKILL.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "description: Creates new SDD plugins following Plugin-First Architecture v4.0",
+          "replacement": "description: Creates new SDD plugins following Plugin-First Architecture",
+          "note": "Strip version tag from architecture-pattern label in frontmatter."
+        },
+        {
+          "op": "genericize",
+          "match": "Creates new LogicLoom plugins following the Plugin-First Architecture v4.0 (Principle XVI).",
+          "replacement": "Creates new LogicLoom plugins following the Plugin-First Architecture (Principle XVI).",
+          "note": "Strip version tag from architecture-pattern label."
+        },
+        {
+          "op": "delete-line",
+          "match": "*Plugin-First Architecture: v4.0.0*",
+          "replacement": "",
+          "note": "Footer architecture-version stamp."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-creation/skills/create-skill/SKILL.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "description: \"⚠️ DEPRECATED — Use create-plugin skill instead (Plugin-First Architecture v4.0)\"",
+          "replacement": "description: \"⚠️ DEPRECATED — Use create-plugin skill instead\"",
+          "note": "Strip version tag; keep present-tense create-plugin redirect (current product relationship)."
+        },
+        {
+          "op": "genericize",
+          "match": "In Plugin-First Architecture (v4.0), capabilities are organized as plugins.",
+          "replacement": "In Plugin-First Architecture, capabilities are organized as plugins.",
+          "note": "Strip '(v4.0)' version tag."
+        },
+        {
+          "op": "delete-line",
+          "match": "**Removal Target**: v5.0",
+          "replacement": "",
+          "note": "Stale dev removal-target (we are past v5.0); keep '**Replacement**:' pointer."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-creation/.claude-plugin/plugin.json",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "constitutional compliance. Plugin-First Architecture v4.1.",
+          "replacement": "constitutional compliance. Plugin-First Architecture.",
+          "note": "Strip version tag from the manifest description string. KEEP the manifest 'version' field."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-orchestrator/commands/swarm.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "env vars set so the freeze-write-scope hook (Stage 11) gates writes.",
+          "replacement": "env vars set so the freeze-write-scope hook gates writes.",
+          "note": "Strip '(Stage 11)' build-stage provenance from a shipped command doc."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-orchestrator/commands/research.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "## Design Rationale (Stage 9 — jury-on-demand)",
+          "replacement": "## Design Rationale (jury-on-demand)",
+          "note": "Strip 'Stage 9 —' build-stage provenance from heading; keep 'jury-on-demand'."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-orchestrator/commands/review-team.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "4. **Evaluator (NEW)** — behavioral verification via `chrome-devtools` MCP (for UI changes) and pure-function quality checks (placeholder for property-based testing, deferred to v6.1)",
+          "replacement": "4. **Evaluator** — behavioral verification via `chrome-devtools` MCP (for UI changes) and pure-function quality checks",
+          "note": "Remove '(NEW)' marker and 'deferred to v6.1' roadmap parenthetical; describe current capability."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/lib/policy.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# Loom freeze-scope helper (Principle XI — Stage 11, gstack-D)",
+          "replacement": "# Loom freeze-scope helper (Principle XI)",
+          "note": "Strip 'Stage 11, gstack-D' build-process provenance from a shipped lib comment."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/scripts/bash/constitutional-check.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "(Plugin-First Architecture v4.0)",
+          "replacement": "(Plugin-First Architecture)",
+          "note": "Strip version tag from comment labels. Applies to all occurrences (lines ~288, ~442, ~449); comment-only, no assertion logic changes."
+        }
+      ]
+    },
+    {
+      "path": ".logic-loom/scripts/bash/common.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# Skill-Brief Extraction (Spec 006 - Agent Simplification)",
+          "replacement": "# Skill-Brief Extraction",
+          "note": "Strip OUR dev-spec '(Spec 006 - Agent Simplification)' provenance from a shipped lib comment."
+        }
+      ]
+    },
+    {
+      "path": ".claude/hooks/freeze-write-scope.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# PreToolUse Hook: Freeze write-scope (gstack-D)",
+          "replacement": "# PreToolUse Hook: Freeze write-scope",
+          "note": "Strip '(gstack-D)' build-process tag. Comment-only; no behavior change. (Governance-protected file — build-time text op, not a model Edit.)"
+        }
+      ]
+    },
+    {
+      "path": ".env.example",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# Multi-LLM Tribunal (/research command, /dev-loop tribunal voting)",
+          "replacement": "# Multi-LLM Tribunal (/research command tribunal voting)",
+          "note": "Remove reference to removed /dev-loop subsystem."
+        }
+      ]
+    },
+    {
+      "path": "init-project.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# ⚠️ DEPRECATED: Use /initialize-project command in Claude Code instead.\n# This script is from the pre-plugin era. Use: plugins/loom-maintenance/commands/initialize-project.md\n# Removal target: v5.0",
+          "replacement": "# Use the /initialize-project command in Claude Code, backed by\n# plugins/loom-maintenance/commands/initialize-project.md",
+          "note": "Remove 'DEPRECATED / pre-plugin era / Removal target: v5.0' dev-history banner; keep the present-tense redirect to the current command."
+        }
+      ]
+    },
+    {
+      "path": ".gitignore",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "# RL metrics (session-specific, regenerated)\n# Keep the template but ignore session data\n# .docs/rl-metrics/skill-performance.json  # Keep for now as template",
+          "replacement": "",
+          "note": "Commented-out gitignore notes referencing the removed RL-metrics subsystem; collapse the surrounding blank lines."
+        }
+      ]
+    },
+    {
+      "path": "tests/contract/test_deprecation.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# Contract Tests: Legacy Cleanup Validation (Post Plugin-First v4.0)\n# Validates that ALL monolithic legacy artifacts have been removed\n# and all capabilities are served exclusively through plugins.",
+          "replacement": "# Contract Tests: Plugin-First Architecture Validation\n# Validates that all capabilities are served exclusively through plugins.",
+          "note": "Strip '(Post Plugin-First v4.0)' version-evolution + 'legacy artifacts have been removed' framing from the header comment. Assertions unchanged."
+        },
+        {
+          "op": "genericize",
+          "match": "echo \"Plugin-First completeness (v4.0)\"",
+          "replacement": "echo \"Plugin-First completeness\"",
+          "note": "Strip version tag from echo label."
+        },
+        {
+          "op": "genericize",
+          "match": "echo \"Plugin Command Bridge (v4.1)\"",
+          "replacement": "echo \"Plugin Command Bridge\"",
+          "note": "Strip version tag from echo label."
+        }
+      ]
+    },
+    {
+      "path": "tests/contract/test_constitution.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# v3.1.0: Principle X rewritten from \"Skills-First Delegation\" to \"Delegation & Context Isolation\"\nassert \"Principle X: Delegation & Context Isolation\" \"grep -q '### Principle X: Delegation & Context Isolation' .logic-loom/memory/constitution.md\"\nassert \"Principle X no longer titled Skills-First\" \"! grep -q '### Principle X: Skills-First' .logic-loom/memory/constitution.md\"",
+          "replacement": "assert \"Principle X: Delegation & Context Isolation\" \"grep -q '### Principle X: Delegation & Context Isolation' .logic-loom/memory/constitution.md\"",
+          "note": "Remove the v3.1.0 dev-history comment and the redundant 'no longer titled' assertion; keep the positive current-state assertion."
+        },
+        {
+          "op": "genericize",
+          "match": "assert \"XVI no longer mandates RL metrics (v3.1.0 removed it)\" \"! grep -q 'MUST include .rl_metrics' .logic-loom/memory/constitution.md\"",
+          "replacement": "assert \"Principle XVI excludes RL metrics\" \"! grep -q 'MUST include .rl_metrics' .logic-loom/memory/constitution.md\"",
+          "note": "Strip '(v3.1.0 removed it)' dev-history from the assert label; assertion logic (rl_metrics absence) kept."
+        }
+      ]
+    },
+    {
+      "path": "tests/contract/test_plugin_command_bridge.sh",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "# Post Plugin-First v4.0: ALL commands are bridge-generated (no statics)",
+          "replacement": "# ALL commands are bridge-generated (no statics)",
+          "note": "Strip 'Post Plugin-First v4.0:' version-evolution from comment."
+        },
+        {
+          "op": "genericize",
+          "match": "echo \"All commands bridge-generated (Plugin-First v4.0)\"",
+          "replacement": "echo \"All commands bridge-generated\"",
+          "note": "Strip version tag from echo label."
+        },
+        {
+          "op": "genericize",
+          "match": "# All commands should be bridge commands now (Plugin-First v4.0)",
+          "replacement": "# All commands should be bridge commands now",
+          "note": "Strip version tag from comment."
+        },
+        {
+          "op": "genericize",
+          "match": "(not bridge-generated — should not exist post v4.0)",
+          "replacement": "(not bridge-generated — should not exist)",
+          "note": "Strip 'post v4.0' version-evolution from error string."
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-governance/skills/message-preflight/SKILL.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "team orchestration (legacy)",
+          "replacement": "team orchestration",
+          "note": "drop (legacy) prior-state label"
+        }
+      ]
+    },
+    {
+      "path": "plugins/loom-creation/skills/create-prd/SKILL.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "`specs/prd/PRD.md` (legacy)",
+          "replacement": "`specs/prd/PRD.md`",
+          "note": "drop (legacy) prior-state label"
+        }
+      ]
+    },
+    {
+      "path": "START_HERE.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "the legacy 3-judge tribunal",
+          "replacement": "the full 3-judge tribunal",
+          "note": "reword legacy->full (no prior-state implication)"
+        }
+      ]
+    },
+    {
+      "path": "README.md",
+      "ops": [
+        {
+          "op": "genericize",
+          "match": "for legacy 3-judge cross-validation",
+          "replacement": "for full 3-judge cross-validation",
+          "note": "reword legacy->full"
+        },
+        {
+          "op": "genericize",
+          "match": "vision-driven or legacy mode auto-detected",
+          "replacement": "vision-driven or blank-slate mode auto-detected",
+          "note": "legacy mode -> blank-slate mode (matches CLAUDE.md wording)"
+        }
+      ]
+    }
+  ],
+  "leakGuardHistoryMarkers": [
+    "What changed in v",
+    "What was removed \\(not replaced\\)",
+    "## Version History",
+    "Changes Summary \\(v3",
+    "Migration source",
+    "loom-migration",
+    "DS-STAR",
+    "gstack-D",
+    "Loom migration, Stage",
+    "Stage 8 integrator",
+    "\\(Stage 9",
+    "Stage 11",
+    "Stage 13",
+    "Stage-5 addition",
+    "retargeted in Stage",
+    "created in Stages",
+    "\\*\\*Last Updated\\*\\*: 20",
+    "\\*\\*Created\\*\\*: 20",
+    "Sprint 3 Task",
+    "\\(NEW - Sprint",
+    "[Rr]emoval [Tt]arget: v",
+    "Plugin-First Architecture v4",
+    "Skill-Based Delegation v5",
+    "Plugin-First v4",
+    "Feature 003",
+    "introduced in v5.0.0",
+    "preserved from v5.0.0",
+    "preserves the v5.0.0",
+    "from v5.0.0",
+    "deferred to v0.2",
+    "deferred from v0.1",
+    "were converted to enhanced skills",
+    "RL telemetry was removed",
+    "(legacy)"
+  ]
+}

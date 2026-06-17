@@ -197,6 +197,19 @@ _bm25_find_indexable_files() {
         -not -path "*/vendor/*" \
         -size -"${BM25_MAX_FILE_SIZE}c" \
         2>/dev/null || true
+
+    # Also index the home retro-memory dir (/retro writes durable lessons there).
+    # It lives outside the repo, so the repo find above misses it. Slug = repo
+    # path with '/' replaced by '-' (matches retro/SKILL.md's derivation).
+    local memory_slug home_memory
+    memory_slug=$(printf '%s' "$BM25_REPO_ROOT" | sed 's|/|-|g')
+    home_memory="$HOME/.claude/projects/${memory_slug}/memory"
+    if [ -d "$home_memory" ]; then
+        find "$home_memory" \
+            -type f -name "*.md" \
+            -size -"${BM25_MAX_FILE_SIZE}c" \
+            2>/dev/null || true
+    fi
 }
 
 # Index a single file and append its term-frequency data to a flat output file.
@@ -290,10 +303,17 @@ backend_search() {
         return 0
     fi
 
-    # Determine scope filter paths (for filtering results)
+    # Determine scope filter paths (for filtering results). In session scope we
+    # restrict to the working/recall tiers: specs, .docs, the features/ SUMMARY
+    # files (retro.md, plan-review.md, prd.md, sprints/**/result.md — never raw
+    # exploration/ dumps), and the home retro-memory dir where /retro writes.
     local scope_pattern=""
     if [ "$scope" = "session" ]; then
-        scope_pattern="^(specs/|\.devloop/sessions/|\.docs/)"
+        local memory_slug home_memory_esc
+        memory_slug=$(printf '%s' "$BM25_REPO_ROOT" | sed 's|/|-|g')
+        # Escape regex metachars in the absolute home path before embedding it.
+        home_memory_esc=$(printf '%s' "$HOME/.claude/projects/${memory_slug}/memory/" | sed 's/[.[\/*^$()+?{|]/\\&/g')
+        scope_pattern='^(specs/|\.docs/|features/.*/(retro|plan-review|prd)\.md$|features/.*/sprints/.*/result\.md$|'"$home_memory_esc"')'
     fi
 
     # Build a temporary file with all term data needed for scoring.
@@ -415,7 +435,14 @@ backend_search() {
     while IFS=$'\t' read -r raw_score doc_path best_kw; do
         [ -z "$doc_path" ] && continue
 
-        local abs_path="$BM25_REPO_ROOT/$doc_path"
+        # doc_path is repo-relative for in-repo docs, but absolute for the home
+        # retro-memory dir (outside the repo). Handle both.
+        local abs_path
+        if [[ "$doc_path" == /* ]]; then
+            abs_path="$doc_path"
+        else
+            abs_path="$BM25_REPO_ROOT/$doc_path"
+        fi
 
         # Normalize score to 0.0-1.0 range
         local norm_score

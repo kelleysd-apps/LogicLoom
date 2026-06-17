@@ -110,6 +110,25 @@ jobs:
         run: |
           bash .logic-loom/scripts/bash/strip-harness-dev.sh
           bash .logic-loom/scripts/bash/sanitize-for-template.sh
+          # Scrub dev-history NARRATIVE embedded in shipped files (changelogs,
+          # migration provenance, dated stamps, build-stage refs) so the template
+          # reads as a fresh harness with current version identity intact. Run from
+          # the PRESERVED copy — strip-harness-dev removed it from the tree. Targets
+          # the working tree via LOOM_SCRUB_ROOT (mirrors the LOOM_AUDIT_ROOT pattern).
+          LOOM_SCRUB_ROOT="$PWD" bash /tmp/loom-audit-tools/history-scrub.sh
+
+      # STAMP the shipped template's framework-upstream config from the SSOT CI
+      # variable so /update-framework targets the correct PUBLIC template repo
+      # (robust to a public-repo rename). framework-upstream.conf is NOT stripped.
+      - name: Stamp framework upstream config
+        run: |
+          {
+            echo "# LogicLoom framework upstream (FETCH-ONLY) — stamped at release.";
+            echo "# /update-framework fetches this ad-hoc into refs/loom-upstream/main;";
+            echo "# it is NOT a git remote and is never pushed to. Your commits go to origin.";
+            echo "LOOM_UPSTREAM_REPO=\"${PUBLIC_REPO}\"";
+            echo "LOOM_UPSTREAM_URL=\"https://github.com/${PUBLIC_REPO}.git\"";
+          } > .logic-loom/config/framework-upstream.conf
 
       # STAGE the stripped/stubbed state so `git ls-files` (and the eventual
       # write-tree) reflect the snapshot BEFORE the audit asserts on it.
