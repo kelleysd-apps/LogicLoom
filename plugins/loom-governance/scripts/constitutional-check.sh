@@ -184,7 +184,6 @@ echo "Checking for git approval mechanisms..."
 GIT_APPROVAL_FOUND=false
 for script in "$REPO_ROOT/.logic-loom/scripts/bash/"*.sh "$REPO_ROOT/"*.sh; do
     [ -f "$script" ] || continue
-    [[ "$script" == *"sanitization-audit.sh" ]] && continue
     [[ "$script" == *"constitutional-check.sh" ]] && continue
 
     # Check if script has git commands
