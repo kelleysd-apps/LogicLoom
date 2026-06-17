@@ -45,7 +45,7 @@ distribution machinery.
 
 **The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v3.1.0) contains **16 enforceable principles**:
+The constitution (v3.2.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **7 Workflow & Delegation Principles** (X-XVI): Delegation & Context Isolation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
@@ -75,69 +75,6 @@ recommendation. In practice:
 - **1 domain** → load the domain brief (`get_domain_brief <domain>`) or use `/swarm explore`
 - **2+ domains** → `/swarm` or a team-orchestration command
 
-## Project Overview
-
-**Project**: Kelley AI Consulting (kelleysd.com)
-**Type**: Solo AI Consultancy Website
-**Owner**: Brian Kelley
-
-This project uses the LogicLoom framework to build a professional AI consultancy website. The site positions Brian Kelley as an enterprise AI strategy consultant, combining 15+ years of IT/Security leadership with M&A integration expertise.
-
-### Key Documents
-
-| Document | Path | Purpose |
-|----------|------|---------|
-| **PRD** | `.docs/prd/prd.md` | Single Source of Truth for all requirements |
-| **Constitutional Customizations** | `.docs/project/constitutional-customizations.md` | Project-specific principle applications |
-| **Design System** | `docs/design-system/design-system.md` | UI/UX standards and components |
-| **Quick Reference** | `.docs/prd/PRD_QUICK_REFERENCE.md` | PRD summary and next steps |
-
-### Target Audience
-
-- **Primary**: Mid-market CTOs, PE Partners evaluating AI capabilities
-- **Secondary**: Security VPs, Peer Consultants seeking collaboration
-
-### Tech Stack
-
-- **Frontend**: React 18, Vite, TailwindCSS 3.4, Radix UI, Framer Motion
-- **Backend**: Express.js, TypeScript, Node.js
-- **Database**: PostgreSQL via Drizzle ORM (Supabase)
-- **Auth**: JWT + bcrypt, session-based
-- **Hosting**: Vercel
-
-### Vercel Configuration (CRITICAL)
-
-**Project Name**: `website` (NOT "kelleysd.com")
-
-The correct Vercel project configuration is:
-- **Project Name**: `website`
-- **Project ID**: `prj_gYdedE5dz4XVaAiTArjnu9kpDRPH`
-- **Org ID**: `team_Ns7A2cvWqvSkQ4cG6x43wWbM`
-
-**Location**: `.vercel/project.json` (gitignored, must be configured locally)
-
-**IMPORTANT**: If `.vercel/project.json` shows `"projectName":"kelleysd.com"`, it's WRONG. Always verify it says `"projectName":"website"` before deploying.
-
-### Success Metrics
-
-- 10 qualified leads/quarter within 6 months
-- 2,000 visitors/month by month 6
-- 500 newsletter subscribers
-- 5% consultation booking rate
-
-### MVP Features (Month 1)
-
-1. Home page with value proposition
-2. About page (Brian's expertise)
-3. Services page (4 offerings)
-4. Consultation booking system
-5. Contact forms
-6. Newsletter signup
-7. Blog platform foundation
-8. Mobile-responsive design
-9. Analytics (GA4)
-
----
 
 ## Development Principles
 
@@ -184,7 +121,7 @@ Or analyze request automatically:
 **Last Updated**: 2026-02-07
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.logic-loom/memory/constitution.md` (v3.1.0)
+- `.logic-loom/memory/constitution.md` (v3.2.0)
 - CLAUDE.md core sections
 - `.logic-loom/config/governance.conf` (LOOM_GOVERNANCE_MODE)
 - `.claude/hooks/` (preflight + dangerous-command guard)

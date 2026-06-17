@@ -2,7 +2,7 @@
 name: constitutional-compliance
 description: |
   Validate constitutional compliance for specifications, plans, tasks, code, and operations
-  using the LogicLoom Constitution v3.1.0 (16 principles). Use when checking if work
+  using the LogicLoom Constitution v3.2.0 (16 principles). Use when checking if work
   follows constitutional requirements or executing compliance validation.
 
   This skill provides guidance on applying all 16 constitutional principles and running

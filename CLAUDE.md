@@ -205,7 +205,7 @@ For new work, prefer `/swarm explore` over individual specialist routing.
 
 **ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v3.1.0) contains **16 enforceable principles**. Enforcement is
+The constitution (v3.2.0) contains **16 enforceable principles**. Enforcement is
 hook-side (see the **Governance** section above); the list below is a quick map.
 
 - **3 Immutable** (I-III): Library-First, Test-First, Contract-First

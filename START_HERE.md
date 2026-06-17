@@ -20,7 +20,7 @@ bash init-project.sh
 
 | Path | Purpose |
 |------|---------|
-| `.logic-loom/memory/constitution.md` | 16 governance principles (v3.1.0) |
+| `.logic-loom/memory/constitution.md` | 16 governance principles (v3.2.0) |
 | `.logic-loom/scripts/bash/` | Workflow automation and plugin command bridge |
 | `.logic-loom/templates/` | `vision-template.md`, `prd-template.md`, plan/sprint/retro templates |
 | `.logic-loom/config/` | Quality thresholds |
@@ -175,7 +175,7 @@ your-project/
 - **README.md** — framework features and architecture
 - **AGENTS.md** — complete agent registry
 - **features/README.md** — per-feature layout convention with rationale
-- **.logic-loom/memory/constitution.md** — 16 principles (v3.1.0)
+- **.logic-loom/memory/constitution.md** — 16 principles (v3.2.0)
 - **.docs/policies/** — framework policies
 
 ---

@@ -140,7 +140,7 @@ This skill implements **Principle X (Agent Delegation Protocol)**: it analyzes t
 domain and recommends the consolidated worker brief(s) so specialized work is routed to a
 specialist worker rather than handled by a generalist. Enforcement is hook-driven — the
 governance hook surfaces domains automatically; this skill supplies the interpretation and
-brief resolution. Constitution: v3.1.0.
+brief resolution. Constitution: v3.2.0.
 
 ## Troubleshooting
 
@@ -167,4 +167,4 @@ per brief under a swarm. Default to multi when unsure.
 - Domain keyword map: `plugins/loom-orchestrator-hook/config/domains.conf`
 - Domain-brief registry: `plugins/loom-governance/domain-briefs/`
 - `get_domain_brief()`: `.logic-loom/scripts/bash/common.sh`
-- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`

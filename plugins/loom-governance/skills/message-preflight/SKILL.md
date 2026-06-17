@@ -47,7 +47,7 @@ Set the mode via the environment variable `LOOM_GOVERNANCE_MODE`. Absence ⇒ `l
 
 ## How to reason about a message
 
-1. **Constitution** — work under the 16 principles (v3.1.0). The load-bearing ones in
+1. **Constitution** — work under the 16 principles (v3.2.0). The load-bearing ones in
    day-to-day flow: II (Test-First, IMMUTABLE), VI (Git Approval — hook-enforced),
    X (Agent Delegation), XVI (Plugin-First).
 2. **Domain(s)** — note any technical domains present (frontend, backend, database,
@@ -115,7 +115,7 @@ command until you ask.
 
 ## References
 
-- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Domain-brief registry: `plugins/loom-governance/domain-briefs/`
 - Domain keyword map: `plugins/loom-orchestrator-hook/config/domains.conf`
 - `get_domain_brief()`: `.logic-loom/scripts/bash/common.sh`

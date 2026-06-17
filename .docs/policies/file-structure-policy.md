@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.1.0
+**Authority**: Constitution v3.2.0
 **Review Cycle**: Quarterly
 
 ---

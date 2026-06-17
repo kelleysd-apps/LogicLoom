@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.1.0 - Principles VIII (Documentation Sync), X (Agent Delegation)
+**Authority**: Constitution v3.2.0 - Principles VIII (Documentation Sync), X (Agent Delegation)
 **Review Cycle**: Quarterly
 
 ---
@@ -470,7 +470,7 @@ notes: "Implemented per data-model.md specification"
 
 ## References
 
-- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Tasks Template: `.logic-loom/templates/tasks-template.md`
 - SDD Tasks Skill: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
 - Specification Command: `.claude/commands/specification.md`

@@ -410,7 +410,7 @@ consolidated worker briefs in plugins/loom-governance/domain-briefs/<domain>.md
 ---
 ## Related Documentation
 
-- **Constitution**: `.logic-loom/memory/constitution.md` (v3.1.0)
+- **Constitution**: `.logic-loom/memory/constitution.md` (v3.2.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
 - **Agent Layer**: `plugins/loom-governance/agents/constitutional-governance-agent.md`
 - **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`

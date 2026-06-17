@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.1.0 - Principle VIII (Documentation Sync)
+**Authority**: Constitution v3.2.0 - Principle VIII (Documentation Sync)
 **Review Cycle**: On any agent or workflow change
 
 ---
@@ -200,8 +200,8 @@ Both files reference agent counts:
 
 Both files reference constitution version:
 
-- `CLAUDE.md`: "Constitution v3.1.0 contains 16 enforceable principles"
-- `AGENTS.md`: "Constitution: v3.1.0 (16 Principles)"
+- `CLAUDE.md`: "Constitution v3.2.0 contains 16 enforceable principles"
+- `AGENTS.md`: "Constitution: v3.2.0 (16 Principles)"
 
 **Sync Rule**: Must match exactly.
 

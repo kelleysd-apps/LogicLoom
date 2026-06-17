@@ -45,7 +45,7 @@ Two modes apply via `LOOM_GOVERNANCE_MODE`: **lean** (default — hooks enforce 
 ### How to reason about a message
 
 ```
-1. Constitution — work under the 16 principles (v3.1.0).
+1. Constitution — work under the 16 principles (v3.2.0).
    Load-bearing: II (Test-First, IMMUTABLE), VI (Git Approval, hook-enforced),
    X (Agent Delegation), XVI (Plugin-First).
 
@@ -294,5 +294,5 @@ To enable this agent as the default entry point:
 
 **Agent Version**: 1.0.0
 **Created**: 2025-12-05
-**Constitution**: v3.1.0 (16 Principles)
+**Constitution**: v3.2.0 (16 Principles)
 **Review Schedule**: Quarterly

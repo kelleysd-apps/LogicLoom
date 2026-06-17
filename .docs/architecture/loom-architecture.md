@@ -1,7 +1,7 @@
 # LogicLoom Architecture
 
 **Status**: v6.1.0 (authoritative)
-**Constitution**: v3.1.0 (16 principles)
+**Constitution**: v3.2.0 (16 principles)
 **Migration source**: SDD-Workflow v5.0.0 → LogicLoom (workflow-scope cutover)
 **Reference**: Anthropic, "How we built our multi-agent harness."
 
@@ -247,7 +247,7 @@ The v5.0.0 `mcp-servers/sdd-marketplace/` MCP server is retired.
 
 ## 12. Constitutional governance
 
-The 16-principle constitution (v3.1.0) at `.logic-loom/memory/constitution.md`
+The 16-principle constitution (v3.2.0) at `.logic-loom/memory/constitution.md`
 is the durable governance core shared by every workflow pack. Principles I–XVI
 and their enforcement (preflight hook, git-safety gate, finalize validator,
 agent delegation rules) remain authoritative across all packs.

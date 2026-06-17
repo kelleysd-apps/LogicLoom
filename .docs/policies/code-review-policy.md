@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.1.0 - Principle VIII (Documentation Synchronization)
+**Authority**: Constitution v3.2.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
 ---
@@ -380,7 +380,7 @@ Why: [Specific reason]
 
 ## References
 
-- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Testing domain brief: `plugins/loom-governance/domain-briefs/testing.md` (via `get_domain_brief testing`)
 - Security domain brief: `plugins/loom-governance/domain-briefs/security.md` (via `get_domain_brief security`)
 - Quality Assessor Agent: `plugins/sdd-specification/agents/quality-assessor.md`

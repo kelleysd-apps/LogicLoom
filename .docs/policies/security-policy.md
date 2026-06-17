@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.1.0 - Principle XI (Input Validation & Output Sanitization)
+**Authority**: Constitution v3.2.0 - Principle XI (Input Validation & Output Sanitization)
 **Review Cycle**: Quarterly
 
 ---
@@ -615,7 +615,7 @@ All team members must complete:
 
 ## References
 
-- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - OWASP: https://owasp.org/

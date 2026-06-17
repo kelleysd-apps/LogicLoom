@@ -403,4 +403,3 @@ If your project has `"type": "module"` in `package.json`:
    ```
    Then update settings.json to reference `.cjs`
 
-**Full documentation**: `.docs/troubleshooting/governance-hook-esm-fix.md`

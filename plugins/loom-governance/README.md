@@ -90,7 +90,7 @@ claude plugin install ./plugins/loom-governance
 
 ## Constitutional Principles Enforced
 
-All 16 principles (I-XVI) from constitution v3.1.0:
+All 16 principles (I-XVI) from constitution v3.2.0:
 - I: Library-First Architecture
 - II: Test-First Development (**IMMUTABLE**)
 - III: Contract-First Design

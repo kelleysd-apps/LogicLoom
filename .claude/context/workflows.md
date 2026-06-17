@@ -395,13 +395,12 @@ Manual Git Operations (User Approval Required)
 ```
 .logic-loom/
 ├── memory/
-│   ├── constitution.md                    # Core principles (v3.1.0 - 16 principles)
+│   ├── constitution.md                    # Core principles (v3.2.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
 │   └── agent-collaboration-triggers.md    # Agent delegation reference
 ├── scripts/bash/                          # Workflow automation scripts
 │   ├── common.sh                          # Shared functions + git approval
 │   ├── constitutional-check.sh            # 16-principle compliance validator
-│   ├── sanitization-audit.sh              # Framework sanitization checker
 │   ├── create-new-feature.sh              # Feature initialization
 │   ├── setup-plan.sh                      # Planning workflow
 │   ├── check-task-prerequisites.sh        # Task generation validator
@@ -441,12 +440,10 @@ specs/###-feature-name/                     # Per-feature documentation
 ### Validation Scripts
 
 - **constitutional-check.sh**: Automated compliance checking for all 16 principles
-- **sanitization-audit.sh**: Verifies framework sanitization (no project-specific elements)
 
 **Run before commits and releases**:
 ```bash
 ./.logic-loom/scripts/bash/constitutional-check.sh
-./.logic-loom/scripts/bash/sanitization-audit.sh
 ```
 
 ---
@@ -472,7 +469,7 @@ Load workflow context when needed:
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
 - `.logic-loom/scripts/bash/` workflow scripts
-- `.logic-loom/memory/constitution.md` (v3.1.0)
+- `.logic-loom/memory/constitution.md` (v3.2.0)
 - `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow (NEW)

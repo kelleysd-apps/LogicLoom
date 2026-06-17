@@ -101,7 +101,7 @@ Domain expertise is **not** a plugin: the 7 domains (frontend, backend, database
 
 ## Core principles
 
-LogicLoom enforces Constitution v3.1.0 (16 principles). The most load-bearing in day-to-day work:
+LogicLoom enforces Constitution v3.2.0 (16 principles). The most load-bearing in day-to-day work:
 
 1. **Test-First Development** (Principle II): TDD mandatory, >80% coverage.
 2. **Git Operation Approval** (Principle VI): no autonomous git operations — enforced by the `git-safety-gate` hook.
@@ -173,7 +173,7 @@ plugins/                              # Plugin-First Architecture
                                        # (domains are briefs in loom-governance/domain-briefs/, not plugins)
 
 .logic-loom/
-+-- memory/constitution.md            # v3.1.0 (16 principles)
++-- memory/constitution.md            # v3.2.0 (16 principles)
 +-- config/                           # governance.conf (lean/strict), models.conf (role->model)
 +-- scripts/bash/                     # Workflow automation + plugin bridge
 +-- templates/                        # vision-template, prd-template, plan/sprints templates
@@ -219,6 +219,6 @@ MIT
 ---
 
 **Framework**: LogicLoom v6.2.0
-**Constitution**: v3.1.0 (16 principles)
+**Constitution**: v3.2.0 (16 principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

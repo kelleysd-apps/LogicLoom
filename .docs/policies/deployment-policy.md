@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.1.0 - Principle VII (Observability)
+**Authority**: Constitution v3.2.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
 
 ---
@@ -655,7 +655,7 @@ Deployment logs retained for:
 
 ## References
 
-- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`
