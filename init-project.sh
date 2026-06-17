@@ -145,7 +145,7 @@ Follow the constitutional principles in \`.logic-loom/memory/constitution.md\`.
 
 ---
 
-Built with [LogicLoom](https://github.com/kelleysd-apps/sdd-agentic-framework)
+Built with [LogicLoom](https://github.com/kelleysd-apps/LogicLoom)
 EOF
 
 echo -e "${GREEN}✓${NC} Project README created"

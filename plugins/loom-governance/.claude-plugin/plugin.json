@@ -4,7 +4,7 @@
   "description": "Constitutional governance enforcement for LogicLoom. Enforces 16 constitutional principles across all plugins via hook-side gates (git safety, governance-surface protection, freeze file-ownership) and domain detection.",
   "author": "kelleysd-apps",
   "license": "MIT",
-  "homepage": "https://github.com/kelleysd-apps/sdd-agentic-framework",
+  "homepage": "https://github.com/kelleysd-apps/LogicLoom",
   "keywords": [
     "logic-loom",
     "governance",
