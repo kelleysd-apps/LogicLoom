@@ -1,4 +1,4 @@
-# Windows Setup Script for SDD Agentic Framework
+# Windows Setup Script for LogicLoom
 # Automatically installs all dependencies and sets up the framework
 # Run this script in PowerShell: .\setup-windows.ps1
 
@@ -17,7 +17,7 @@ function Write-Warning { Write-Host "[WARNING] $args" -ForegroundColor Yellow }
 function Write-Error { Write-Host "[ERROR] $args" -ForegroundColor Red }
 
 Write-Info "========================================="
-Write-Info "   SDD Framework Windows Setup"
+Write-Info "   LogicLoom Windows Setup"
 Write-Info "========================================="
 Write-Host ""
 
@@ -229,7 +229,7 @@ else {
 Write-Host ""
 
 # Step 4: Run framework setup
-Write-Info "[Step 4/4] Setting up SDD Framework..."
+Write-Info "[Step 4/4] Setting up LogicLoom..."
 Write-Host ""
 
 # Check if we have Git Bash available

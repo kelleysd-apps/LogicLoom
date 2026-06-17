@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Structured Logging Library for SDD Framework
+# Structured Logging Library for LogicLoom
 # Constitutional Principle VII: Observability and Structured Logging
 #
 # Provides JSON-formatted logging with:

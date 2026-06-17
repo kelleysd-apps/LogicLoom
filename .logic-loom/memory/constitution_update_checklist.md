@@ -169,10 +169,6 @@ If workflows affected (Principles II, III, VI, X):
 - [ ] Test all checks still pass
 - [ ] Update output messages
 
-**sanitization-audit.sh**:
-- [ ] Update if security/validation principles changed
-- [ ] Add new checks if required
-
 **create-agent.sh**:
 - [ ] Update agent template if delegation principles changed
 - [ ] Update validation if requirements changed
@@ -270,7 +266,6 @@ After all updates complete:
 ### Automated Testing
 
 - [ ] Run `constitutional-check.sh` - all checks must pass
-- [ ] Run `sanitization-audit.sh` - verify no regressions
 - [ ] Test all workflow scripts with new constitution
 - [ ] Validate all template files generate correctly
 
@@ -312,7 +307,7 @@ If constitutional change breaks existing projects:
 
 ### Communication
 
-- [ ] Update CHANGELOG.md
+- [ ] Update CHANGELOG.md (if the project maintains one)
 - [ ] Add breaking change notice to README
 - [ ] Document in release notes
 - [ ] Consider semver major version bump

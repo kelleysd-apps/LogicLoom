@@ -29,11 +29,10 @@ Validate that all changes comply with the 16 constitutional principles before co
 
 ### Step 1: Run Automated Checks
 
-Run the constitutional compliance script and sanitization audit:
+Run the constitutional compliance script:
 
 ```
 bash .logic-loom/scripts/bash/constitutional-check.sh
-bash .logic-loom/scripts/bash/sanitization-audit.sh 2>/dev/null || true
 ```
 
 Parse output for pass/fail results per principle.
@@ -77,7 +76,7 @@ Check each principle against the current changes:
 
 - Verify CLAUDE.md reflects any instruction changes
 - Verify AGENTS.md matches current agent registry
-- Check CHANGELOG.md has entry for current changes
+- Check CHANGELOG.md has an entry for current changes (if the project maintains one)
 
 ### Step 5: Security Scan (Principle XI)
 
@@ -120,4 +119,3 @@ Suggested commit commands (for manual execution):
 
 - `/git-push` — Executes the git workflow (with user approval)
 - `.logic-loom/scripts/bash/constitutional-check.sh` — Automated checker
-- `.logic-loom/scripts/bash/sanitization-audit.sh` — Secret scanner

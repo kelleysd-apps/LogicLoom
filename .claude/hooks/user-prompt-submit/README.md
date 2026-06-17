@@ -45,7 +45,7 @@ Claude Code receives message + governance context
 
 The hook injects a governance reminder that includes:
 
-- **4-Step Pre-Flight Protocol** - Mandatory compliance check
+- **Pre-Flight Recitation** - optional; injected only under `LOOM_GOVERNANCE_MODE=strict` (lean mode relies on hook-side enforcement)
 - **Domain Analysis** - Trigger keywords for agent delegation
 - **Critical Principles** - VI (Git Approval), X (Agent Delegation), II (Test-First)
 - **Compliance Summary Format** - Expected output format

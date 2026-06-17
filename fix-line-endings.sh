@@ -3,7 +3,7 @@
 # NOTE: ONE-TIME UTILITY — only needed if CRLF errors occur on Windows.
 # This is not part of the regular workflow.
 
-# Emergency line ending fixer for SDD Agentic Framework
+# Emergency line ending fixer for LogicLoom
 # Run this if you encounter CRLF errors when trying to run setup
 
 echo "======================================"

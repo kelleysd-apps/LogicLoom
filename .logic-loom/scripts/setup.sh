@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Auto-setup script for SDD Agentic Framework
+# Auto-setup script for LogicLoom
 # This script automatically configures the development environment on first run
 # Supports macOS and Linux with automatic dependency installation
 
@@ -20,7 +20,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=====================================${NC}"
-echo -e "${BLUE}   SDD Framework Setup${NC}"
+echo -e "${BLUE}   LogicLoom Setup${NC}"
 echo -e "${BLUE}=====================================${NC}"
 echo ""
 

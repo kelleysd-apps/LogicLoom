@@ -16,11 +16,14 @@ bash .logic-loom/scripts/bash/constitutional-check.sh
 ```
 Parse output for pass/fail per principle.
 
-### Step 2: Run Sanitization Audit
+### Step 2: Secret / Credential Scan
 ```bash
-bash .logic-loom/scripts/bash/sanitization-audit.sh 2>/dev/null || true
+# Generic staged-file secret scan (no external tooling dependency).
+git diff --cached --name-only -z 2>/dev/null | xargs -0 -r grep -nIE \
+  '(api[_-]?key|secret|passwd|password|token|-----BEGIN [A-Z ]+PRIVATE KEY-----|AKIA[0-9A-Z]{16})' \
+  2>/dev/null && echo "⚠ Review the matches above before committing." || echo "No obvious secrets in staged files."
 ```
-Check for secrets, credentials, API keys in staged files.
+Flag any apparent credentials, API keys, or private keys in staged files.
 
 ### Step 3: Validate Test Coverage (Principle II)
 ```bash
@@ -31,7 +34,7 @@ Ensure all test suites pass and coverage meets 80% threshold.
 ### Step 4: Check Documentation Sync (Principle VIII)
 - Verify CLAUDE.md is up to date
 - Verify AGENTS.md matches current agent registry
-- Check CHANGELOG.md has entry for current changes
+- Check CHANGELOG.md has an entry for current changes (if the project maintains one)
 
 ### Step 5: Generate Compliance Report
 ```

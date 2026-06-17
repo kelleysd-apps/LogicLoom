@@ -8,7 +8,7 @@
 
 ## Overview
 
-This guide covers the setup and configuration of Browser MCP integration for the SDD Framework, enabling:
+This guide covers the setup and configuration of Browser MCP integration for the LogicLoom, enabling:
 
 - **Browser automation** via Browser MCP extension
 - **Chrome DevTools debugging** via DevTools MCP
@@ -23,7 +23,7 @@ This guide covers the setup and configuration of Browser MCP integration for the
 
 - ✅ **Node.js** (v18 or later) - For `npx` package execution
 - ✅ **Chrome/Chromium** browser - For browser automation
-- ✅ **SDD Framework** - Base framework must be installed
+- ✅ **LogicLoom** - Base framework must be installed
 
 ### Optional
 

@@ -107,8 +107,13 @@ jobs:
       # checked-out dev-main tree (a fresh CI runner — nothing else lives here).
       - name: Build sanitized tree from dev-main
         run: |
-          bash .logic-loom/scripts/bash/strip-harness-dev.sh
+          # ORDER MATTERS: run sanitize-for-template FIRST (it must exist to run),
+          # THEN strip-harness-dev — which removes the maintainer scripts (incl.
+          # sanitize-for-template.sh + sanitization-audit.sh, now manifest-listed)
+          # from the shipped tree. history-scrub + the audit run from the PRESERVED
+          # copy below, so they work even after their tree copies are stripped.
           bash .logic-loom/scripts/bash/sanitize-for-template.sh
+          bash .logic-loom/scripts/bash/strip-harness-dev.sh
           # Scrub dev-history NARRATIVE embedded in shipped files (changelogs,
           # migration provenance, dated stamps, build-stage refs) so the template
           # reads as a fresh harness with current version identity intact. Run from

@@ -1,6 +1,6 @@
 # Skill Template
 
-This template provides the structure for creating Agent Skills in the SDD Framework.
+This template provides the structure for creating Agent Skills in the LogicLoom.
 
 ## What Are Agent Skills?
 

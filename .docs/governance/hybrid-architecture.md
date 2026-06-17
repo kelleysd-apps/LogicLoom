@@ -8,7 +8,7 @@
 
 ## Overview
 
-The SDD Framework employs a **3-layer hybrid governance architecture** that combines automatic enforcement, manual review, and active agent governance to ensure constitutional compliance across all 16 principles.
+The LogicLoom employs a **3-layer hybrid governance architecture** that combines automatic enforcement, manual review, and active agent governance to ensure constitutional compliance across all 16 principles.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -172,7 +172,7 @@ Provide **active real-time enforcement** of constitutional principles by serving
 ### How It Works
 1. User configures `constitutional-governance-agent` as default agent
 2. Agent receives all user messages (with Layer 1 context)
-3. Executes 4-step pre-flight protocol on every message
+3. Relies on hook-side enforcement each message; the pre-flight recitation is optional (injected only under `LOOM_GOVERNANCE_MODE=strict`)
 4. Enforces critical principles (II, VI, X)
 5. Delegates specialized work to domain agents
 6. Gates all git operations (Principle VI)

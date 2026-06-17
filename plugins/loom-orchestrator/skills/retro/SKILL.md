@@ -122,9 +122,9 @@ one line each; feature-specific trivia stays in `retro.md` only.
    schema below. Overwrite any previous retro at that path (idempotent).
 8. **Write memory entry**: Compute the memory directory:
    `$HOME/.claude/projects/<project-slug>/memory/` where `<project-slug>` is
-   the CWD path with `/` replaced by `-` (the convention this user's setup
-   already follows — e.g.
-   `-Users-bkelley-kelleysd-apps-logic-loom`). Determine the slug
+   the CWD path with `/` replaced by `-` (the convention Claude Code uses —
+   e.g. a project at `/Users/<you>/<your-project>` becomes
+   `-Users-<you>-<your-project>`). Determine the slug
    via Bash:
    `slug=$(pwd | sed 's|/|-|g')` and target
    `$HOME/.claude/projects/${slug}/memory/retro_<feature>_<YYYY-MM-DD>.md`.

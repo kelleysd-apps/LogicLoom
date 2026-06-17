@@ -1,5 +1,5 @@
 #!/bin/bash
-# Constitutional Compliance Checker for SDD Framework
+# Constitutional Compliance Checker for LogicLoom
 # Validates adherence to Constitutional Principles
 # Authority: Constitution v3.0.0
 

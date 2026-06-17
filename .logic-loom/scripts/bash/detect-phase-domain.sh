@@ -1,6 +1,5 @@
 #!/bin/bash
 # Domain Detection Script for Multi-Agent Workflows
-# Part of Phase 3: Workflow Automation
 #
 # This script analyzes text (from specs, tasks, or user input) and identifies
 # which domains/agents should be involved based on trigger keywords from

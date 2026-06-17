@@ -2,7 +2,7 @@
   "agents": {
     "constitutional-governance-agent": {
       "department": "governance",
-      "description": "Primary entry point. Enforces 4-step pre-flight compliance protocol, routes specialized work to domain skills per Principle X, gates all git operations per Principle VI.",
+      "description": "Primary entry point. Routes specialized work to domain skills per Principle X, gates all git operations per Principle VI; governance is hook-enforced (pre-flight recitation optional under strict mode).",
       "created": "2025-12-05T05:24:27Z",
       "tools": "Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TaskCreate, TaskUpdate",
       "model": "opus",

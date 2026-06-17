@@ -4,7 +4,7 @@
 # This script is from the pre-plugin era. Use: plugins/loom-maintenance/commands/initialize-project.md
 # Removal target: v5.0
 
-# Project Initialization Script for SDD Agentic Framework
+# Project Initialization Script for LogicLoom
 # This script helps users quickly set up a new project based on this framework
 
 set -e
@@ -22,7 +22,7 @@ RED='\033[0;31m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}=====================================${NC}"
-echo -e "${BLUE}   SDD Framework Project Setup${NC}"
+echo -e "${BLUE}   LogicLoom Project Setup${NC}"
 echo -e "${BLUE}=====================================${NC}"
 echo ""
 
@@ -163,7 +163,7 @@ if [ ! -d ".git" ]; then
         else
             git init
             git add .
-            git commit -m "Initial commit: $PROJECT_NAME setup with SDD Framework"
+            git commit -m "Initial commit: $PROJECT_NAME setup with LogicLoom"
             echo -e "${GREEN}✓${NC} Git repository initialized"
         fi
     else
@@ -172,7 +172,7 @@ if [ ! -d ".git" ]; then
         if [[ "$INIT_GIT" =~ ^[Yy]$ ]]; then
             git init
             git add .
-            git commit -m "Initial commit: $PROJECT_NAME setup with SDD Framework"
+            git commit -m "Initial commit: $PROJECT_NAME setup with LogicLoom"
             echo -e "${GREEN}✓${NC} Git repository initialized"
         else
             echo -e "${YELLOW}Git initialization skipped${NC}"

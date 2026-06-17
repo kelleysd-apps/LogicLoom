@@ -42,9 +42,15 @@
 stub: VISION.md
 
 # --- Release plumbing SCRIPTS: maintainer-only. These contain identity markers
-#     as detection patterns by design, so they must NEVER ship. Stripped here at
-#     PROMOTE time. (promote-to-main.yml is handled differently — see below.) ---
+#     as detection patterns / origin provenance by design, so they must NEVER
+#     ship. Stripped here at PROMOTE time. The build runs sanitize-for-template.sh
+#     BEFORE strip-harness-dev.sh (so it can do its job before being removed), and
+#     runs sanitization-audit.sh + history-scrub.sh from a PRESERVED copy outside
+#     the tree (/tmp/loom-audit-tools) — so all of these can be stripped from the
+#     shipped tree. (promote-to-main.yml is handled differently — see below.) ---
 .logic-loom/scripts/bash/strip-harness-dev.sh
+.logic-loom/scripts/bash/sanitize-for-template.sh
+.logic-loom/scripts/bash/sanitization-audit.sh
 .logic-loom/scripts/bash/leak-guard.sh
 .logic-loom/scripts/bash/template-strip-manifest.txt
 .logic-loom/scripts/bash/history-scrub.sh
