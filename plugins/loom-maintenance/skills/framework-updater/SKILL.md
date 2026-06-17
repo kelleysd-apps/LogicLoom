@@ -15,7 +15,7 @@ allowed-tools: Read, Write, Bash, Grep, Glob, WebFetch, WebSearch
 
 **Upstream-history-only. Additive-only. Proposal-based.**
 
-The SDD framework is a development platform that gets cloned to create independent
+The LogicLoom framework is a development platform that gets cloned to create independent
 projects. Each downstream project customizes governance, agents, skills, and config.
 The update process must NEVER compare downstream content against upstream — it only
 looks at what upstream changed in its own history and offers those changes as

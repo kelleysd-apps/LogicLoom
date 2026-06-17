@@ -9,7 +9,7 @@
 
 ## Overview
 
-The constitution (`.logic-loom/memory/constitution.md`) is the supreme authority for the SDD framework. When constitutional principles change, many dependent documents must be updated to maintain synchronization and prevent documentation drift.
+The constitution (`.logic-loom/memory/constitution.md`) is the supreme authority for the LogicLoom framework. When constitutional principles change, many dependent documents must be updated to maintain synchronization and prevent documentation drift.
 
 This checklist ensures constitutional changes propagate correctly throughout the framework.
 
@@ -250,11 +250,11 @@ In `.claude/commands/`:
 
 ### Step 9: Update SOW / PRD (if applicable)
 
-**sdd-framework-enhancements-sow.md**:
+**Project SOW** (if your project maintains one):
 - [ ] Update constitutional foundation section if applicable
 - [ ] Document change as enhancement
 
-**sdd-framework-enhancements-prd.md**:
+**Project PRD** (`.docs/prd/prd.md`):
 - [ ] Add change to enhancement catalog if applicable
 
 ---
@@ -374,7 +374,7 @@ If constitutional change breaks existing projects:
 9. `.logic-loom/templates/plan-template.md`
 10. `.logic-loom/templates/tasks-template.md`
 11. README.md
-12. `.docs/sdd-framework-enhancements-sow.md` (if significant change)
+12. `.docs/prd/prd.md` (if significant change)
 13. `plugins/*/skills/validation/message-preflight/SKILL.md` (if principles change)
 
 **TANDEM UPDATE RULE**: CLAUDE.md and AGENTS.md MUST be updated together when:

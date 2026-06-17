@@ -394,7 +394,7 @@ if ! command -v claude &> /dev/null; then
     echo -e "${YELLOW}   Claude Code Not Detected${NC}"
     echo -e "${YELLOW}=====================================${NC}"
     echo ""
-    echo -e "${BLUE}Claude Code is required to use the SDD framework commands.${NC}"
+    echo -e "${BLUE}Claude Code is required to use the LogicLoom framework commands.${NC}"
     echo ""
     echo -e "${YELLOW}Install Claude Code using one of these methods:${NC}"
     echo ""

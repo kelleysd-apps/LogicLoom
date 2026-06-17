@@ -53,8 +53,6 @@ Suggested commit commands (for manual execution):
 **CRITICAL (Principle VI)**: This command NEVER executes git commands.
 It only validates and suggests. The user must manually execute git operations.
 
-### Step 6: RL Feedback
-Record finalize skill execution result.
 
 ## Constitutional Compliance
 - **Principle VI (CRITICAL)**: NO git operations — report only

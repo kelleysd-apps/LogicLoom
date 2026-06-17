@@ -22,10 +22,16 @@ assert "constitution.md exists" "[ -f .logic-loom/memory/constitution.md ]"
 assert "Title is v3.2.0" "grep -q '# LogicLoom Constitution v3.2.0' .logic-loom/memory/constitution.md"
 assert "Version is v3.2.0" "grep -q 'v3.2.0' .logic-loom/memory/constitution.md"
 assert "Has 16 enforceable principles" "grep -q '16 enforceable principles' .logic-loom/memory/constitution.md"
-assert "v3.1.0 amendment date recorded" "grep -q 'Amended.*2026-05-28 (v3.1.0)' .logic-loom/memory/constitution.md"
-assert "v3.2.0 amendment date recorded" "grep -q '2026-06-15 (v3.2.0)' .logic-loom/memory/constitution.md"
-assert "v3.1.0 version-history row exists" "grep -qE '^\| 3.1.0 \|' .logic-loom/memory/constitution.md"
-assert "v3.2.0 version-history row exists" "grep -qE '^\| 3.2.0 \|' .logic-loom/memory/constitution.md"
+# Amendment dates + version-history rows exist on dev-main but are intentionally
+# scrubbed from the published template (history-scrub.sh erases dev-history dates).
+# Assert them only when a version-history table is present, so the suite passes on
+# BOTH dev-main and the sanitized template.
+if grep -qE '^\| [0-9]+\.[0-9]+\.[0-9]+ \|' .logic-loom/memory/constitution.md; then
+  assert "v3.1.0 amendment date recorded" "grep -q 'Amended.*2026-05-28 (v3.1.0)' .logic-loom/memory/constitution.md"
+  assert "v3.2.0 amendment date recorded" "grep -q '2026-06-15 (v3.2.0)' .logic-loom/memory/constitution.md"
+  assert "v3.1.0 version-history row exists" "grep -qE '^\| 3.1.0 \|' .logic-loom/memory/constitution.md"
+  assert "v3.2.0 version-history row exists" "grep -qE '^\| 3.2.0 \|' .logic-loom/memory/constitution.md"
+fi
 assert "Governance-vs-direction clause defers to VISION.md" "grep -q 'Governance vs. direction' .logic-loom/memory/constitution.md && grep -q 'VISION.md' .logic-loom/memory/constitution.md"
 
 echo ""

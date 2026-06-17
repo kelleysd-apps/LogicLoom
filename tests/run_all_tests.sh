@@ -51,7 +51,7 @@ echo "╚═══════════════════════�
 # Contract Tests
 run_suite "Plugin Lifecycle" "bash tests/contract/plugins/test_plugin_lifecycle.sh"
 run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh"
-run_suite "Constitution v3.1.0" "bash tests/contract/test_constitution.sh"
+run_suite "Constitution v3.2.0" "bash tests/contract/test_constitution.sh"
 run_suite "Governance Hooks" "bash tests/contract/test_governance_hooks.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
 run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
