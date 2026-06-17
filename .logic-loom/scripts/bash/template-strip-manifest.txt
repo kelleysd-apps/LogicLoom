@@ -87,5 +87,5 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
 #   .sdd-sync-ref              : /update-framework upstream pointer (ship)
 #   .logic-loom/config/framework-upstream.conf : /update-framework upstream URL,
-#                                stamped at release from PUBLIC_TEMPLATE_REPO (ship)
+#                                stamped at release from github.repository (ship)
 # =============================================================================

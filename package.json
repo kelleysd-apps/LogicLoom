@@ -64,10 +64,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kelleysd-apps/logic-loom-template.git"
+    "url": "git+https://github.com/kelleysd-apps/sdd-agentic-framework.git"
   },
   "bugs": {
-    "url": "https://github.com/kelleysd-apps/logic-loom-template/issues"
+    "url": "https://github.com/kelleysd-apps/sdd-agentic-framework/issues"
   },
-  "homepage": "https://github.com/kelleysd-apps/logic-loom-template#readme"
+  "homepage": "https://github.com/kelleysd-apps/sdd-agentic-framework#readme"
 }
