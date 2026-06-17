@@ -1,0 +1,73 @@
+{
+  "name": "logic-loom",
+  "version": "6.2.0",
+  "description": "Specification-driven development framework with multi-agent orchestration, quality gates, and intelligent routing",
+  "private": true,
+  "scripts": {
+    "setup": "./.logic-loom/scripts/setup.sh",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File .logic-loom/scripts/setup-windows.ps1",
+    "setup:macos": "bash .logic-loom/scripts/setup.sh",
+    "setup:linux": "bash .logic-loom/scripts/setup.sh",
+    "init": "bash init-project.sh",
+    "test": "jest",
+    "test:integration": "jest tests/integration/",
+    "test:validation": "jest tests/validation/",
+    "lint": "echo \"Error: no linter configured\" && exit 1",
+    "format": "echo \"Error: no formatter configured\" && exit 1",
+    "typecheck": "echo \"Error: no type checking configured\" && exit 1"
+  },
+  "keywords": [
+    "specification-driven-development",
+    "ai-agents",
+    "claude",
+    "tdd",
+    "quality-gates",
+    "multi-agent-system",
+    "intelligent-routing",
+    "self-healing"
+  ],
+  "author": "",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "devDependencies": {
+    "jest": "^30.2.0",
+    "js-yaml": "^4.1.1"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "transform": {},
+    "extensionsToTreatAsEsm": [],
+    "collectCoverageFrom": [
+      ".claude/**/*.{js,md}",
+      ".logic-loom/**/*.{js,sh}",
+      "!**/node_modules/**",
+      "!**/tests/**"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 80,
+        "functions": 80,
+        "lines": 80,
+        "statements": 80
+      }
+    }
+  },
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kelleysd-apps/LogicLoom.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kelleysd-apps/LogicLoom/issues"
+  },
+  "homepage": "https://github.com/kelleysd-apps/LogicLoom#readme"
+}

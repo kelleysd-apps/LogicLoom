@@ -1,0 +1,268 @@
+# LogicLoom Architecture
+
+**Status**: v6.2.0 (authoritative)
+**Constitution**: v3.2.0 (16 principles)
+**Reference**: Anthropic, "How we built our multi-agent harness."
+
+---
+
+## 1. Identity
+
+- **Name**: `logic-loom` (slug) / **LogicLoom** (display)
+- **Version**: v6.2.0
+- **Repository layout**: three-layer separation, see §2.
+- **Shape**: a durable **governance core** (constitution, hooks, memory, plugin
+  chassis) plus **interchangeable workflow packs** layered on top. The
+  vision/swarm pack (§3) and the SDD-waterfall pack (§4) are peers — neither is
+  privileged. Governance is the durable core.
+
+## 2. Layers
+
+LogicLoom maintains a three-layer separation; layer-1 infrastructure lives under `.logic-loom/`.
+
+| Layer | Path | Contents |
+|-------|------|----------|
+| 1. Governance + infra | `.logic-loom/` | constitution.md, MEMORY.md, lib/ (logging.sh, policy.sh), scripts/, templates/, config/, plans/, tests/ |
+| 2. Harness integration | `.claude/` | hooks/, commands/ (bridge-generated), context/, settings.json |
+| 3. Capabilities | `plugins/` | All skills, agents, commands (plugin-first per Principle XVI) |
+
+**Worker workspaces**: the vision/swarm pack uses `features/<feature-name>/`
+(vision.md, prd.md, plan.md, sprint output); the SDD-waterfall pack uses
+`specs/###-name/`. Both coexist — one per pack.
+
+## 3. Vision / swarm pack — vision / PRD / plan / swarm
+
+One workflow pack. Its loop is a 12-step pipeline; each step is gated by a
+verifier or by the immediately downstream step's preconditions. `vision.md`
+(step 4) and `/plan-review` (step 6) are **pack-internal gates** — they prevent
+broad-spec cascade and worker collision within this pack, not across the
+framework. Use this pack for exploratory or surface-bearing work with a
+behavioral quality bar; use the SDD-waterfall pack (§4) when the task is
+contract-first and fully specifiable up front.
+
+1. **EnterWorktree** — isolate the feature on its own branch + working tree.
+   `worktree-port-namespace.sh` writes `.loom-worktree-env` with the
+   per-worktree port offset.
+2. **`/swarm explore`** — read-only investigators sweep the codebase and
+   external references; produces an exploration report under
+   `features/<name>/explore/`.
+3. **`/research`** — optional jury-on-demand multi-LLM research call (see §9).
+4. **`/create-prd`** — auto-detect existing vision.md; produce vision.md
+   (if absent) + prd.md from exploration + research artifacts.
+5. **plan-mode** — Claude drafts `features/<name>/plan.md` as a DAG (see §5).
+6. **`/plan-review`** — separate-context reviewer grades the plan against
+   the PRD before any code is written. Blocks `/swarm implement` on fail.
+7. **`/swarm implement`** — DAG executor. Topologically sorts tasks, writes
+   the `.loom-active-feature` marker (task scope) — and sets
+   `LOOM_ACTIVE_FEATURE`/`LOOM_ACTIVE_TASK` — before dispatching each worker so
+   the freeze-write-scope hook gates writes (see §6).
+8. **Test + fix** — implementor task runs project test command, iterates on
+   failures up to its rubric budget.
+9. **`/review-team`** — four reviewers run in parallel: security, quality,
+   performance, and the behavioral evaluator (see §8).
+10. **`/git-push`** — gated git workflow (Principle VI). Opens PR.
+11. **`/code-review`** — diff-level correctness review on the PR.
+12. **`/retro`** + **ExitWorktree** — write a short retrospective; tear down
+    the worktree.
+
+## 4. SDD-waterfall pack
+
+A peer workflow pack to §3 — fully first-class, not a fallback:
+
+- `/specification` — three-phase SDD waterfall (spec → plan → tasks).
+- `/build-team` — sequential architect → implementor → reviewer.
+- `/fullstack-team` — parallel frontend + backend + database team.
+- `/finalize` — pre-commit constitutional compliance validator.
+
+Choose the waterfall pack when the task is constrained, contract-first, and
+benefits from a fully specified up-front design. Choose the vision/swarm pack
+(§3) when the task is exploratory, surface-bearing, or has a quality bar that
+needs behavioral grading. All packs share the governance core (§12), plugin
+chassis, and distribution machinery.
+
+SDD-waterfall reference docs live at `.docs/workflows/sdd-waterfall.md`.
+
+## 5. Plan-as-DAG handoff contract
+
+`features/<name>/plan.md` is the single source of truth between plan-mode
+and `/swarm implement`. The plan body is a YAML-ish DAG in a fenced
+code block; sections after the DAG are prose.
+
+### YAML schema
+
+```yaml
+sprints:
+  - id: 01
+    description: "Foundations"
+    tasks:
+      - id: T01
+        description: "Add logging.sh DEBUG default"
+        owns:
+          - .logic-loom/lib/logging.sh
+        freeze:
+          - .logic-loom/memory/constitution.md
+        depends_on: []
+        rubric:
+          - test: "set -u sourcing logging.sh does not exit nonzero"
+          - lint: "shellcheck clean"
+      - id: T02
+        description: "Wire helper into policy.sh"
+        owns:
+          - .logic-loom/lib/policy.sh
+        freeze: []
+        depends_on:
+          - T01
+        rubric:
+          - test: "policy.sh unit tests pass"
+```
+
+### Rules (v0.1)
+
+- **Topological sort**: Kahn's algorithm. Cycles are a parser error;
+  `/swarm implement` refuses to dispatch.
+- **One-task-one-owner**: if two tasks declare the same path in `owns`, the
+  plan is rejected. Prevents write races.
+- **Per-task rubric**: every task must declare at least one rubric item
+  (`test:`, `lint:`, or `manual:`). `/review-team` checks before
+  dependents are dispatched. A failing rubric blocks downstream tasks.
+- **Freeze list**: optional explicit denylist. Defense-in-depth on top of
+  `owns`. Enforced by the freeze-write-scope hook (see §6 and
+  freeze-scope-protocol.md).
+- **Sprint order**: sprints run sequentially. Within a sprint, tasks are dispatched sequentially in topological order.
+
+> **Hook handoff.** This nested-YAML schema is the model-side SSOT that
+> `/swarm implement` parses. The freeze-write-scope hook does **not** parse it
+> directly. Before each dispatch, `/swarm implement` resolves the active task's
+> `owns:`/`freeze:` lists and writes them into the repo-root marker file
+> `.loom-active-feature` (a flat, hook-readable form); the hook reads the
+> marker on every write. See §6 and freeze-scope-protocol.md.
+
+## 6. Hook architecture
+
+LogicLoom hooks live in `.claude/hooks/` and are wired in
+`.claude/settings.json`. Three categories:
+
+### Governance-core hooks
+
+These are the durable governance core. They enforce the constitution at the
+harness boundary, independent of which workflow pack is active.
+
+| Hook | Event | Purpose | Principle |
+|------|-------|---------|-----------|
+| `user-prompt-submit` (governance-preflight) | UserPromptSubmit | Injects governance context + domain detection + memory context. Recitation depth is mode-controlled (see below) | I–XVI |
+| `git-safety-gate.sh` | PreToolUse (Bash) | Forces explicit approval on any git mutation (commit, push, branch, merge, history edit). Runs in every mode | VI |
+| `guard-dangerous-commands.sh` | PreToolUse | Gates destructive bash commands; never auto-runs git | VI, XI |
+
+**Governance mode (`LOOM_GOVERNANCE_MODE`)** — env > `.logic-loom/config/governance.conf`
+> built-in default. Hook enforcement (git-safety gate, dangerous-command guard,
+freeze-scope) runs regardless of mode; the mode only tunes the **model-side
+assist** injected on each message:
+
+- **`lean`** (default) — hooks enforce; no per-message compliance recitation.
+  Correct for flagship Opus-class models that follow the governance section of
+  CLAUDE.md directly. The mandatory per-message 4-step ceremony is not run.
+- **`strict`** — hooks enforce **and** the explicit step-by-step compliance
+  assist is re-injected on every message. Graceful-degradation path for weaker
+  / non-flagship models.
+
+### LogicLoom hooks (new in v6.0.0)
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `worktree-port-namespace.sh` | SessionStart | Computes per-worktree port offset; writes `.loom-worktree-env` sidecar so dev servers do not collide across parallel features |
+| `context-cap-warn.sh` | UserPromptSubmit | Warns when context usage approaches 800K of the 1M window; surfaces a hint to compact |
+| `freeze-write-scope.sh` | PreToolUse (Write\|Edit\|MultiEdit\|NotebookEdit) | Enforces plan-as-DAG file ownership at write time; see freeze-scope-protocol.md |
+
+## 7. /swarm modes
+
+`/swarm` is the unified multi-agent dispatch command. It has three modes:
+
+- **`explore`** (read-only) — spawns investigator workers with Read/Grep/Glob
+  tools only. Writes a single exploration report; no code edits. Used in the
+  vision/swarm pack at step 2 (§3).
+- **`implement`** (DAG executor) — reads `features/<name>/plan.md`, performs
+  topological sort, dispatches one worker per task. Before each dispatch, it
+  writes the repo-root marker `.loom-active-feature` with the task's resolved
+  `owns:`/`freeze:` scope (and sets `LOOM_ACTIVE_FEATURE`/`LOOM_ACTIVE_TASK`
+  env vars as an override) so the freeze-write-scope hook can resolve the
+  active scope and gate writes to that task's `owns:` list. The marker is torn
+  down after the worker returns.
+- **`generic`** (team-orchestration) — the general multi-agent dispatch mode
+  behind the team commands (`/build-team`, `/fullstack-team`, `/review-team`);
+  preserves backward-compatible behavior.
+
+`/swarm` without a mode flag selects `generic` for backward compatibility.
+
+## 8. /review-team 4-reviewer architecture
+
+`/review-team` spawns four reviewers in parallel via the team-orchestration
+skill:
+
+1. **Security** — static review against the threat model.
+2. **Quality** — static review against the constitution and project style.
+3. **Performance** — static review for latency / allocation / N+1 patterns.
+4. **Evaluator (behavioral)** — loads the running surface, takes
+   accessibility-tree snapshots, grades against vision.md success criteria.
+   See `evaluator-protocol.md` for the full rubric and synthesis rule.
+
+**Functionality-fail override**: if the evaluator returns `fail` on the
+Functionality rubric item, the team verdict is `fail` regardless of the
+other three reviewers. Beautiful-but-broken is never shipped.
+
+## 9. /research jury-on-demand
+
+`/research` is the multi-LLM tribunal research command. A query-type classifier
+picks 1–3 judges instead of always calling all three (Claude / OpenAI / Gemini):
+
+- Fact-lookup queries → 1 judge.
+- Reasoning queries → 2 judges + cross-vote.
+- High-stakes / architectural queries → 3 judges + tribunal vote.
+
+The `--judges all` flag preserves backward-compatible behavior for callers that want
+deterministic three-way voting. Reference: arxiv 2512.01786 (Jury on Demand).
+
+## 10. Memory architecture
+
+The `loom-memory` plugin is preserved unchanged. It injects relevant project
+memory (past specs, tasks, sessions) into `additionalContext` via the
+preflight hook.
+
+## 11. Third-party discovery
+
+LogicLoom does not run its own plugin marketplace. Plugin and skill discovery
+is delegated to the surrounding ecosystem:
+
+- **Skills and plugins**: Anthropic Claude Code Plugin Marketplace.
+- **MCP servers**: Docker MCP Toolkit (310+ containerized servers, `mcp-find`
+  / `mcp-add` / `mcp-config-set` tools).
+
+## 12. Constitutional governance
+
+The 16-principle constitution (v3.2.0) at `.logic-loom/memory/constitution.md`
+is the durable governance core shared by every workflow pack. Principles I–XVI
+and their enforcement (preflight hook, git-safety gate, finalize validator,
+agent delegation rules) remain authoritative across all packs.
+
+Quick reference (full text in constitution.md):
+
+- **I** Library-First, **II** Test-First, **III** Contract-First (immutable).
+- **VI** Git Approval — no autonomous git operations.
+- **X** Agent Delegation — specialized work must be delegated.
+- **XI** Input Validation — load-bearing for the freeze-write-scope hook.
+- **XVI** Plugin-First Architecture — all new features ship as plugins.
+
+## 14. References
+
+- Anthropic, "How we built our multi-agent harness." See
+  `.logic-loom/memory/MEMORY.md` →
+  `reference_anthropic_harness_design.md` for indexed notes.
+- Garry Tan / gstack — gstack cross-comparison. See `MEMORY.md` →
+  `reference_gstack_research.md`.
+- arxiv 2511.00330 — Sherlock (deterministic replay).
+- arxiv 2512.01786 — Jury on Demand (query-type-driven judge selection).
+- arxiv 2605.20563 — STORM (multi-writer write arbitration).
+- arxiv 2605.06161 — Policy Invariance (jury adversarial robustness).
+- `.docs/architecture/evaluator-protocol.md` — 4th-reviewer behavioral
+  grader protocol.
+- `.docs/architecture/freeze-scope-protocol.md` — freeze-write-scope hook
+  protocol.

@@ -1,0 +1,541 @@
+# Workflows Context Module
+<!-- Auto-generated from CLAUDE.md -->
+<!-- Module: workflow commands, feature development lifecycle, architecture -->
+
+## Workflow Packs (Interchangeable)
+
+LogicLoom's constitutional governance is the **core**. Development workflows sit
+on top of it as **interchangeable packs** — none is primary or legacy:
+
+| Pack | Use when |
+|------|----------|
+| **Vision / Swarm** (`features/<name>/`) | Exploratory or novel work; unclear scope |
+| **SDD waterfall** (`specs/###-name/`) | Well-understood feature with stable requirements |
+
+This module documents the **SDD waterfall pack** (spec → plan → tasks → finalize).
+All packs share the same built-in quality gates, constitutional compliance, and
+multi-agent coordination.
+
+---
+
+## Phase 0: Project Initialization
+
+### /create-prd Command
+
+**Purpose**: Establishes Single Source of Truth (SSOT) for entire project
+
+**Agent**: Executed by `prd-specialist` (auto-delegated per Principle X)
+
+**Script**: `.logic-loom/scripts/bash/create-prd.sh [project_name]`
+
+**When to Use**:
+- Starting a new project (first step before any features)
+- Establishing product foundation and strategy
+- Defining framework customizations for your context
+- Aligning stakeholders on vision and priorities
+
+**Outputs**:
+- Product vision, goals, and success metrics
+- User personas and journeys
+- Core features and requirements with acceptance criteria
+- Constitutional customizations (all 16 principles)
+- Technical constraints and integration requirements
+- Release strategy and MVP definition
+- Custom agent planning
+- Quick reference guide
+
+**File Created**: `.docs/prd/prd.md`
+
+**Workflow Integration**:
+- `/specify` → References PRD for user stories, personas, acceptance criteria
+- `/plan` → References PRD for technical constraints, architecture principles
+- Constitution → Updated with project-specific guidance from PRD
+- Custom agents → Created based on needs identified in PRD
+
+**Usage**:
+```bash
+/create-prd                # Interactive mode
+/create-prd MyProject      # With project name
+```
+
+---
+
+## Phase 1: Feature Specification
+
+### /specify Command
+
+**Purpose**: Create detailed feature specification with user stories and acceptance criteria
+
+**Skill**: Executed by `sdd-specification` skill (auto-delegated per Principle X)
+
+**Script**: `.logic-loom/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
+
+**When to Use**:
+- Starting new feature development
+- Need to document requirements before implementation
+- Establish acceptance criteria for feature
+
+**User Approval Required**:
+- **REQUIRES USER APPROVAL** for new feature branch creation
+- Will ask if you want a new feature branch created
+- If approved, will ask for desired branch format/name
+- Default format when approved: `###-feature-name`
+
+**Outputs**:
+- spec.md at `specs/###-feature-name/spec.md`
+- User stories with acceptance criteria
+- Functional and non-functional requirements
+- Constraints and dependencies
+- Success metrics
+
+**Skill Reference**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
+
+**Usage**:
+```bash
+/specify
+# Interactive prompts for feature details
+```
+
+---
+
+## Phase 2: Implementation Planning
+
+### /plan Command
+
+**Purpose**: Generate implementation plan with technical research, API contracts, and data models
+
+**Skill**: Executed by `sdd-planning` skill (auto-delegated per Principle X)
+
+**Script**: `.logic-loom/scripts/bash/setup-plan.sh --json`
+
+**When to Use**:
+- After feature spec is complete
+- Need technical research and design decisions
+- Design API contracts and data models before coding
+
+**Workflow Steps**:
+1. **Phase 0 - Research**: Technology stack selection, library evaluation, best practices research, resolve technical unknowns
+2. **Constitution Check Gate**: Validate research completeness
+3. **Phase 1 - Design**: API contracts (OpenAPI/GraphQL), data entity modeling, test scenario planning
+4. **Constitution Check Gate**: Validate design quality and spec alignment
+5. **Readiness Validation**: Ensure ready for task generation
+
+**Outputs**:
+- `plan.md` - Implementation approach and architecture decisions
+- `research.md` - Technical decisions, library choices, pattern recommendations
+- `data-model.md` - Entity definitions with fields, relationships, validation rules
+- `contracts/` - API contract schemas (OpenAPI/GraphQL)
+- `quickstart.md` - Test scenarios and integration test plan
+
+**Constitutional Validation**:
+- Enforces Library-First, Test-First, Contract-First principles
+- Pre-research and post-design compliance checks
+- Complexity tracking and justification documentation
+
+**Skill Reference**: `plugins/sdd-specification/skills/sdd-planning/SKILL.md`
+
+**Usage**:
+```bash
+/plan
+# Reads spec.md and generates planning artifacts
+```
+
+---
+
+## Phase 3: Task Generation
+
+### /tasks Command
+
+**Purpose**: Create dependency-ordered task list from design artifacts
+
+**Skill**: Executed by `sdd-tasks` skill (auto-delegated per Principle X)
+
+**Script**: `.logic-loom/scripts/bash/check-task-prerequisites.sh --json`
+
+**When to Use**:
+- After implementation plan is complete
+- Need task breakdown with dependencies
+- Ready to start implementation
+
+**Prerequisites**:
+- spec.md exists
+- plan.md exists
+- contracts/ directory exists (if feature has API endpoints)
+- data-model.md exists (if feature has data entities)
+
+**Workflow Steps**:
+1. Verify plan artifacts exist
+2. Extract tasks from plan and contracts
+3. Identify dependencies between tasks
+4. Mark parallel-executable tasks with [P]
+5. Order tasks by dependencies
+6. Generate tasks.md
+
+**Output**: `tasks.md` with dependency-ordered task list
+
+**Parallel Execution Markers**: Tasks marked with [P] can be executed in parallel (no dependencies)
+
+**Skill Reference**: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
+
+**Usage**:
+```bash
+/tasks
+# Generates task list from plan artifacts
+```
+
+---
+
+## Phase 4: Implementation
+
+### Working with Tasks
+
+**When implementing features:**
+1. Always work from feature branches (`###-feature-name` format)
+2. Follow TDD: Write tests → Get approval → Fail tests → Implement
+3. Each contract requires a test, each entity needs a model
+4. Use parallel execution markers [P] for independent tasks
+5. All paths must be absolute from repository root
+
+**Testing Approach**:
+- Check feature-specific `quickstart.md` for test scenarios
+- Check `contracts/` directory for contract tests (one per endpoint)
+- Integration test scenarios from user stories
+- No standard test framework assumed - check `plan.md` for tech stack decisions
+
+**Task Execution Order**:
+1. Library/module structure
+2. Data models (if database entities)
+3. API contracts and tests (TDD - failing tests first)
+4. Core implementation
+5. Integration tests
+6. Documentation updates
+7. Refactoring and optimization
+
+---
+
+## Phase 5: Finalization & Commit
+
+### /finalize Command
+
+**Purpose**: Pre-commit constitutional compliance validation
+
+**Script**: `.logic-loom/scripts/bash/finalize-feature.sh --json`
+
+**CRITICAL**: NEVER performs git operations autonomously (Principle VI)
+
+**When to Use**:
+- After implementation complete
+- Before committing changes
+- Quality gate validation
+
+**Checks Performed**:
+- Tests passing and coverage >80%
+- No linting errors
+- Code style compliance (black, isort)
+- Documentation synchronized (CLAUDE.md, README, specs, API docs)
+- No secrets in code (.env templates updated)
+- Constitutional compliance across all 16 principles
+
+**Output**: Compliance report with pass/fail status
+
+**Suggests Manual Git Commands** (user must execute):
+```bash
+git add <files>
+git commit -m "message"
+git push origin <branch>
+```
+
+**Usage Pattern**:
+```bash
+# After implementation complete
+./.logic-loom/scripts/bash/finalize-feature.sh
+
+# If all checks pass, manually execute suggested git commands
+git add <files>
+git commit -m "message"
+git push origin <branch>
+```
+
+**Skill Reference**: `plugins/loom-governance/skills/constitutional-compliance/SKILL.md`
+
+---
+
+## Complete SDD Workflow Diagram
+
+```
+Phase 0: Project Initialization
+   ↓
+┌──────────────────────────────────┐
+│ /create-prd                      │ ← prd-specialist
+│ - Product vision & goals         │
+│ - User personas & journeys       │
+│ - Constitutional customizations  │
+│ Output: .docs/prd/prd.md         │
+└──────────────────────────────────┘
+   ↓
+Phase 1: Feature Specification
+   ↓
+┌──────────────────────────────────┐
+│ /specify                         │ ← sdd-specification skill
+│ - User stories                   │
+│ - Acceptance criteria            │
+│ - Constraints                    │
+│ Output: specs/###/spec.md        │
+└──────────────────────────────────┘
+   ↓
+Phase 2: Implementation Planning
+   ↓
+┌──────────────────────────────────┐
+│ /plan                            │ ← sdd-planning skill
+│ Phase 0: Technical Research      │
+│ - Library evaluation             │
+│ - Best practices                 │
+│ Constitution Check Gate ✓        │
+│ Phase 1: Design                  │
+│ - API contracts                  │
+│ - Data models                    │
+│ - Test scenarios                 │
+│ Constitution Check Gate ✓        │
+│ Output: plan.md, research.md,    │
+│         data-model.md, contracts/│
+└──────────────────────────────────┘
+   ↓
+Phase 3: Task Generation
+   ↓
+┌──────────────────────────────────┐
+│ /tasks                           │ ← sdd-tasks skill
+│ - Task breakdown                 │
+│ - Dependency analysis            │
+│ - Parallel markers [P]           │
+│ Output: specs/###/tasks.md       │
+└──────────────────────────────────┘
+   ↓
+Phase 4: Implementation
+   ↓
+┌──────────────────────────────────┐
+│ Execute Tasks                    │ ← Domain skills
+│ - TDD: Tests first               │   (frontend-operations,
+│ - Implement features             │    api-design,
+│ - Integration tests              │    schema-design,
+│ - Documentation                  │    testing-operations, etc.)
+└──────────────────────────────────┘
+   ↓
+Phase 5: Finalization & Commit
+   ↓
+┌──────────────────────────────────┐
+│ /finalize                        │ ← Constitutional validation
+│ - Test coverage >80%             │
+│ - No linting errors              │
+│ - Docs synchronized              │
+│ - 16 principles validated        │
+│ Output: Compliance report        │
+│ ✓ Suggests git commands          │
+└──────────────────────────────────┘
+   ↓
+Manual Git Operations (User Approval Required)
+   ↓
+┌──────────────────────────────────┐
+│ User Executes:                   │
+│ git add <files>                  │
+│ git commit -m "message"          │
+│ git push origin <branch>         │
+└──────────────────────────────────┘
+```
+
+---
+
+## Agent Management Commands
+
+### /create-agent Command
+
+**Purpose**: Create specialized subagent with constitutional compliance
+
+**Agent**: Executed by `subagent-architect` (auto-delegated per Principle X)
+
+**Script**: `.logic-loom/scripts/bash/create-agent.sh --json`
+
+**Features**:
+- Auto-determines department based on purpose
+- Sets appropriate tool restrictions
+- Initializes memory structure
+- Constitutional compliance built-in
+
+**Usage**:
+```bash
+/create-agent custom-integration-agent "Custom integration specialist"
+```
+
+**Output**: New agent file at `plugins/<plugin>/agents/<agent-name>.md`
+
+---
+
+### /create-skill Command
+
+**Purpose**: Create procedural workflow skills with step-by-step guidance
+
+**Features**:
+- Creates skill at `plugins/<plugin>/skills/<skill-name>/SKILL.md`
+- Auto-registers skill in plugin manifest and agent-collaboration-triggers.md
+- Interactive workflow for skill metadata and procedure definition
+
+**Usage**:
+```bash
+/create-skill                           # Interactive mode
+/create-skill debug "Vercel debugging"  # With arguments
+```
+
+**Output**: New skill file with frontmatter metadata and procedure steps
+
+---
+
+## Key Architecture
+
+### Directory Structure
+
+```
+.logic-loom/
+├── memory/
+│   ├── constitution.md                    # Core principles (v3.2.0 - 16 principles)
+│   ├── constitution_update_checklist.md   # Mandatory change management
+│   └── agent-collaboration-triggers.md    # Agent delegation reference
+├── scripts/bash/                          # Workflow automation scripts
+│   ├── common.sh                          # Shared functions + git approval
+│   ├── constitutional-check.sh            # 16-principle compliance validator
+│   ├── create-new-feature.sh              # Feature initialization
+│   ├── setup-plan.sh                      # Planning workflow
+│   ├── check-task-prerequisites.sh        # Task generation validator
+│   └── finalize-feature.sh                # Pre-commit compliance validation
+├── templates/                             # Document templates
+│   ├── spec-template.md                   # Feature specification
+│   ├── plan-template.md                   # Implementation plan (9-step)
+│   ├── tasks-template.md                  # Task list generation
+│   └── agent-file-template.md             # New agent template
+├── config/                                # Configuration files
+│   ├── models.conf                        # Role→model tier convention
+│   └── governance.conf                    # Governance mode (lean/strict)
+
+specs/###-feature-name/                     # Per-feature documentation
+├── spec.md                                # Feature requirements
+├── plan.md                                # Technical approach
+├── research.md                            # Technical decisions
+├── data-model.md                          # Entity definitions
+├── contracts/                             # API contracts
+├── quickstart.md                          # Test scenarios
+└── tasks.md                               # Implementation tasks
+```
+
+---
+
+## Workflow Scripts
+
+### Core Scripts
+
+- **common.sh**: Shared functions for branch/path management, git approval
+- **create-new-feature.sh**: Initialize feature branch and spec
+- **setup-plan.sh**: Prepare implementation planning
+- **check-task-prerequisites.sh**: Verify design artifacts exist before task generation
+- **finalize-feature.sh**: Pre-commit compliance validation (no auto-git)
+- **update-agent-context.sh**: Update AI assistant context files
+
+### Validation Scripts
+
+- **constitutional-check.sh**: Automated compliance checking for all 16 principles
+
+**Run before commits and releases**:
+```bash
+./.logic-loom/scripts/bash/constitutional-check.sh
+```
+
+---
+
+## Workflow Loading
+
+Load workflow context when needed:
+
+```bash
+# Load workflows module
+./.logic-loom/scripts/bash/load-context.sh load workflows
+
+# Load based on request analysis
+./.logic-loom/scripts/bash/load-context.sh analyze "/plan the authentication feature"
+```
+
+---
+
+**Module Version**: 2.0.0
+**Constitutional Authority**: Principles I-XVI (All 16 Principles)
+**Source Documents**:
+- CLAUDE.md "Commands" and "Key Architecture" sections
+- `.logic-loom/scripts/bash/` workflow scripts
+- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `plugins/*/skills/` skill definitions
+
+## Unified Specification Workflow
+
+### Overview
+
+The unified `/specification` command consolidates the entire SDD workflow:
+
+```
+User Request ──→ /specification ──→ 7 Artifacts
+                      │
+                      ├── Phase 1: spec.md
+                      ├── Phase 2: plan.md + research.md + data-model.md + contracts/ + quickstart.md
+                      └── Phase 3: tasks.md
+```
+
+### Quality Gates
+
+| Phase | Artifact | Threshold |
+|-------|----------|-----------|
+| Specification | spec.md | 90% completeness |
+| Planning | plan.md | 85% quality |
+| Tasks | tasks.md | Full coverage |
+
+### Workflow State
+
+State persisted in `specs/<branch>/.workflow-state.json`:
+- Enables resume after interruption
+- Tracks phase progress
+- Records quality gate results
+
+---
+
+## Git Push Workflow
+
+### Overview
+
+The `/git-push` command provides a complete git workflow with Principle VI compliance:
+
+```
+/git-push
+    │
+    ├── 📊 DIFF ─────────→ Show changes
+    │         ↓
+    ├── 📝 COMMIT ───────→ 🔒 Approval Required
+    │         ↓
+    ├── 🚀 PUSH ─────────→ 🔒 Approval Required
+    │         ↓
+    ├── 📋 PR_CREATE ────→ 🔒 Approval Required
+    │         ↓
+    ├── 🔍 CONFLICT_CHECK
+    │         ↓
+    │   ┌─ CLEAN ────────→ ✅ COMPLETE
+    │   └─ DIRTY ────────→ CONFLICT_RESOLVE ─┐
+    │                            ↑           │
+    │                            └───────────┘
+    │                            (loop until clean)
+    │
+    └── ✅ COMPLETE
+```
+
+### Principle VI Checkpoints
+
+Every git operation requires explicit approval:
+- `git commit` → "Approve commit? (y/n)"
+- `git push` → "Push to origin? (y/n)"
+- `gh pr create` → "Create this PR? (y/n)"
+- Conflict resolution → "Resolve conflicts? (y/n)"
+
+**The workflow NEVER executes git commands without user approval.**
+

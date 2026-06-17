@@ -1,0 +1,112 @@
+# Environment variables
+.env
+
+# Backup files
+package.json.backup
+*.backup
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+out/
+
+# Secret management
+retrieve-secrets.sh
+secrets/
+.secrets/
+
+# Testing
+coverage/
+.nyc_output/
+
+# Local development
+.local/
+*.local
+
+# Structured Logging (ignore log files, keep structure)
+.logic-loom/logs/operations/*.log
+.logic-loom/logs/git-checkpoints/*.json
+.logic-loom/logs/parallel-sessions/*
+!.logic-loom/logs/README.md
+
+# Context System Cache
+.claude/context/.cache/*
+# Session-specific audit logs (generated at runtime)
+.docs/governance/audit/
+
+# Session-specific agent data (generated at runtime)
+.docs/agents/**/decisions/*.json
+.docs/agents/**/sessions/*.json
+.docs/agents/**/reports/*.json
+.docs/agents/shared/context-summaries/*.json
+.docs/agents/audit/creation-log.json
+
+# Research output (session-specific)
+.docs/research/
+
+# Dev-loop runtime data
+.devloop/
+
+# Backup files from edits
+*.bak
+.claude/skill-index.json.bak
+
+# Feature specs (project-specific, created during development)
+specs/*/
+!specs/README.md
+!specs/.gitkeep
+
+# Deprecated items (kept locally for reference, not in template)
+**/.deprecated/
+
+# Memory search index (generated, regenerable)
+.loom-memory-index/
+.sdd-memory-index/
+vector_helper.py
+
+# Memory working tier (session-specific)
+plugins/loom-memory/working/
+!plugins/loom-memory/working/.gitkeep
+plugins/loom-memory/recall/
+!plugins/loom-memory/recall/.gitkeep
+plugins/loom-memory/.retention-last-run
+
+# Memory runtime logs (generated)
+.docs/memory/search-log.jsonl
+
+# Test artifacts
+test-checkpoint-*
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyo
+*.egg-info/
+.loom-worktree-env

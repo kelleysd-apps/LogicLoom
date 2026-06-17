@@ -1,0 +1,224 @@
+{
+  "version": "1.0.0",
+  "description": "Tool restriction policies for Claude Code operations",
+  "last_updated": "2026-01-09",
+  "constitutional_basis": "Principle VI (Git Approval), Principle XI (Input Validation)",
+
+  "policies": {
+    "dangerous_commands": {
+      "description": "Commands that will crash VS Code Remote or cause data loss",
+      "action": "block",
+      "patterns": [
+        {
+          "pattern": "pkill.*-f.*['\"]?node['\"]?",
+          "reason": "Kills VS Code Remote server",
+          "alternatives": [
+            "Kill by port: lsof -ti:5173 | xargs kill -9 2>/dev/null || true",
+            "Kill vite only: pkill -f \"vite\" 2>/dev/null || true",
+            "Kill specific process: pkill -f \"specific-process-name\""
+          ]
+        },
+        {
+          "pattern": "pkill.*node",
+          "reason": "Kills all Node.js processes including VS Code",
+          "alternatives": [
+            "Use port-specific kill: lsof -ti:<port> | xargs kill",
+            "Use process name: pkill -f \"<process-name>\""
+          ]
+        },
+        {
+          "pattern": "killall.*node",
+          "reason": "Kills all Node.js processes including VS Code",
+          "alternatives": [
+            "Use port-specific kill: lsof -ti:<port> | xargs kill",
+            "Use process name: pkill -f \"<process-name>\""
+          ]
+        },
+        {
+          "pattern": "kill.*-9.*\\$\\(pgrep.*node\\)",
+          "reason": "Force kills all Node.js processes",
+          "alternatives": [
+            "Kill by port: lsof -ti:<port> | xargs kill -9",
+            "Kill specific: pkill -f \"<specific-pattern>\""
+          ]
+        },
+        {
+          "pattern": "rm.*-rf.*/$",
+          "reason": "Attempts to delete root filesystem",
+          "alternatives": [
+            "Use specific paths: rm -rf ./specific/directory",
+            "Verify path first: ls -la <path> && rm -rf <path>"
+          ]
+        },
+        {
+          "pattern": "rm.*-rf.*/\\*",
+          "reason": "Dangerous recursive deletion",
+          "alternatives": [
+            "Use specific paths: rm -rf ./target/directory",
+            "Be explicit: rm -rf ./node_modules ./dist"
+          ]
+        },
+        {
+          "pattern": "chmod.*-R.*777",
+          "reason": "Security risk: grants all permissions to everyone",
+          "alternatives": [
+            "Use appropriate permissions: chmod -R 755 <path>",
+            "Owner only: chmod -R 700 <path>",
+            "Specific files: chmod 644 <files>"
+          ]
+        },
+        {
+          "pattern": "git.*push.*--force",
+          "reason": "Force push can overwrite remote history",
+          "alternatives": [
+            "Use --force-with-lease for safer force push",
+            "Check remote first: git fetch && git status",
+            "Coordinate with team before force pushing"
+          ]
+        },
+        {
+          "pattern": "git.*reset.*--hard.*origin/main",
+          "reason": "Destructive operation on main branch",
+          "alternatives": [
+            "Create backup branch first: git branch backup",
+            "Use --soft for reversible reset",
+            "Fetch first: git fetch origin main"
+          ]
+        }
+      ]
+    },
+
+    "git_operations": {
+      "description": "Git operations requiring user approval (Constitutional Principle VI)",
+      "action": "require_approval",
+      "patterns": [
+        {
+          "pattern": "git.*checkout.*-b",
+          "reason": "Branch creation requires approval",
+          "approval_function": "request_git_approval"
+        },
+        {
+          "pattern": "git.*commit",
+          "reason": "Commits require approval",
+          "approval_function": "request_git_approval_enhanced"
+        },
+        {
+          "pattern": "git.*push",
+          "reason": "Push operations require approval",
+          "approval_function": "request_git_approval"
+        },
+        {
+          "pattern": "git.*merge",
+          "reason": "Merge operations require approval",
+          "approval_function": "request_git_approval"
+        },
+        {
+          "pattern": "git.*rebase",
+          "reason": "Rebase operations require approval",
+          "approval_function": "request_git_approval"
+        },
+        {
+          "pattern": "git.*branch.*-D",
+          "reason": "Branch deletion requires approval",
+          "approval_function": "request_git_approval"
+        }
+      ]
+    },
+
+    "file_operations": {
+      "description": "File operations with safety checks",
+      "action": "warn",
+      "patterns": [
+        {
+          "pattern": "rm.*-rf.*node_modules",
+          "reason": "Deleting node_modules (safe but verify intent)",
+          "alternatives": [
+            "Consider: npm ci to reinstall cleanly",
+            "Verify: du -sh node_modules first"
+          ]
+        },
+        {
+          "pattern": "rm.*-rf.*\\.git",
+          "reason": "Deleting .git directory (repository loss)",
+          "alternatives": [
+            "Are you sure? This will delete all git history",
+            "Consider: git clean -fdx instead"
+          ]
+        },
+        {
+          "pattern": "mv.*\\.env",
+          "reason": "Moving .env file (verify not committing secrets)",
+          "alternatives": [
+            "Ensure .env in .gitignore",
+            "Use .env.example for templates"
+          ]
+        }
+      ]
+    },
+
+    "network_operations": {
+      "description": "Network operations that may expose data",
+      "action": "warn",
+      "patterns": [
+        {
+          "pattern": "curl.*http://[^h]",
+          "reason": "Using HTTP instead of HTTPS (unencrypted)",
+          "alternatives": [
+            "Use HTTPS: curl https://...",
+            "If localhost: curl http://localhost:..."
+          ]
+        },
+        {
+          "pattern": "wget.*http://[^h]",
+          "reason": "Using HTTP instead of HTTPS (unencrypted)",
+          "alternatives": [
+            "Use HTTPS: wget https://...",
+            "If localhost: wget http://localhost:..."
+          ]
+        }
+      ]
+    },
+
+    "privileged_operations": {
+      "description": "Operations requiring elevated privileges",
+      "action": "warn",
+      "patterns": [
+        {
+          "pattern": "sudo.*npm.*install.*-g",
+          "reason": "Global npm install with sudo can cause permission issues",
+          "alternatives": [
+            "Use nvm to manage Node.js versions",
+            "Install without sudo: npm install -g <package>",
+            "Use npx for one-time execution"
+          ]
+        },
+        {
+          "pattern": "sudo.*chmod",
+          "reason": "Changing permissions with sudo (verify necessity)",
+          "alternatives": [
+            "Check current owner: ls -la <path>",
+            "Change owner: sudo chown $USER <path>",
+            "Be specific: sudo chmod 755 <path>"
+          ]
+        }
+      ]
+    }
+  },
+
+  "metadata": {
+    "total_policies": 5,
+    "total_patterns": 24,
+    "policy_categories": [
+      "dangerous_commands",
+      "git_operations",
+      "file_operations",
+      "network_operations",
+      "privileged_operations"
+    ],
+    "enforcement_levels": {
+      "block": "Prevents execution with error message",
+      "require_approval": "Requires user approval before execution",
+      "warn": "Shows warning but allows execution"
+    }
+  }
+}

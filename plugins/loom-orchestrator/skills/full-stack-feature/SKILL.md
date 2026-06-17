@@ -1,0 +1,149 @@
+---
+name: full-stack-feature
+version: 3.0.0
+category: orchestration
+description: Orchestrates full-stack features across frontend, backend, and database.
+triggers: ["full-stack", "frontend and backend", "end-to-end feature", "UI with API", "cross-domain"]
+---
+
+# Full-Stack Feature Orchestration Skill
+
+## Overview
+
+Orchestration skill for coordinating multi-layer feature implementation spanning frontend, backend, and database layers. Ensures proper sequencing and dependency management across domains.
+
+## Task Brief
+
+You are the full-stack feature orchestrator. Your job is to coordinate multi-layer
+feature implementation spanning database, backend, and frontend layers, ensuring
+proper sequencing and dependency management across all domains.
+
+**Key responsibilities:**
+- Decompose full-stack features into database, backend, and frontend work items
+- Establish dependency ordering: Database -> Backend -> Frontend
+- Delegate domain work to per-domain workers, injecting each brief via `get_domain_brief database`, `get_domain_brief backend`, and `get_domain_brief frontend` (registry at `plugins/loom-governance/domain-briefs/<domain>.md`)
+- Pass context between layers (e.g., schema shape to API designer, API contracts to frontend)
+- Validate integration points between layers at each phase transition
+- Run cross-layer quality gates: contracts match, tests pass, end-to-end flow works
+
+**Constitutional constraints:**
+- Principle X: Route domain work to appropriate domain skills (never implement directly)
+- Principle III: Contracts defined between layers BEFORE implementation
+- Principle II: Tests at each layer with 80% coverage minimum
+- Principle IV: Operations must be idempotent (safe to retry partial workflows)
+
+**Error handling:**
+- Phase failure: Log, halt dependent phases, report to user with recovery options
+- Contract mismatch: Flag discrepancy between layers, suggest contract reconciliation
+- Partial success: Report completed phases, identify blocked work, suggest next steps
+
+## When to Use
+
+- Full-stack feature implementation
+- Features requiring UI + API + database changes
+- Cross-domain coordination
+- End-to-end feature development
+- Multi-layer architecture work
+
+## Configuration
+
+### Allowed Tools
+Read, Write, Edit, MultiEdit, Bash, Grep, Glob, Task
+
+### Agent Invocation
+
+```yaml
+primary-agent: team-orchestration skill (loom-orchestrator)
+supporting-workers:
+  - database worker (get_domain_brief database)
+  - backend worker (get_domain_brief backend)
+  - frontend worker (get_domain_brief frontend)
+timeout: 30m
+```
+
+### Composes
+- validation/message-preflight (pre-execution)
+- get_domain_brief database (phase 1)
+- get_domain_brief backend (phase 2)
+- get_domain_brief frontend (phase 3)
+
+## Instructions
+
+### Step 1: Domain Analysis
+
+Identify requirements for each layer:
+1. **Database**: Schema changes, migrations, RLS policies
+2. **Backend**: API endpoints, services, middleware
+3. **Frontend**: UI components, state management, API integration
+
+### Step 2: Dependency Mapping
+
+Establish execution order based on dependencies:
+```
+Database → Backend → Frontend
+(Schema)   (API)     (UI)
+```
+
+### Step 3: Skill Sequencing
+
+Execute domain workers in order, each carrying its injected brief:
+1. Spawn database worker (`get_domain_brief database`) for schema work
+2. Spawn backend worker (`get_domain_brief backend`) for API work
+3. Spawn frontend worker (`get_domain_brief frontend`) for UI work
+
+### Step 4: Coordination via Workflow Coordinator
+
+Delegate to `team-orchestration skill (loom-orchestrator)` with:
+- Complete feature requirements
+- Dependency order
+- Integration points between layers
+- Quality gates for each phase
+
+### Step 5: Integration Validation
+
+After all layers complete:
+- [ ] Database schema supports API needs
+- [ ] API contracts match frontend expectations
+- [ ] End-to-end flow works correctly
+- [ ] Tests cover all layers
+
+## Constitutional Compliance
+
+- **Principle II**: Tests at each layer (80% coverage)
+- **Principle III**: Contracts defined between layers
+- **Principle X**: Skills-first orchestration
+- **Principle IV**: Operations are idempotent
+
+## Examples
+
+### Example 1: User Profile Feature
+
+**Request**: "Build user profile page with avatar upload"
+
+**Execution**:
+1. Database: Add avatar_url to users table
+2. Backend: Create /api/users/:id/avatar endpoint
+3. Frontend: Build ProfilePage component with upload
+
+### Example 2: E-commerce Cart
+
+**Request**: "Implement shopping cart with checkout"
+
+**Execution**:
+1. Database: cart, cart_items tables
+2. Backend: Cart API, payment integration
+3. Frontend: Cart UI, checkout flow
+
+## Quality Gates
+
+Between each phase:
+- [ ] Layer tests passing
+- [ ] Contracts validated
+- [ ] Dependencies satisfied
+- [ ] Integration points verified
+## Related
+
+- `get_domain_brief database` - Database layer brief
+- `get_domain_brief backend` - API layer brief
+- `get_domain_brief frontend` - UI layer brief
+- orchestration/multi-skill-workflow - Complex workflows
