@@ -35,8 +35,32 @@ jobs:
           set -euo pipefail
           # Narrow, genuinely-confidential markers only (not harmless branch names).
           MARKERS='brian@kelleysd\.com|ioun-ai|/workspaces/|kelleysd\.com/'
-          # Search tracked content; exclude this guard so its own examples don't trip it.
-          if hits=$(git grep -nIE "$MARKERS" -- . ':(exclude).github/workflows/leak-guard.yml' 2>/dev/null) && [ -n "$hits" ]; then
+          # Scan tracked content for GENUINE leaks. Exclude (a) the sanitization /
+          # release TOOLING — it contains these markers as detection patterns by
+          # design — and (b) maintainer-only / stripped paths (absent on the public
+          # template; present only pre-strip on the private dev repo) plus the
+          # stubbed VISION.md. All genuine shipped product content is still scanned.
+          # Excludes are inlined here (evaluated from the base branch) so a hostile
+          # PR cannot neuter the check by editing a script it ships.
+          EXCLUDES=(
+            ':(exclude).github/workflows/leak-guard.yml'
+            ':(exclude).github/workflows/promote-to-main.yml'
+            ':(exclude).logic-loom/scripts/bash/leak-guard.sh'
+            ':(exclude).logic-loom/scripts/bash/strip-harness-dev.sh'
+            ':(exclude).logic-loom/scripts/bash/sanitize-for-template.sh'
+            ':(exclude).logic-loom/scripts/bash/sanitization-audit.sh'
+            ':(exclude).logic-loom/scripts/bash/template-strip-manifest.txt'
+            ':(exclude).logic-loom/scripts/bash/history-scrub.sh'
+            ':(exclude).logic-loom/scripts/bash/history-scrub-rules.json'
+            ':(exclude).docs/guides/dev-main-template-split.md'
+            ':(exclude).docs/reports/'
+            ':(exclude).docs/archive/'
+            ':(exclude).docs/design/'
+            ':(exclude).docs/troubleshooting/'
+            ':(exclude)CHANGELOG.md'
+            ':(exclude)VISION.md'
+          )
+          if hits=$(git grep -nIE "$MARKERS" -- . "${EXCLUDES[@]}" 2>/dev/null) && [ -n "$hits" ]; then
             echo "::error::Sensitive identity marker(s) found in tracked content:"
             printf '%s\n' "$hits" | head -30
             exit 1
