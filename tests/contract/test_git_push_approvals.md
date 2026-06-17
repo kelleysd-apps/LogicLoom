@@ -1,6 +1,6 @@
 # Contract Test: /git-push User Approval Gates (Principle VI)
 
-**Contract**: `specs/dev-main/contracts/git-push-command.md`
+**Contract**: `specs/001-example/contracts/git-push-command.md`
 **Constitutional Principle**: VI (Git Operation Approval)
 **Test ID**: CT-GIT-003
 **Status**: FAILING (Implementation pending)

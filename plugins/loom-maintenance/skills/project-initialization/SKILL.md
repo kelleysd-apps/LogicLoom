@@ -89,8 +89,8 @@ not the customer's project. Remove it from the new project (keep `plugin-tests.y
 — it validates the harness the customer is using):
 
 ```bash
-rm -f .github/workflows/promote-to-main.yml   # promotes dev-main -> sanitized main (maintainer-only)
-rm -f .github/workflows/leak-guard.yml        # identity-marker backstop for the template's main
+rm -f .github/workflows/promote-to-main.yml   # maintainer release workflow (not for your project)
+rm -f .github/workflows/leak-guard.yml        # maintainer identity-marker backstop (not for your project)
 ```
 
 State clearly in the report that these were removed and why (they would otherwise

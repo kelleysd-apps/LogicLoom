@@ -1,6 +1,6 @@
 # Contract Test: /git-push Conflict Detection
 
-**Contract**: `specs/dev-main/contracts/git-push-command.md`
+**Contract**: `specs/001-example/contracts/git-push-command.md`
 **Test ID**: CT-GIT-002
 **Status**: FAILING (Implementation pending)
 

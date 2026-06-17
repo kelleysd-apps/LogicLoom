@@ -1,6 +1,6 @@
 # Contract Test: /specification Input Validation
 
-**Contract**: `specs/dev-main/contracts/specification-command.md`
+**Contract**: `specs/001-example/contracts/specification-command.md`
 **Test ID**: CT-SPEC-001
 **Status**: FAILING (Implementation pending)
 

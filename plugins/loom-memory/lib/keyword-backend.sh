@@ -125,7 +125,7 @@ backend_search() {
 
     # Determine search paths based on scope
     local current_branch
-    current_branch=$(git -C "$KEYWORD_REPO_ROOT" branch --show-current 2>/dev/null || echo "dev-main")
+    current_branch=$(git -C "$KEYWORD_REPO_ROOT" branch --show-current 2>/dev/null || echo "main")
 
     local search_paths=()
 

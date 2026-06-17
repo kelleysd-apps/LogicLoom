@@ -324,10 +324,9 @@ echo -e "${YELLOW}      It's flexible - use it for projects, major features, or 
 echo ""
 
 # Remove maintainer-only template-release CI. These workflows release + guard the
-# LogicLoom TEMPLATE itself (promote dev-main -> sanitized main; identity-marker
-# backstop on PRs to the template's main). They are not part of YOUR project and
-# would only confuse your CI, so they are removed at initialization. (plugin-tests.yml
-# is kept — it validates the harness you are using.)
+# LogicLoom template itself, not your project, and would only confuse your CI, so
+# they are removed at initialization. (plugin-tests.yml is kept — it validates the
+# harness you are using.)
 echo ""
 echo -e "${BLUE}Removing maintainer-only template-release CI...${NC}"
 for wf in .github/workflows/promote-to-main.yml .github/workflows/leak-guard.yml; do

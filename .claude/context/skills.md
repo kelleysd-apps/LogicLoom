@@ -44,51 +44,6 @@ Skills are procedural workflows that guide systematic execution of complex tasks
 
 ---
 
-## Marketing Skills
-
-### content-pipeline
-
-**Location**: `.claude/skills/marketing/content-pipeline/SKILL.md`
-
-**Purpose**: End-to-end blog article creation workflow using specialized marketing agents
-
-**When to Use**:
-- Create blog posts or articles
-- Strategy articles, tips articles, how-to guides
-- Thought leadership content
-- Content with SEO optimization
-
-**Pipeline Sequence**:
-```
-Step 1: content-strategist → Content brief (title, keywords, structure, CTA)
-Step 2: research-agent → Research brief (data, trends, sources, citations)
-Step 3: copywriter-agent → Draft article (HTML, Brian's voice)
-Step 4: seo-specialist → Optimization (meta tags, headings, internal links)
-Step 5: Publication → Add to useBlog.ts, deploy
-```
-
-**Inputs Required**:
-- Topic or title idea
-- Target audience (default: founders, CTOs, PE partners)
-- Article type (strategy, tips, how-to, etc.)
-
-**Outputs Produced**:
-- Content brief with SEO keywords and structure
-- Research brief with citations and data points
-- Complete HTML article in Brian's voice
-- SEO-optimized version with meta tags
-
-**Trigger Keywords**: blog post, article, content creation, write article, strategy article, thought leadership
-
-**Example Usage**:
-```
-"Create a blog post about AI automation for founders"
-→ Invokes content-pipeline skill
-→ Coordinates: content-strategist → research-agent → copywriter-agent → seo-specialist
-```
-
----
-
 ## SDD Workflow Skills
 
 ### sdd-specification
@@ -293,7 +248,6 @@ New skills should be created within their parent plugin:
 
 Skills with trigger keywords are automatically invoked when keywords detected:
 
-- "create blog post" → content-pipeline
 - "deployment failed" → debug
 - "optimize performance" → loads `domain-briefs/performance.md` via `get_domain_brief performance`
 
@@ -303,7 +257,6 @@ Note: domain detection and delegation hints run automatically in the
 ### Explicit Invocation (Skill Reference)
 
 ```
-"Use the content-pipeline skill to create an article about AI automation"
 "Follow the debug skill to investigate this 500 error"
 ```
 

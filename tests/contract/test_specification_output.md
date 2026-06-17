@@ -1,6 +1,6 @@
 # Contract Test: /specification Output Artifacts
 
-**Contract**: `specs/dev-main/contracts/specification-command.md`
+**Contract**: `specs/001-example/contracts/specification-command.md`
 **Test ID**: CT-SPEC-002
 **Status**: FAILING (Implementation pending)
 

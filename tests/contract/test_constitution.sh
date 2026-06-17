@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contract Tests: Constitution v3.1.0 (16 Principles)
+# Contract Tests: Constitution v3.2.0 (16 Principles)
 set -euo pipefail
 
 PASS=0; FAIL=0; TOTAL=0
