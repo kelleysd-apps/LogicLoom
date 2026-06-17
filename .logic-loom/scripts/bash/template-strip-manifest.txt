@@ -41,16 +41,23 @@
 #     clone; /initialize-project then fills it in place. ---
 stub: VISION.md
 
-# --- Release plumbing: PRIVATE-only. This is how WE ship; customers neither need
-#     nor should see it. Stripped from the public template. (The public repo's
-#     lightweight identity-marker backstop lives in leak-guard.yml, which is
-#     self-contained and does NOT reference these files.) ---
-.github/workflows/promote-to-main.yml
+# --- Release plumbing SCRIPTS: maintainer-only. These contain identity markers
+#     as detection patterns by design, so they must NEVER ship. Stripped here at
+#     PROMOTE time. (promote-to-main.yml is handled differently — see below.) ---
 .logic-loom/scripts/bash/strip-harness-dev.sh
 .logic-loom/scripts/bash/leak-guard.sh
 .logic-loom/scripts/bash/template-strip-manifest.txt
 .logic-loom/scripts/bash/history-scrub.sh
 .logic-loom/scripts/bash/history-scrub-rules.json
+#
+# NOTE: .github/workflows/promote-to-main.yml is intentionally NOT stripped here.
+# In the SINGLE-PUBLIC-REPO model the release workflow must live on the default
+# branch (main) to be `workflow_dispatch`-able — stripping it would make our own
+# CI release loop impossible. It carries no identity markers (it resolves the repo
+# via github.repository and runs the maintainer scripts from a dev-main checkout),
+# so it ships safely on OUR main. It is removed from a CUSTOMER's project instead,
+# at /initialize-project time (project-initialization skill + init-project.sh
+# cleanup), so a customer's repo is not cluttered with our release tooling.
 
 # --- Harness-dev documentation record (tracked) ---
 .docs/features          # harness-dev feature records, if any (defensive)
@@ -82,7 +89,11 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #   .logic-loom/memory/constitution.md : governance core (ship)
 #   plugins/** , .claude/hooks/** : the harness itself (ship)
 #   tests/** , .logic-loom/tests/** : governance-integrity regression suite (ship)
-#   .github/workflows/leak-guard.yml  : self-contained public backstop (ship)
+#   .github/workflows/leak-guard.yml  : self-contained public backstop (ship;
+#                                stripped from a CUSTOMER project at init)
+#   .github/workflows/promote-to-main.yml : maintainer release loop — must be on
+#                                main to be dispatchable (ship; marker-free;
+#                                stripped from a CUSTOMER project at init)
 #   .github/workflows/plugin-tests.yml: validates the shipped harness (ship)
 #   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
 #   .sdd-sync-ref              : /update-framework upstream pointer (ship)

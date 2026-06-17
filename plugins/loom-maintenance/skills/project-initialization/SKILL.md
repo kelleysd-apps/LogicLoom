@@ -82,7 +82,22 @@ If PRD specifies:
 - **Access tiers** (Principle XIII): Create `.docs/access-control.md` documenting tiers
 - **Project config**: Create `.logic-loom/config/project.conf` with thresholds
 
-### Step 7: Validate and Report
+### Step 7: Remove maintainer-only template-release CI
+
+The template ships with CI that releases + guards the **LogicLoom template itself**,
+not the customer's project. Remove it from the new project (keep `plugin-tests.yml`
+— it validates the harness the customer is using):
+
+```bash
+rm -f .github/workflows/promote-to-main.yml   # promotes dev-main -> sanitized main (maintainer-only)
+rm -f .github/workflows/leak-guard.yml        # identity-marker backstop for the template's main
+```
+
+State clearly in the report that these were removed and why (they would otherwise
+run — and fail/no-op — in the customer's CI and reference a release model the
+customer is not operating).
+
+### Step 8: Validate and Report
 
 1. Run constitutional compliance check and sanitization audit
 2. Verify document sync (constitution version matches CLAUDE.md references, agent counts match)

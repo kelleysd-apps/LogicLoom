@@ -323,6 +323,20 @@ echo -e "${YELLOW}Note:${NC} You can create the PRD anytime with ${GREEN}/create
 echo -e "${YELLOW}      It's flexible - use it for projects, major features, or pivots${NC}"
 echo ""
 
+# Remove maintainer-only template-release CI. These workflows release + guard the
+# LogicLoom TEMPLATE itself (promote dev-main -> sanitized main; identity-marker
+# backstop on PRs to the template's main). They are not part of YOUR project and
+# would only confuse your CI, so they are removed at initialization. (plugin-tests.yml
+# is kept — it validates the harness you are using.)
+echo ""
+echo -e "${BLUE}Removing maintainer-only template-release CI...${NC}"
+for wf in .github/workflows/promote-to-main.yml .github/workflows/leak-guard.yml; do
+    if [ -f "$wf" ]; then
+        rm -f "$wf"
+        echo -e "${GREEN}✓${NC} Removed $wf (LogicLoom template-release CI, not for your project)"
+    fi
+done
+
 # Cleanup process (with user approval)
 echo ""
 echo -e "${BLUE}=====================================${NC}"
