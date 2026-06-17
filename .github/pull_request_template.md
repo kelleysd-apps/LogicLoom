@@ -6,12 +6,12 @@
 
 <!-- Which plugins are affected? -->
 
-- [ ] sdd-governance (🔒 protected)
+- [ ] loom-governance (🔒 protected)
 - [ ] sdd-specification
-- [ ] sdd-git
+- [ ] loom-git
 - [ ] sdd-debug
-- [ ] sdd-creation
-- [ ] sdd-orchestrator
+- [ ] loom-creation
+- [ ] loom-orchestrator
 - [ ] Domain plugin(s): _____________
 - [ ] No plugin changes
 
@@ -39,7 +39,7 @@
 <!-- How was this tested? -->
 
 - [ ] Contract tests: `bash tests/contract/plugins/test_plugin_lifecycle.sh`
-- [ ] Constitutional check: `.specify/scripts/bash/constitutional-check.sh`
+- [ ] Constitutional check: `.logic-loom/scripts/bash/constitutional-check.sh`
 - [ ] Manual validation: _______________
 
 ---

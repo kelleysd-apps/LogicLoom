@@ -5,16 +5,14 @@ on:
     paths:
       - 'plugins/**'
       - 'tests/**'
-      - 'mcp-servers/**'
       - '.claude/commands/**'
-      - '.specify/scripts/**'
+      - '.logic-loom/scripts/**'
   pull_request:
     paths:
       - 'plugins/**'
       - 'tests/**'
-      - 'mcp-servers/**'
       - '.claude/commands/**'
-      - '.specify/scripts/**'
+      - '.logic-loom/scripts/**'
 
 jobs:
   contract-tests:
@@ -32,18 +30,11 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install MCP Server Dependencies
-        run: |
-          cd mcp-servers/sdd-marketplace && npm install --production
-
       - name: Run Plugin Contract Tests
         run: bash tests/contract/plugins/test_plugin_lifecycle.sh
 
       - name: Run Swarm Contract Tests
         run: bash tests/contract/plugins/test_swarm_lifecycle.sh
-
-      - name: Run RL Metrics Tests
-        run: bash tests/contract/plugins/test_rl_metrics.sh
 
       - name: Run Constitution Tests
         run: bash tests/contract/test_constitution.sh
@@ -53,9 +44,6 @@ jobs:
 
       - name: Run Plugin Command Bridge Tests
         run: bash tests/contract/test_plugin_command_bridge.sh
-
-      - name: Run Marketplace Unit Tests
-        run: node --test mcp-servers/sdd-marketplace/src/__tests__/marketplace.test.js
 
       - name: Validate All Manifests
         run: |
@@ -72,8 +60,6 @@ jobs:
                   for field in ['name', 'version', 'dependencies']:
                       if field not in d:
                           errors.append(f'{name}: missing {field}')
-                  if 'rl_metrics' not in d:
-                      errors.append(f'{name}: missing rl_metrics')
               except json.JSONDecodeError as e:
                   errors.append(f'{name}: invalid JSON - {e}')
           if errors:
@@ -87,6 +73,6 @@ jobs:
       - name: Constitutional Compliance Check
         if: github.event_name == 'pull_request'
         run: |
-          if [ -f .specify/scripts/bash/constitutional-check.sh ]; then
-            bash .specify/scripts/bash/constitutional-check.sh || true
+          if [ -f .logic-loom/scripts/bash/constitutional-check.sh ]; then
+            bash .logic-loom/scripts/bash/constitutional-check.sh || true
           fi

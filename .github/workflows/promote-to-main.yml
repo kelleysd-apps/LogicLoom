@@ -1,0 +1,193 @@
+name: Promote dev-main → sanitized main (clean template)
+
+# =============================================================================
+# SINGLE-PUBLIC-REPO release: build a sanitized snapshot of dev-main and publish
+# it to THIS repo's `main`. There is no separate template repo — customers fork
+# or "Use this template" from this repository, and `main` is the clean,
+# customer-facing template line. `dev-main` is the (publicly visible) dev
+# mainline. This workflow NEVER auto-runs — a release is deliberate.
+#
+# LOAD-BEARING SECURITY INVARIANT (do not weaken):
+#   • The published commit is SINGLE-PARENT: its only git parent is the current
+#     `main`. `dev-main` is NEVER a git parent. Within ONE repo this matters even
+#     more: a second parent (or merging dev-main itself) would make the entire
+#     dev-history tree reachable from `main` (anyone could `git show
+#     <devsha>:VISION.md` to recover a "stripped" file). Provenance is recorded
+#     as a `Source-dev-main:` trailer STRING, not an object reference. The
+#     release branch chain is  main ← C1(snapshot) ← C2(sync-ref)  — merging that
+#     branch (even with a merge commit) keeps dev-main unreachable, because C1's
+#     parent is `main`, never dev-main.
+#
+# THE HUMAN GATE: the Claude Code git hooks (Principle VI) do NOT run in GitHub
+# Actions. The `release` environment's required reviewers are the only approval
+# between the bot and `main` — CONFIGURE them in repo Settings → Environments,
+# or the bot publishes unattended.
+#
+# THE BINDING SANITIZATION GATE is the in-workflow audit (Checks 1-7, where
+# Check 7 IS leak-guard.sh) run in the `release` job below. The PR's
+# `leak-guard.yml` is a customer-visible backstop — NOTE: a PR opened by the
+# built-in GITHUB_TOKEN does NOT trigger `pull_request` workflows, so leak-guard
+# may not auto-run on the promotion PR. Do not rely on it; the in-workflow audit
+# is what blocks an unsanitized snapshot. (Re-run leak-guard manually on the PR,
+# or merge knowing the in-workflow audit already passed.)
+# =============================================================================
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag (e.g. v6.2.0)"
+        required: true
+      publish_mode:
+        description: "How to land the sanitized snapshot on main"
+        type: choice
+        default: pr
+        options: [pr, direct-push]
+
+permissions:
+  contents: write          # push the release branch (and, in direct-push, main + tag)
+  pull-requests: write     # open the promotion PR
+
+jobs:
+  # ---- GATE: tests + constitution + ORIGIN sanitization on UNsanitized dev-main
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: dev-main, fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.11' }
+      - name: Contract suite
+        run: |
+          set -e
+          for t in tests/contract/test_constitution.sh \
+                   tests/contract/plugins/test_plugin_lifecycle.sh \
+                   tests/contract/plugins/test_swarm_lifecycle.sh \
+                   tests/contract/test_governance_hooks.sh \
+                   tests/contract/test_freeze_scope.sh; do
+            [ -f "$t" ] && bash "$t"
+          done
+      - name: Constitutional check
+        run: bash .logic-loom/scripts/bash/constitutional-check.sh
+      - name: Origin sanitization audit (Checks 1-6, pre-strip)
+        # --origin-only: Check 7 (harness-dev absence) is meaningless here because
+        # dev-main legitimately STILL CONTAINS harness-dev. It is asserted post-strip
+        # in the release job instead.
+        run: bash .logic-loom/scripts/bash/sanitization-audit.sh --origin-only
+
+  # ---- RELEASE: strip → sanitize → re-audit → single-parent snapshot → publish
+  release:
+    needs: gate
+    runs-on: ubuntu-latest
+    environment: release        # human-approval gate (configure reviewers!)
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      THIS_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: dev-main, fetch-depth: 0 }
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "logicloom-release-bot"
+          git config user.email "release-bot@users.noreply.github.com"
+
+      - name: Fetch current main (single-parent target)
+        run: git fetch --no-tags origin "+refs/heads/main:refs/remotes/origin/main"
+
+      # PRESERVE the audit tooling OUTSIDE the tree first: strip removes
+      # leak-guard.sh + the manifest from the tree (they are private plumbing),
+      # so the post-strip audit must run from a copy taken BEFORE the strip.
+      - name: Preserve audit tooling (it strips itself)
+        run: cp -R .logic-loom/scripts/bash /tmp/loom-audit-tools
+
+      # BUILD: strip harness-dev, then per-project sanitize. Operates on the
+      # checked-out dev-main tree (a fresh CI runner — nothing else lives here).
+      - name: Build sanitized tree from dev-main
+        run: |
+          bash .logic-loom/scripts/bash/strip-harness-dev.sh
+          bash .logic-loom/scripts/bash/sanitize-for-template.sh
+          # Scrub dev-history NARRATIVE embedded in shipped files (changelogs,
+          # migration provenance, dated stamps, build-stage refs) so the template
+          # reads as a fresh harness with current version identity intact. Run from
+          # the PRESERVED copy — strip-harness-dev removed it from the tree. Targets
+          # the working tree via LOOM_SCRUB_ROOT (mirrors the LOOM_AUDIT_ROOT pattern).
+          LOOM_SCRUB_ROOT="$PWD" bash /tmp/loom-audit-tools/history-scrub.sh
+
+      # STAMP the shipped template's framework-upstream config from THIS repo so
+      # /update-framework targets the correct upstream (robust to a repo rename).
+      # framework-upstream.conf is NOT stripped.
+      - name: Stamp framework upstream config
+        run: |
+          {
+            echo "# LogicLoom framework upstream (FETCH-ONLY) — stamped at release.";
+            echo "# /update-framework fetches this ad-hoc into refs/loom-upstream/main;";
+            echo "# it is NOT a git remote and is never pushed to. Your commits go to origin.";
+            echo "LOOM_UPSTREAM_REPO=\"${THIS_REPO}\"";
+            echo "LOOM_UPSTREAM_URL=\"https://github.com/${THIS_REPO}.git\"";
+          } > .logic-loom/config/framework-upstream.conf
+
+      # STAGE the stripped/stubbed state so `git ls-files` (and the eventual
+      # write-tree) reflect the snapshot BEFORE the audit asserts on it.
+      - name: Stage sanitized tree
+        run: git add -A
+
+      # RE-AUDIT the sanitized tree from the PRESERVED tooling, pointed at the
+      # tree via LOOM_AUDIT_ROOT. Full 1-7 (Check 7 leak-guard now meaningful).
+      # THIS is the binding sanitization gate (see header).
+      - name: Sanitization audit on sanitized tree (1-7)
+        run: LOOM_AUDIT_ROOT="$PWD" bash /tmp/loom-audit-tools/sanitization-audit.sh
+
+      # COMPOSE: SINGLE-PARENT commit. Parent = current main only. dev-main sha is
+      # recorded as a trailer string, NOT as a -p parent. This is the invariant.
+      - name: Compose single-parent release commit
+        id: compose
+        run: |
+          git add -A
+          TREE=$(git write-tree)
+          PARENT=$(git rev-parse refs/remotes/origin/main)
+          SRC=$(git rev-parse HEAD)            # dev-main tip (string only)
+          MSG="release: ${{ inputs.version }} sanitized template"
+          C1=$(printf '%s\n\nSource-dev-main: %s\n' "$MSG" "$SRC" \
+                 | git commit-tree "$TREE" -p "$PARENT")
+          echo "commit=$C1" >> "$GITHUB_OUTPUT"
+          echo "Composed $C1 (parent=$PARENT, source dev-main=$SRC)"
+
+      # SYNC-REF: advance .sdd-sync-ref to the release commit so /update-framework
+      # on customer clones detects the new release. Child commit C2 (parent C1).
+      - name: Advance .sdd-sync-ref
+        id: sync
+        run: |
+          C1="${{ steps.compose.outputs.commit }}"
+          git read-tree "$C1"
+          git checkout-index -a -f
+          echo "$C1" > .sdd-sync-ref
+          git add .sdd-sync-ref
+          TREE2=$(git write-tree)
+          C2=$(printf 'chore: advance .sdd-sync-ref to %s\n' "${{ inputs.version }}" \
+                 | git commit-tree "$TREE2" -p "$C1")
+          echo "commit=$C2" >> "$GITHUB_OUTPUT"
+
+      # PUBLISH (default): push a release branch to THIS repo + open a PR to main,
+      # so leak-guard.yml is available as the customer-visible backstop. A human
+      # merges with a MERGE COMMIT; the tag is applied AFTER merge.
+      - name: Publish via PR to main
+        if: ${{ inputs.publish_mode == 'pr' }}
+        run: |
+          BR="release/${{ inputs.version }}"
+          git push origin "${{ steps.sync.outputs.commit }}:refs/heads/$BR"
+          gh pr create --repo "$THIS_REPO" --base main --head "$BR" \
+            --title "Release ${{ inputs.version }}: sanitized template" \
+            --body "Automated single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. Tag ${{ inputs.version }} is applied to the merge commit AFTER merge. NOTE: leak-guard.yml may not auto-run on this PR (PRs opened by GITHUB_TOKEN don't trigger pull_request workflows); re-run it manually if you want the customer-visible backstop on the record."
+
+      # PUBLISH (alt): fast-forward push straight to main + tag immediately. Use
+      # only if main's branch protection permits the bot and you accept skipping
+      # the PR-level leak-guard re-run (the release-job audit already ran).
+      - name: Publish via direct push
+        if: ${{ inputs.publish_mode == 'direct-push' }}
+        run: |
+          git push origin "${{ steps.sync.outputs.commit }}:main"
+          git tag "${{ inputs.version }}" "${{ steps.compose.outputs.commit }}"
+          git push origin "${{ inputs.version }}"

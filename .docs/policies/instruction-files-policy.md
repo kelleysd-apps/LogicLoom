@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-29
-**Authority**: Constitution v3.0.0 - Principle VIII (Documentation Sync)
+**Authority**: Constitution v3.1.0 - Principle VIII (Documentation Sync)
 **Review Cycle**: On any agent or workflow change
 
 ---
 
 ## Purpose
 
-This policy defines the relationship, responsibilities, and tandem update rules for the two primary AI instruction files in the SDD Framework:
+This policy defines the relationship, responsibilities, and tandem update rules for the two primary AI instruction files in the LogicLoom framework:
 - `CLAUDE.md` - Workflow rules and compliance protocols
 - `AGENTS.md` - Agent registry and selection guidance
 
@@ -22,7 +22,7 @@ This policy defines the relationship, responsibilities, and tandem update rules 
 **Primary Purpose**: Define HOW to work in the framework
 
 **Contains**:
-- Message pre-flight compliance check (4-step protocol)
+- Hook-enforced governance (lean/strict modes; no per-message ceremony)
 - Domain → agent delegation triggers (quick reference)
 - Constitutional compliance requirements
 - Git operation rules
@@ -30,7 +30,6 @@ This policy defines the relationship, responsibilities, and tandem update rules 
 - Task management (SSOT) rules
 - Feature workflow instructions
 - Testing approach
-- DS-STAR enhancements
 - Available agents summary (brief)
 
 **Audience**: Claude Code (primary), developers (reference)
@@ -201,8 +200,8 @@ Both files reference agent counts:
 
 Both files reference constitution version:
 
-- `CLAUDE.md`: "Constitution v3.0.0 contains 16 enforceable principles"
-- `AGENTS.md`: "Constitution: v3.0.0 (16 Principles)"
+- `CLAUDE.md`: "Constitution v3.1.0 contains 16 enforceable principles"
+- `AGENTS.md`: "Constitution: v3.1.0 (16 Principles)"
 
 **Sync Rule**: Must match exactly.
 
@@ -240,7 +239,7 @@ Repository Root/
 ├── CLAUDE.md          # Workflow & compliance (primary AI instructions)
 ├── AGENTS.md          # Agent registry (agent reference)
 ├── README.md          # Project overview (human-focused)
-└── .specify/memory/
+└── .logic-loom/memory/
     └── constitution.md  # Constitutional authority
 ```
 
@@ -256,9 +255,9 @@ Repository Root/
 
 ## References
 
-- Constitution: `.specify/memory/constitution.md`
-- Update Checklist: `.specify/memory/constitution_update_checklist.md`
-- Agent Collaboration: `.specify/memory/agent-collaboration-triggers.md`
+- Constitution: `.logic-loom/memory/constitution.md`
+- Update Checklist: `.logic-loom/memory/constitution_update_checklist.md`
+- Agent Collaboration: `.logic-loom/memory/agent-collaboration-triggers.md`
 
 ---
 

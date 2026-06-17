@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle VIII (Documentation Synchronization)
+**Authority**: Constitution v3.1.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
 ---
 
 ## Purpose
 
-This policy establishes standards and procedures for code review within the SDD Framework, ensuring all code changes meet quality, security, and constitutional compliance requirements before merging.
+This policy establishes standards and procedures for code review within the LogicLoom framework, ensuring all code changes meet quality, security, and constitutional compliance requirements before merging.
 
 ---
 
@@ -124,7 +124,7 @@ Reviewers must:
 Before requesting review:
 1. Run all tests locally (`npm test` or equivalent)
 2. Run linter (`npm run lint`)
-3. Run constitutional compliance check: `.specify/scripts/bash/constitutional-check.sh`
+3. Run constitutional compliance check: `.logic-loom/scripts/bash/constitutional-check.sh`
 4. Update documentation
 5. Self-review changes
 6. Write descriptive PR description
@@ -272,7 +272,7 @@ Required before review:
 - **Tests**: All tests must pass
 - **Coverage**: Code coverage threshold
 - **Security Scan**: Dependency vulnerability check
-- **Constitutional Check**: `.specify/scripts/bash/constitutional-check.sh`
+- **Constitutional Check**: `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Review Aids
 
@@ -380,9 +380,9 @@ Why: [Specific reason]
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
-- Testing Operations Skill: `plugins/sdd-domain-testing/skills/testing-operations/SKILL.md`
-- Security Operations Skill: `plugins/sdd-domain-security/skills/security-operations/SKILL.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
+- Testing domain brief: `plugins/loom-governance/domain-briefs/testing.md` (via `get_domain_brief testing`)
+- Security domain brief: `plugins/loom-governance/domain-briefs/security.md` (via `get_domain_brief security`)
 - Quality Assessor Agent: `plugins/sdd-specification/agents/quality-assessor.md`
 
 ---

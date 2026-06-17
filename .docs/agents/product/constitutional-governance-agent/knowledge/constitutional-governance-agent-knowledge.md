@@ -28,22 +28,28 @@
 15. **Principle XV**: File and Folder Organization
 16. **Principle XVI**: Plugin-First Architecture
 
-### Domain-Skill Mapping (v5.0)
+### Domain-Brief Mapping
 
-| Domain | Primary Skill/Agent | Plugin |
-|--------|---------------------|--------|
-| Frontend | frontend-operations skill | sdd-domain-frontend |
-| Backend | api-design / service-architecture skill | sdd-domain-backend |
-| Database | schema-design / database-operations skill | sdd-domain-database |
-| Testing | testing-operations skill | sdd-domain-testing |
-| Security | security-operations skill | sdd-domain-security |
-| Performance | performance-operations skill | sdd-domain-performance |
-| DevOps | monitoring / devops-operations skill | sdd-domain-devops |
+The seven `sdd-domain-*` specialist plugins have been removed. Domain expertise now
+lives as lightweight **domain briefs** in the governance plugin's registry at
+`plugins/loom-governance/domain-briefs/<domain>.md`, retrieved at delegation time via
+`get_domain_brief()` in `common.sh`. Workers receive the relevant brief inline rather
+than routing to a dedicated specialist plugin.
+
+| Domain | Domain brief | Retrieval |
+|--------|--------------|-----------|
+| Frontend | `domain-briefs/frontend.md` | `get_domain_brief frontend` |
+| Backend | `domain-briefs/backend.md` | `get_domain_brief backend` |
+| Database | `domain-briefs/database.md` | `get_domain_brief database` |
+| Testing | `domain-briefs/testing.md` | `get_domain_brief testing` |
+| Security | `domain-briefs/security.md` | `get_domain_brief security` |
+| Performance | `domain-briefs/performance.md` | `get_domain_brief performance` |
+| DevOps | `domain-briefs/devops.md` | `get_domain_brief devops` |
 | Specification | sdd-specification skill | sdd-specification |
 | Planning | sdd-planning skill | sdd-specification |
 | Tasks | sdd-tasks skill | sdd-specification |
-| Multi-Domain | team-orchestration skill | sdd-orchestrator |
-| PRD | prd-specialist agent | sdd-creation |
+| Multi-Domain | team-orchestration skill | loom-orchestrator |
+| PRD | prd-specialist agent | loom-creation |
 
 ### Slash Command Routing
 
@@ -58,7 +64,6 @@
 | /debug | auto-debug-agent | Debug deployment/runtime issues |
 | /research | team-synthesizer agent | Multi-LLM tribunal research |
 | /swarm | team-orchestration skill | Multi-agent swarm execution |
-| /dev-loop | dev-loop-orchestrator agent | Recursive dev-loop with tribunal |
 
 ## Accumulated Learnings
 

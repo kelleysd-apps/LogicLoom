@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle II (Test-First Development)
+**Authority**: Constitution v3.1.0 - Principle II (Test-First Development)
 **Review Cycle**: Quarterly
 
 ---
 
 ## Purpose
 
-This policy establishes comprehensive testing standards for the SDD Framework, enforcing Test-First Development (TDD) as a non-negotiable constitutional requirement.
+This policy establishes comprehensive testing standards for the LogicLoom framework, enforcing Test-First Development (TDD) as a non-negotiable constitutional requirement.
 
 ---
 
@@ -712,7 +712,7 @@ Even emergency hotfixes require:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`
 

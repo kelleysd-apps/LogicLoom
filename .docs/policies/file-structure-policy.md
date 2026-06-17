@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-29
-**Authority**: Constitution v3.0.0
+**Authority**: Constitution v3.1.0
 **Review Cycle**: Quarterly
 
 ---
 
 ## Purpose
 
-This policy establishes comprehensive rules for file creation, folder organization, and directory structure management across the SDD Framework. It ensures consistency, discoverability, and maintainability as projects scale.
+This policy establishes comprehensive rules for file creation, folder organization, and directory structure management across the LogicLoom framework. It ensures consistency, discoverability, and maintainability as projects scale.
 
 ---
 
@@ -56,13 +56,16 @@ project-root/
 │   ├── policies/               # Framework policies
 │   └── prd/                    # Product Requirements Documents
 │
-├── .specify/                   # SDD Framework core
+├── .logic-loom/                   # LogicLoom framework core
 │   ├── config/                 # Framework configuration
 │   ├── memory/                 # Constitutional documents
 │   ├── scripts/                # Automation scripts
 │   └── templates/              # Document templates
 │
-├── specs/                      # Feature specifications
+├── features/                   # Per-feature folders (vision/PRD/plan workflow pack)
+│   └── <name>/                 # e.g., user-auth/ — vision, plan, retro
+│
+├── specs/                      # Feature specs (SDD waterfall workflow pack)
 │   └── ###-feature-name/       # Per-feature spec directory
 │
 ├── src/                        # Source code
@@ -93,7 +96,6 @@ project-root/
 │   └── constitutional-governance-agent.md
 ├── orchestration/              # Multi-agent coordination
 │   ├── team-synthesizer.md
-│   ├── dev-loop-orchestrator.md
 │   └── memory-context-agent.md
 ├── product/                    # Product agents
 │   └── prd-specialist.md
@@ -109,7 +111,7 @@ project-root/
 - One agent per file
 - File name = agent name (kebab-case)
 - Department folder must exist before creating agent
-- Use `.specify/templates/agent-template.md` for new agents
+- Use `.logic-loom/templates/agent-template.md` for new agents
 
 ### .claude/skills/ - Skill Definitions
 
@@ -138,7 +140,7 @@ project-root/
 - Each skill gets its own folder
 - Main file MUST be named `SKILL.md`
 - Supporting files allowed: `reference.md`, `examples.md`
-- Use `.specify/templates/skill-template.md` for new skills
+- Use `.logic-loom/templates/skill-template.md` for new skills
 
 ### .docs/agents/ - Agent Memory
 
@@ -175,7 +177,24 @@ project-root/
 - Include version, date, and authority header
 - Reference constitutional principles
 
-### specs/ - Feature Specifications
+### features/ - Vision/PRD/Plan Workflow Pack Folders
+
+**Structure**:
+```
+features/
+└── <feature-name>/             # e.g., user-auth/ (kebab-case, no number prefix)
+    ├── vision.md               # Feature vision (PRD-lite, intent + acceptance)
+    ├── plan.md                 # DAG plan from /swarm explore
+    ├── retro.md                # Post-completion retrospective (/retro)
+    └── notes/                  # Optional working notes, research, artifacts
+```
+
+**Rules**:
+- Directory name: `<feature-name>` (kebab-case, no sequential prefix)
+- Created via `/create-prd` or `/swarm explore` workflow
+- Interchangeable with `specs/`; both workflow packs share the governance core
+
+### specs/ - SDD Waterfall Workflow Pack Specifications
 
 **Structure**:
 ```
@@ -192,11 +211,11 @@ specs/
         └── auth.yaml
 ```
 
-**Rules**:
+**Rules** (SDD waterfall workflow pack):
 - Feature number prefix (###) is sequential
 - Directory name: `###-feature-name` (kebab-case)
-- All files use templates from `.specify/templates/`
-- Created via `/specify` command, not manually
+- All files use templates from `.logic-loom/templates/`
+- Created via `/specification` command (SDD waterfall pack)
 
 ### src/ - Source Code
 
@@ -263,7 +282,7 @@ Before creating ANY file:
    └─ If exists: Edit instead of Write
 
 4. USE TEMPLATE if available
-   └─ Check .specify/templates/ for applicable template
+   └─ Check .logic-loom/templates/ for applicable template
    └─ Copy and modify template content
 
 5. CREATE file with full absolute path
@@ -283,7 +302,7 @@ Before creating ANY file:
 | Policy | `[topic]-policy.md` | `testing-policy.md` |
 | Feature spec | `###-[name]/` | `001-user-auth/` |
 | Test file | `test_[name].py` | `test_user_service.py` |
-| Config | `[name].config.[ext]` | `refinement.conf` |
+| Config | `[name].config.[ext]` | `database.config.json` |
 
 **General Rules**:
 - Use **kebab-case** for directories and multi-word files
@@ -382,13 +401,13 @@ The framework provides validation tools:
 
 ```bash
 # Validate directory structure
-.specify/scripts/bash/validate-structure.sh
+.logic-loom/scripts/bash/validate-structure.sh
 
 # Check file naming conventions
-.specify/scripts/bash/check-naming.sh
+.logic-loom/scripts/bash/check-naming.sh
 
 # Audit file organization
-.specify/scripts/bash/file-audit.sh
+.logic-loom/scripts/bash/file-audit.sh
 ```
 
 ### Skill-Based Enforcement
@@ -452,20 +471,25 @@ All agents MUST:
 | Skill | `.claude/skills/[category]/[skill]/SKILL.md` |
 | Command | `.claude/commands/[command].md` |
 | Policy | `.docs/policies/[topic]-policy.md` |
-| Feature spec | `specs/###-[name]/` |
-| Template | `.specify/templates/[name]-template.md` |
+| Feature (vision/PRD/plan pack) | `features/<name>/` |
+| Feature (SDD waterfall pack) | `specs/###-[name]/` |
+| Template | `.logic-loom/templates/[name]-template.md` |
 
 ### Creation Commands
 
 ```bash
 # Create agent (use script)
-.specify/scripts/bash/create-agent.sh [name] [description]
+.logic-loom/scripts/bash/create-agent.sh [name] [description]
 
 # Create skill folder
 mkdir -p .claude/skills/[category]/[skill-name]
 
-# Create feature (use command)
-/specify [feature-name]
+# Create feature via vision/PRD/plan workflow pack
+/create-prd [feature-name]      # bootstraps features/<name>/vision.md
+/swarm explore [feature-name]   # produces features/<name>/plan.md
+
+# Create feature via SDD waterfall workflow pack
+/specification [feature-name]   # bootstraps specs/###-<name>/
 ```
 
 ---
@@ -474,8 +498,8 @@ mkdir -p .claude/skills/[category]/[skill-name]
 
 - Agent Naming: `.docs/policies/agent-file-naming-convention.md`
 - Agent Creation: `.docs/policies/agent-creation-policy.md`
-- Constitution: `.specify/memory/constitution.md`
-- Templates: `.specify/templates/`
+- Constitution: `.logic-loom/memory/constitution.md`
+- Templates: `.logic-loom/templates/`
 
 ---
 

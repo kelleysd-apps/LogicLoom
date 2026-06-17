@@ -35,23 +35,19 @@ AGENT_COUNT=$(find "$ROOT_DIR/plugins" -path "*/agents/*.md" | wc -l | tr -d ' '
 assert "Agent count reduced to ~6 (found ${AGENT_COUNT})" "[ ${AGENT_COUNT} -le 7 ]"
 
 # Verify essential agents are KEPT
-assert "constitutional-governance-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-governance/agents/constitutional-governance-agent.md' ]"
-assert "memory-context-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-memory/agents/memory-context-agent.md' ]"
-assert "framework-sync-agent kept" "[ -f '$ROOT_DIR/plugins/sdd-maintenance/agents/framework-sync-agent.md' ]"
-assert "prd-specialist kept" "[ -f '$ROOT_DIR/plugins/sdd-creation/agents/prd-specialist.md' ]"
-assert "subagent-architect kept" "[ -f '$ROOT_DIR/plugins/sdd-creation/agents/subagent-architect.md' ]"
-assert "team-synthesizer kept" "[ -f '$ROOT_DIR/plugins/sdd-orchestrator/agents/team-synthesizer.md' ]"
-# dev-loop agents removed (converted to core-loop skill)
-assert "dev-loop agents directory removed" "[ ! -d '$ROOT_DIR/plugins/sdd-dev-loop/agents' ]"
+assert "constitutional-governance-agent kept" "[ -f '$ROOT_DIR/plugins/loom-governance/agents/constitutional-governance-agent.md' ]"
+assert "memory-context-agent kept" "[ -f '$ROOT_DIR/plugins/loom-memory/agents/memory-context-agent.md' ]"
+assert "framework-sync-agent kept" "[ -f '$ROOT_DIR/plugins/loom-maintenance/agents/framework-sync-agent.md' ]"
+assert "prd-specialist kept" "[ -f '$ROOT_DIR/plugins/loom-creation/agents/prd-specialist.md' ]"
+assert "subagent-architect kept" "[ -f '$ROOT_DIR/plugins/loom-creation/agents/subagent-architect.md' ]"
+assert "team-synthesizer kept" "[ -f '$ROOT_DIR/plugins/loom-orchestrator/agents/team-synthesizer.md' ]"
+# loom-dev-loop plugin removed (superseded by Claude Code native /workflow, /loop, /goal)
+assert "loom-dev-loop plugin removed" "[ ! -d '$ROOT_DIR/plugins/loom-dev-loop' ]"
 
-# Verify domain specialist agents are REMOVED (converted to skills)
-assert "No frontend-specialist agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-frontend/agents/frontend-specialist.md' ]"
-assert "No backend-architect agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-backend/agents/backend-architect.md' ]"
-assert "No database-specialist agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-database/agents/database-specialist.md' ]"
-assert "No testing-specialist agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-testing/agents/testing-specialist.md' ]"
-assert "No security-specialist agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-security/agents/security-specialist.md' ]"
-assert "No performance-engineer agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-performance/agents/performance-engineer.md' ]"
-assert "No devops-engineer agent" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-devops/agents/devops-engineer.md' ]"
+# v3.1.0: domain plugins collapsed into the governance-core domain-brief registry
+for domain in frontend backend database testing security performance devops; do
+  assert "sdd-domain-${domain} plugin removed" "[ ! -d '$ROOT_DIR/plugins/sdd-domain-${domain}' ]"
+done
 
 echo ""
 
@@ -60,31 +56,20 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Agent→Skill Conversions ---"
 
-# Domain skills with Task Brief sections
-TASK_BRIEF_COUNT=$(grep -rl "^## Task Brief" "$ROOT_DIR/plugins"/*/skills/*/SKILL.md 2>/dev/null | wc -l | tr -d ' ')
-assert "13 skills have Task Brief section (found ${TASK_BRIEF_COUNT})" "[ ${TASK_BRIEF_COUNT} -ge 13 ]"
+# Domain knowledge now lives in the governance-core domain-brief registry
+GOV_DIR="$ROOT_DIR/plugins/loom-governance"; [ -d "$ROOT_DIR/plugins/loom-governance" ] && GOV_DIR="$ROOT_DIR/plugins/loom-governance"
+REG_BRIEF_COUNT=$(grep -rl "^## Task Brief" "$GOV_DIR/domain-briefs"/*.md 2>/dev/null | wc -l | tr -d ' ')
+assert "7 domain briefs in registry (found ${REG_BRIEF_COUNT})" "[ ${REG_BRIEF_COUNT} -ge 7 ]"
 
-# Verify each domain skill conversion
-assert "backend-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-backend/skills/backend-operations/SKILL.md' ]"
-assert "frontend-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-frontend/skills/frontend-operations/SKILL.md' ]"
-assert "database-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-database/skills/database-operations/SKILL.md' ]"
-assert "testing-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-testing/skills/testing-operations/SKILL.md' ]"
-assert "security-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-security/skills/security-operations/SKILL.md' ]"
-assert "performance-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-performance/skills/performance-operations/SKILL.md' ]"
-assert "devops-operations skill exists" "[ -f '$ROOT_DIR/plugins/sdd-domain-devops/skills/devops-operations/SKILL.md' ]"
-
-# Domain skills have Task Brief (domain knowledge for Agent Teams injection)
-assert "backend-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-backend/skills/backend-operations/SKILL.md'"
-assert "frontend-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-frontend/skills/frontend-operations/SKILL.md'"
-assert "database-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-database/skills/database-operations/SKILL.md'"
-assert "testing-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-testing/skills/testing-operations/SKILL.md'"
-assert "security-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-security/skills/security-operations/SKILL.md'"
-assert "performance-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-performance/skills/performance-operations/SKILL.md'"
-assert "devops-operations has Task Brief" "grep -q '^## Task Brief' '$ROOT_DIR/plugins/sdd-domain-devops/skills/devops-operations/SKILL.md'"
+# Verify each domain brief exists with a Task Brief section
+for domain in backend frontend database testing security performance devops; do
+  assert "${domain} registry brief exists" "[ -f '$GOV_DIR/domain-briefs/${domain}.md' ]"
+  assert "${domain} brief has Task Brief" "grep -q '^## Task Brief' '$GOV_DIR/domain-briefs/${domain}.md'"
+done
 
 # Orchestrator/specification skill consolidations
-assert "team-orchestration skill exists" "[ -f '$ROOT_DIR/plugins/sdd-orchestrator/skills/team-orchestration/SKILL.md' ]"
-assert "multi-skill-workflow skill exists" "[ -f '$ROOT_DIR/plugins/sdd-orchestrator/skills/multi-skill-workflow/SKILL.md' ]"
+assert "team-orchestration skill exists" "[ -f '$ROOT_DIR/plugins/loom-orchestrator/skills/team-orchestration/SKILL.md' ]"
+assert "multi-skill-workflow skill exists" "[ -f '$ROOT_DIR/plugins/loom-orchestrator/skills/multi-skill-workflow/SKILL.md' ]"
 # sdd-specification, sdd-planning, sdd-tasks consolidated into unified-specification (v2.0.0)
 assert "unified-specification skill exists" "[ -f '$ROOT_DIR/plugins/sdd-specification/skills/unified-specification/SKILL.md' ]"
 assert "deprecated sdd-specification skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-specification' ]"
@@ -94,29 +79,27 @@ assert "deprecated sdd-tasks skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-speci
 echo ""
 
 # ═══════════════════════════════════════
-# Section 3: Domain Plugin Manifests
+# Section 3: Domain Registry Integrity
 # ═══════════════════════════════════════
-echo "--- Domain Plugin Manifest Integrity ---"
+echo "--- Domain Registry Integrity ---"
 
-# Each domain plugin.json should have 0 agents (or agents array empty/removed)
+# No domain plugin manifests should remain (collapsed into the core registry)
 for domain in backend frontend database testing security performance devops; do
-  pjson="$ROOT_DIR/plugins/sdd-domain-${domain}/plugin.json"
-  if [ -f "$pjson" ]; then
-    agent_entries=$(python3 -c "import json; d=json.load(open('$pjson')); print(len(d.get('agents',[])))" 2>/dev/null || echo "0")
-    assert "sdd-domain-${domain} has 0 agents in plugin.json (found ${agent_entries})" "[ '${agent_entries}' = '0' ]"
-  fi
+  assert "no sdd-domain-${domain} manifest" "[ ! -f '$ROOT_DIR/plugins/sdd-domain-${domain}/plugin.json' ]"
 done
+# Registry README documents the collapse
+assert "domain-briefs registry README exists" "[ -f '$GOV_DIR/domain-briefs/README.md' ]"
 
 # Memory plugin should be v2.0.0
-MEM_VERSION=$(python3 -c "import json; print(json.load(open('$ROOT_DIR/plugins/sdd-memory/plugin.json'))['version'])" 2>/dev/null)
-assert "sdd-memory plugin version is 2.0.0 (found ${MEM_VERSION})" "[ '${MEM_VERSION}' = '2.0.0' ]"
+MEM_VERSION=$(python3 -c "import json; print(json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json'))['version'])" 2>/dev/null)
+assert "loom-memory plugin version is 2.0.0 (found ${MEM_VERSION})" "[ '${MEM_VERSION}' = '2.0.0' ]"
 
 # Memory plugin has backends field
-assert "sdd-memory plugin.json has backends field" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/sdd-memory/plugin.json')); assert 'backends' in d\""
-assert "backends has keyword entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/sdd-memory/plugin.json')); assert 'keyword' in d['backends']\""
-assert "backends has bm25 entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/sdd-memory/plugin.json')); assert 'bm25' in d['backends']\""
-assert "backends has vector entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/sdd-memory/plugin.json')); assert 'vector' in d['backends']\""
-assert "backends has hybrid entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/sdd-memory/plugin.json')); assert 'hybrid' in d['backends']\""
+assert "loom-memory plugin.json has backends field" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'backends' in d\""
+assert "backends has keyword entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'keyword' in d['backends']\""
+assert "backends has bm25 entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'bm25' in d['backends']\""
+assert "backends has vector entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'vector' in d['backends']\""
+assert "backends has hybrid entry" "python3 -c \"import json; d=json.load(open('$ROOT_DIR/plugins/loom-memory/.claude-plugin/plugin.json')); assert 'hybrid' in d['backends']\""
 
 echo ""
 
@@ -125,7 +108,7 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Memory v2.0 Backend Files ---"
 
-LIB_DIR="$ROOT_DIR/plugins/sdd-memory/lib"
+LIB_DIR="$ROOT_DIR/plugins/loom-memory/lib"
 
 # File existence
 assert "backend-interface.sh exists" "[ -f '$LIB_DIR/backend-interface.sh' ]"
@@ -167,7 +150,7 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Memory v2.0 Configuration ---"
 
-V2_CONF="$ROOT_DIR/plugins/sdd-memory/config/memory-v2.conf"
+V2_CONF="$ROOT_DIR/plugins/loom-memory/config/memory-v2.conf"
 
 assert "memory-v2.conf exists" "[ -f '$V2_CONF' ]"
 assert "MEMORY_BACKEND configured" "grep -q '^MEMORY_BACKEND=' '$V2_CONF'"
@@ -198,7 +181,7 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Memory-Search v2.0 Upgrade ---"
 
-SEARCH_SCRIPT="$ROOT_DIR/plugins/sdd-memory/scripts/memory-search.sh"
+SEARCH_SCRIPT="$ROOT_DIR/plugins/loom-memory/scripts/memory-search.sh"
 
 assert "memory-search.sh exists" "[ -f '$SEARCH_SCRIPT' ]"
 assert "memory-search.sh passes bash -n" "bash -n '$SEARCH_SCRIPT'"
@@ -218,7 +201,7 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Memory Tier Directories ---"
 
-MEM_DIR="$ROOT_DIR/plugins/sdd-memory"
+MEM_DIR="$ROOT_DIR/plugins/loom-memory"
 
 assert "working/ directory exists" "[ -d '$MEM_DIR/working' ]"
 assert "recall/ directory exists" "[ -d '$MEM_DIR/recall' ]"
@@ -238,10 +221,10 @@ MANIFEST="$ROOT_DIR/.claude/commands/.bridge-manifest.json"
 
 assert "Bridge manifest exists" "[ -f '$MANIFEST' ]"
 BRIDGE_COUNT=$(python3 -c "import json; d=json.load(open('$MANIFEST')); print(len(d.get('bridged',{})))" 2>/dev/null || echo "0")
-assert "15 bridged commands (found ${BRIDGE_COUNT})" "[ '${BRIDGE_COUNT}' = '15' ]"
+assert "15+ bridged commands (found ${BRIDGE_COUNT})" "[ ${BRIDGE_COUNT} -ge 15 ]"
 
 # Verify key commands are bridged (specify/plan/tasks removed — use /specification)
-for cmd in specification research swarm build-team fullstack-team review-team finalize git-push dev-loop update-framework; do
+for cmd in specification research swarm build-team fullstack-team review-team finalize git-push update-framework; do
   assert "${cmd} is bridged" "python3 -c \"import json; d=json.load(open('$MANIFEST')); assert '${cmd}' in d['bridged']\""
 done
 
@@ -252,16 +235,14 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Cross-Cutting Validation ---"
 
-# No orphaned domain agent files
-ORPHAN_AGENTS=$(find "$ROOT_DIR/plugins/sdd-domain-backend" "$ROOT_DIR/plugins/sdd-domain-frontend" \
-  "$ROOT_DIR/plugins/sdd-domain-database" "$ROOT_DIR/plugins/sdd-domain-testing" \
-  "$ROOT_DIR/plugins/sdd-domain-security" "$ROOT_DIR/plugins/sdd-domain-performance" \
-  "$ROOT_DIR/plugins/sdd-domain-devops" -name "*.md" -path "*/agents/*" 2>/dev/null | wc -l | tr -d ' ')
-assert "No orphaned domain agent files (found ${ORPHAN_AGENTS})" "[ ${ORPHAN_AGENTS} -eq 0 ]"
+# No sdd-domain-* plugin directories remain (collapsed into the core registry)
+ORPHAN_DOMAINS=$(find "$ROOT_DIR/plugins" -maxdepth 1 -type d -name 'sdd-domain-*' 2>/dev/null | wc -l | tr -d ' ')
+assert "No sdd-domain-* plugin dirs remain (found ${ORPHAN_DOMAINS})" "[ ${ORPHAN_DOMAINS} -eq 0 ]"
 
-# All plugin.json files are valid JSON
+# All plugin manifests are valid JSON (canonical location: .claude-plugin/plugin.json)
 INVALID_JSON=0
-for pjson in "$ROOT_DIR"/plugins/*/plugin.json; do
+for pjson in "$ROOT_DIR"/plugins/*/.claude-plugin/plugin.json; do
+  [ -f "$pjson" ] || continue
   if ! python3 -c "import json; json.load(open('$pjson'))" 2>/dev/null; then
     INVALID_JSON=$((INVALID_JSON + 1))
     echo "    WARNING: Invalid JSON in $pjson"
@@ -270,7 +251,7 @@ done
 assert "All plugin.json files are valid JSON (${INVALID_JSON} invalid)" "[ ${INVALID_JSON} -eq 0 ]"
 
 # Constitution still references 16 principles
-PRINCIPLE_COUNT=$(grep -c '^### Principle' "$ROOT_DIR/.specify/memory/constitution.md" 2>/dev/null || echo "0")
+PRINCIPLE_COUNT=$(grep -c '^### Principle' "$ROOT_DIR/.logic-loom/memory/constitution.md" 2>/dev/null || echo "0")
 assert "Constitution has 16 principles (found ${PRINCIPLE_COUNT})" "[ ${PRINCIPLE_COUNT} -eq 16 ]"
 
 echo ""

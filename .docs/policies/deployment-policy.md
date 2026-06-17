@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle VII (Observability)
+**Authority**: Constitution v3.1.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
 
 ---
 
 ## Purpose
 
-This policy establishes deployment standards, procedures, and safeguards for the SDD Framework, ensuring reliable, observable, and reversible deployments following constitutional principles.
+This policy establishes deployment standards, procedures, and safeguards for the LogicLoom framework, ensuring reliable, observable, and reversible deployments following constitutional principles.
 
 ---
 
@@ -655,7 +655,7 @@ Deployment logs retained for:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`

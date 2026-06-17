@@ -1,9 +1,134 @@
 # Changelog
 
-All notable changes to the SDD Agent Framework will be documented in this file.
+All notable changes to LogicLoom (formerly the SDD Agent Framework) will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [6.2.1] - 2026-06-15
+
+**Removed the DS-STAR refinement subsystem.** The orphaned, experimental,
+never-wired heuristic quality-gate is gone — Claude Code's native `/goal`,
+`/workflow`, and `/loop` primitives cover the same ground.
+
+### Removed
+- The DS-STAR refinement subsystem (`src/sdd/` Python library + the Python
+  agent/refinement wrappers, their tests, packaging, and
+  `.logic-loom/config/refinement.conf`) — orphaned/experimental and redundant
+  with native `/goal`, `/workflow`, and `/loop`. Earlier release notes
+  (v6.1 / v6.2.0) described DS-STAR as "retained"; that is now superseded — it
+  is fully removed.
+
+## [6.2.0] - 2026-05-31
+
+**Removed the dev-loop pack** (superseded by native `/workflow`, `/loop`, `/goal`);
+orchestration now leans on Claude Code's native loop primitives. LogicLoom has
+**two** workflow packs over the governance core — swarm and SDD waterfall.
+
+### Removed
+- The `loom-dev-loop` plugin and the `/dev-loop` command (`core-loop` skill):
+  Claude Code now ships native `/workflow`, `/loop`, and `/goal` primitives that
+  supersede the autonomous edit-test-debug loop, and dev-loop's runtime
+  self-extension (gap detection → scaffold → register) was a governance
+  liability. Plugin count: 9 → 8.
+- The dev-loop subsystems that lived only inside that pack: the dev-loop tribunal
+  voting / grading engine, scope-detector, quality-grading, termination-engine,
+  RL-feedback engine, self-extension, and the dev-loop contract test suites.
+
+### Unchanged
+- `/research` and its jury-on-demand multi-LLM tribunal (in `loom-orchestrator`,
+  self-contained) are **kept** — they are not part of dev-loop.
+- The DS-STAR refinement subsystem and `.logic-loom/config/refinement.conf` are
+  **retained**, decoupled from governance.
+
+## [6.1.0] - 2026-05-28
+
+**Opus 4.8 re-base + workflow-agnostic core.** Removed harness scaffolding made
+redundant by flagship models, and reframed the framework around a governance core
+with interchangeable workflow packs (no "primary"/"legacy" path).
+
+### Changed — governance is hook-enforced
+- Removed the mandatory per-message **4-step compliance ceremony** (FR-707). The
+  `git-safety-gate` PreToolUse hook now forces an approval prompt on git mutations
+  (real Principle VI enforcement) and is wired into `.claude/settings.json` with
+  the dangerous-command guard.
+- New `LOOM_GOVERNANCE_MODE` (`.logic-loom/config/governance.conf`): `lean`
+  (default, flagship models) / `strict` (re-adds recitation for weaker models).
+- Constitution → **v3.1.0**: LogicLoom identity; Principle X rewritten to
+  "Delegation & Context Isolation"; Opus 4.8 default; dropped the `rl_metrics`
+  manifest mandate.
+
+### Changed — workflow-agnostic reframe
+- Governance core + **interchangeable workflow packs** (swarm, SDD waterfall,
+  dev-loop); none privileged. `vision.md` / `/plan-review` are swarm-pack-internal
+  gates, not framework-level.
+- Plugins renamed `sdd-*` → `loom-*`; **`sdd-specification` keeps its prefix**
+  (it *is* the SDD workflow). 9 plugins.
+
+### Removed
+- The 7 `sdd-domain-*` plugins — collapsed into a governance-core **domain-brief
+  registry** (`get_domain_brief`).
+- RL telemetry (`rl_metrics` fields), the `sdd-marketplace` MCP, migration
+  scaffolding. (DS-STAR refinement subsystem **retained**, just decoupled from
+  mandatory governance. RL retained inside the `loom-dev-loop` pack by design.)
+
+### Added
+- `.logic-loom/config/models.conf` — role→model config (flagship Opus 4.8); no
+  pinned version strings in agents/commands.
+- Documented model/provider boundary: orchestration is Claude-Code-native
+  (Anthropic-only); cross-provider models only at the delegated `/research` layer.
+
+## [6.0.0] - 2026-05-27
+
+**Major release**: LogicLoom rename + workflow modernization. Project renamed `sdd-agentic-framework` → `logic-loom` (brand: **LogicLoom**); `.specify/` → `.logic-loom/`. The rename disambiguates from the loom.com video platform.
+
+### Renamed
+
+- Project package: `sdd-agentic-framework` → `logic-loom`
+- Brand: **LogicLoom**
+- Framework directory: `.specify/` → `.logic-loom/` (all script and config paths updated)
+
+### Added — LogicLoom primary workflow
+
+- **`features/<feature-name>/` layout**: vision → exploration → research → PRD → plan → plan-review → sprints → retro (see `features/README.md`)
+- **`/plan-review` skill** (loom-orchestrator): CEO + Eng reviewer verdict on `plan.md` — gates `/swarm implement`
+- **`/retro` skill** (loom-orchestrator): post-feature learning capture
+- **Vision-driven `/create-prd`**: auto-detects whether `vision.md` exists and routes to vision-driven or legacy PRD mode; office-hours forcing-questions gate
+- **3 new hooks**:
+  - `worktree-port-namespace` — deterministic per-worktree dev-server port ranges (no collision across parallel branches)
+  - `context-cap-warn` — flags sessions approaching 800K of the 1M context window
+  - `freeze-write-scope` — rejects swarm worker writes outside declared file ownership
+
+### Changed — Workflow commands
+
+- **`/swarm` — 3 modes**: `explore` (read-only investigations), `implement [sprint]` (per-sprint scope-bounded workers, file-ownership DAG enforced), `generic-legacy` (pre-LogicLoom behavior preserved)
+- **`/review-team` — 4 reviewers** (was 3): added a **behavioral evaluator** that drives Playwright via chrome-devtools MCP to exercise actual UI/API behavior alongside security + quality + performance
+- **`/research` — jury-on-demand**: picks 1-3 LLM judges per query type instead of always running the full tribunal. Pass `--judges all` for legacy 3-judge cross-validation
+- **`/create-prd`** auto-detects vision-driven vs legacy mode
+
+### Removed
+
+- `mcp-servers/sdd-marketplace/` — LogicLoom no longer runs its own plugin marketplace
+- RL telemetry infrastructure: `.logic-loom/scripts/bash/rl/`, `src/sdd/feedback/`, `src/sdd/metrics/`, `.docs/rl-metrics/`
+- 5 stale internal scripts: `migrate-agent-to-skill`, `legacy-pattern-report`, `skill-coverage-audit`, `analyze-logs`, and `.specify/memory/agent-collaboration.md`
+
+### Defers (third-party discovery)
+
+LogicLoom is not in the marketplace business. External skill and plugin discovery defers to:
+
+- **Anthropic Claude Code Plugin Marketplace** — canonical source for installable skills/plugins
+- **Docker MCP Toolkit** — 310+ containerized MCP servers via `mcp-find`, `mcp-add`, `mcp-config-set`, `mcp-exec`
+
+### v3 supplementary principle — Legacy-Tool Coexistence
+
+Legacy SDD tools remain as alternative paths alongside the LogicLoom workflow:
+
+- `/specification` (unified waterfall), `/specify`, `/plan`, `/tasks`
+- DS-STAR verifiers and validators
+- 7 domain plugins (frontend, backend, database, testing, security, devops, performance)
+- `/build-team`, `/fullstack-team`, `/dev-loop`, `/finalize`
+
+Pick the workflow that matches the problem shape.
 
 ## [5.0.0] - 2026-02-16
 
@@ -41,7 +166,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **14 custom agent definitions**: Replaced by enhanced plugin skills with Task Briefs
 - **3 obsolete scripts**: `generate-skill-index.sh`, `discover-skills.sh`, `update-agents-to-constitution-v1.5.0.sh`
 - **TEMPLATE_INIT.md**: Now generated dynamically by sanitize script
-- **Empty `sdd-orchestrator-hook/agents/` directory**
+- **Empty `loom-orchestrator-hook/agents/` directory**
 
 ### Fixed
 
@@ -70,13 +195,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added - Hook-Based Orchestration (Feature 005)
 
 - **Removed custom agent profile** from `settings.json` — Claude Code runs natively, augmented by hooks
-- **`sdd-orchestrator-hook` plugin**: Domain detection via `config/domains.conf`, orchestration guidance injected as `additionalContext`
+- **`loom-orchestrator-hook` plugin**: Domain detection via `config/domains.conf`, orchestration guidance injected as `additionalContext`
 - **`governance-preflight.sh` v3.0.0**: Refactored to provide domain analysis, agent recommendations, and constitutional reminders without constraining Claude Code
 - Downstream projects customize `domains.conf` for their own agent registries
 
 ### Added - Memory Context Agent (Feature 005)
 
-- **`sdd-memory` plugin**: 3-tier memory search (working/recall/archival) with keyword extraction and relevance scoring
+- **`loom-memory` plugin**: 3-tier memory search (working/recall/archival) with keyword extraction and relevance scoring
 - **`memory-search.sh`**: Searches project knowledge (specs, architecture docs, session history, plugins) within 5-second hook timeout
 - **`memory-log.sh`**: Observability logging for memory search operations (JSONL format)
 - **`memory-context-agent`**: Haiku-model agent for lightweight context injection
@@ -105,17 +230,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [4.0.0] - 2026-02-08
 
-**Major release**: Plugin-First Architecture, sdd-dev-loop plugin, Multi-LLM tribunal research, 209/209 tests passing.
+**Major release**: Plugin-First Architecture, loom-dev-loop plugin, Multi-LLM tribunal research, 209/209 tests passing.
 
 ### Added - Plugin-First Architecture (v4.1)
 
-- **16 plugins**: sdd-governance, sdd-specification, sdd-orchestrator, sdd-creation, sdd-git, sdd-debug, sdd-maintenance, sdd-dev-loop, 7 domain plugins, sdd-domain-template
+- **16 plugins**: loom-governance, sdd-specification, loom-orchestrator, loom-creation, loom-git, sdd-debug, loom-maintenance, loom-dev-loop, 7 domain plugins, sdd-domain-template
 - **SDD Marketplace MCP Server**: 6 tools for plugin management (list, validate, search, install, update, publish)
 - **Dynamic Plugin Command Bridge**: `sync-plugin-commands.sh` auto-syncs plugin commands to `.claude/commands/`
 - **Constitution v3.0.0**: 16 enforceable principles including Principle XVI (Plugin-First Architecture)
 - **19 slash commands** across 7 core plugins, all bridge-generated
 
-### Added - sdd-dev-loop Plugin (NEW)
+### Added - loom-dev-loop Plugin (NEW)
 
 Recursive autonomous dev-loop with council/tribunal methodology:
 
@@ -166,7 +291,7 @@ Recursive autonomous dev-loop with council/tribunal methodology:
 
 - Issues #18-#23 resolved
 - Opus 4.6 model references updated
-- `/research` skill added to sdd-orchestrator
+- `/research` skill added to loom-orchestrator
 - Unified `/specification` and `/git-push` commands with RL integration
 
 ## [3.1.1] - 2026-01-10
@@ -289,7 +414,7 @@ This release integrates Google's proven DS-STAR multi-agent patterns into the SD
   - Feedback accumulation across rounds
   - Graceful escalation to human when needed
 
-- **Configuration System** (`.specify/config/refinement.conf`)
+- **Configuration System** (`.logic-loom/config/refinement.conf`)
   - `MAX_REFINEMENT_ROUNDS=20` - Maximum iteration limit
   - `EARLY_STOP_THRESHOLD=0.95` - High quality early exit
   - `SPEC_COMPLETENESS_THRESHOLD=0.90` - Specification requirement
@@ -452,7 +577,7 @@ None - DS-STAR enhancements are fully backward compatible with graceful degradat
   - `/create-agent` - Agent creation (initial version)
 
 - **Directory Structure**
-  - `.specify/` - Framework core with templates and scripts
+  - `.logic-loom/` - Framework core with templates and scripts
   - `.claude/` - AI assistant configuration
   - `.docs/` - Project documentation and policies
   - `specs/` - Feature specifications directory

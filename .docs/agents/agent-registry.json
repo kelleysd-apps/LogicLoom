@@ -7,7 +7,7 @@
       "tools": "Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TaskCreate, TaskUpdate",
       "model": "opus",
       "status": "active",
-      "file": "plugins/sdd-governance/agents/constitutional-governance-agent.md"
+      "file": "plugins/loom-governance/agents/constitutional-governance-agent.md"
     },
     "team-synthesizer": {
       "department": "orchestration",
@@ -16,7 +16,7 @@
       "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
       "model": "opus",
       "status": "active",
-      "file": "plugins/sdd-orchestrator/agents/team-synthesizer.md"
+      "file": "plugins/loom-orchestrator/agents/team-synthesizer.md"
     },
     "prd-specialist": {
       "department": "creation",
@@ -25,7 +25,7 @@
       "tools": "Read, Write, Edit, Grep, Glob, AskUserQuestion, TaskCreate, TaskUpdate",
       "model": "opus",
       "status": "active",
-      "file": "plugins/sdd-creation/agents/prd-specialist.md"
+      "file": "plugins/loom-creation/agents/prd-specialist.md"
     },
     "subagent-architect": {
       "department": "creation",
@@ -34,7 +34,7 @@
       "tools": "Read, Write, Edit, Grep, Glob, TaskCreate, TaskUpdate",
       "model": "inherit",
       "status": "active",
-      "file": "plugins/sdd-creation/agents/subagent-architect.md"
+      "file": "plugins/loom-creation/agents/subagent-architect.md"
     },
     "framework-sync-agent": {
       "department": "maintenance",
@@ -43,7 +43,7 @@
       "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
       "model": "opus",
       "status": "active",
-      "file": "plugins/sdd-maintenance/agents/framework-sync-agent.md"
+      "file": "plugins/loom-maintenance/agents/framework-sync-agent.md"
     },
     "memory-context-agent": {
       "department": "memory",
@@ -52,8 +52,8 @@
       "tools": "Read, Grep, Glob",
       "model": "haiku",
       "status": "active",
-      "file": "plugins/sdd-memory/agents/memory-context-agent.md"
-    },
+      "file": "plugins/loom-memory/agents/memory-context-agent.md"
+    }
   },
   "departments": {
     "governance": 1,

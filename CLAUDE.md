@@ -1,301 +1,347 @@
-# CLAUDE.md
+# CLAUDE.md — LogicLoom
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
----
+**Project (technical)**: `logic-loom`
+**Brand**: **LogicLoom**
+**Framework folder**: `.logic-loom/`
+**Per-feature folder**: `features/<feature-name>/`
 
-## Context System (v2.0 - Token Efficient)
-
-This framework uses **modular context loading** for 37% token efficiency improvement.
-
-**This file contains**: Essential instructions (always loaded)
-**Additional context**: Load as needed via `.claude/context/` modules
-
-### Available Modules
-
-| Module | Content | When to Load |
-|--------|---------|--------------|
-| **core.md** | Pre-flight protocol, MCP toolkit, constitution reference | Every session (redundant with this file) |
-| **agents.md** | Agent registry, delegation protocol, multi-agent workflows | Multi-agent tasks, delegation |
-| **skills.md** | Skill documentation, slash commands, workflows | Using /specification |
-| **workflows.md** | SDD workflows, feature development lifecycle | Feature work |
-| **governance.md** | Constitutional principles, git operations, compliance | Git operations, quality gates |
-
-### Load Context Modules
-
-```bash
-# Load specific module
-./.specify/scripts/bash/load-context.sh load agents
-
-# Intelligent analysis (auto-loads relevant modules)
-./.specify/scripts/bash/load-context.sh analyze "your task description"
-
-# List available modules
-./.specify/scripts/bash/load-context.sh list
-```
+LogicLoom is a **Claude-Code-native, governed multi-agent harness** for building
+software. Its durable core is **constitutional governance** (hook-enforced). On
+top of that core sit **interchangeable workflow packs** — none privileged. Pick
+the pack that matches the problem.
 
 ---
 
-## MANDATORY: Message Pre-Flight Compliance Check
+## Core + Workflow Packs (READ FIRST)
 
-**EVERY user message MUST trigger this 4-step protocol BEFORE any work begins.**
+Governance is the **core**; everything else is an **optional workflow pack**.
+The packs share the same constitution, plugin chassis, and distribution
+machinery. Pick by problem shape — there is no "primary" or "legacy" path:
 
-```
-STEP 1: CONSTITUTION ACKNOWLEDGMENT
-       - Confirm awareness of 16 principles (I-XVI)
-       - Key: II (Test-First), VI (Git Approval), X (Agent Delegation)
+| Workflow pack | Loop | Best for |
+|---|---|---|
+| **Swarm** (vision/PRD/plan/swarm) | `vision.md` → `/swarm explore` + `/research` → `/create-prd` → plan mode → `/plan-review` → `/swarm implement` → `/review-team` → `/git-push` → `/retro` | Exploratory or novel work; unclear scope (`features/<name>/`) |
+| **SDD waterfall** | `/specification` → `/build-team` / `/fullstack-team` → `/finalize` | Well-understood feature with stable requirements (`specs/###-name/`) |
+| _(none)_ | direct execution | Quick fix, no significant unknowns |
 
-STEP 2: DOMAIN ANALYSIS
-       - Scan message for domain trigger keywords
-       - Identify: frontend, backend, database, testing, security, etc.
+The swarm pack's `vision.md` and `/plan-review` are **gates within that pack**
+(they prevent broad-spec cascade and worker collisions) — not framework-level
+requirements.
 
-STEP 3: DELEGATION DECISION
-       - 0 domains: may execute directly
-       - 1 domain: MUST delegate to specialist agent
-       - 2+ domains: MUST delegate to team-orchestration skill
+### Model & provider boundary
 
-STEP 4: EXECUTION AUTHORIZATION
-       - Confirm all steps complete
-       - Output compliance summary
-       - Proceed with action
-```
+The orchestration + governance runtime is **Claude-Code-native and assumes
+Anthropic flagship (Opus-class) models**. Model-tier agnosticism is supported
+within Anthropic via role→model config (`.logic-loom/config/models.conf`).
+Cross-provider models (OpenAI/Gemini/Mistral) are supported **only at the
+delegated research/verification layer** (the `/research` command spawns
+researchers that call those APIs via `.env` keys) — never for orchestration. It
+is not a provider-portable orchestration runtime.
 
-### Compliance Summary Format
+### Orchestration primitives (ride native; don't reimplement)
 
-```
-Constitutional Compliance Check:
-- Domain(s): [none | single: <domain> | multi: <domains>]
-- Delegation: [direct execution | <agent-name>]
-- Git operations: [none planned | will request approval]
-- Proceeding with: [action description]
-```
+LogicLoom is a **governance + dev layer on Claude Code's native orchestration**,
+not an orchestration engine. Spawn workers with the **Task tool** (parallel =
+multiple Task calls in one message); use **`/workflow`** for deterministic
+fan-out (loops, pipelines, adversarial verify) and **`/loop`** for recurring/
+self-paced cadence. There is no custom runner (no process manager, session
+multiplexer, or shared swarm-state file). What LogicLoom adds on top: hook-enforced
+governance, the plan-as-DAG **freeze** file-ownership, the behavioral evaluator,
+domain briefs, jury-on-demand `/research`, and memory.
 
-### Quick Reference: Domain Delegation
-
-| Domain | Trigger Keywords | Delegate To |
-|--------|------------------|-------------|
-| Frontend | UI, component, React, CSS, form | sdd-domain-frontend:frontend-operations skill |
-| Backend | API, endpoint, server, auth, service | sdd-domain-backend:backend-operations skill |
-| Database | schema, migration, query, RLS, SQL | sdd-domain-database:database-operations skill |
-| Testing | test, TDD, E2E, coverage, QA | sdd-domain-testing:testing-operations skill |
-| Security | encryption, XSS, secrets, vulnerability | sdd-domain-security:security-operations skill |
-| Performance | optimize, cache, benchmark, latency | sdd-domain-performance:performance-operations skill |
-| DevOps | deploy, CI/CD, Docker, pipeline | sdd-domain-devops:devops-operations skill |
-| Specification | spec, requirements, user story, /plan, /tasks | unified-specification skill |
-| Multi-Domain | 2+ domains detected | team-orchestration skill |
-
-### Violation Self-Correction
-
-If you start work without completing the pre-flight check:
-1. **STOP** immediately
-2. **ACKNOWLEDGE** the violation
-3. **CORRECT** by running the 4-step protocol
-4. **PROCEED** only after completing all steps
+What was removed (not replaced): the `sdd-marketplace` MCP (defer to Anthropic's
+Claude Code Plugin Marketplace + Docker MCP Toolkit), the RL telemetry
+infrastructure, and the **dev-loop** pack (native `/workflow`/`/loop`/`/goal`
+supersede it). Domain specialists were collapsed into a governance-core
+**domain-brief registry** (`get_domain_brief`).
 
 ---
 
-## CRITICAL: Read Constitution First
+## Governance
 
-**ALWAYS read `.specify/memory/constitution.md` BEFORE starting any work.**
+Governance is the durable core of this harness. **Enforcement is hook-side and
+model-independent** — you do not need to recite a compliance checklist on every
+message. The hooks are the floor; the policies below are the standing intent.
 
-The constitution (v3.0.0) contains **16 enforceable principles**:
-- **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
-- **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **7 Workflow & Delegation Principles** (X-XVI): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
+### Hook enforcement (active regardless of model)
+
+| Hook | Enforces |
+|---|---|
+| `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies ANY git command from a subagent (detected via `agent_id` in the hook payload). Git is main-agent + direct-user-request only. |
+| `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — main-agent git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
+| `protect-governance-files.sh` (PreToolUse · Write/Edit + Bash) | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent **deny** / main **ask**. The model can't silently soften its own rules. |
+| `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
+| `freeze-write-scope.sh` (PreToolUse · Write/Edit) | Plan-as-DAG file ownership during `/swarm implement`; paths canonicalized (`realpath`) so `..`/symlink can't escape `owns:` scope. |
+| `governance-preflight.sh` (UserPromptSubmit) | Injects domain guidance + memory context (and, in strict mode, the pre-flight recitation) |
+
+Hooks are a **deterministic floor, not a sandbox.** They make the high-impact
+failures hard (autonomous git, a subagent's `git clean`, the model rewriting its
+own hooks, writing outside an owned scope) — but a string gate cannot see
+interpreter/`eval` indirection or every Bash write path. Treat governance as
+defense-in-depth; the known residual bypasses are documented in
+`.docs/architecture/governance-threat-model.md`.
+
+### Standing policies (respect without being asked)
+
+- **VI Git Approval** — never run git mutations autonomously; the hook will gate them, but don't try to route around it.
+- **II Test-First** — TDD by default; tests before implementation.
+- **I Library-First / III Contract-First** — preferences for how features are shaped.
+- **X Delegation & Context Isolation** — delegate specialized or parallel work to subagents/swarm for *isolation and parallelism*, not because the base model lacks capability.
+
+### Governance modes (capability-gated assist)
+
+Set via `LOOM_GOVERNANCE_MODE` or `.logic-loom/config/governance.conf`:
+
+- **`lean`** (default) — hooks enforce; no per-message recitation. Correct for
+  flagship Opus-class models.
+- **`strict`** — hooks enforce **and** the 4-step pre-flight is re-injected each
+  message. The graceful-degradation path for weaker / non-flagship models.
+
+Hook enforcement is identical in both modes; only the model-side assist differs.
+
+---
+
+## Swarm Workflow Pack
+
+One of the interchangeable workflow packs (not privileged). The swarm loop for
+exploratory feature work:
+
+```
+[EnterWorktree]
+    ↓
+/swarm explore <topic>   +   /research <question>
+    ↓                            (read-only investigations,
+features/<x>/vision.md            external cross-validated research)
+    ↓
+/swarm explore + /research        (fill gaps surfaced by vision)
+    ↓
+/create-prd <feature>             (broad PRD + office-hours
+    ↓                              forcing-questions gate)
+plan mode                         (sprint-structured plan.md
+    ↓                              with file-ownership DAG)
+/plan-review <feature>            (CEO + Eng reviewers — GATES implementation)
+    ↓
+/swarm implement [sprint]         (DAG topological sort,
+    ↓                              freeze hook enforces ownership)
+test / fix                        (direct debug loop on failures)
+    ↓
+/review-team                      (security + quality + performance + evaluator)
+    ↓
+/git-push                         (commit + PR with explicit approval)
+    ↓
+/code-review                      (external Claude Code command — PR-level review)
+    ↓
+/retro <feature>                  (sprint retrospective → memory write)
+    ↓
+[ExitWorktree]
+```
+
+Steps are skippable when justified. Within this pack, `vision.md` and
+`/plan-review` are **pack-internal gates** — they prevent broad-spec cascade and
+worker collisions. They gate the swarm workflow only, not the harness.
+
+### Per-feature folder layout
+
+```
+features/<feature-name>/
+├── vision.md             # north-star, intentionally broad
+├── exploration/          # /swarm explore outputs (read-only)
+├── research/             # /research tribunal outputs
+├── prd.md                # broad PRD with forcing-questions
+├── plan.md               # sprint/wave-structured plan + file-ownership DAG
+├── plan-review.md        # /plan-review verdict (CEO + Eng)
+├── sprints/
+│   └── NN-name/          # per-sprint worker outputs + evaluator findings
+└── retro.md              # /retro learnings (also written to memory)
+```
+
+See `features/README.md` for the full convention.
+
+---
+
+## Quick Command Reference — Swarm pack
+
+| Command | Purpose | Plugin |
+|---|---|---|
+| **`/swarm explore <topic>`** | Read-only parallel investigators; writes to `features/<x>/exploration/` | loom-orchestrator |
+| **`/swarm implement [sprint]`** | DAG-driven sprint execution; freeze hook enforces ownership | loom-orchestrator |
+| **`/swarm <freeform>`** | Generic multi-agent swarm | loom-orchestrator |
+| **`/research <question>`** | Jury-on-demand tribunal (1-3 judges by query type; `--judges all` for full 3-LLM) | loom-orchestrator |
+| **`/create-prd <feature>`** | Auto-detects vision-driven vs blank-slate mode; office-hours forcing-questions gate | loom-creation |
+| **`/plan-review <feature>`** | CEO + Eng review of plan.md before `/swarm implement` (two internal reviewers) | loom-orchestrator |
+| **`/review-team`** | Four reviewers in parallel: security + quality + performance + behavioral evaluator (chrome-devtools MCP) | loom-orchestrator |
+| **`/git-push`** | Commit + push + PR creation with explicit user approval at each gate | loom-git |
+| **`/retro <feature>`** | Sprint retrospective; writes action items to loom-memory | loom-orchestrator |
+
+---
+
+## Quick Command Reference — SDD waterfall pack + tooling
+
+| Command | Purpose | Plugin |
+|---|---|---|
+| `/specification` | Unified SDD waterfall — spec, plan, tasks in one command | sdd-specification |
+| `/build-team` | Sequential architect → implementor → reviewer | loom-orchestrator |
+| `/fullstack-team` | Parallel frontend + backend + database workers (domain briefs) | loom-orchestrator |
+| `/finalize` | Pre-commit compliance validation (no git execution) | loom-git |
+| `/create-agent` | Create specialized subagent | loom-creation |
+| `/create-plugin` | Create new LogicLoom plugin | loom-creation |
+| `/create-skill` | Create new skill | loom-creation |
+| `/update-framework` | Check and apply upstream enhancements | loom-maintenance |
+| `/initialize-project` | Post-PRD project customization | loom-maintenance |
+
+Domain detection (preflight hook): keywords map to a **domain brief** in the
+governance-core registry, injected into swarm/team workers via `get_domain_brief`
+(see `plugins/loom-governance/domain-briefs/`). The seven domains —
+frontend, backend, database, testing, security, performance, devops — are briefs,
+not separate plugins.
+
+For new work, prefer `/swarm explore` over individual specialist routing.
+
+---
+
+## Constitution Principles
+
+**ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
+
+The constitution (v3.1.0) contains **16 enforceable principles**. Enforcement is
+hook-side (see the **Governance** section above); the list below is a quick map.
+
+- **3 Immutable** (I-III): Library-First, Test-First, Contract-First
+- **6 Quality & Safety** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
+- **7 Workflow & Delegation** (X-XVI): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
 
 ### Critical Principles Quick Reference
 
 | Principle | Requirement | Consequence |
-|-----------|-------------|-------------|
-| **II (Test-First)** | TDD mandatory, >80% coverage | IMMUTABLE - blocks merge |
-| **VI (Git Approval)** | NO autonomous git operations | CRITICAL - always ask user |
-| **X (Agent Delegation)** | Specialized work -> specialists | CRITICAL - delegate or violate |
-| **XVI (Plugin-First)** | Capabilities as installable plugins | CRITICAL - all new features as plugins |
+|---|---|---|
+| **II (Test-First)** | TDD mandatory, >80% coverage | IMMUTABLE — blocks merge |
+| **VI (Git Approval)** | NO autonomous git operations | CRITICAL — hook-gated (`git-safety-gate.sh` / `subagent-git-guard.sh`) |
+| **X (Agent Delegation)** | Specialized work → specialists or `/swarm` | CRITICAL — delegate or violate |
+| **XVI (Plugin-First)** | Capabilities as installable plugins | CRITICAL — all new features as plugins |
 
-For complete constitutional reference, load the governance module:
-```bash
-./.specify/scripts/bash/load-context.sh load governance
-```
+(Git operations under Principle VI are detailed in the **Governance** section above.)
 
 ---
 
-## Git Operations (CRITICAL - Principle VI)
+## LogicLoom Hooks
 
-**NO automatic Git operations without user approval.** This includes:
-- Branch creation, switching, or deletion
-- Commits and commit messages
-- Pushes, pulls, and merges
-- Any modifications to Git history
+Full hook inventory under `.claude/hooks/` (see the **Governance** section for
+how each maps to a principle):
 
-**Always ask the user for explicit approval first.**
-
-The `/finalize` command validates compliance but NEVER executes git commands. It provides a report and suggests commands for manual execution.
-
-For complete git safety documentation, load the governance module:
-```bash
-./.specify/scripts/bash/load-context.sh load governance
-```
-
----
-
-## Project Overview
-
-This is a specification-driven development framework that uses structured templates and workflows to generate and implement features. The project uses a TDD approach with contract-first design patterns as defined in the constitution.
-
-### Quick Command Reference
-
-| Command | Purpose | Plugin |
-|---------|---------|--------|
-| **`/specification`** | **Unified SDD workflow — spec, plan, tasks in one command** | **sdd-specification** |
-| **`/git-push`** | **Complete git workflow — commit, push, PR** | **sdd-git** |
-| `/create-prd` | Create Product Requirements Document | sdd-creation |
-| `/create-agent` | Create specialized subagent | sdd-creation |
-| `/create-plugin` | Create new SDD plugin | sdd-creation |
-| `/finalize` | Pre-commit compliance validation | sdd-git |
-| `/research` | Multi-LLM tribunal research (Claude, OpenAI, Gemini) | sdd-orchestrator |
-| `/swarm` | Multi-agent swarm execution | sdd-orchestrator |
-| `/build-team` | Sequential architect→implementor→reviewer | sdd-orchestrator |
-| `/fullstack-team` | Parallel full-stack team | sdd-orchestrator |
-| `/review-team` | Parallel security+quality+performance review | sdd-orchestrator |
-| `/update-framework` | Check and apply upstream enhancements | sdd-maintenance |
-| `/initialize-project` | Post-PRD project customization | sdd-maintenance |
-
-For detailed workflow documentation, load the workflows module:
-```bash
-./.specify/scripts/bash/load-context.sh load workflows
-```
+| Hook | Purpose |
+|---|---|
+| `subagent-git-guard.sh` | Denies ANY git command from a subagent (Principle VI). Git is main-agent + direct-user-request only |
+| `git-safety-gate.sh` | Forces an approval prompt on main-agent git mutations (Principle VI). No autonomous git |
+| `guard-dangerous-commands.sh` | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
+| `governance-preflight.sh` | Injects domain briefs + memory context on `UserPromptSubmit` (and, in strict mode, the pre-flight recitation) |
+| `worktree-port-namespace.sh` | Computes per-worktree port/db namespaces (`PORT_BASE`, `DB_PORT`) so parallel worktrees don't collide |
+| `context-cap-warn.sh` | At 800K of 1M default context, injects reset reminder + handoff-artifact prompt to avoid "context anxiety" wrap-up bias |
+| `freeze-write-scope.sh` | Hook-level enforcement of plan-as-DAG file ownership: rejects writes outside the active task's declared `owns:` scope; default-allows when no DAG context |
 
 ---
 
 ## MCP Server Configuration
 
-The framework uses **Docker MCP Toolkit** as the primary MCP orchestration method, providing access to 310+ containerized MCP servers.
+LogicLoom relies on **two external ecosystems** for MCP discovery — we no
+longer ship our own marketplace MCP.
 
-**Docker MCP Toolkit** (Pre-installed during setup):
-- Dynamic discovery of 310+ servers via `mcp-find` tool
-- Runtime installation via `mcp-add` tool
-- Containerized execution (no local dependencies)
-- Unified gateway for all MCP servers
-
-**Docker MCP Toolkit Tools**:
+1. **Anthropic Claude Code Plugin Marketplace** — first-party plugin
+   discovery and install. Use `/plugin` Claude Code commands and the
+   marketplace browser to find third-party plugins.
+2. **Docker MCP Toolkit** — 310+ containerized MCP servers via the unified
+   gateway.
 
 | Tool | Purpose |
-|------|---------|
+|---|---|
 | `mcp-find` | Search 310+ servers in Docker catalog |
 | `mcp-add` | Add server to current session dynamically |
 | `mcp-config-set` | Configure server credentials |
 | `mcp-exec` | Execute tools from any enabled server |
 | `code-mode` | Combine multiple MCP tools in JavaScript |
 
-**Ask Claude for help with MCPs**:
-- "Find MCP servers for database operations" (uses `mcp-find`)
-- "Add the supabase MCP server" (uses `mcp-add`)
-- "Configure my AWS credentials" (uses `mcp-config-set`)
-
-**Security Notes**:
-- Store all MCP credentials in `.env` (never commit!)
+**Security notes**:
+- Store all MCP credentials in `.env` (never commit)
 - Use `env:VAR_NAME` syntax in MCP configuration
 - Docker Toolkit provides container isolation (1 CPU, 2GB RAM limits)
 
-**Skill Reference**: `plugins/sdd-maintenance/skills/mcp-server-setup/SKILL.md`
-
 ---
 
-## Agent Delegation Protocol
+## Plugin Registry
 
-**Constitutional Principle X** requires specialized work be delegated to specialized agents.
+All framework capabilities are **discrete installable plugins** under
+`plugins/`. Bundled in-repo (not via marketplace).
 
-**See `AGENTS.md`** for complete agent registry including:
-- All 6 agents across 16 plugins (14 agents converted to enhanced skills)
-- Agent capabilities and tools
-- Domain -> agent mapping (detailed)
-- Slash command -> agent mapping
-- Agent collaboration workflows
+| Plugin | Layer | Notes |
+|---|---|---|
+| `loom-governance` | governance core (protected) | Constitutional enforcement, hooks, domain-brief registry |
+| `loom-memory` | core | Memory context injection, `/retro` writes |
+| `loom-orchestrator-hook` | core | Preflight domain detection + worker-brief recommendations |
+| `loom-creation` | core tooling | `/create-prd`, `/create-skill`, `/create-agent`, `/create-plugin` |
+| `loom-git` | core tooling | `/git-push`, `/finalize` |
+| `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
+| `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/plan-review`, `/review-team`, `/retro`, `/build-team`, `/fullstack-team` |
+| `sdd-specification` | SDD pack | `/specification` unified waterfall (keeps `sdd-` — it *is* the SDD workflow) |
 
-**Note**: CLAUDE.md and AGENTS.md are **tandem files** - they must be updated together.
+Domain expertise is no longer a plugin: the 7 domains (frontend/backend/database/
+testing/security/performance/devops) are **briefs** in
+`loom-governance/domain-briefs/`, injected via `get_domain_brief`.
 
-For complete agent documentation, load the agents module:
+### Plugin command bridge
+
+Commands are synced from plugins to `.claude/commands/` via the bridge:
+
 ```bash
-./.specify/scripts/bash/load-context.sh load agents
+.logic-loom/scripts/bash/sync-plugin-commands.sh sync      # sync all commands
+.logic-loom/scripts/bash/sync-plugin-commands.sh list      # show command → plugin map
 ```
-
-### Hook-Based Orchestration (v3.0 — No Custom Agent Profile)
-
-**Architecture**: Claude Code runs with its native capabilities. Constitutional governance
-and orchestration guidance are injected via the `UserPromptSubmit` preflight hook as
-`additionalContext`. No custom `"agent"` field in settings.json.
-
-**Components**:
-- `sdd-orchestrator-hook` plugin — Domain detection, agent recommendations, governance reminders
-- `sdd-memory` plugin — Automatic memory context injection from project knowledge
-- `governance-preflight.sh` — Hook script that combines orchestration + memory into additionalContext
-
-**How It Works**:
-1. User sends message → preflight hook fires
-2. Hook detects domains (security, backend, etc.) from message keywords
-3. Hook recommends specialist agents per Principle X
-4. Hook searches project memory for relevant context (specs, tasks, past sessions)
-5. Hook injects orchestration guidance + memory context as additionalContext
-6. Claude Code processes request with full context, following constitutional governance
-
-**Key Responsibilities** (via hook injection):
-- Inject constitutional governance reminder on every message
-- Detect domains and recommend specialist agents (Principle X)
-- Route slash commands to plugin procedures
-- Inject relevant project memory context
-- Gate ALL git operations (Principle VI - CRITICAL)
 
 ---
 
 ## Key Architecture
 
-### Directory Structure
-```
-.specify/
-  memory/
-    constitution.md                    # Core principles (v3.0.0 - 16 principles)
-    constitution_update_checklist.md   # Mandatory change management
-    agent-collaboration-triggers.md    # Agent delegation reference
-  scripts/bash/                        # Workflow automation + plugin bridge
-  templates/                           # Document templates
-  config/                              # Configuration files
+### Directory structure
 
-plugins/                               # Plugin-First Architecture (v4.1)
-  sdd-governance/                      # Protected — constitutional enforcement
-  sdd-specification/                   # /specification (unified workflow)
-  sdd-orchestrator/                    # /swarm, /research, team commands
-  sdd-creation/                        # /create-agent, /create-plugin, /create-prd
-  sdd-git/                             # /git-push, /finalize
-  sdd-maintenance/                     # /update-framework, /initialize-project
-  sdd-domain-*/                        # 7 domain specialist plugins
+```
+VISION.md                              # Foundational product north-star (living; peer to the constitution)
+
+.logic-loom/
+  memory/
+    constitution.md                    # 16 principles (v3.2.0)
+    constitution_update_checklist.md
+  scripts/bash/                        # Workflow automation + plugin bridge
+  templates/                           # vision-template, prd-template, plan-template, ...
+  config/                              # Configuration
+  lib/                                 # Shared shell libs (policy.sh, logging.sh)
+
+plugins/                               # See registry above
 
 .claude/
-  commands/                            # Slash commands (all bridge-generated from plugins)
-  context/                             # Context modules
-  hooks/                               # Governance hooks
+  commands/                            # Bridge-generated from plugins
+  context/                             # Modular context loaders
+  hooks/                               # Governance + LogicLoom hooks
 
-mcp-servers/sdd-marketplace/           # Plugin marketplace MCP server
+features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
+specs/                                 # SDD pack: waterfall specs
 
-specs/###-feature-name/                # Per-feature documentation
-  spec.md, plan.md, research.md, data-model.md, contracts/, quickstart.md, tasks.md
+.docs/
+  architecture/loom-architecture.md    # Full architectural reference (LogicLoom shape)
+  policies/
 ```
 
-### Workflow Scripts
+### Workflow scripts
 
 | Script | Purpose |
-|--------|---------|
+|---|---|
 | `common.sh` | Shared functions + git approval |
 | `constitutional-check.sh` | 16-principle compliance validator |
-| `create-new-feature.sh` | Feature initialization + refinement |
-| `setup-plan.sh` | Planning workflow + verification |
-| `check-task-prerequisites.sh` | Task generation validator |
-| `finalize-feature.sh` | Pre-commit compliance validation |
-| `load-context.sh` | Modular context loading (NEW) |
+| `sync-plugin-commands.sh` | Plugin → `.claude/commands/` bridge |
+| `load-context.sh` | Modular context loading |
 
-Run before commits:
+Pre-commit compliance check:
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 ```
 
 ---
@@ -304,236 +350,133 @@ Run before commits:
 
 **ALWAYS verify before creating files or folders.**
 
-### Core Rules
-
-1. **Verify Before Create**: Check parent directory exists with `ls` before creating files
-2. **Edit Over Create**: Prefer modifying existing files over creating new ones
-3. **Templates First**: Use templates from `.specify/templates/` when available
+1. **Verify Before Create**: Check parent directory exists before writing
+2. **Edit Over Create**: Prefer modifying existing files
+3. **Templates First**: Use `.logic-loom/templates/` when available
 4. **Absolute Paths**: Always use absolute paths from repository root
-5. **No Proactive Docs**: Never create README.md or documentation files unless explicitly requested
+5. **No Proactive Docs**: Never create README.md or other documentation files unless explicitly requested
 
-### Naming Conventions
+### Naming conventions
 
 | Type | Pattern | Example |
-|------|---------|---------|
-| Agent | `[role]-[function].md` | `dev-loop-orchestrator.md` |
-| Skill folder | `[skill-name]/` | `domain-detection/` |
-| Feature dir | `###-[name]/` | `001-user-auth/` |
+|---|---|---|
+| LogicLoom feature dir | `<kebab-name>/` | `features/auth-cookie-rotation/` |
+| Sprint dir | `NN-name/` | `sprints/01-foundations/` |
+| Agent file | `[role]-[function].md` | `plan-reviewer.md` |
+| Skill folder | `[skill-name]/` | `swarm-implement/` |
+| Legacy SDD feature | `###-[name]/` | `specs/001-user-auth/` |
 
-**Policy**: See `.docs/policies/file-structure-policy.md`
+**Policy**: `.docs/policies/file-structure-policy.md`
 
 ---
 
-## Task Management (SSOT Architecture)
+## Task Management
 
-### Three-Level Task Hierarchy
+### Three-level task hierarchy
 
 | Level | Location | Purpose |
-|-------|----------|---------|
-| **Project** | `specs/###-feature/tasks.md` | Full implementation checklist |
+|---|---|---|
+| **Project (swarm pack)** | `features/<name>/plan.md` (DAG) and `features/<name>/sprints/NN-name/` | Sprint plan + per-sprint worker outputs |
+| **Project (SDD pack)** | `specs/###-feature/tasks.md` | SDD waterfall task checklist |
 | **Session** | TaskCreate/TaskUpdate tools | Active work tracking |
-| **Agent** | `.docs/agents/*/decisions/tasks/` | Completion history |
 
-### Task Tool Rules (CRITICAL)
+### Task tool rules (CRITICAL)
 
-1. **ONE task `in_progress`** at any time - never multiple
-2. **Mark `completed` IMMEDIATELY** via TaskUpdate - don't batch completions
-3. **Use TaskCreate for 3+ step tasks** - skip for trivial single-step work
-4. **Keep focused** - 3-10 items max
-5. **Derive from tasks.md** - session tasks come from project tasks
+1. **ONE task `in_progress`** at any time — never multiple
+2. **Mark `completed` IMMEDIATELY** via TaskUpdate — don't batch completions
+3. **Use TaskCreate for 3+ step tasks** — skip for trivial single-step work
+4. **Keep focused** — 3-10 items max
 
-**Policy**: See `.docs/policies/todo-architecture-policy.md`
-
----
-
-## DS-STAR Multi-Agent Enhancements (Feature 001)
-
-The framework includes proven multi-agent patterns from Google's DS-STAR system:
-
-### Quality Gates
-- **Automatic Verification**: Specs and plans automatically verified for quality
-- **Iterative Refinement**: Specs refined up to 20 rounds until quality thresholds met
-- **Blocking Gates**: Insufficient plans block progression to tasks phase
-- **Actionable Feedback**: Clear guidance provided for improvements
-
-### Configuration
-Quality thresholds configured in `.specify/config/refinement.conf`:
-- `MAX_REFINEMENT_ROUNDS=20`
-- `SPEC_COMPLETENESS_THRESHOLD=0.90`
-- `PLAN_QUALITY_THRESHOLD=0.85`
-- `TEST_COVERAGE_THRESHOLD=0.80` (matches Principle II)
-
-### Performance Targets
-- Context retrieval: <2 seconds
-- Debug iteration cycle: <30 seconds
-- 3.5x improvement in task completion accuracy (target)
-
----
-
-## Framework v2.0 Enhancements (Feature 003)
-
-The framework now includes 6 production-ready enhancements integrated in Phases 1-4:
-
-### Integrated Enhancements
-
-| Enhancement | Purpose | Constitutional Principle |
-|-------------|---------|-------------------------|
-| **Structured Logging** | Observability via `.specify/lib/logging.sh` | VII (Observability) |
-| **Enhanced Git Safety** | Rollback checkpoints, commit suggestions | VI (Git Approval) |
-| **Tool Restriction Policies** | Granular command validation | XI, XIII (Input Validation) |
-| **Parallel Agent Execution** | 2-3x speedup for 3+ agents | IV, X (Idempotency, Delegation) |
-| **Skill Auto-Discovery** | Plugin manifests with RL metrics | VIII (Documentation Sync) |
-| **Modular Context Loading** | 37% token efficiency improvement | V, VIII, IX |
-
-### Performance Improvements
-
-| Metric | Improvement |
-|--------|-------------|
-| Token Efficiency | 37% reduction |
-| Parallel Execution | 2-3x speedup |
-| Context Loading | <2s with TTL caching |
-
-For detailed enhancement documentation, see `.docs/reports/FRAMEWORK_ENHANCEMENTS_INTEGRATION_PLAN.md`
+**Policy**: `.docs/policies/todo-architecture-policy.md`
 
 ---
 
 ## AI Model Selection (Principle XIV)
 
-**Default**: All specialized agents use **Opus 4.6** for maximum capability.
+Agents/commands select a tier via frontmatter keywords
+(`opus`/`sonnet`/`haiku`/`inherit`), never pinned version strings. The
+**documented** role→tier convention and current flagship live in
+`.logic-loom/config/models.conf` (a reference table, not a runtime resolver —
+no consumer parses it yet). Default flagship: **Opus 4.8**.
 
-| Model | Use Case | When to Use |
-|-------|----------|-------------|
-| **Opus 4.6** | Default for all agents | Specialized work, architecture, security, complex reasoning |
-| **Sonnet 4.5** | Fallback | Cost optimization, high-volume tasks, quota limits |
-| **Haiku** | Quick tasks | Simple lookups, formatting, file operations |
+| Tier | Use Case |
+|---|---|
+| **opus** (Opus 4.8) | Default for agents; architecture, security, complex reasoning |
+| **sonnet** (Sonnet 4.6) | Cost optimization; high-volume tasks |
+| **haiku** (Haiku) | Quick lookups; formatting; file ops |
 
-**Model IDs**:
-- Opus: `claude-opus-4-6`
-- Sonnet: `claude-sonnet-4-5-20250929`
-- Haiku: `claude-haiku-4-5-20251001`
+**Model IDs**: `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`
 
----
-
-## Plugin-First Architecture (v4.1)
-
-All framework capabilities are organized as **discrete installable plugins** at `plugins/`.
-
-### Plugin Registry
-
-| Plugin | Category | Skills | Agents | Commands |
-|--------|----------|--------|--------|----------|
-| `sdd-governance` | governance | 6 | 1 | 0 |
-| `sdd-specification` | core | 1 | 0 | 1 |
-| `sdd-orchestrator` | orchestration | 4 | 1 | 5 |
-| `sdd-orchestrator-hook` | orchestration | 1 | 0 | 0 |
-| `sdd-memory` | orchestration | 1 | 1 | 0 |
-| `sdd-creation` | core | 5 | 2 | 4 |
-| `sdd-git` | core | 2 | 0 | 2 |
-| `sdd-maintenance` | core | 3 | 1 | 2 |
-| `sdd-dev-loop` | core | 1 | 0 | 1 |
-| `sdd-domain-*` | domain | 1-4 | 0 | 0 |
-
-### Plugin Command Bridge
-
-Commands are automatically synced from plugins to `.claude/commands/` via the bridge:
-
-```bash
-# Sync plugin commands (runs automatically on setup and plugin install)
-.specify/scripts/bash/sync-plugin-commands.sh sync
-
-# View command→plugin mapping
-.specify/scripts/bash/sync-plugin-commands.sh list
-```
-
-### SDD Marketplace (MCP Server)
-
-Plugin management via MCP tools:
-
-| Tool | Purpose |
-|------|---------|
-| `marketplace-list` | List installed plugins with RL metrics |
-| `marketplace-search` | Search plugin registry |
-| `marketplace-install` | Install plugin from registry |
-| `marketplace-validate` | Validate plugin governance compliance |
-| `marketplace-update` | Update installed plugins |
-| `marketplace-publish` | Publish plugin to registry (dry-run) |
+> Orchestration is Claude-Code-native (Anthropic only). Cross-provider models
+> (OpenAI/Gemini) are used solely at the delegated `/research` layer.
 
 ---
 
-## RL Feedback System (DS-STAR)
+## Distribution & Cloner Support
 
-The framework includes an RL (Reinforcement Learning) feedback system that improves skill selection over time.
+The framework's cloner-init machinery is **UNTOUCHED**:
 
-### Key Components
+- `/update-framework` — pulls upstream LogicLoom enhancements
+- `.sdd-sync-ref` — upstream pointer (filename preserved for backwards compatibility with already-cloned projects)
+- `/initialize-project` — post-PRD project customization
 
-| Component | Location | Purpose |
-|-----------|----------|---------|
-| Metrics Tracking | `.docs/rl-metrics/skill-performance.json` | Detailed performance history |
-| Skill Index | Plugin manifests (`plugins/*/plugin.json`) | RL weights for routing |
-| Feedback Script | `.specify/scripts/bash/rl/collect-feedback.sh` | Record outcomes |
-| Sync Script | `.specify/scripts/bash/rl/sync-metrics.sh` | Update skill index |
-| Dashboard | `.specify/scripts/bash/rl/dashboard.sh` | View metrics |
-
-### RL Flow
-
-```
-Skill Execution → Verifier Validation → Feedback Collection → Metrics Update
-                                              ↓
-                               selection_weight adjusted via EMA
-```
-
-### Commands
-
-```bash
-# Record skill execution result
-.specify/scripts/bash/rl/collect-feedback.sh <skill-name> success|failure [tokens]
-
-# Sync metrics to plugin manifests
-.specify/scripts/bash/rl/sync-metrics.sh
-
-# View dashboard
-.specify/scripts/bash/rl/dashboard.sh
-```
-
-### Algorithm
-
-Uses Exponential Moving Average (EMA) with learning rate 0.1:
-```
-success_rate = 0.9 * old_rate + 0.1 * (1 if success else 0)
-selection_weight = clamp(success_rate, 0.1, 1.0)
-```
-
-**Documentation**: `.docs/architecture/RL-FEEDBACK-ARCHITECTURE.md`
+---
 
 ## Additional Documentation
 
-For comprehensive documentation, load the appropriate context modules:
-
 ```bash
-# Agent delegation and registry
-./.specify/scripts/bash/load-context.sh load agents
-
-# Skill documentation
-./.specify/scripts/bash/load-context.sh load skills
-
-# SDD workflow details
-./.specify/scripts/bash/load-context.sh load workflows
-
-# Constitutional principles and compliance
-./.specify/scripts/bash/load-context.sh load governance
+# Modular context loaders (still available)
+./.logic-loom/scripts/bash/load-context.sh load agents
+./.logic-loom/scripts/bash/load-context.sh load skills
+./.logic-loom/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load governance
 ```
 
 **See Also**:
-- `.specify/memory/constitution.md` - Constitutional principles (v3.0.0)
-- `plugins/*/agents/` - Agent definitions (Plugin-First Architecture)
-- `plugins/*/skills/` - Skill documentation (Plugin-First Architecture)
-- `.docs/policies/` - Framework policies
-- `.docs/reports/` - Framework documentation
+- `VISION.md` — **foundational** product north-star (living); the *what/why* the constitution defers to (peer to the constitution, distinct from per-feature `features/<name>/vision.md`)
+- `.docs/architecture/loom-architecture.md` — full architectural reference (LogicLoom shape)
+- `.docs/architecture/evaluator-protocol.md` — `/review-team` evaluator contract
+- `.docs/architecture/freeze-scope-protocol.md` — `/freeze` hook contract
+- `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.2.0)
+- `.logic-loom/config/models.conf` — documented role→tier convention + current flagship
+- `.logic-loom/config/governance.conf` — governance mode (lean/strict)
+- `features/README.md` — per-feature folder convention
+- `plugins/*/skills/` — skill documentation (Plugin-First Architecture)
+- `AGENTS.md` — agent registry (tandem file — must update with CLAUDE.md)
 
 ---
 
-**Framework**: sdd-agentic-framework v5.0.0
-**Constitution**: v3.0.0 (16 Principles)
-**Architecture**: Skill-Based Delegation (v5.0) + Plugin-First (v4.1)
-**Context System**: Modular (v2.0)
-**Last Updated**: 2026-02-15
+## What changed in v6.2 (dev-loop removed)
+
+- **Removed the dev-loop pack** (`loom-dev-loop` / `/dev-loop`): superseded by
+  Claude Code's native `/workflow`, `/loop`, and `/goal` primitives, and its
+  runtime self-extension was a governance liability. There are now **two**
+  workflow packs — swarm and SDD waterfall — over the governance core. Plugin
+  count: 8.
+
+## What changed in v6.1 (Opus 4.8 re-base + agnostic core)
+
+- **Governance is now hook-enforced** (not model-recited): `git-safety-gate.sh`
+  forces approval on git mutations; `guard-dangerous-commands.sh` wired; the
+  mandatory per-message 4-step ceremony is gone. New `LOOM_GOVERNANCE_MODE`
+  (`lean` default / `strict` for weaker models).
+- **Workflow-agnostic reframe**: governance core + interchangeable packs
+  (swarm, SDD waterfall) — no "primary" or "legacy" path.
+- **Domains collapsed**: the 7 `sdd-domain-*` plugins → governance-core
+  domain-brief registry (`get_domain_brief`).
+- **Model selection config-driven**: `.logic-loom/config/models.conf`
+  (flagship Opus 4.8); pinned version strings removed.
+- **Removed**: RL telemetry (incl. `rl_metrics` fields), the FR-707 compliance
+  ceremony, `sdd-marketplace` MCP, migration scaffolding. (The DS-STAR refinement
+  subsystem was later **removed** as well — redundant with Claude Code's native
+  `/goal`, `/workflow`, and `/loop`; see the CHANGELOG.)
+- **Renamed**: core/tooling/non-SDD packs `sdd-*` → `loom-*`; `sdd-specification`
+  keeps its prefix (it *is* the SDD workflow).
+
+---
+
+**Framework**: logic-loom v6.2.0 (brand: **LogicLoom**)
+**Constitution**: v3.2.0 (16 Principles)
+**Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
+**Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
+**Last Updated**: 2026-05-31

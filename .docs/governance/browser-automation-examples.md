@@ -548,9 +548,9 @@ Inspect all API calls and verify they match contracts/api-spec.yaml"
 ## Related Documentation
 
 - **Browser MCP Setup**: `.docs/governance/browser-mcp-setup.md`
-- **Test-First Development**: `.specify/memory/constitution.md` (Principle II)
-- **Observability**: `.specify/memory/constitution.md` (Principle VII)
-- **Contract-First**: `.specify/memory/constitution.md` (Principle III)
+- **Test-First Development**: `.logic-loom/memory/constitution.md` (Principle II)
+- **Observability**: `.logic-loom/memory/constitution.md` (Principle VII)
+- **Contract-First**: `.logic-loom/memory/constitution.md` (Principle III)
 
 ---
 

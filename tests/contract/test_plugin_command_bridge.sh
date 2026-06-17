@@ -24,13 +24,13 @@ echo ""
 
 # ── Bridge Script Tests ──
 echo "Bridge script infrastructure"
-assert "sync-plugin-commands.sh exists" "[ -f .specify/scripts/bash/sync-plugin-commands.sh ]"
-assert "sync-plugin-commands.sh is executable" "[ -x .specify/scripts/bash/sync-plugin-commands.sh ]"
+assert "sync-plugin-commands.sh exists" "[ -f .logic-loom/scripts/bash/sync-plugin-commands.sh ]"
+assert "sync-plugin-commands.sh is executable" "[ -x .logic-loom/scripts/bash/sync-plugin-commands.sh ]"
 
 # Run the bridge sync
 echo ""
 echo "Running bridge sync..."
-SYNC_OUTPUT=$(.specify/scripts/bash/sync-plugin-commands.sh sync 2>&1) || true
+SYNC_OUTPUT=$(.logic-loom/scripts/bash/sync-plugin-commands.sh sync 2>&1) || true
 echo "$SYNC_OUTPUT" | head -20
 
 # ── Manifest Tests ──

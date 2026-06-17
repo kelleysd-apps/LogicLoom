@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ⚠️ DEPRECATED: Use /initialize-project command in Claude Code instead.
-# This script is from the pre-plugin era. Use: plugins/sdd-maintenance/commands/initialize-project.md
+# This script is from the pre-plugin era. Use: plugins/loom-maintenance/commands/initialize-project.md
 # Removal target: v5.0
 
 # Project Initialization Script for SDD Agentic Framework
@@ -11,8 +11,8 @@ set -e
 
 # Source common functions for git approval
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [ -f "$SCRIPT_DIR/.specify/scripts/bash/common.sh" ]; then
-    source "$SCRIPT_DIR/.specify/scripts/bash/common.sh"
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/common.sh" ]; then
+    source "$SCRIPT_DIR/.logic-loom/scripts/bash/common.sh"
 fi
 
 BLUE='\033[0;34m'
@@ -79,7 +79,9 @@ $PROJECT_DESCRIPTION
 
 ## 🚀 Getting Started
 
-This project is built using the SDD Agentic Framework. For framework documentation, see \`FRAMEWORK_README.md\`.
+This project is built using **LogicLoom** — a governed Claude Code harness with a
+constitutional governance core and interchangeable workflow packs. For framework
+documentation, see \`FRAMEWORK_README.md\`.
 
 ### Prerequisites
 
@@ -90,50 +92,52 @@ This project is built using the SDD Agentic Framework. For framework documentati
 ### Installation
 
 \`\`\`bash
-# Install dependencies
 npm install
-
-# Run setup
-npm run setup
 \`\`\`
 
 ### Development Workflow
 
-1. **Create Feature Specification**: \`/specify "feature-name"\`
-2. **Generate Implementation Plan**: \`/plan\`
-3. **Create Task List**: \`/tasks\`
-4. **Implement with Agents**: Automatic agent orchestration
+Pick a workflow pack (none is privileged):
+
+- **Swarm** (exploratory): \`/swarm explore\` → \`/create-prd\` → plan mode →
+  \`/plan-review\` → \`/swarm implement\` → \`/review-team\` → \`/git-push\`
+- **SDD waterfall** (well-specified): \`/specification\` → \`/build-team\` → \`/finalize\`
+
+Governance (no autonomous git, test-first, etc.) is enforced by hooks. See
+\`FRAMEWORK_README.md\` and \`START_HERE.md\`.
 
 ## 📚 Documentation
 
-- **Framework Guide**: See \`FRAMEWORK_README.md\`
-- **Setup Instructions**: See \`SETUP.md\`
-- **Agent Documentation**: See \`AGENTS.md\`
-- **Development Principles**: See \`.specify/memory/constitution.md\`
+- **Framework Guide**: See \`FRAMEWORK_README.md\` and \`CLAUDE.md\`
+- **Getting Started**: See \`START_HERE.md\`
+- **Constitution**: See \`.logic-loom/memory/constitution.md\`
 
-## 🤖 Available Commands
+## 🤖 Common Commands
 
 Execute these in Claude Code:
 
-- \`/specify\` - Create feature specification
-- \`/plan\` - Generate implementation plan
-- \`/tasks\` - Create task list
-- \`/create-agent\` - Create specialized agent
+- \`/swarm explore "<topic>"\` - parallel read-only investigation
+- \`/create-prd "<feature>"\` - product requirements with forcing-questions gate
+- \`/plan-review\` - gate a plan before implementation
+- \`/swarm implement [sprint]\` - scope-bounded implementation workers
+- \`/review-team\` - parallel security + quality + performance + behavioral review
+- \`/git-push\` - commit + PR (requires your approval)
 
 ## 📁 Project Structure
 
 \`\`\`
 $PROJECT_NAME/
-├── .specify/         # Framework core
-├── .claude/          # AI assistant config
+├── .logic-loom/      # Framework core (constitution, scripts, config, templates)
+├── .claude/          # Claude Code config + governance hooks
 ├── .docs/            # Documentation
-├── specs/            # Feature specifications
+├── features/         # Swarm pack — per-feature folders
+├── specs/            # SDD waterfall pack — per-feature folders
 └── src/              # Your source code
 \`\`\`
 
 ## 🤝 Contributing
 
-Follow the constitutional principles defined in \`.specify/memory/constitution.md\`.
+Follow the constitutional principles in \`.logic-loom/memory/constitution.md\`.
 
 ## 📝 License
 
@@ -141,7 +145,7 @@ Follow the constitutional principles defined in \`.specify/memory/constitution.m
 
 ---
 
-Built with [SDD Agentic Framework](https://github.com/kelleysd-apps/sdd-agentic-framework)
+Built with [LogicLoom](https://github.com/kelleysd-apps/sdd-agentic-framework)
 EOF
 
 echo -e "${GREEN}✓${NC} Project README created"
@@ -178,16 +182,12 @@ else
     echo -e "${YELLOW}ℹ${NC}  Git repository already exists"
 fi
 
-# Configure upstream remote for /update-framework
-UPSTREAM_URL="https://github.com/kelleysd-apps/sdd-agentic-framework.git"
-if git remote get-url upstream &>/dev/null 2>&1; then
-    echo -e "${GREEN}✓${NC} Upstream remote already configured"
-else
-    echo -e "${BLUE}Configuring upstream remote for framework updates...${NC}"
-    git remote add upstream "$UPSTREAM_URL" 2>/dev/null && \
-        echo -e "${GREEN}✓${NC} Upstream remote added: $UPSTREAM_URL" || \
-        echo -e "${YELLOW}⚠${NC}  Could not add upstream remote (not a git repo yet)"
-fi
+# Framework updates: /update-framework fetches the configured upstream
+# (.logic-loom/config/framework-upstream.conf) AD-HOC and FETCH-ONLY into a
+# namespaced ref. It deliberately does NOT add an `upstream` git remote — so a
+# stray `git push upstream` is structurally impossible and your commits can only
+# go to `origin`. Nothing to configure here.
+echo -e "${GREEN}✓${NC} Framework updates: run /update-framework (fetch-only; upstream in .logic-loom/config/framework-upstream.conf)"
 
 # ====================================
 # Docker MCP Toolkit Installation
@@ -261,9 +261,9 @@ fi
 # Run the main setup script
 echo ""
 echo -e "${BLUE}Running framework setup...${NC}"
-if [ -f ".specify/scripts/setup.sh" ]; then
-    chmod +x .specify/scripts/setup.sh
-    ./.specify/scripts/setup.sh
+if [ -f ".logic-loom/scripts/setup.sh" ]; then
+    chmod +x .logic-loom/scripts/setup.sh
+    ./.logic-loom/scripts/setup.sh
 else
     echo -e "${RED}Warning: Setup script not found${NC}"
 fi
@@ -306,7 +306,7 @@ echo -e "   → All commands will reference PRD as SSOT"
 echo -e "   → Features align with PRD goals and constraints"
 echo ""
 echo -e "${YELLOW}Alternative: Manual Initialization (Advanced)${NC}"
-echo -e "   Edit: ${GREEN}.specify/memory/constitution.md${NC} manually"
+echo -e "   Edit: ${GREEN}.logic-loom/memory/constitution.md${NC} manually"
 echo -e "   Use: ${GREEN}/create-agent${NC} for each agent identified in PRD"
 echo ""
 echo -e "${BLUE}=====================================${NC}"

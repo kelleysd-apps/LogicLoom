@@ -4,20 +4,38 @@
 
 ## Constitutional Foundation
 
-**The constitution at `.specify/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
+**The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v3.0.0) contains **16 enforceable principles**:
+The constitution (v3.1.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
-- **7 Workflow & Delegation Principles** (X-XVI): Agent Delegation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
+- **7 Workflow & Delegation Principles** (X-XVI): Delegation & Context Isolation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
 
 The constitution governs:
 - Core development principles and rules
 - Workflow requirements and gates
 - Quality standards and constraints
 - All architectural decisions
-- Agent delegation protocol
+- Delegation and context-isolation protocol
 - Plugin-first architecture enforcement
+
+---
+
+## Hook-Enforced Governance (No Recited Ceremony)
+
+Governance is the **core** of LogicLoom and is enforced automatically by hooks.
+There is no manual message pre-flight recitation or compliance summary to print
+on each message. The `UserPromptSubmit` preflight hook performs domain detection
+and delegation recommendations; the pre-command guard gates dangerous and git
+operations.
+
+Verbosity is set by `LOOM_GOVERNANCE_MODE` in
+`.logic-loom/config/governance.conf`:
+
+| Mode | Behavior |
+|------|----------|
+| **lean** (default) | Hooks enforce silently; hints injected without ceremony |
+| **strict** | Verbose compliance reporting and stricter gating prompts |
 
 ---
 
@@ -27,7 +45,7 @@ The constitution governs:
 |-----------|------|----------|
 | **II** | Test-First | Write tests BEFORE implementation |
 | **VI** | Git Approval | NEVER auto-commit, ALWAYS ask user |
-| **X** | Agent Delegation | Specialized work → specialized agents |
+| **X** | Delegation & Context Isolation | Specialized work → specialists or `/swarm`; isolate worker context |
 | **XVI** | Plugin-First | All capabilities as installable plugins |
 
 ---
@@ -65,7 +83,7 @@ The constitution governs:
 5. Refactor for quality (refactor)
 
 **Quality Gates**:
-- Test coverage ≥80% (from refinement.conf)
+- Test coverage ≥80% (Principle II)
 - All tests pass before merge
 - Contract tests for all API endpoints
 - Integration tests for user stories
@@ -153,7 +171,7 @@ mkdir "$DIR"
 3. Never assume permission for Git operations
 4. SDD functions and scripts must not perform Git operations autonomously
 
-**DS-STAR Enhancement**: The `/finalize` command validates compliance but NEVER executes git commands. It provides a report and suggests commands for manual execution.
+**Quality Validation**: The `/finalize` command validates compliance but NEVER executes git commands. It provides a report and suggests commands for manual execution.
 
 **Script Compliance**: All bash scripts use `request_git_approval()` function from `common.sh`
 
@@ -202,7 +220,7 @@ mkdir "$DIR"
 
 **Enforcement**: `/finalize` command validates documentation sync
 
-**Update Checklist**: `.specify/memory/constitution_update_checklist.md`
+**Update Checklist**: `.logic-loom/memory/constitution_update_checklist.md`
 
 ---
 
@@ -223,23 +241,20 @@ mkdir "$DIR"
 
 ---
 
-### X. Agent Delegation Protocol
+### X. Delegation & Context Isolation
 
-**Rule**: Specialized work delegated to specialized agents
+**Rule**: Specialized work delegated to specialists or `/swarm`; worker context kept isolated
 
-**Rationale**: Ensures expert execution, maintains quality, enables parallel work
+**Rationale**: Ensures expert execution, maintains quality, enables parallel work, and prevents context bleed between concurrent workers
 
-**Workflow** (4-step pre-flight check):
-1. **READ CONSTITUTION** - First action, no exceptions
-2. **ANALYZE TASK DOMAIN** - Identify trigger keywords
-3. **DELEGATION DECISION** - Delegate if specialized work
-4. **EXECUTION** - Execute directly or via specialized agent
+**How it works**:
+- Domain keywords route to a domain brief (`get_domain_brief <domain>` from `common.sh`) or to `/swarm explore` / a team command
+- Each delegated worker receives only the context it needs (isolated brief), not the full session
+- 0 domains → execute directly; 1 domain → single brief; 2+ domains → `/swarm` or team orchestration
 
-**Enforcement**: `message-preflight` skill (mandatory on every message)
+**Enforcement**: `UserPromptSubmit` preflight hook (domain detection + delegation recommendation) — no recited protocol required
 
-**Reference**: `.specify/memory/agent-collaboration-triggers.md`
-
-**Skill**: `plugins/sdd-governance/skills/message-preflight/SKILL.md`
+**Reference**: `plugins/loom-governance/domain-briefs/<domain>.md`
 
 ---
 
@@ -297,16 +312,16 @@ mkdir "$DIR"
 
 ### XIV. AI Model Selection
 
-**Rule**: Use Opus 4.6 by default for all specialized agents
+**Rule**: Use Opus 4.8 by default for all specialized agents
 
 **Rationale**: Balances performance, cost, and quality
 
-**Guidelines**:
-- **Opus 4.6** (default): All specialized agents, architecture, security, complex reasoning
-- **Sonnet 4.5** (fallback): Cost optimization, high-volume tasks, quota limits
+**Guidelines** (model IDs defined in `.logic-loom/config/models.conf`):
+- **Opus 4.8** (flagship default): All specialized agents, architecture, security, complex reasoning
+- **Sonnet** (fallback): Cost optimization, high-volume tasks, quota limits
 - **Haiku** (cost-sensitive): Simple lookups, formatting, file operations
 
-**Enforcement**: Agent configuration, model selection documentation
+**Enforcement**: `.logic-loom/config/models.conf`, model selection documentation
 
 ---
 
@@ -319,10 +334,10 @@ mkdir "$DIR"
 **Requirements**:
 - Verify parent directory exists before creating files
 - Edit existing files over creating new ones
-- Use templates from `.specify/templates/` when available
+- Use templates from `.logic-loom/templates/` when available
 - Always use absolute paths from repository root
 
-**Enforcement**: Pre-flight check, code review
+**Enforcement**: File verification before create, code review
 
 ---
 
@@ -372,7 +387,7 @@ git add <files>
 git commit -m "$(cat <<'EOF'
 Feature description here
 
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
 )"
 
@@ -425,7 +440,7 @@ Always use HEREDOC for commit messages to ensure good formatting:
 git commit -m "$(cat <<'EOF'
 Commit message here.
 
-Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>
 EOF
 )"
 ```
@@ -471,7 +486,7 @@ Pre-command hook at `.claude/hooks/guard-dangerous-commands.sh` blocks dangerous
 Run before commits and releases:
 
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
 ```
 
 Validates:
@@ -488,7 +503,7 @@ Use `/finalize` command for comprehensive pre-commit validation:
 
 ```bash
 # Run finalize command
-./.specify/scripts/bash/finalize-feature.sh
+./.logic-loom/scripts/bash/finalize-feature.sh
 
 # Review compliance report
 # If all checks pass, manually execute suggested git commands
@@ -498,7 +513,7 @@ Use `/finalize` command for comprehensive pre-commit validation:
 
 When updating the constitution:
 
-**MUST follow** `.specify/memory/constitution_update_checklist.md`
+**MUST follow** `.logic-loom/memory/constitution_update_checklist.md`
 
 Ensures all dependent documents updated:
 - CLAUDE.md
@@ -509,28 +524,18 @@ Ensures all dependent documents updated:
 
 ---
 
-## Compliance Summary Format
+## Enforcement Model (Hook-Based)
 
-After completing pre-flight check, provide:
+Constitutional compliance is enforced by hooks, not by a recited per-message
+ceremony:
 
-```
-Constitutional Compliance Check:
-- Domain(s): [none | single: <domain> | multi: <domains>]
-- Delegation: [direct execution | <agent-name>]
-- Git operations: [none planned | will request approval]
-- Proceeding with: [action description]
-```
+- **Preflight hook** (`UserPromptSubmit`): domain detection + delegation hints
+- **Dangerous-command guard** (pre-command): blocks destructive/forbidden commands
+- **Git safety**: `request_git_approval()` in `common.sh` gates all git operations
+- **`LOOM_GOVERNANCE_MODE`** (`governance.conf`): `lean` (default, silent) or `strict` (verbose)
 
----
-
-## Violation Self-Correction
-
-If constitutional violation occurs:
-
-1. **STOP** immediately
-2. **ACKNOWLEDGE** the violation explicitly
-3. **CORRECT** by running protocol now
-4. **PROCEED** only after correction
+If a violation occurs at runtime, stop, surface it, correct, and continue — the
+hooks will have flagged it; no manual compliance block is required.
 
 ---
 
@@ -540,10 +545,10 @@ Load governance context when needed:
 
 ```bash
 # Load governance module
-./.specify/scripts/bash/load-context.sh load governance
+./.logic-loom/scripts/bash/load-context.sh load governance
 
 # Load based on request analysis
-./.specify/scripts/bash/load-context.sh analyze "commit these changes"
+./.logic-loom/scripts/bash/load-context.sh analyze "commit these changes"
 ```
 
 ---
@@ -553,7 +558,8 @@ Load governance context when needed:
 **Last Updated**: 2026-02-07
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.specify/memory/constitution.md` (v3.0.0)
-- `.specify/memory/constitution_update_checklist.md`
+- `.logic-loom/memory/constitution.md` (v3.1.0)
+- `.logic-loom/memory/constitution_update_checklist.md`
+- `.logic-loom/config/governance.conf` (LOOM_GOVERNANCE_MODE)
 - CLAUDE.md "Constitutional Foundation" and "Git Operations" sections
-- `.specify/scripts/bash/common.sh` (git approval functions)
+- `.logic-loom/scripts/bash/common.sh` (git approval + `get_domain_brief`)

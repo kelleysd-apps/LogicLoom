@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Master Test Runner — SDD Agentic Framework
+# Master Test Runner — LogicLoom Framework
 # Runs all contract, integration, and validation tests
 set -uo pipefail
 
@@ -44,15 +44,15 @@ run_suite() {
 }
 
 echo "╔═══════════════════════════════════════════════╗"
-echo "║   SDD Framework — Full Test Suite             ║"
+echo "║   LogicLoom Framework — Full Test Suite       ║"
 echo "║   $(date '+%Y-%m-%d %H:%M:%S')                         ║"
 echo "╚═══════════════════════════════════════════════╝"
 
 # Contract Tests
 run_suite "Plugin Lifecycle" "bash tests/contract/plugins/test_plugin_lifecycle.sh"
 run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh"
-run_suite "RL Metrics" "bash tests/contract/plugins/test_rl_metrics.sh"
-run_suite "Constitution v3.0.0" "bash tests/contract/test_constitution.sh"
+run_suite "Constitution v3.1.0" "bash tests/contract/test_constitution.sh"
+run_suite "Governance Hooks" "bash tests/contract/test_governance_hooks.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
 run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridge.sh"
 run_suite "Orchestration Hook" "bash tests/contract/test_orchestration_hook.sh"
@@ -60,32 +60,10 @@ run_suite "Memory Search" "bash tests/contract/test_memory_search.sh"
 run_suite "Update Framework" "bash tests/contract/test_update_framework.sh"
 run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.sh"
 
-# Dev-Loop Contract Tests (plugin-hosted)
-run_suite "Dev-Loop: Event Sourcing" "bash plugins/sdd-dev-loop/tests/contract/test_event_sourcing.sh"
-run_suite "Dev-Loop: Quality Grading" "bash plugins/sdd-dev-loop/tests/contract/test_quality_grading.sh"
-run_suite "Dev-Loop: RL Feedback" "bash plugins/sdd-dev-loop/tests/contract/test_rl_feedback.sh"
-run_suite "Dev-Loop: Scope Detection" "bash plugins/sdd-dev-loop/tests/contract/test_scope_detection.sh"
-run_suite "Dev-Loop: Lifecycle" "bash plugins/sdd-dev-loop/tests/contract/test_dev_loop_lifecycle.sh"
-run_suite "Dev-Loop: Self-Extension" "bash plugins/sdd-dev-loop/tests/contract/test_self_extension.sh"
-run_suite "Dev-Loop: Termination Engine" "bash plugins/sdd-dev-loop/tests/contract/test_termination_engine.sh"
-run_suite "Dev-Loop: Tribunal Voting" "bash plugins/sdd-dev-loop/tests/contract/test_tribunal_voting.sh"
-run_suite "Dev-Loop: Permissions Sandbox" "bash plugins/sdd-dev-loop/tests/contract/test_permissions_sandbox.sh"
-
-# Dev-Loop Integration Tests (plugin-hosted)
-run_suite "Dev-Loop: Full Loop (E2E)" "bash plugins/sdd-dev-loop/tests/integration/test_full_loop.sh"
-run_suite "Dev-Loop: Tribunal E2E" "bash plugins/sdd-dev-loop/tests/integration/test_tribunal_end_to_end.sh"
-run_suite "Dev-Loop: Self-Extension Lifecycle" "bash plugins/sdd-dev-loop/tests/integration/test_self_extension_lifecycle.sh"
-
 # Validation Tests (Framework v2.0 enhancements)
-run_suite "Git Safety" "bash .specify/tests/test-git-safety.sh"
-run_suite "Policy Validation" "bash .specify/tests/test-policy-validation.sh"
-run_suite "Structured Logging" "bash .specify/tests/test_logging.sh"
-
-# MCP Tests (unit)
-run_suite "Marketplace MCP (unit)" "node --test mcp-servers/sdd-marketplace/src/__tests__/marketplace.test.js"
-
-# MCP Integration (E2E)
-run_suite "Marketplace MCP (E2E)" "NODE_PATH=mcp-servers/sdd-marketplace/node_modules node tests/integration/test_marketplace_mcp.js"
+run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"
+run_suite "Policy Validation" "bash .logic-loom/tests/test-policy-validation.sh"
+run_suite "Structured Logging" "bash .logic-loom/tests/test_logging.sh"
 
 echo ""
 echo ""

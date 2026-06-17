@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle VIII (Documentation Synchronization)
+**Authority**: Constitution v3.1.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
 ---
 
 ## Purpose
 
-This policy establishes release standards, versioning, and procedures for the SDD Framework, ensuring predictable, well-documented, and traceable releases following constitutional principles.
+This policy establishes release standards, versioning, and procedures for the LogicLoom framework, ensuring predictable, well-documented, and traceable releases following constitutional principles.
 
 ---
 
@@ -25,7 +25,7 @@ This policy enforces:
 
 ## Scope
 
-All software releases from repositories using the SDD Framework must follow this policy, including:
+All software releases from repositories using the LogicLoom framework must follow this policy, including:
 - Application releases
 - Library releases
 - Framework releases
@@ -503,7 +503,7 @@ npm install package@1.2.0
 - Minor: New features, deprecations
 - Patch: Bug fixes only
 
-**Example**: SDD Framework itself follows this
+**Example**: LogicLoom framework itself follows this
 
 ### Applications
 
@@ -752,7 +752,7 @@ git branch -d hotfix/critical-bug
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
 - Semantic Versioning: https://semver.org/
 - Keep a Changelog: https://keepachangelog.com/
 - Conventional Commits: https://www.conventionalcommits.org/

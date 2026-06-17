@@ -7,12 +7,13 @@ This file tracks the current working context for the constitutional-governance-a
 ## Session Information
 
 - **Agent Version**: 1.0.0
-- **Constitution Version**: 3.0.0 (16 Principles)
+- **Constitution Version**: 3.1.0 (16 Principles)
 - **Role**: Primary Entry Point / Main Thread Agent
 
 ## Active Governance State
 
-### Pre-Flight Protocol Status
+### Hook-Enforced Governance Status
+- Governance mode: [lean | strict]
 - Last compliance check: [Session start]
 - Domains detected: [None yet]
 - Delegation decisions: [None yet]

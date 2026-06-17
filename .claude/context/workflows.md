@@ -1,10 +1,20 @@
 # Workflows Context Module
 <!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
-<!-- Module: SDD workflow commands, feature development lifecycle, architecture -->
+<!-- Module: workflow commands, feature development lifecycle, architecture -->
 
-## SDD (Specification-Driven Development) Workflow
+## Workflow Packs (Interchangeable)
 
-The SDD framework provides a structured approach to feature development with built-in quality gates, constitutional compliance, and multi-agent coordination.
+LogicLoom's constitutional governance is the **core**. Development workflows sit
+on top of it as **interchangeable packs** — none is primary or legacy:
+
+| Pack | Use when |
+|------|----------|
+| **Vision / Swarm** (`features/<name>/`) | Exploratory or novel work; unclear scope |
+| **SDD waterfall** (`specs/###-name/`) | Well-understood feature with stable requirements |
+
+This module documents the **SDD waterfall pack** (spec → plan → tasks → finalize).
+All packs share the same built-in quality gates, constitutional compliance, and
+multi-agent coordination.
 
 ---
 
@@ -16,7 +26,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Agent**: Executed by `prd-specialist` (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/create-prd.sh [project_name]`
+**Script**: `.logic-loom/scripts/bash/create-prd.sh [project_name]`
 
 **When to Use**:
 - Starting a new project (first step before any features)
@@ -58,7 +68,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Skill**: Executed by `sdd-specification` skill (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
+**Script**: `.logic-loom/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
 
 **When to Use**:
 - Starting new feature development
@@ -78,13 +88,6 @@ The SDD framework provides a structured approach to feature development with bui
 - Constraints and dependencies
 - Success metrics
 
-**DS-STAR Enhancement**:
-- Automatically invokes refinement loop after spec generation
-- Verifies specification quality against thresholds (completeness ≥0.90)
-- Iteratively refines until sufficient or max 20 rounds
-- Provides actionable feedback for improvements
-- Escalates to human if quality threshold not met
-
 **Skill Reference**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
 
 **Usage**:
@@ -103,7 +106,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Skill**: Executed by `sdd-planning` skill (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/setup-plan.sh --json`
+**Script**: `.logic-loom/scripts/bash/setup-plan.sh --json`
 
 **When to Use**:
 - After feature spec is complete
@@ -123,13 +126,6 @@ The SDD framework provides a structured approach to feature development with bui
 - `data-model.md` - Entity definitions with fields, relationships, validation rules
 - `contracts/` - API contract schemas (OpenAPI/GraphQL)
 - `quickstart.md` - Test scenarios and integration test plan
-
-**DS-STAR Enhancement**:
-- Automatically invokes verification gate after plan generation
-- Verifies plan quality against thresholds (completeness ≥0.85, spec alignment ≥0.90)
-- **Blocks progression to /tasks if quality insufficient**
-- Provides actionable feedback for improvements
-- MUST address feedback before proceeding
 
 **Constitutional Validation**:
 - Enforces Library-First, Test-First, Contract-First principles
@@ -154,7 +150,7 @@ The SDD framework provides a structured approach to feature development with bui
 
 **Skill**: Executed by `sdd-tasks` skill (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/check-task-prerequisites.sh --json`
+**Script**: `.logic-loom/scripts/bash/check-task-prerequisites.sh --json`
 
 **When to Use**:
 - After implementation plan is complete
@@ -219,11 +215,11 @@ The SDD framework provides a structured approach to feature development with bui
 
 ## Phase 5: Finalization & Commit
 
-### /finalize Command (NEW - DS-STAR Enhancement)
+### /finalize Command
 
 **Purpose**: Pre-commit constitutional compliance validation
 
-**Script**: `.specify/scripts/bash/finalize-feature.sh --json`
+**Script**: `.logic-loom/scripts/bash/finalize-feature.sh --json`
 
 **CRITICAL**: NEVER performs git operations autonomously (Principle VI)
 
@@ -252,7 +248,7 @@ git push origin <branch>
 **Usage Pattern**:
 ```bash
 # After implementation complete
-./.specify/scripts/bash/finalize-feature.sh
+./.logic-loom/scripts/bash/finalize-feature.sh
 
 # If all checks pass, manually execute suggested git commands
 git add <files>
@@ -260,7 +256,7 @@ git commit -m "message"
 git push origin <branch>
 ```
 
-**Skill Reference**: `plugins/sdd-governance/skills/constitutional-compliance/SKILL.md`
+**Skill Reference**: `plugins/loom-governance/skills/constitutional-compliance/SKILL.md`
 
 ---
 
@@ -285,7 +281,6 @@ Phase 1: Feature Specification
 │ - Acceptance criteria            │
 │ - Constraints                    │
 │ Output: specs/###/spec.md        │
-│ ✓ DS-STAR Refinement Loop       │
 └──────────────────────────────────┘
    ↓
 Phase 2: Implementation Planning
@@ -303,7 +298,6 @@ Phase 2: Implementation Planning
 │ Constitution Check Gate ✓        │
 │ Output: plan.md, research.md,    │
 │         data-model.md, contracts/│
-│ ✓ DS-STAR Verification Gate     │
 └──────────────────────────────────┘
    ↓
 Phase 3: Task Generation
@@ -358,7 +352,7 @@ Manual Git Operations (User Approval Required)
 
 **Agent**: Executed by `subagent-architect` (auto-delegated per Principle X)
 
-**Script**: `.specify/scripts/bash/create-agent.sh --json`
+**Script**: `.logic-loom/scripts/bash/create-agent.sh --json`
 
 **Features**:
 - Auto-determines department based on purpose
@@ -399,17 +393,17 @@ Manual Git Operations (User Approval Required)
 ### Directory Structure
 
 ```
-.specify/
+.logic-loom/
 ├── memory/
-│   ├── constitution.md                    # Core principles (v3.0.0 - 16 principles)
+│   ├── constitution.md                    # Core principles (v3.1.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
 │   └── agent-collaboration-triggers.md    # Agent delegation reference
 ├── scripts/bash/                          # Workflow automation scripts
 │   ├── common.sh                          # Shared functions + git approval
 │   ├── constitutional-check.sh            # 16-principle compliance validator
 │   ├── sanitization-audit.sh              # Framework sanitization checker
-│   ├── create-new-feature.sh              # Feature initialization + refinement
-│   ├── setup-plan.sh                      # Planning workflow + verification
+│   ├── create-new-feature.sh              # Feature initialization
+│   ├── setup-plan.sh                      # Planning workflow
 │   ├── check-task-prerequisites.sh        # Task generation validator
 │   └── finalize-feature.sh                # Pre-commit compliance validation
 ├── templates/                             # Document templates
@@ -418,7 +412,8 @@ Manual Git Operations (User Approval Required)
 │   ├── tasks-template.md                  # Task list generation
 │   └── agent-file-template.md             # New agent template
 ├── config/                                # Configuration files
-│   └── refinement.conf                    # Refinement engine settings
+│   ├── models.conf                        # Role→model tier convention
+│   └── governance.conf                    # Governance mode (lean/strict)
 
 specs/###-feature-name/                     # Per-feature documentation
 ├── spec.md                                # Feature requirements
@@ -437,8 +432,8 @@ specs/###-feature-name/                     # Per-feature documentation
 ### Core Scripts
 
 - **common.sh**: Shared functions for branch/path management, git approval
-- **create-new-feature.sh**: Initialize feature branch and spec + DS-STAR refinement loop
-- **setup-plan.sh**: Prepare implementation planning + DS-STAR verification gate
+- **create-new-feature.sh**: Initialize feature branch and spec
+- **setup-plan.sh**: Prepare implementation planning
 - **check-task-prerequisites.sh**: Verify design artifacts exist before task generation
 - **finalize-feature.sh**: Pre-commit compliance validation (no auto-git)
 - **update-agent-context.sh**: Update AI assistant context files
@@ -450,49 +445,9 @@ specs/###-feature-name/                     # Per-feature documentation
 
 **Run before commits and releases**:
 ```bash
-./.specify/scripts/bash/constitutional-check.sh
-./.specify/scripts/bash/sanitization-audit.sh
+./.logic-loom/scripts/bash/constitutional-check.sh
+./.logic-loom/scripts/bash/sanitization-audit.sh
 ```
-
----
-
-## DS-STAR Multi-Agent Enhancements (Feature 001)
-
-The framework includes proven multi-agent patterns from Google's DS-STAR system:
-
-### Quality Gates
-
-- **Automatic Verification**: Specs and plans automatically verified for quality
-- **Iterative Refinement**: Specs refined up to 20 rounds until quality thresholds met
-- **Blocking Gates**: Insufficient plans block progression to tasks phase
-- **Actionable Feedback**: Clear guidance provided for improvements
-
-### Configuration
-
-Quality thresholds configured in `.specify/config/refinement.conf`:
-
-| Setting | Value | Purpose |
-|---------|-------|---------|
-| `MAX_REFINEMENT_ROUNDS` | 20 | Maximum iterations before escalation |
-| `EARLY_STOP_THRESHOLD` | 0.95 | Stop if quality exceeds this |
-| `SPEC_COMPLETENESS_THRESHOLD` | 0.90 | Specification quality requirement |
-| `PLAN_QUALITY_THRESHOLD` | 0.85 | Plan quality requirement |
-| `TEST_COVERAGE_THRESHOLD` | 0.80 | Code coverage requirement (Principle II) |
-
-### Graceful Degradation
-
-If DS-STAR components unavailable (Python not installed, dependencies missing):
-- Workflow continues without quality gates
-- Warning messages displayed
-- Manual review recommended
-- No workflow blocking
-
-### Performance Targets
-
-- Context retrieval: <2 seconds
-- Debug iteration cycle: <30 seconds
-- 3.5x improvement in task completion accuracy (target)
-- >70% automatic fix rate for common errors (target)
 
 ---
 
@@ -502,10 +457,10 @@ Load workflow context when needed:
 
 ```bash
 # Load workflows module
-./.specify/scripts/bash/load-context.sh load workflows
+./.logic-loom/scripts/bash/load-context.sh load workflows
 
 # Load based on request analysis
-./.specify/scripts/bash/load-context.sh analyze "/plan the authentication feature"
+./.logic-loom/scripts/bash/load-context.sh analyze "/plan the authentication feature"
 ```
 
 ---
@@ -516,8 +471,8 @@ Load workflow context when needed:
 **Constitutional Authority**: Principles I-XVI (All 16 Principles)
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
-- `.specify/scripts/bash/` workflow scripts
-- `.specify/memory/constitution.md` (v3.0.0)
+- `.logic-loom/scripts/bash/` workflow scripts
+- `.logic-loom/memory/constitution.md` (v3.1.0)
 - `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow (NEW)

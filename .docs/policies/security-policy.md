@@ -2,14 +2,14 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2025-11-07
-**Authority**: Constitution v3.0.0 - Principle XI (Input Validation & Output Sanitization)
+**Authority**: Constitution v3.1.0 - Principle XI (Input Validation & Output Sanitization)
 **Review Cycle**: Quarterly
 
 ---
 
 ## Purpose
 
-This policy establishes security standards and practices for the SDD Framework, ensuring all applications built with this framework follow security-by-default principles.
+This policy establishes security standards and practices for the LogicLoom framework, ensuring all applications built with this framework follow security-by-default principles.
 
 ---
 
@@ -615,7 +615,7 @@ All team members must complete:
 
 ## References
 
-- Constitution v3.0.0: `.specify/memory/constitution.md`
+- Constitution v3.1.0: `.logic-loom/memory/constitution.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - OWASP: https://owasp.org/
