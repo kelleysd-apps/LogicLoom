@@ -292,7 +292,7 @@ Does this provide procedural "how-to" knowledge?
 
 ## References
 
-- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Agent Template: `.logic-loom/templates/agent-template.md`
 - Skills Integration Analysis: `.docs/skills-integration-analysis.md`
 - Skills Executive Summary: `.docs/skills-integration-executive-summary.md`

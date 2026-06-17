@@ -1,7 +1,7 @@
 #!/bin/bash
 # Constitutional Compliance Checker for LogicLoom
 # Validates adherence to Constitutional Principles
-# Authority: Constitution v3.0.0
+# Authority: Constitution v3.2.0
 
 # Don't exit on error - we want to run all checks
 set +e
@@ -21,7 +21,7 @@ echo -e "${BLUE}  Constitutional Compliance Check${NC}"
 echo -e "${BLUE}============================================${NC}"
 echo ""
 echo "Repository: $REPO_ROOT"
-echo "Constitution: v3.0.0"
+echo "Constitution: v3.2.0"
 echo ""
 
 PASS_COUNT=0

@@ -136,7 +136,7 @@ Users can explicitly request this agent by saying:
 
 ## Working Principles
 
-### Constitutional Principles Application (v3.0.0 - 16 Principles)
+### Constitutional Principles Application (v3.2.0 - 16 Principles)
 
 **Core Immutable Principles (I-III)**:
 1. **Principle I - Library-First Architecture**: Every feature must begin as a standalone library
@@ -241,5 +241,5 @@ All operations must log:
 **Agent Version**: 1.2.0
 **Created**: 2025-09-18
 **Last Modified**: 2026-02-15
-**Constitution**: v3.0.0 (16 Principles)
+**Constitution**: v3.2.0 (16 Principles)
 **Review Schedule**: Quarterly

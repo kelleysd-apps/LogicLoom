@@ -2,7 +2,7 @@
 
 ## Overview
 
-This hook automatically injects constitutional governance context on every user message to ensure compliance with all 16 principles of the Specification-Driven Development Constitution v3.0.0.
+This hook automatically injects constitutional governance context on every user message to ensure compliance with all 16 principles of the Specification-Driven Development Constitution v3.2.0.
 
 **Hook Type**: UserPromptSubmit
 **Version**: 1.0.0

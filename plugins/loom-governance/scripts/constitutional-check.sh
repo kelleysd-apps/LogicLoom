@@ -1,7 +1,7 @@
 #!/bin/bash
 # Constitutional Compliance Checker for LogicLoom
 # Validates adherence to Constitutional Principles
-# Authority: Constitution v3.0.0
+# Authority: Constitution v3.2.0
 
 # Don't exit on error - we want to run all checks
 set +e

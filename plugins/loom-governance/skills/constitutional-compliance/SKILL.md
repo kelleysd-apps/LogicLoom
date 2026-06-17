@@ -369,7 +369,7 @@ Verify the skill executed correctly:
 
 ## References
 
-- Constitution v3.0.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
 - Constitution Update Checklist: `.logic-loom/memory/constitution_update_checklist.md`
 - Automated Check Script: `.logic-loom/scripts/bash/constitutional-check.sh`
 - Testing Policy: `.docs/policies/testing-policy.md` (Principle II)

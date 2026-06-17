@@ -6,7 +6,7 @@
 
 ## Overview
 
-This directory contains prototype templates for creating new skills following the skills-first architecture v3.0.0. These templates ensure consistent skill structure and constitutional compliance.
+This directory contains prototype templates for creating new skills following LogicLoom's skill conventions. These templates ensure consistent skill structure and constitutional compliance.
 
 ## Available Templates
 
@@ -155,4 +155,4 @@ All templates use `{{VARIABLE_NAME}}` placeholders. Replace these with actual va
 ---
 
 *Template library version: 1.0.0*
-*Skills-first architecture: v3.0.0*
+*LogicLoom skill prototypes*
