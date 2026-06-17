@@ -1,7 +1,7 @@
 # Deployment Policy
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-07
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
 
@@ -665,5 +665,5 @@ Deployment logs retained for:
 ---
 
 **Policy Owner**: Operations Department (monitoring skill)
-**Last Reviewed**: 2025-11-07
-**Next Review**: 2026-02-07
+**Last Reviewed**: TBD
+**Next Review**: TBD

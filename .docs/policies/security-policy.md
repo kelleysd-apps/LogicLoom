@@ -1,7 +1,7 @@
 # Security Policy
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-07
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0 - Principle XI (Input Validation & Output Sanitization)
 **Review Cycle**: Quarterly
 
@@ -624,5 +624,5 @@ All team members must complete:
 ---
 
 **Policy Owner**: Quality Department (security-operations skill)
-**Last Reviewed**: 2025-11-07
-**Next Review**: 2026-02-07
+**Last Reviewed**: TBD
+**Next Review**: TBD

@@ -3,7 +3,7 @@
     "constitutional-governance-agent": {
       "department": "governance",
       "description": "Primary entry point. Routes specialized work to domain skills per Principle X, gates all git operations per Principle VI; governance is hook-enforced (pre-flight recitation optional under strict mode).",
-      "created": "2025-12-05T05:24:27Z",
+      "created": "",
       "tools": "Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, Task, TaskCreate, TaskUpdate",
       "model": "opus",
       "status": "active",
@@ -12,7 +12,7 @@
     "team-synthesizer": {
       "department": "orchestration",
       "description": "Merges multi-LLM outputs, tribunal confidence scoring for /research command.",
-      "created": "2026-01-15T00:00:00Z",
+      "created": "",
       "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
       "model": "opus",
       "status": "active",
@@ -21,7 +21,7 @@
     "prd-specialist": {
       "department": "creation",
       "description": "PRD creation specialist for /create-prd command. Creates comprehensive PRDs as Single Source of Truth.",
-      "created": "2025-11-20T12:00:00Z",
+      "created": "",
       "tools": "Read, Write, Edit, Grep, Glob, AskUserQuestion, TaskCreate, TaskUpdate",
       "model": "opus",
       "status": "active",
@@ -30,7 +30,7 @@
     "subagent-architect": {
       "department": "creation",
       "description": "Agent/plugin creation specialist. Creates new SDD-compliant agents and plugins.",
-      "created": "2025-11-20T12:00:00Z",
+      "created": "",
       "tools": "Read, Write, Edit, Grep, Glob, TaskCreate, TaskUpdate",
       "model": "inherit",
       "status": "active",
@@ -39,7 +39,7 @@
     "framework-sync-agent": {
       "department": "maintenance",
       "description": "Framework updates from upstream for /update-framework command.",
-      "created": "2026-01-15T00:00:00Z",
+      "created": "",
       "tools": "Read, Write, Bash, Grep, Glob, WebFetch, WebSearch",
       "model": "opus",
       "status": "active",
@@ -48,7 +48,7 @@
     "memory-context-agent": {
       "department": "memory",
       "description": "Memory search + context injection via preflight hook.",
-      "created": "2026-02-01T00:00:00Z",
+      "created": "",
       "tools": "Read, Grep, Glob",
       "model": "haiku",
       "status": "active",

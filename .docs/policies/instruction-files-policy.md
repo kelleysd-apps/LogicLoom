@@ -1,7 +1,7 @@
 # Instruction Files Policy (CLAUDE.md & AGENTS.md)
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-29
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0 - Principle VIII (Documentation Sync)
 **Review Cycle**: On any agent or workflow change
 

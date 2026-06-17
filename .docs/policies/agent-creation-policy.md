@@ -1,7 +1,7 @@
 # Agent Creation Policy & Standards
 
 **Version**: 1.0.0
-**Effective Date**: 2025-01-17
+**Effective Date**: TBD
 **Policy Owner**: System Architecture Team
 
 ## Purpose
@@ -216,5 +216,5 @@ Exceptions require:
 
 ---
 
-**Next Review Date**: 2025-04-17
+**Next Review Date**: TBD
 **Contact**: System Architecture Team

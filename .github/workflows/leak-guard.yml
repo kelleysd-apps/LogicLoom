@@ -1,20 +1,24 @@
 name: Leak Guard (PRs → main)
 
 # =============================================================================
-# PUBLIC-template backstop. Lives on the public customer-template `main` and
-# fails ANY pull request into main that carries a SENSITIVE identity marker
-# (owner email, the original ioun-ai project, absolute /workspaces paths, the
-# private kelleysd.com repo path). It is the last line before an unsanitized
-# branch — e.g. a mistargeted release branch — lands on the public template.
+# PUBLIC-template backstop. Lives on the customer-template `main` and fails ANY
+# pull request into main that carries a sensitive identity marker. It is the
+# last line before an unsanitized branch — e.g. a mistargeted release branch —
+# lands on the template.
 #
-# DELIBERATELY SELF-CONTAINED: the check is INLINED in this workflow file (no
-# call into a script or manifest from the PR checkout). For `pull_request`
-# events GitHub evaluates the workflow definition from the BASE branch (main),
-# so a hostile/mistargeted PR cannot neuter the check by editing a script it
-# ships — the grep below is always the base's. Keep it dependency-free.
+# The marker patterns are NOT inlined here, so this public workflow file does not
+# itself publish the confidential strings. They are read from the repo variable
+# `vars.LEAK_MARKERS` — an ERE alternation (e.g. 'foo@example\.com|legacy-name|/abs/path/').
+# Configure it in repo Settings → Variables. The check FAILS CLOSED if it is unset.
 #
-# This is NOT the full manifest-driven leak-guard.sh (that is private-repo-only
-# and runs inside the promotion build). This is a narrow, customer-safe grep.
+# Tamper-proof: for `pull_request` events GitHub evaluates this workflow from the
+# BASE branch (main), and repo variables are not PR-editable — so a hostile or
+# mistargeted PR can neither rewrite the grep nor change the markers. The scan is
+# intentionally STRICT (no path excludes): any tracked file carrying a marker
+# fails the PR, which is exactly the unsanitized-content case we want to catch.
+#
+# This is NOT the full manifest-driven leak-guard.sh (maintainer-only, runs in
+# the promotion build). This is a narrow, dependency-free grep.
 # =============================================================================
 
 on:
@@ -31,36 +35,15 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - name: Assert no sensitive identity markers in tracked content
+        env:
+          LEAK_MARKERS: ${{ vars.LEAK_MARKERS }}
         run: |
           set -euo pipefail
-          # Narrow, genuinely-confidential markers only (not harmless branch names).
-          MARKERS='brian@kelleysd\.com|ioun-ai|/workspaces/|kelleysd\.com/'
-          # Scan tracked content for GENUINE leaks. Exclude (a) the sanitization /
-          # release TOOLING — it contains these markers as detection patterns by
-          # design — and (b) maintainer-only / stripped paths (absent on the public
-          # template; present only pre-strip on the private dev repo) plus the
-          # stubbed VISION.md. All genuine shipped product content is still scanned.
-          # Excludes are inlined here (evaluated from the base branch) so a hostile
-          # PR cannot neuter the check by editing a script it ships.
-          EXCLUDES=(
-            ':(exclude).github/workflows/leak-guard.yml'
-            ':(exclude).github/workflows/promote-to-main.yml'
-            ':(exclude).logic-loom/scripts/bash/leak-guard.sh'
-            ':(exclude).logic-loom/scripts/bash/strip-harness-dev.sh'
-            ':(exclude).logic-loom/scripts/bash/sanitize-for-template.sh'
-            ':(exclude).logic-loom/scripts/bash/sanitization-audit.sh'
-            ':(exclude).logic-loom/scripts/bash/template-strip-manifest.txt'
-            ':(exclude).logic-loom/scripts/bash/history-scrub.sh'
-            ':(exclude).logic-loom/scripts/bash/history-scrub-rules.json'
-            ':(exclude).docs/guides/dev-main-template-split.md'
-            ':(exclude).docs/reports/'
-            ':(exclude).docs/archive/'
-            ':(exclude).docs/design/'
-            ':(exclude).docs/troubleshooting/'
-            ':(exclude)CHANGELOG.md'
-            ':(exclude)VISION.md'
-          )
-          if hits=$(git grep -nIE "$MARKERS" -- . "${EXCLUDES[@]}" 2>/dev/null) && [ -n "$hits" ]; then
+          if [ -z "${LEAK_MARKERS:-}" ]; then
+            echo "::error::vars.LEAK_MARKERS is not set — leak-guard fails closed. Set it in repo Settings → Variables to an ERE alternation of confidential markers."
+            exit 1
+          fi
+          if hits=$(git grep -nIE "$LEAK_MARKERS" -- . 2>/dev/null) && [ -n "$hits" ]; then
             echo "::error::Sensitive identity marker(s) found in tracked content:"
             printf '%s\n' "$hits" | head -30
             exit 1

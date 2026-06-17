@@ -1,7 +1,7 @@
 # Agent Governance & Constitutional Compliance
 
 **Version**: 1.0.0
-**Ratified**: 2025-01-17
+**Ratified**: TBD
 **Authority**: Supersedes individual agent preferences, subordinate to constitution.md
 
 ## Hierarchical Authority
@@ -244,5 +244,5 @@ All agent operations must maintain:
 
 **Review Schedule**: Quarterly
 **Last Review**: 2025-01-17
-**Next Review**: 2025-04-17
+**Next Review**: TBD
 **Approval**: Automated via constitutional compliance check

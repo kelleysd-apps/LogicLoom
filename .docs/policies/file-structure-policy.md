@@ -1,7 +1,7 @@
 # File Structure & Organization Policy
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-29
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0
 **Review Cycle**: Quarterly
 
@@ -505,4 +505,4 @@ mkdir -p .claude/skills/[category]/[skill-name]
 
 **Policy Version**: 1.0.0
 **Approved By**: Constitutional Authority
-**Next Review**: 2026-02-28
+**Next Review**: TBD

@@ -1,7 +1,7 @@
 # Todo Architecture Policy - Single Source of Truth (SSOT)
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-29
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0 - Principles VIII (Documentation Sync), X (Agent Delegation)
 **Review Cycle**: Quarterly
 
@@ -479,4 +479,4 @@ notes: "Implemented per data-model.md specification"
 
 **Policy Version**: 1.0.0
 **Approved By**: Constitutional Authority
-**Next Review**: 2026-02-28
+**Next Review**: TBD

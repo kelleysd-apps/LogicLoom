@@ -1,7 +1,7 @@
 # Agent File Naming Convention
 
 **Version**: 1.0.0
-**Effective Date**: 2025-09-18
+**Effective Date**: TBD
 **Policy Owner**: System Architecture Team
 
 ## Purpose

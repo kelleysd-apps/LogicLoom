@@ -1,7 +1,7 @@
 # Testing Policy
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-07
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0 - Principle II (Test-First Development)
 **Review Cycle**: Quarterly
 
@@ -719,5 +719,5 @@ Even emergency hotfixes require:
 ---
 
 **Policy Owner**: Quality Department (testing-operations skill)
-**Last Reviewed**: 2025-11-07
-**Next Review**: 2026-02-07
+**Last Reviewed**: TBD
+**Next Review**: TBD

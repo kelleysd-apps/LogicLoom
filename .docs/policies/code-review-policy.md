@@ -1,7 +1,7 @@
 # Code Review Policy
 
 **Version**: 1.0.0
-**Effective Date**: 2025-11-07
+**Effective Date**: TBD
 **Authority**: Constitution v3.1.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
@@ -388,5 +388,5 @@ Why: [Specific reason]
 ---
 
 **Policy Owner**: Architecture Department
-**Last Reviewed**: 2025-11-07
-**Next Review**: 2026-02-07
+**Last Reviewed**: TBD
+**Next Review**: TBD
