@@ -5,6 +5,22 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.1] - 2026-06-24
+
+**Release-tooling maintenance** (no customer-facing framework changes).
+
+### Added
+- Maintainer release driver: `/promote <version>` + `bump-version.sh` (coherent
+  framework-version stamping with `set`/`--check`) — drives the dev-main→main
+  promotion end to end and hands off at the green PR (main stays review-protected;
+  no `--admin`). Maintainer-only; stripped from customer copies.
+- `.github/workflows/release-tag.yml` — auto-tags `vX.Y.Z` when a release PR is
+  merged to `main` (push-triggered, idempotent), so the maintainer never hand-tags.
+
+### Changed
+- `/initialize-project` now also strips `release-tag.yml` from a customer project;
+  the `promote-to-main.yml` PR body documents the auto-tag.
+
 ## [6.3.0] - 2026-06-24
 
 **Provider-portability program (Phases 1–3)** — a considered supersession of the

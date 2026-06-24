@@ -1,6 +1,6 @@
 {
   "name": "logic-loom",
-  "version": "6.3.0",
+  "version": "6.3.1",
   "description": "Specification-driven development framework with multi-agent orchestration, quality gates, and intelligent routing",
   "private": true,
   "scripts": {

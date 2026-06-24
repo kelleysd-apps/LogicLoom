@@ -1,6 +1,6 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.3.0
+**Version**: 6.3.1
 **Last Updated**: 2026-06-15
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
@@ -498,6 +498,7 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 | Version | Date | Changes |
 |---------|------|---------|
 | 6.2.1 | 2026-06-15 | Constitution **v3.2.0** (Preamble Governance-vs-direction clause). Foundational `VISION.md` as a first-class artifact (peer to the constitution); `/initialize-project` Step 1.5 scaffolds it; new `project-vision-template.md`. dev-main (private) → sanitized **public** template release model: `promote-to-main.yml` (single-parent snapshots), `leak-guard.yml` (public backstop), `strip-harness-dev.sh` + `leak-guard.sh` + `template-strip-manifest.txt` (tracked-content model) |
+| 6.3.1 | 2026-06-24 | Release-tooling maintenance: `/promote` maintainer command + `bump-version.sh` + `release-tag.yml` auto-tag-on-merge (maintainer-only/stripped). No customer-facing framework change |
 | 6.3.0 | 2026-06-24 | Cross-Check Disposition (primary-agent default for verification-shaped asks) + provider-portable **policy** layer: AGENTS.md Tier-1/Tier-2 split, shared verdict-function seam (`governance-verdicts.sh`, self-protecting; hooks fail-safe), off-host git-approval adapter (`.logic-loom/adapters/`), per-host wiring (`HOSTS.md`), honest enforced-vs-followed matrix. Policy travels; enforcement stays Claude-Code-reference. Phase 4 (orchestration-runtime rewrite) gated |
 | 6.2.0 | 2026-05-31 | Removed the dev-loop pack (`loom-dev-loop` / `/dev-loop` / `core-loop` skill) — superseded by Claude Code native `/workflow`, `/loop`, `/goal` primitives; runtime self-extension retired as a governance liability. Two workflow packs (swarm, SDD waterfall); 8 plugins |
 | 6.1.0 | 2026-05-28 | Governance core + interchangeable-packs reframe (no primary/legacy); hook-enforced governance with `LOOM_GOVERNANCE_MODE` lean/strict (mandatory 4-step ceremony removed from default); 7 `sdd-domain-*` plugins deleted → domain-brief registry under `plugins/loom-governance/domain-briefs/` via `get_domain_brief()`; constitution v3.1.0; flagship Opus 4.8 via `.logic-loom/config/models.conf`; 9 plugins |

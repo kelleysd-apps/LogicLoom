@@ -218,7 +218,7 @@ MIT
 
 ---
 
-**Framework**: LogicLoom v6.3.0
+**Framework**: LogicLoom v6.3.1
 **Constitution**: v3.2.0 (16 principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

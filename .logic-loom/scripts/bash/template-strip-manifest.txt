@@ -53,11 +53,15 @@ stub: VISION.md
 .logic-loom/scripts/bash/sanitization-audit.sh
 .logic-loom/scripts/bash/leak-guard.sh
 .logic-loom/scripts/bash/template-strip-manifest.txt
-# --- Release DRIVER (maintainer-only): the /promote command + its version-stamp
-#     helper. Customers do NOT promote LogicLoom's template from their own
-#     project, so these never ship. /promote is a STATIC command (not bridged),
-#     so stripping the .claude/commands file is sufficient. ---
+# --- Release DRIVER (maintainer-only): the /promote command (a loom-maintenance
+#     plugin command) + its bridge wrapper + the version-stamp helper. Customers
+#     do NOT promote LogicLoom's template from their own project, so these never
+#     ship — stripped at promote. The sanitized-tree bridge test scans
+#     .claude/commands files (the wrapper is gone, so it stays green); loom-
+#     maintenance plugin.json keeps a now-3rd entry, which no test validates
+#     against files. ---
 .logic-loom/scripts/bash/bump-version.sh
+plugins/loom-maintenance/commands/promote.md
 .claude/commands/promote.md
 .logic-loom/scripts/bash/history-scrub.sh
 .logic-loom/scripts/bash/history-scrub-rules.json
