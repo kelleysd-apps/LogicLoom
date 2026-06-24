@@ -46,13 +46,9 @@ assert "CLAUDE.md records the portability supersession" "grep -q 'superseded sta
 assert "AGENTS.md points to the threat-model matrix" "grep -q 'governance-threat-model.md' $AGENTS"
 assert "threat-model has the enforced-vs-followed matrix" "grep -q 'enforced-vs-followed' .docs/architecture/governance-threat-model.md"
 
-echo ""
-echo "Leak-gate discipline on shipped tandem files"
-# Provenance markers are leak-guard ID_MARKERS — hard-fail in shipped files. The
-# disposition prose must carry none. (Pre-existing scrub-handled headings like
-# AGENTS.md '## Version History' are leak-guard/scrub's domain, not this test's.)
-assert "no provenance markers in AGENTS.md/CLAUDE.md" \
-  "! grep -nIE 'brian@kelleysd\\.com|ioun-ai|/workspaces/' $AGENTS $CLAUDE"
+# NOTE: provenance/ID-marker scanning of shipped files is leak-guard.sh's job
+# (the promote-time sanitization audit), NOT this contract test's — hardcoding
+# the marker patterns here would itself trip leak-guard on the shipped tree.
 
 echo ""
 echo "════════════════════════════════"
