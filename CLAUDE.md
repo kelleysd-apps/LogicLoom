@@ -492,7 +492,7 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 
 ---
 
-**Framework**: logic-loom v6.2.0 (brand: **LogicLoom**)
+**Framework**: logic-loom v6.3.0 (brand: **LogicLoom**)
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

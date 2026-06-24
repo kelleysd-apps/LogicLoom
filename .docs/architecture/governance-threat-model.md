@@ -1,6 +1,6 @@
 # Governance Threat Model & Enforcement Posture
 
-**Status:** v6.2.0 · **Scope:** the hook-enforced governance core.
+**Status:** v6.3.0 · **Scope:** the hook-enforced governance core.
 
 LogicLoom's governance is **hook-enforced** (model-independent), but hooks are a
 **porous floor, not a sandbox**. This document states honestly what the

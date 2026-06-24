@@ -106,7 +106,7 @@ Then open Claude Code in the repo and pick a workflow pack (none is privileged):
 
 See `START_HERE.md` for the full walkthrough and `CLAUDE.md` for governance.
 
-**Framework**: LogicLoom v6.2.0 · **Constitution**: v3.2.0 (16 principles) ·
+**Framework**: LogicLoom v6.3.0 · **Constitution**: v3.2.0 (16 principles) ·
 **Architecture**: governance core + interchangeable workflow packs
 EOF
 removed "Created TEMPLATE_INIT.md"
