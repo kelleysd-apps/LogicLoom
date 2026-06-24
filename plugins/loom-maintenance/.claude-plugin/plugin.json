@@ -30,9 +30,10 @@
     ]
   },
   "commands": {
-    "count": 2,
+    "count": 3,
     "list": [
       "initialize-project",
+      "promote",
       "update-framework"
     ]
   }
