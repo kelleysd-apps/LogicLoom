@@ -60,17 +60,20 @@ nothing autonomously.
   ```
   gh pr create --base main --head "release/$TAG" \
     --title "Release $TAG: sanitized template" \
-    --body "Single-parent promotion from dev-main. The in-workflow sanitization audit (Checks 1-7) already passed — the binding gate. Merge with a MERGE COMMIT (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. Tag $TAG is applied to the merge commit AFTER merge."
+    --body "Single-parent promotion from dev-main. The in-workflow sanitization audit (Checks 1-7) already passed — the binding gate. Merge with a MERGE COMMIT (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags $TAG (the sanitized snapshot) — no manual tagging."
   ```
 - **Run failed at the AUDIT step** (Checks 1–7) → the snapshot is UNSANITIZED. Report the exact leak/failure from `gh run view <id> --log-failed`; do NOT open a PR. Fix on dev-main and re-run `/promote`.
 
-### 6. Monitor + report
+### 6. Hand off at the green PR — do NOT merge it
 - `gh pr checks <pr>` — `leak-guard` + `contract-tests` should pass on the sanitized snapshot.
-- Report: PR URL, check status, mergeability, and any audit failure.
-- **REMIND the maintainer**, prominently: merge with a **MERGE COMMIT** (never
-  squash/rebase) — it keeps `.sdd-sync-ref` + `v*` tags reachable; the `$TAG` tag
-  is applied to the merge commit AFTER merge. `main` is branch-protected, so a
-  human review/merge is required (the intended release gate).
+- **STOP here. This command never merges to `main`** — that is the deliberate
+  human release gate (`main` is branch-protected, review-required). Do **not**
+  `--admin`-bypass it.
+- Report: PR URL, check status, mergeability, and any audit failure. Tell the
+  maintainer to **merge it themselves with a MERGE COMMIT** (never squash/rebase —
+  it keeps `.sdd-sync-ref` + `v*` tags reachable for `/update-framework`). On
+  merge, `.github/workflows/release-tag.yml` **auto-applies the `$TAG` tag** to the
+  sanitized snapshot — no manual tagging needed.
 
 ## Notes
 - To make the workflow open its own PR (skip step 5's fallback), enable repo

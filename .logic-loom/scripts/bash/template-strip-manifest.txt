@@ -111,6 +111,10 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #   .github/workflows/promote-to-main.yml : maintainer release loop — must be on
 #                                main to be dispatchable (ship; marker-free;
 #                                stripped from a CUSTOMER project at init)
+#   .github/workflows/release-tag.yml : auto-tags vX.Y.Z on a release merge to
+#                                main — must be on main to run on main pushes
+#                                (ship; marker-free; stripped from a CUSTOMER
+#                                project at init, like promote-to-main.yml)
 #   .github/workflows/plugin-tests.yml: validates the shipped harness (ship)
 #   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
 #   .sdd-sync-ref              : /update-framework upstream pointer (ship)

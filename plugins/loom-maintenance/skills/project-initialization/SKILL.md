@@ -91,6 +91,7 @@ not the customer's project. Remove it from the new project (keep `plugin-tests.y
 
 ```bash
 rm -f .github/workflows/promote-to-main.yml   # maintainer release workflow (not for your project)
+rm -f .github/workflows/release-tag.yml       # maintainer auto-tag-on-release-merge (not for your project)
 rm -f .github/workflows/leak-guard.yml        # maintainer identity-marker backstop (not for your project)
 ```
 
