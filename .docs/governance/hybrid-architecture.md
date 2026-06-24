@@ -1,7 +1,7 @@
 # 3-Layer Hybrid Governance Architecture
 
 **Version**: 1.0.0
-**Constitution**: v3.0.0
+**Constitution**: v3.2.0
 **Feature**: 003-governance-browser-enhancement
 
 ---
@@ -218,7 +218,7 @@ Provide **active real-time enforcement** of constitutional principles by serving
 #### Layer 1 (Hook)
 ```
 ✅ Inject governance context
-   "You are operating under Constitution v3.0.0 with 16 principles.
+   "You are operating under Constitution v3.2.0 with 16 principles.
     Remember: Principle VI (Git Approval), Principle X (Agent Delegation)."
 
 ✅ Create audit log
@@ -407,7 +407,7 @@ All 3 layers contribute to unified audit trail:
 - **Layer 1 Hook**: `.claude/hooks/user-prompt-submit/README.md`
 - **Layer 2 Skill**: `.claude/skills/governance/governance-preflight/SKILL.md`
 - **Layer 3 Agent**: `.claude/agents/governance/constitutional-governance-agent.md`
-- **Constitution**: `.logic-loom/memory/constitution.md` (v3.0.0)
+- **Constitution**: `.logic-loom/memory/constitution.md` (v3.2.0)
 - **Setup Guide**: `.docs/governance/browser-mcp-setup.md`
 
 ---

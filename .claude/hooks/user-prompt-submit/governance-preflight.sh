@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # UserPromptSubmit Hook: Orchestration Guidance + Memory Context Injection
-# Version: 3.1.0 (Compact injection — governance in CLAUDE.md, hook only adds new info)
-# Constitution: v3.0.0 (16 principles)
+# Version: 3.2.0 (adds verification-intent nudge → cross-check disposition)
+# Constitution: v3.2.0 (16 principles)
 #
 # Provides Claude Code with orchestration guidance and memory context via
 # additionalContext injection. Does NOT override Claude Code's native capabilities.
 #
 # Components:
 #   1. Domain detection + agent recommendations (loom-orchestrator-hook plugin)
-#   2. Constitutional governance reminder
-#   3. Slash command routing (preserved from v2.0)
-#   4. Memory context injection (loom-memory plugin, if available)
+#   2. Verification-intent detection → /cross-check disposition nudge
+#   3. Constitutional governance reminder
+#   4. Slash command routing (preserved from v2.0)
+#   5. Memory context injection (loom-memory plugin, if available)
 #
 # Input: JSON via stdin (Claude Code hook contract)
 # Output: JSON with hookEventName and additionalContext
@@ -25,6 +26,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 SETTINGS_FILE="$REPO_ROOT/.claude/settings.json"
 DOMAINS_CONF="$REPO_ROOT/plugins/loom-orchestrator-hook/config/domains.conf"
+VERIFICATION_INTENT_CONF="$REPO_ROOT/plugins/loom-orchestrator-hook/config/verification-intent.conf"
 MEMORY_SEARCH="$REPO_ROOT/plugins/loom-memory/scripts/memory-search.sh"
 MEMORY_LOG="$REPO_ROOT/plugins/loom-memory/scripts/memory-log.sh"
 AUDIT_DIR="$REPO_ROOT/.docs/governance/audit"
@@ -85,6 +87,26 @@ detect_domains() {
     echo "${domains}|${delegates}"
 }
 
+# Detect verification-shaped intent (double-check / cross-check / red-team / ...)
+# Matches FIXED multi-word phrases from verification-intent.conf against the
+# prompt. Phrases are kept substring-disjoint from domains.conf keywords so they
+# do not double-fire the domain block. Echoes "true" or "false".
+detect_verification_intent() {
+    local message="$1"
+    [ -f "$VERIFICATION_INTENT_CONF" ] || { echo "false"; return; }
+    local phrase
+    while IFS= read -r phrase; do
+        [[ "$phrase" =~ ^[[:space:]]*# ]] && continue
+        phrase=$(echo "$phrase" | xargs)
+        [[ -z "$phrase" ]] && continue
+        if echo "$message" | grep -qiF "$phrase"; then
+            echo "true"
+            return
+        fi
+    done < "$VERIFICATION_INTENT_CONF"
+    echo "false"
+}
+
 # Detect slash command from user input
 detect_slash_command() {
     local input="$1"
@@ -122,11 +144,12 @@ CMDEOF
 # Generate orchestration guidance
 # v3.1.0: Compact injection — governance protocol is already in CLAUDE.md,
 # so only inject NEW information (domain detection, command routing, memory).
-# Skip injection entirely when no domains and no commands detected.
+# Skip injection entirely when no domains, no commands, and no verify-intent.
 generate_orchestration_guidance() {
     local message="$1"
     local domain_result="$2"
     local command_name="$3"
+    local verify_intent="${4:-false}"
 
     local domains delegates delegation
     domains=$(echo "$domain_result" | cut -d'|' -f1)
@@ -144,8 +167,9 @@ generate_orchestration_guidance() {
         delegation="/swarm or team orchestration (multi-domain: $domains)"
     fi
 
-    # Skip injection entirely if no domains and no command detected
-    if [ "$domain_count" -eq 0 ] && [ -z "$command_name" ]; then
+    # Skip injection entirely if nothing new to add (no domains, no command, and
+    # no verification-intent nudge).
+    if [ "$domain_count" -eq 0 ] && [ -z "$command_name" ] && [ "$verify_intent" != "true" ]; then
         return
     fi
 
@@ -164,6 +188,23 @@ EOF
     # Add command routing if detected
     if [ -n "$command_name" ]; then
         generate_command_context "$command_name"
+    fi
+
+    # Verification-intent nudge — one decorrelated-second-look line per prompt.
+    # Suppressed when the user is already invoking a review command, or when the
+    # domain block already surfaced testing/security (they got a routing nudge).
+    # Suggestion, not a gate; lives inside the fail-open wrapper. Key-aware:
+    # without a non-Claude key, /cross-check is a labeled no-op, stated inline.
+    if [ "$verify_intent" = "true" ] \
+        && [ "$command_name" != "cross-check" ] \
+        && [ "$command_name" != "review-team" ] \
+        && [ "$command_name" != "plan-review" ] \
+        && ! echo "$domains" | grep -qiE 'testing|security'; then
+        cat <<'VERIFYEOF'
+
+**VERIFICATION INTENT DETECTED** — the ask invites scrutiny. Consider a decorrelated, cross-provider second look rather than reviewing your own output in-lineage: `/cross-check <target>` (or the adversary slot in `/review-team`, or `--adversary` on `/plan-review`) — advisory + read-only, never touches git. NOTE: without a non-Claude key (OPENAI_API_KEY / GEMINI_API_KEY) configured, /cross-check returns "unavailable" and does NOT decorrelate — it is a no-op without a key. Suggestion, not a gate; skip if trivial.
+
+VERIFYEOF
     fi
 }
 
@@ -252,13 +293,13 @@ main() {
     local INPUT_SUMMARY
     INPUT_SUMMARY=$(echo "$INPUT" | head -c 500 | tr -d '\n\r')
 
-    # Extract the ACTUAL user prompt text (not the raw JSON envelope) for memory
-    # search. Searching the envelope keyworded session_id/transcript_path/cwd —
+    # Extract the ACTUAL user prompt text (not the raw JSON envelope) for analysis
+    # and memory search. Searching the envelope keyworded session_id/transcript_path/cwd —
     # noise that polluted every injection and inflated the grep. Fall back to the
     # summary only if no prompt field is present.
     local PROMPT_TEXT=""
     if command -v jq >/dev/null 2>&1; then
-        PROMPT_TEXT=$(printf '%s' "$INPUT" | jq -r '.prompt // .message // empty' 2>/dev/null || true)
+        PROMPT_TEXT=$(printf '%s' "$INPUT" | jq -r '.prompt // .message // .messageContent // empty' 2>/dev/null || true)
     fi
     [ -z "$PROMPT_TEXT" ] && PROMPT_TEXT="$INPUT_SUMMARY"
 
@@ -266,18 +307,24 @@ main() {
     local COMMAND_NAME
     COMMAND_NAME=$(detect_slash_command "$INPUT")
 
-    # Detect domains from message
+    # Detect domains + verification-intent from the ACTUAL prompt text, NOT
+    # INPUT_SUMMARY — INPUT_SUMMARY is head -c 500 of the raw JSON envelope, so
+    # session_id/transcript_path/cwd eat the budget and can false-match domain
+    # keywords (e.g. a cwd path containing "api"). PROMPT_TEXT is the
+    # jq-extracted user prose (falls back to INPUT_SUMMARY when jq is absent).
     local DOMAIN_RESULT
-    DOMAIN_RESULT=$(detect_domains "$INPUT_SUMMARY")
+    DOMAIN_RESULT=$(detect_domains "$PROMPT_TEXT")
     local DOMAINS
     DOMAINS=$(echo "$DOMAIN_RESULT" | cut -d'|' -f1)
+    local VERIFY_INTENT
+    VERIFY_INTENT=$(detect_verification_intent "$PROMPT_TEXT")
 
     # Create audit log (background, non-blocking)
     create_audit_log "$INPUT_SUMMARY" "$COMMAND_NAME" "$DOMAINS" &
 
     # Generate orchestration guidance
     local GUIDANCE
-    GUIDANCE=$(generate_orchestration_guidance "$INPUT_SUMMARY" "$DOMAIN_RESULT" "$COMMAND_NAME")
+    GUIDANCE=$(generate_orchestration_guidance "$INPUT_SUMMARY" "$DOMAIN_RESULT" "$COMMAND_NAME" "$VERIFY_INTENT")
 
     # Prepend strict-mode recitation when enabled (lean mode emits nothing)
     local STRICT_PREFLIGHT
@@ -326,15 +373,15 @@ EOF
     fi
 }
 
-# Run main with error trap — always return non-blocking JSON on failure
-main 2>/dev/null || cat <<'FALLBACK'
-{
-  "blocked": false,
-  "hookSpecificOutput": {
-    "hookEventName": "UserPromptSubmit",
-    "additionalContext": ""
-  }
-}
-FALLBACK
+# Run main; ALWAYS emit valid non-blocking JSON. A `set -u` unbound-variable
+# expansion inside main is fatal and would bypass a bare `main || cat` (the abort
+# happens before `||` is evaluated). Capturing main's stdout in a command
+# substitution contains the abort inside that subshell, so we can detect the
+# failure (empty / non-JSON output) and emit the documented fallback contract.
+OUT="$(main 2>/dev/null)" || true
+case "$OUT" in
+  *'"blocked"'*) printf '%s\n' "$OUT" ;;
+  *) printf '%s\n' '{"blocked":false,"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":""}}' ;;
+esac
 
 exit 0

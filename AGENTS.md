@@ -1,6 +1,6 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.2.0
+**Version**: 6.3.0
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 6
@@ -12,15 +12,89 @@
 
 This file is the **Single Source of Truth (SSOT)** for agent information in LogicLoom. It provides quick reference for agent selection, capabilities, and usage patterns.
 
-**Relationship to CLAUDE.md**:
-- `CLAUDE.md` → Workflow rules, compliance protocols, delegation triggers
-- `AGENTS.md` → Agent registry, capabilities, selection guidance
+**Relationship to CLAUDE.md** (AGENTS.md is now two-tier):
+- `AGENTS.md` **Tier 1** → provider-neutral operating principles + the Cross-Check Disposition (any capable agent / host)
+- `AGENTS.md` **Tier 2** → Claude Code host implementation (agent registry, tools, slash commands, hooks, model tiers)
+- `CLAUDE.md` → the Claude Code workflow/governance binding (hooks, settings, enforcement)
 
-**Both files MUST be updated together** when agents are added/modified (see Tandem Update Rules below).
+**Both files MUST be updated together** when agents or the Cross-Check Disposition change (see Tandem Update Rules below). The canonical **Cross-Check Disposition** paragraph must appear verbatim in both `AGENTS.md` (Tier 1) and `CLAUDE.md` (Standing policies) — a contract test asserts this.
 
 > **Plugin-First Architecture**: All agents live within their respective plugins at `plugins/<plugin>/agents/`. The framework root holds no agent definitions outside of plugins.
 
 ---
+
+# Tier 1 — Operating Principles & Disposition (any capable agent)
+
+> **Tier 1 is provider-neutral policy that any capable coding agent can follow**
+> — Claude Code, OpenAI Codex CLI, Cursor, Gemini CLI, Aider, Copilot, or a
+> future host. **Tier 2 (below) is the Claude Code host implementation.**
+> Enforcement is host-specific — read the Enforcement Reality banner next.
+
+### ⚠ Enforcement reality on this host
+
+**These principles are MODEL-FOLLOWED unless your host enforces them.**
+LogicLoom's deterministic backstops — the git-approval gate, governance-file
+protection, subagent-git-deny, and freeze-write-scope — are **Claude Code
+hooks**. They exist **only on the Claude Code host**. On every other host there
+is **no automated enforcement** of these rules today: if you skip an approval,
+run git autonomously, or write outside your assigned scope, nothing stops you.
+Treat the principles below as obligations **you** uphold, with no safety net.
+(See `.docs/architecture/governance-threat-model.md` for the honest
+enforced-vs-followed matrix by host.)
+
+### Followable principles (self-enforced — no hook required)
+
+- **I Library-First / III Contract-First** — shape features as reusable
+  libraries behind explicit contracts.
+- **II Test-First** — write the test before the implementation (TDD); keep
+  coverage meaningful.
+- **VI Git Approval (self-enforced)** — **never execute a git mutation** (commit,
+  push, rebase, reset, clean, force) without explicit, in-band human approval for
+  that specific operation. On Claude Code a hook forces this; off Claude Code,
+  **you** must.
+- **X Delegation & Context Isolation** — delegate specialized or parallel work to
+  sub-agents for isolation and parallelism (use your host's sub-agent /
+  parallel-dispatch mechanism).
+- **XV File Organization** — verify a parent dir exists before creating; prefer
+  editing an existing file over creating a new one; use absolute paths.
+
+### Cross-Check Disposition
+
+Cross-Check Disposition — when output correctness materially matters AND the ask invites scrutiny (double-check, cross-check, red-team, peer-review, second opinion, sanity-check, 'are you sure', 'poke holes', 'prove me wrong'), default to a decorrelated second look from a DIFFERENT-PROVIDER model rather than reviewing your own output in-lineage — a same-lineage self-review shares your blind spots. HOST-GATED: On the Claude Code host, this is surfaced as /cross-check (or the cross-provider slot in /review-team / --adversary on /plan-review), which hands a bounded artifact to a non-Claude model; advisory, read-only, key-gated and fail-open. On any host where you are the ONLY model reachable, a self-review is NOT decorrelation — say so plainly, do not label it a cross-check, and proceed. It never blocks and never touches git. Skip it for trivial asks.
+
+### Capability catalog (by what it does)
+
+LogicLoom's durable capabilities, described host-neutrally. Each ends with its
+Claude Code binding (Tier 2).
+
+- **Cross-check** — hand a bounded artifact (a diff, a plan, a claim set, a file
+  set) to an independent **different-provider** model for adversarial findings;
+  advisory + read-only; never writes code or runs git. *(Claude Code:
+  `/cross-check`.)*
+- **Review** — run multiple specialized reviewers (security, quality,
+  performance, behavioral) over a change. *(Claude Code: `/review-team`.)*
+- **Plan-review** — gate a plan against scope + architecture before
+  implementation. *(Claude Code: `/plan-review`.)*
+- **Swarm** — scope-bounded parallel workers under file-ownership isolation.
+  *(Claude Code: `/swarm`.)*
+
+### Foreign-host translation
+
+Reading Tier 2 on a non-Claude host: where it says **"the Task tool"**, read
+"your host's sub-agent / parallel-dispatch mechanism"; **"slash command `/X`"** →
+"the equivalent host workflow, or perform the documented steps manually";
+**"`opus`/`sonnet`/`haiku`"** → "your most-capable reasoning model / a
+cheaper-faster model".
+
+---
+
+# Tier 2 — Host Implementation (Claude Code)
+
+> **The mechanisms below are specific to the Claude Code host** (settings.json,
+> the Task tool, slash commands, PreToolUse hooks, model tiers). Other hosts
+> inherit **Tier 1 only** — they do not get the hook enforcement described here.
+> The hooks are the Claude Code **implementation** of the Tier 1 rules
+> (defense-in-depth), not the source of the obligation.
 
 ## Primary Agent (settings.json)
 
@@ -61,13 +135,13 @@ The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval
 |-------|---------|-------|
 | **constitutional-governance-agent** | Primary entry point, governance enforcement | opus |
 
-### loom-orchestrator (1 agent, 9 skills)
+### loom-orchestrator (1 agent, 10 skills)
 
 | Agent | Purpose | Model |
 |-------|---------|-------|
 | **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
 
-> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, and `retro` (9 skills total in this plugin).
+> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, and `cross-check` (10 skills total in this plugin).
 
 ### sdd-specification (0 agents — skill-based)
 
@@ -118,6 +192,7 @@ The vision/swarm pack is built on the following orchestrator skills:
 | `team-orchestration` | Multi-agent swarm coordination (explore + implement + generic) | loom-orchestrator |
 | `multi-skill-workflow` | Cross-domain workflow composition | loom-orchestrator |
 | `research` | Jury-on-demand multi-LLM research with tribunal cross-validation | loom-orchestrator |
+| `cross-check` | Governed cross-provider adversarial reviewer (Codex/GPT default; Gemini pluggable) — advisory + read-only; the slot in `/review-team` + `/plan-review` and the standalone `/cross-check` | loom-orchestrator |
 | `plan-review` | CEO + Eng review verdict on `plan.md` before swarm implement | loom-orchestrator |
 | `retro` | Post-feature learning capture — what worked, what to change | loom-orchestrator |
 
@@ -131,14 +206,16 @@ The `/swarm` command now operates in three modes, selected via the first argumen
 | `implement [sprint-name]` | Per-sprint scope-bounded workers from `plan.md`; outputs land in `features/<feature>/sprints/NN-name/` | File-ownership DAG enforced by `freeze-write-scope` hook |
 | `generic-legacy` | Pre-LogicLoom swarm behavior preserved for backward compatibility | Per legacy team-orchestration skill |
 
-### `/review-team` (4 reviewers)
+### `/review-team` (4 Claude reviewers + cross-provider adversary)
 
-`/review-team` now runs **4 parallel reviewers** instead of 3:
+`/review-team` runs **4 parallel Claude reviewers plus 1 key-gated cross-provider
+adversary**:
 
 1. **security-operations** — vulnerability + access control review
 2. **performance-operations** — latency, caching, bottleneck review
 3. **testing-operations** — coverage + edge case review
-4. **behavioral-evaluator** — Playwright via chrome-devtools MCP, exercises the actual UI/API behavior
+4. **behavioral-evaluator** — chrome-devtools MCP / diagnostics, exercises actual UI/API behavior
+5. **cross-provider adversary** — the `cross-check` skill (Codex/GPT default). The first four are Claude reviewing Claude (shared blind spots); this slot decorrelates the lineage. Advisory peer signal, **not** a hard gate; fails open to `unavailable` (omitted) if no provider key is set. `--no-adversary` to skip; `--adversary-deep` for read-only repo exploration.
 
 ### `/research` (jury-on-demand)
 
@@ -217,9 +294,10 @@ Quick reference for delegation based on task domain:
 | `/create-prd` | prd-specialist | loom-creation | Create PRD (auto-detects vision-driven vs legacy) |
 | `/swarm` | team-orchestration skill | loom-orchestrator | Multi-agent swarm (explore / implement / generic-legacy) |
 | `/research` | team-synthesizer | loom-orchestrator | Jury-on-demand multi-LLM research |
-| `/plan-review` | plan-review skill | loom-orchestrator | CEO + Eng verdict on plan.md |
+| `/cross-check` | cross-check skill | loom-orchestrator | Governed cross-provider adversarial review (advisory + read-only) |
+| `/plan-review` | plan-review skill | loom-orchestrator | CEO + Eng verdict on plan.md (`--adversary` adds cross-provider lens) |
 | `/retro` | retro skill | loom-orchestrator | Post-feature learning capture |
-| `/review-team` | 4 parallel reviewers | loom-orchestrator | security + quality + performance + behavioral evaluator |
+| `/review-team` | 4 reviewers + cross-provider adversary | loom-orchestrator | security + quality + performance + behavioral evaluator + Codex adversary |
 | `/git-push` | - | loom-git | Complete git workflow (commit + push + PR) |
 | `/code-review` | - | loom-git | PR-level review |
 | `/specification` | unified-specification skill | sdd-specification | SDD waterfall pack — spec+plan+tasks |

@@ -36,9 +36,23 @@ The orchestration + governance runtime is **Claude-Code-native and assumes
 Anthropic flagship (Opus-class) models**. Model-tier agnosticism is supported
 within Anthropic via role→model config (`.logic-loom/config/models.conf`).
 Cross-provider models (OpenAI/Gemini/Mistral) are supported **only at the
-delegated research/verification layer** (the `/research` command spawns
-researchers that call those APIs via `.env` keys) — never for orchestration. It
-is not a provider-portable orchestration runtime.
+delegated research/verification layer** — never for orchestration. Two consumers:
+`/research` (multi-LLM tribunal) and `/cross-check` (the governed cross-provider
+adversarial reviewer, also the key-gated slot in `/review-team` and
+`/plan-review`). In both, the external model is held strictly **advisory +
+read-only** — it returns findings; the governed Claude agent triages and decides.
+It never writes repo source, runs git, or makes a control-flow decision.
+
+**Portability (superseded stance).** The prior absolute "not a provider-portable
+orchestration runtime" is now scoped: the **policy** layer travels to any host —
+the constitution, the operating principles, and the Cross-Check Disposition are
+provider-neutral, model-followed rules (neutral source: **AGENTS.md Tier 1**).
+**Enforcement does not travel**: the hook floor (git-approval gate,
+governance-file protection, subagent-git-deny, freeze-write-scope) is the Claude
+Code **reference adapter**; on other hosts those guarantees are *followed-only*
+until a conformant adapter is supplied. Identity is unchanged — LogicLoom remains
+a Claude-Code-native orchestrator whose *policy* is now portable. See the honest
+enforced-vs-followed matrix in `.docs/architecture/governance-threat-model.md`.
 
 ### Orchestration primitives (ride native; don't reimplement)
 
@@ -83,6 +97,7 @@ defense-in-depth; the known residual bypasses are documented in
 - **II Test-First** — TDD by default; tests before implementation.
 - **I Library-First / III Contract-First** — preferences for how features are shaped.
 - **X Delegation & Context Isolation** — delegate specialized or parallel work to subagents/swarm for *isolation and parallelism*, not because the base model lacks capability.
+- Cross-Check Disposition — when output correctness materially matters AND the ask invites scrutiny (double-check, cross-check, red-team, peer-review, second opinion, sanity-check, 'are you sure', 'poke holes', 'prove me wrong'), default to a decorrelated second look from a DIFFERENT-PROVIDER model rather than reviewing your own output in-lineage — a same-lineage self-review shares your blind spots. HOST-GATED: On the Claude Code host, this is surfaced as /cross-check (or the cross-provider slot in /review-team / --adversary on /plan-review), which hands a bounded artifact to a non-Claude model; advisory, read-only, key-gated and fail-open. On any host where you are the ONLY model reachable, a self-review is NOT decorrelation — say so plainly, do not label it a cross-check, and proceed. It never blocks and never touches git. Skip it for trivial asks. (Neutral source: AGENTS.md Tier 1; the Claude Code preflight hook also nudges toward `/cross-check` on verification-shaped asks.)
 
 ### Governance modes (capability-gated assist)
 
@@ -165,7 +180,8 @@ See `features/README.md` for the full convention.
 | **`/research <question>`** | Jury-on-demand tribunal (1-3 judges by query type; `--judges all` for full 3-LLM) | loom-orchestrator |
 | **`/create-prd <feature>`** | Auto-detects vision-driven vs blank-slate mode; office-hours forcing-questions gate | loom-creation |
 | **`/plan-review <feature>`** | CEO + Eng review of plan.md before `/swarm implement` (two internal reviewers) | loom-orchestrator |
-| **`/review-team`** | Four reviewers in parallel: security + quality + performance + behavioral evaluator (chrome-devtools MCP) | loom-orchestrator |
+| **`/review-team`** | Parallel reviewers: security + quality + performance + behavioral evaluator (chrome-devtools MCP) + key-gated cross-provider adversary | loom-orchestrator |
+| **`/cross-check [target]`** | Governed cross-provider adversarial review (Codex/GPT default; Gemini pluggable). Non-Claude lineage tears apart a diff/plan/claims/file scope; advisory + read-only, never git. Canonical path for all cross-check reviews | loom-orchestrator |
 | **`/git-push`** | Commit + push + PR creation with explicit user approval at each gate | loom-git |
 | **`/retro <feature>`** | Sprint retrospective; writes action items to loom-memory | loom-orchestrator |
 
@@ -275,7 +291,7 @@ All framework capabilities are **discrete installable plugins** under
 | `loom-creation` | core tooling | `/create-prd`, `/create-skill`, `/create-agent`, `/create-plugin` |
 | `loom-git` | core tooling | `/git-push`, `/finalize` |
 | `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
-| `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/plan-review`, `/review-team`, `/retro`, `/build-team`, `/fullstack-team` |
+| `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/cross-check`, `/plan-review`, `/review-team`, `/retro`, `/build-team`, `/fullstack-team` |
 | `sdd-specification` | SDD pack | `/specification` unified waterfall (keeps `sdd-` — it *is* the SDD workflow) |
 
 Domain expertise is no longer a plugin: the 7 domains (frontend/backend/database/
@@ -402,7 +418,8 @@ no consumer parses it yet). Default flagship: **Opus 4.8**.
 **Model IDs**: `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`
 
 > Orchestration is Claude-Code-native (Anthropic only). Cross-provider models
-> (OpenAI/Gemini) are used solely at the delegated `/research` layer.
+> (OpenAI/Gemini) are used solely at the delegated verification layer —
+> `/research` and `/cross-check` — held advisory and read-only.
 
 ---
 
@@ -441,7 +458,7 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 ---
 
 
-**Framework**: logic-loom v6.2.0 (brand: **LogicLoom**)
+**Framework**: logic-loom v6.3.0 (brand: **LogicLoom**)
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

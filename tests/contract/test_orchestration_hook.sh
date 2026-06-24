@@ -41,30 +41,45 @@ assert "governance-preflight.sh is executable" "[ -x $HOOK_SCRIPT ]"
 # Test hook output with sample input
 echo ""
 echo "Hook output format"
-HOOK_OUTPUT=$(echo '{"sessionId":"test","messageContent":"hello world"}' | bash "$HOOK_SCRIPT" 2>/dev/null || echo '{"blocked":false}')
+# Use the real Claude Code envelope key `.prompt` (extraction is
+# `.prompt // .message // .messageContent`), with a domain-bearing prompt so the
+# lean-mode hook actually injects guidance — NOT the old trivial "hello world"
+# that only produced output via the envelope-fallback memory fluke.
+HOOK_OUTPUT=$(echo '{"prompt":"fix the authentication endpoint and update the database schema"}' | bash "$HOOK_SCRIPT" 2>/dev/null || echo '{"blocked":false}')
 
 assert "Hook returns valid JSON" \
   "echo '$HOOK_OUTPUT' | python3 -c 'import json,sys; json.load(sys.stdin)'"
 assert "Hook output has blocked=false" \
   "echo '$HOOK_OUTPUT' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get(\"blocked\") == False'"
 
-# Check for additionalContext in output
+# A domain-bearing prompt yields non-empty additionalContext via the REAL
+# extraction path (not the envelope fallback).
 HAS_CONTEXT=$(echo "$HOOK_OUTPUT" | python3 -c '
 import json,sys
 d=json.load(sys.stdin)
 ctx = d.get("hookSpecificOutput",{}).get("additionalContext","")
 print("yes" if len(ctx) > 10 else "no")
 ' 2>/dev/null || echo "no")
-assert "Hook output contains additionalContext" "[ '$HAS_CONTEXT' = 'yes' ]"
+assert "Hook output contains additionalContext for a domain-bearing prompt" "[ '$HAS_CONTEXT' = 'yes' ]"
 
-# Check governance content is present
-HAS_GOVERNANCE=$(echo "$HOOK_OUTPUT" | python3 -c '
+# Lean mode injects orchestration/domain guidance. The constitutional protocol
+# itself lives in CLAUDE.md (not the hook) by design — only NEW info is injected.
+HAS_GUIDANCE=$(echo "$HOOK_OUTPUT" | python3 -c '
 import json,sys
 d=json.load(sys.stdin)
 ctx = d.get("hookSpecificOutput",{}).get("additionalContext","")
-print("yes" if "CONSTITUTIONAL" in ctx or "Principle" in ctx else "no")
+print("yes" if "DOMAIN DETECTION" in ctx or "Delegation" in ctx else "no")
 ' 2>/dev/null || echo "no")
-assert "Hook output includes constitutional governance reminder" "[ '$HAS_GOVERNANCE' = 'yes' ]"
+assert "Hook injects orchestration/domain guidance (lean mode)" "[ '$HAS_GUIDANCE' = 'yes' ]"
+
+# Strict mode re-injects the governance pre-flight recitation (lean does not).
+STRICT_OUT=$(echo '{"prompt":"hello there everyone"}' | LOOM_GOVERNANCE_MODE=strict bash "$HOOK_SCRIPT" 2>/dev/null || echo '{}')
+HAS_STRICT=$(echo "$STRICT_OUT" | python3 -c '
+import json,sys
+ctx=json.load(sys.stdin).get("hookSpecificOutput",{}).get("additionalContext","")
+print("yes" if "GOVERNANCE PRE-FLIGHT" in ctx or "CONSTITUTION" in ctx else "no")
+' 2>/dev/null || echo "no")
+assert "Strict mode injects the governance pre-flight recitation" "[ '$HAS_STRICT' = 'yes' ]"
 
 # ── Domain Detection Tests ──
 echo ""
@@ -101,6 +116,74 @@ echo "Graceful failure"
 FAIL_OUTPUT=$(echo '' | bash "$HOOK_SCRIPT" 2>/dev/null || echo '{"blocked":false}')
 assert "Hook handles empty input gracefully" \
   "echo '$FAIL_OUTPUT' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get(\"blocked\") == False' 2>/dev/null"
+
+# ── Verification-Intent Disposition (cross-check nudge) ──
+echo ""
+echo "Verification-intent disposition (cross-check nudge)"
+VERIFY_CONF="plugins/loom-orchestrator-hook/config/verification-intent.conf"
+
+# Helper: does the hook's additionalContext contain a needle for a given prompt?
+contains() { # $1=prompt text  $2=needle  → echo yes/no
+  python3 -c "import json,sys; print(json.dumps({'prompt': sys.argv[1]}))" "$1" \
+    | bash "$HOOK_SCRIPT" 2>/dev/null \
+    | python3 -c "
+import json,sys
+ctx=json.load(sys.stdin).get('hookSpecificOutput',{}).get('additionalContext','')
+print('yes' if '''$2''' in ctx else 'no')
+" 2>/dev/null || echo "no"
+}
+
+assert "verification-intent.conf exists" "[ -f $VERIFY_CONF ]"
+
+VI_FIRE=$(contains "are you sure this is correct" "VERIFICATION INTENT DETECTED")
+assert "verify nudge fires on a scrutiny ask ('are you sure')" "[ '$VI_FIRE' = 'yes' ]"
+
+VI_KEYAWARE=$(contains "double-check my logic" "does NOT decorrelate")
+assert "verify nudge is key-aware (states unkeyed no-op)" "[ '$VI_KEYAWARE' = 'yes' ]"
+
+DF_DOMAIN=$(contains "write a unit test for the parser" "testing")
+DF_VERIFY=$(contains "write a unit test for the parser" "VERIFICATION INTENT")
+assert "no double-fire: 'unit test' yields testing domain" "[ '$DF_DOMAIN' = 'yes' ]"
+assert "no double-fire: 'unit test' does NOT emit verify nudge" "[ '$DF_VERIFY' = 'no' ]"
+
+SEC_SUP=$(contains "cross-check the encryption handling" "VERIFICATION INTENT")
+assert "redundancy: verify nudge suppressed when security domain present" "[ '$SEC_SUP' = 'no' ]"
+
+CMD_SUP=$(contains "<command-name>/cross-check</command-name> the diff" "VERIFICATION INTENT")
+assert "redundancy: verify nudge suppressed when /cross-check invoked" "[ '$CMD_SUP' = 'no' ]"
+
+REG_DOMAIN=$(contains "add a React component" "frontend")
+REG_VERIFY=$(contains "add a React component" "VERIFICATION INTENT")
+assert "no regression: 'React component' still detects frontend" "[ '$REG_DOMAIN' = 'yes' ]"
+assert "no spurious verify nudge on a plain build ask" "[ '$REG_VERIFY' = 'no' ]"
+
+# Ship-gate: every verify phrase must be substring-disjoint from domains.conf
+# keywords, or it double-fires the domain block.
+DISJOINT=$(python3 - "$DOMAINS_CONF" "$VERIFY_CONF" <<'PY'
+import sys
+dom_path, ver_path = sys.argv[1], sys.argv[2]
+kws = []
+for line in open(dom_path):
+    line = line.strip()
+    if not line or line.startswith('#'):
+        continue
+    kw = line.split('=', 1)[0].strip().lower()
+    if kw:
+        kws.append(kw)
+bad = 0
+for line in open(ver_path):
+    p = line.strip()
+    if not p or p.startswith('#'):
+        continue
+    pl = p.lower()
+    for kw in kws:
+        if kw in pl:
+            bad = 1
+            print("COLLISION: '%s' contains domain keyword '%s'" % (p, kw), file=sys.stderr)
+print(bad)
+PY
+)
+assert "every verify phrase is substring-disjoint from domains.conf keywords" "[ '$DISJOINT' = '0' ]"
 
 echo ""
 echo "════════════════════════════════"
