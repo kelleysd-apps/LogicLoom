@@ -26,8 +26,9 @@
     ]
   },
   "skills": {
-    "count": 9,
+    "count": 10,
     "list": [
+      "cross-check",
       "full-stack-feature",
       "migration-workflow",
       "multi-skill-workflow",
@@ -40,9 +41,10 @@
     ]
   },
   "commands": {
-    "count": 7,
+    "count": 8,
     "list": [
       "build-team",
+      "cross-check",
       "fullstack-team",
       "plan-review",
       "research",

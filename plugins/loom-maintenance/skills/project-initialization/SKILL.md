@@ -68,6 +68,7 @@ For each agent identified in the PRD:
 1. **CLAUDE.md** — Add project overview section with name, vision, primary domains, custom workflows
 2. **AGENTS.md** — Register new agents, update counts
 3. **Agent collaboration triggers** — Add new domain→agent mappings to `.logic-loom/memory/agent-collaboration-triggers.md`
+4. **Cross-Check Disposition (preserve — do NOT strip)** — the provider-neutral Cross-Check Disposition in **AGENTS.md Tier 1** and **CLAUDE.md** standing-policies, the `plugins/loom-orchestrator-hook/config/verification-intent.conf` trigger phrases, and the governance-preflight verification-intent nudge are shipped harness policy. Append project customizations around them; keep the disposition intact. To **activate** cross-provider review, the customer adds `OPENAI_API_KEY` (or `GEMINI_API_KEY`) to `.env`; without a key `/cross-check` cleanly reports "unavailable" and the nudge says so.
 
 ### Step 5: Configure MCP Servers
 

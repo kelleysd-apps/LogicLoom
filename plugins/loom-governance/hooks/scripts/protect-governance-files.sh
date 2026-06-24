@@ -22,6 +22,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # plugins/loom-governance/hooks/scripts -> repo root is 4 up
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
 
+# Shared verdict lib (the L2 "verdict function" seam — see
+# .docs/architecture/governance-threat-model.md). Fail OPEN if absent
+# (infra-gap posture, matching guard-dangerous-commands).
+VERDICT_LIB="$REPO_ROOT/.logic-loom/lib/governance-verdicts.sh"
+# shellcheck disable=SC1090
+{ [ -f "$VERDICT_LIB" ] && source "$VERDICT_LIB"; } 2>/dev/null || true
+
 INPUT=$(cat)
 
 json_get() { # jq-path
@@ -49,8 +56,13 @@ decide() { # deny|ask  reason
 AGENT_ID="$(json_get '.agent_id' || true)"
 TOOL="$(json_get '.tool_name' || true)"
 
-# Protected governance surface (repo-root-relative path prefixes).
+# Protected governance surface (repo-root-relative path prefixes). Delegates to
+# the shared verdict lib (single, conformance-tested source of the protected
+# set); the inline case below is the fail-open fallback when the lib is absent.
 is_protected() { # rel_path -> 0 if protected
+  if declare -f loom_path_is_protected >/dev/null 2>&1; then
+    loom_path_is_protected "$1"; return
+  fi
   case "$1" in
     .claude/hooks/*|.claude/hooks \
     |.claude/settings.json|.claude/settings.local.json \
@@ -101,6 +113,7 @@ case "$TOOL" in
       # Scan each protected token; if the command mentions it, gate.
       for prot in ".claude/hooks" ".claude/settings.json" ".claude/settings.local.json" \
                   ".logic-loom/config/governance.conf" ".logic-loom/memory/constitution.md" \
+                  ".logic-loom/lib/governance-verdicts.sh" ".logic-loom/lib/policy.sh" \
                   "plugins/loom-governance/hooks" "plugins/loom-governance/.claude-plugin/plugin.json"; do
         if printf '%s' "$CMD" | grep -qF "$prot"; then
           if [ -n "$AGENT_ID" ]; then

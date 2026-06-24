@@ -94,6 +94,11 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #   .logic-loom/templates/*    : scaffolding incl. project-vision-template (ship)
 #   .logic-loom/memory/constitution.md : governance core (ship)
 #   plugins/** , .claude/hooks/** : the harness itself (ship)
+#   plugins/loom-orchestrator-hook/config/verification-intent.conf : cross-check
+#                                disposition trigger phrases (ship; covered by
+#                                plugins/** — listed explicitly as an audited
+#                                decision so the verification-intent nudge reaches
+#                                customer copies)
 #   tests/** , .logic-loom/tests/** : governance-integrity regression suite (ship)
 #   .github/workflows/leak-guard.yml  : self-contained public backstop (ship;
 #                                stripped from a CUSTOMER project at init)
