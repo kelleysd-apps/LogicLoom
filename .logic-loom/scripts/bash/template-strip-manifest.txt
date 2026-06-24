@@ -53,6 +53,12 @@ stub: VISION.md
 .logic-loom/scripts/bash/sanitization-audit.sh
 .logic-loom/scripts/bash/leak-guard.sh
 .logic-loom/scripts/bash/template-strip-manifest.txt
+# --- Release DRIVER (maintainer-only): the /promote command + its version-stamp
+#     helper. Customers do NOT promote LogicLoom's template from their own
+#     project, so these never ship. /promote is a STATIC command (not bridged),
+#     so stripping the .claude/commands file is sufficient. ---
+.logic-loom/scripts/bash/bump-version.sh
+.claude/commands/promote.md
 .logic-loom/scripts/bash/history-scrub.sh
 .logic-loom/scripts/bash/history-scrub-rules.json
 #
