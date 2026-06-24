@@ -59,19 +59,33 @@ deny() {
   exit 0
 }
 
-# Main agent (no agent_id) -> not our concern; let git-safety-gate handle approval.
-[ -z "$AGENT_ID" ] && allow
-[ -z "$COMMAND" ] && allow
+# Decision via the shared verdict lib (the L2 "verdict function" seam — see
+# .docs/architecture/governance-threat-model.md). This hook is the Claude Code
+# reference ADAPTER: it parses the payload, calls the verdict function, and maps
+# the verdict to a PreToolUse decision. Off-host adapters call the SAME function.
+# The git word-boundary detection (path prefixes /usr/bin/git, ./git; substrings
+# like "digit"/"github" excluded) lives in loom_git_is_invoke. Fail OPEN on an
+# infra gap (missing lib), matching guard-dangerous-commands' posture.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERDICT_LIB="$(cd "$SCRIPT_DIR/../../../.." && pwd)/.logic-loom/lib/governance-verdicts.sh"
+# shellcheck disable=SC1090
+{ [ -f "$VERDICT_LIB" ] && source "$VERDICT_LIB"; } 2>/dev/null || true
 
-# Subagent context: deny ANY git invocation (mutating or read-only).
-# Match `git` as a command word that may carry a path prefix (/usr/bin/git,
-# ./git). Boundary: start-of-string or any non-identifier char, an optional
-# path component (no whitespace, ending in /), then `git`, then whitespace or
-# end. This rejects path-prefixed bypasses while leaving substrings such as
-# "digit", "github", "legitimate", and "gitignore" untouched.
-if printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'; then
-  AGENT_TYPE="$(json_get '.agent_type' || true)"
-  deny "Git is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run git — return findings to the main agent, which will run git with user approval. Blocked: '${COMMAND}'"
+if declare -f loom_verdict_subagent_git >/dev/null 2>&1; then
+  if [ "$(loom_verdict_subagent_git "$COMMAND" "$AGENT_ID")" = "deny" ]; then
+    AGENT_TYPE="$(json_get '.agent_type' || true)"
+    deny "Git is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run git — return findings to the main agent, which will run git with user approval. Blocked: '${COMMAND}'"
+  fi
+  allow
 fi
 
+# Fail-SAFE fallback (verdict lib unavailable): this is the LAST line against a
+# subagent's destructive git (git clean/reset/checkout). The lib is normally
+# present and self-protected; if it is somehow gone we DENY any subagent git
+# inline rather than failing open — the deny that this hook exists to enforce
+# must not evaporate because a dependency went missing.
+if [ -n "$AGENT_ID" ] && printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'; then
+  AGENT_TYPE="$(json_get '.agent_type' || true)"
+  deny "Git is restricted to the main agent (verdict lib unavailable — failing safe). Subagent '${AGENT_TYPE:-unknown}' may not run git. Blocked: '${COMMAND}'"
+fi
 allow

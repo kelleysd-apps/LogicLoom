@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# LogicLoom off-host git wrapper — the subagent-git-deny + git-gate substitute
+# for hosts without Claude Code's PreToolUse hooks (Codex CLI, Cursor, Gemini
+# CLI, Aider, plain shell). Prepend this dir to PATH so autonomous mutating git
+# is gated BEFORE it runs. Calls the SAME verdict functions as the Claude Code
+# hooks, then execs the real git when allowed.
+#   export PATH="<repo>/.logic-loom/adapters/bin:$PATH"
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck disable=SC1090
+. "$DIR/../git-approval-gate.sh"
+
+if ! loom_git_approval_gate "git $*"; then
+  exit 1
+fi
+
+# Resolve real paths so a symlinked/relative duplicate of this dir on PATH can't
+# make the wrapper exec ITSELF and infinite-loop.
+_realpath() {
+  if command -v python3 >/dev/null 2>&1; then python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$1" 2>/dev/null && return; fi
+  if command -v realpath >/dev/null 2>&1; then realpath "$1" 2>/dev/null && return; fi
+  printf '%s' "$1"
+}
+SELF="$(_realpath "$0")"
+
+# Find the real git: first one on PATH whose resolved target is NOT this wrapper.
+REAL_GIT=""
+_oldifs="$IFS"; IFS=:
+for p in $PATH; do
+  [ -x "$p/git" ] || continue
+  if [ "$(_realpath "$p/git")" != "$SELF" ]; then REAL_GIT="$p/git"; break; fi
+done
+IFS="$_oldifs"
+[ -n "$REAL_GIT" ] || { echo "loom git-wrapper: real git not found on PATH (only this wrapper)" >&2; exit 127; }
+exec "$REAL_GIT" "$@"

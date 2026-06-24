@@ -5,6 +5,75 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+**Provider-portability program (Phases 1–3)** — a considered supersession of the
+prior absolute "Claude-Code-native, NOT provider-portable" stance. POLICY now
+travels to any host as model-followed rules; ENFORCEMENT stays Claude-Code
+reference with a documented adapter contract (Phase 4, the orchestration-runtime
+abstraction + identity rewrite, is gated and not in this changeset).
+
+### Added (portability)
+- **Cross-Check Disposition** — the primary agent now leans toward a decorrelated
+  cross-provider review on verification-shaped asks (double-check / are-you-sure /
+  red-team / peer-review …), the way ultracode self-orchestrates. Two layers:
+  host-neutral prose in **AGENTS.md Tier 1** + **CLAUDE.md** (the floor that
+  travels), and a Claude-Code **preflight nudge** (`governance-preflight.sh` +
+  `verification-intent.conf`) with five over-fire guardrails and key-aware text.
+  Fixed a latent preflight bug (domain detection ran on the truncated JSON
+  envelope, false-firing on `cwd`/paths — now on the real prompt).
+- **Provider-neutral AGENTS.md** — restructured into **Tier 1** (operating
+  principles + disposition + neutral capability catalog, with an in-band
+  "Enforcement reality" banner) and **Tier 2** (Claude Code host implementation).
+- **Verdict-function seam** (`.logic-loom/lib/governance-verdicts.sh`) — the four
+  enforcement guarantees' decision logic factored into shared pure-bash
+  `allow|ask|deny` functions; the four Claude Code hooks now call them
+  (behavior-preserving, `test_governance_hooks.sh` 23/23). Golden-fixture
+  conformance test (`test_governance_verdicts.sh`, 28/28).
+- **First non-Claude enforcement adapter** (`.logic-loom/adapters/`) — an
+  off-host **git-approval gate** (pre-push hook + PATH `git` wrapper) that calls
+  the same verdicts and enforces Principle VI on any POSIX-shell host; passes
+  `test_git_adapter.sh` (13/13). Proves the L2 adapter contract is real.
+- **Per-host wiring guide** (`.logic-loom/adapters/HOSTS.md`) — policy shim +
+  enforcement install for Codex CLI / Cursor / Gemini CLI / Copilot / Aider.
+- **Honest portability docs** — threat-model L1/L2/L3 model + enforced-vs-followed
+  matrix + adapter-conformance contract; supersession recorded in CLAUDE.md +
+  `models.conf`. Governance does NOT degrade gracefully off-host — enforcement is
+  binary present/absent by host.
+
+**Added a governed cross-provider adversarial review flow** — the canonical path
+for all adversarial / cross-check reviews. By default LogicLoom's reviewers are
+Claude reviewing Claude (shared training lineage → shared blind spots); a
+non-Claude lineage (Codex/GPT by default, Gemini pluggable) decorrelates the
+review and catches the class of defects correlated reviewers structurally miss.
+
+### Added
+- **`cross-check` skill** (`plugins/loom-orchestrator/skills/cross-check/`): the
+  shared machinery. A governed Claude subagent runs an external model over a
+  target (diff / `plan.md` / `claims.json` / file scope) and returns structured
+  findings. Two modes: **Mode A (API, default)** — artifact-scoped, zero agentic
+  surface, reuses the `/research` cross-provider pattern; **Mode B (`--deep`,
+  opt-in)** — read-only provider CLI (`codex exec --sandbox read-only`) for
+  repo-wide exploration. The external model is strictly **advisory + read-only**:
+  it emits findings; the governed Claude agent triages (`accept|reject|
+  needs-investigation`) and owns all remediation. Never writes repo source, never
+  runs git. Provider-pluggable (Codex/GPT default), key-gated, fails open to
+  `unavailable` (never phantom-gates).
+- **`/cross-check [target]` command** — the standalone ad-hoc entry point.
+- **`/review-team` cross-provider adversary** — a 5th, key-gated reviewer slot
+  (peer signal, not a hard gate). `--no-adversary` / `--adversary-deep` flags.
+- **`/plan-review --adversary`** — optional cross-provider lens on the plan DAG.
+
+### Changed
+- `models.conf` provider-boundary note now names both verification-layer
+  consumers (`/research` + `/cross-check`) and states the advisory/read-only
+  invariant explicitly.
+- `governance-threat-model.md` documents a new residual (#5): Mode B trusts the
+  *provider's* `--sandbox read-only` flag (a subprocess, hook-invisible) rather
+  than LogicLoom's hooks — why Mode A is the default and Mode B is opt-in.
+- `.env.example` documents the cross-check keys and the data-governance opt-in
+  posture (enabling a provider sends the review target to that provider's API).
+
 ## [6.2.1] - 2026-06-15
 
 **Removed the DS-STAR refinement subsystem.** The orphaned, experimental,

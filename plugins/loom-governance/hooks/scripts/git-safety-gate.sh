@@ -54,31 +54,32 @@ emit_ask() {
 
 [ -z "$COMMAND" ] && emit_allow
 
-# Detection is two-stage and decoupled from subcommand adjacency, so global
-# git flags between `git` and the subcommand (e.g. `git -C /r push`,
-# `git -c k=v commit`, `git --git-dir=x push`) are still caught.
-#
-# Stage 1 — is this a git invocation at all? `git` as a command word that may
-# carry a path prefix (/usr/bin/git, ./git) and may be inside a compound
-# command (cd x && git ...). Substrings like "digit"/"github"/"gitignore" do
-# not match (boundary is a non-identifier char + optional path component).
-GIT_INVOKE='(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'
+# Decision via the shared verdict lib (the L2 "verdict function" seam — see
+# .docs/architecture/governance-threat-model.md). This hook is the Claude Code
+# reference ADAPTER for the git-mutation gate; off-host adapters (a git
+# pre-push hook, a CI gate) call the SAME loom_verdict_git_mutation function.
+# The two-stage detection (git invocation incl. /usr/bin/git, ./git, global
+# flags like `git -C /r push`; then a MUTATING subcommand token, branch -d/-m,
+# remote write — read-only ops pass through) lives in loom_git_is_mutation.
+# Fail OPEN on an infra gap (missing lib), matching guard-dangerous-commands.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+VERDICT_LIB="$(cd "$SCRIPT_DIR/../../../.." && pwd)/.logic-loom/lib/governance-verdicts.sh"
+# shellcheck disable=SC1090
+{ [ -f "$VERDICT_LIB" ] && source "$VERDICT_LIB"; } 2>/dev/null || true
 
-# Stage 2 — does the command contain a MUTATING git subcommand token anywhere?
-# Read-only ops (status, log, diff, show, fetch, plain branch, rev-parse,
-# ls-files, config, etc.) are intentionally absent and pass through.
-# `branch` is only mutating with a -d/-D/-m/-M flag; `remote` only with a
-# write subcommand. Tokens are bounded so e.g. "pushd" / "committed" don't hit.
-GIT_MUTATION='(^|[^[:alnum:]-])(push|pull|commit|merge|rebase|reset|checkout|switch|tag|stash|cherry-pick|revert|am|apply|clean|rm|mv)([^[:alnum:]-]|$)'
-GIT_BRANCH_DEL='(^|[^[:alnum:]_])git([[:space:]]|$).*branch[[:space:]]+(-[^[:space:]]*[dDmM]|--delete|--move)'
-GIT_REMOTE_WRITE='(^|[^[:alnum:]_])git([[:space:]]|$).*remote[[:space:]]+(add|remove|rm|rename|set-url)'
-
-if printf '%s' "$COMMAND" | grep -qE "$GIT_INVOKE"; then
-  if printf '%s' "$COMMAND" | grep -qE "$GIT_MUTATION" \
-     || printf '%s' "$COMMAND" | grep -qE "$GIT_BRANCH_DEL" \
-     || printf '%s' "$COMMAND" | grep -qE "$GIT_REMOTE_WRITE"; then
+if declare -f loom_verdict_git_mutation >/dev/null 2>&1; then
+  if [ "$(loom_verdict_git_mutation "$COMMAND")" = "ask" ]; then
     emit_ask "Principle VI: git operation requires explicit user approval — '${COMMAND}'"
   fi
+  emit_allow
 fi
 
+# Fail-SAFE fallback (verdict lib unavailable): inline-detect a mutating git and
+# still force approval rather than failing open. The lib is normally present and
+# self-protected; this last-resort copy keeps Principle VI from silently lapsing.
+_GIT_INVOKE='(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'
+_GIT_MUT='(^|[^[:alnum:]-])(push|pull|commit|merge|rebase|reset|checkout|switch|tag|stash|cherry-pick|revert|am|apply|clean|rm|mv|restore|update-ref|symbolic-ref|filter-branch|fast-import)([^[:alnum:]-]|$)'
+if printf '%s' "$COMMAND" | grep -qE "$_GIT_INVOKE" && printf '%s' "$COMMAND" | grep -qE "$_GIT_MUT"; then
+  emit_ask "Principle VI: git operation requires explicit user approval (verdict lib unavailable — failing safe) — '${COMMAND}'"
+fi
 emit_allow
