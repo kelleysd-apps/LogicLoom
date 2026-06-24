@@ -56,7 +56,7 @@ This policy defines the relationship, responsibilities, and tandem update rules 
 - MCP server access by department
 - Tandem update rules
 
-**Audience**: Claude Code (primary), developers (reference)
+**Audience**: any capable coding agent — **Tier 1** (provider-neutral operating principles + Cross-Check Disposition; Claude Code, Codex CLI, Cursor, Gemini CLI, Aider, Copilot) + **Tier 2** (Claude Code host implementation); developers (reference)
 
 **Update Triggers**:
 - New agent created

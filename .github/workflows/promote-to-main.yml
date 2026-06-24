@@ -145,6 +145,21 @@ jobs:
       - name: Sanitization audit on sanitized tree (1-7)
         run: LOOM_AUDIT_ROOT="$PWD" bash /tmp/loom-audit-tools/sanitization-audit.sh
 
+      # POST-STRIP TEST GATE: the `gate` job runs the contract suite against
+      # UN-stripped dev-main, so a test that asserts content history-scrub REMOVES
+      # (e.g. constitution version-history rows) passes there but would redden a
+      # customer's FIRST push. Run the exact customer-CI contract suite (same set
+      # as .github/workflows/plugin-tests.yml) against the SANITIZED tree here, so
+      # post-strip breakage blocks the release instead of shipping red.
+      - name: Customer-CI contract suite on the sanitized tree
+        run: |
+          set -e
+          bash tests/contract/plugins/test_plugin_lifecycle.sh
+          bash tests/contract/plugins/test_swarm_lifecycle.sh
+          bash tests/contract/test_constitution.sh
+          bash tests/contract/test_deprecation.sh
+          bash tests/contract/test_plugin_command_bridge.sh
+
       # COMPOSE: SINGLE-PARENT commit. Parent = current main only. dev-main sha is
       # recorded as a trailer string, NOT as a -p parent. This is the invariant.
       - name: Compose single-parent release commit

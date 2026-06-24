@@ -222,6 +222,14 @@ fi
 REPO_ROOT="$_loom_saved_repo_root"
 unset _loom_saved_repo_root
 
+# Shared verdict lib (the L2 "verdict function" seam — see
+# .docs/architecture/governance-threat-model.md). loom_verdict_freeze_scope
+# mirrors this hook's freeze→owns decision; loom_freeze_match is the canonical
+# glob matcher used below. Fall back to the inline matcher if the lib is absent.
+VERDICT_LIB="$REPO_ROOT/.logic-loom/lib/governance-verdicts.sh"
+# shellcheck disable=SC1090
+{ [ -f "$VERDICT_LIB" ] && source "$VERDICT_LIB"; } 2>/dev/null || true
+
 # Canonicalize BOTH the target and repo root before matching. This:
 #   (1) collapses '//' (macOS $TMPDIR ends in '/', producing double slashes that
 #       break a naive prefix match — REPO_ROOT is pwd-normalized, file_path is not),
@@ -285,20 +293,25 @@ if declare -f loom_check_freeze_scope >/dev/null 2>&1; then
     fi
 fi
 
-# Inline fallback matcher (case-style globbing)
+# Canonical glob match via the shared verdict lib (single source); the inline
+# case-style matcher is the fail-open fallback when the lib is unavailable.
 matched=0
-while IFS= read -r owned; do
-    [ -z "$owned" ] && continue
-    owned="${owned#./}"
-    owned="${owned%/}"
-    [ -z "$owned" ] && continue
-    case "$rel_target" in
-        $owned|$owned/*)
-            matched=1
-            break
-            ;;
-    esac
-done <<< "$owns_list"
+if declare -f loom_freeze_match >/dev/null 2>&1; then
+    if loom_freeze_match "$rel_target" "$owns_list"; then matched=1; fi
+else
+    while IFS= read -r owned; do
+        [ -z "$owned" ] && continue
+        owned="${owned#./}"
+        owned="${owned%/}"
+        [ -z "$owned" ] && continue
+        case "$rel_target" in
+            $owned|$owned/*)
+                matched=1
+                break
+                ;;
+        esac
+    done <<< "$owns_list"
+fi
 
 if [ "$matched" -eq 1 ]; then
     allow
