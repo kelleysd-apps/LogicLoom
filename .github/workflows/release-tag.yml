@@ -1,0 +1,64 @@
+name: Tag release on main
+
+# =============================================================================
+# Completes the release flow at the HUMAN gate: when a maintainer MERGES a
+# promotion PR into the protected `main` (a merge commit; see promote-to-main.yml),
+# this auto-applies the `vX.Y.Z` tag to the sanitized snapshot commit — so the
+# maintainer never has to hand-tag, and `main` protection is never bypassed.
+#
+# Trigger is `push: main` (NOT pull_request): a push-triggered workflow runs the
+# copy of this file AT THE PUSHED COMMIT, so it works the first time the snapshot
+# that carries this file lands on main (a pull_request trigger would need the file
+# to already be on the base branch, which it isn't until after the merge).
+#
+# It tags the `release: vX.Y.Z sanitized template` snapshot commit (== .sdd-sync-ref,
+# matching promote-to-main.yml's direct-push behavior). Idempotent: skips if the
+# tag already exists. `main` is protected, so the only pushes here are release
+# merges — a crafted `release:` commit can't reach `main` without a human merge.
+#
+# Maintainer-only: ships to `main` (must be there to run on main pushes) and is
+# removed from a customer project at /initialize-project — like promote-to-main.yml.
+#
+# DEPENDENCY: the `v*` tag namespace must NOT be covered by a tag-protection rule
+# / ruleset that excludes GITHUB_TOKEN, or the `git push origin <tag>` below will
+# be rejected. (No such ruleset exists today; add a `refs/tags/v*` bypass for
+# Actions if you ever add one.)
+# =============================================================================
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write          # push the tag (repo default_workflow_permissions is read)
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 25 }
+
+      - name: Tag the sanitized snapshot if this push landed a release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Most-recent "release: vX.Y.Z sanitized template" commit in recent history.
+          # Take the first match in pure bash (NOT `| head -1`): under `pipefail`,
+          # head closing the pipe early can SIGPIPE sed (exit 141) and abort the job
+          # when 2+ release commits are in the window.
+          ALL=$(git log --format='%H %s' -25 \
+                  | sed -n -E 's/^([0-9a-f]+) release: (v[0-9]+\.[0-9]+\.[0-9]+) sanitized template.*/\1 \2/p')
+          SNAP=${ALL%%$'\n'*}
+          if [ -z "$SNAP" ]; then
+            echo "No release snapshot in recent history — nothing to tag."; exit 0
+          fi
+          SHA=${SNAP%% *}; VER=${SNAP##* }
+          if git rev-parse -q --verify "refs/tags/$VER" >/dev/null 2>&1 \
+             || git ls-remote --exit-code --tags origin "$VER" >/dev/null 2>&1; then
+            echo "Tag $VER already exists — nothing to do."; exit 0
+          fi
+          git tag "$VER" "$SHA"
+          git push origin "$VER"
+          echo "Tagged $VER -> $SHA (sanitized snapshot)."

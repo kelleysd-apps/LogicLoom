@@ -1,6 +1,6 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.3.0
+**Version**: 6.3.1
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 6

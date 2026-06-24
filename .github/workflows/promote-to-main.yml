@@ -200,7 +200,7 @@ jobs:
           git push origin "${{ steps.sync.outputs.commit }}:refs/heads/$BR"
           gh pr create --repo "$THIS_REPO" --base main --head "$BR" \
             --title "Release ${{ inputs.version }}: sanitized template" \
-            --body "Automated single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. Tag ${{ inputs.version }} is applied to the merge commit AFTER merge. NOTE: leak-guard.yml may not auto-run on this PR (PRs opened by GITHUB_TOKEN don't trigger pull_request workflows); re-run it manually if you want the customer-visible backstop on the record."
+            --body "Automated single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ inputs.version }} (the sanitized snapshot) — no manual tagging. NOTE: leak-guard.yml may not auto-run on this PR (PRs opened by GITHUB_TOKEN don't trigger pull_request workflows); re-run it manually if you want the customer-visible backstop on the record."
 
       # PUBLISH (alt): fast-forward push straight to main + tag immediately. Use
       # only if main's branch protection permits the bot and you accept skipping
