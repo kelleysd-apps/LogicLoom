@@ -46,22 +46,56 @@ echo ""
 echo -e "${BLUE}Initializing project: ${PROJECT_NAME}${NC}"
 echo ""
 
-# Update package.json
-echo -e "${BLUE}Updating package.json...${NC}"
+# Root package.json is FRAMEWORK-OWNED — do NOT rebrand it to the product.
+# The root package declares the framework's own jest/devDeps/version; bump-version.sh
+# stamps it by matching "version" (not "name"), and collectCoverageFrom targets
+# .claude/** + .logic-loom/**. Renaming root name → product would mislabel the
+# framework package for zero benefit (the product gets its own package.json under web/,
+# scaffolded below). We keep the backup for safety but leave root identity intact.
+echo -e "${BLUE}Preserving framework-owned root package.json...${NC}"
 if [ -f "package.json" ]; then
-    # Create a backup
+    # Create a backup (kept for parity / rollback; root identity is unchanged)
     cp package.json package.json.backup
-
-    # Update using sed (cross-platform compatible)
-    sed -i.tmp "s/\"name\": \".*\"/\"name\": \"$PROJECT_NAME\"/" package.json
-    sed -i.tmp "s/\"description\": \".*\"/\"description\": \"$PROJECT_DESCRIPTION\"/" package.json
-    if [ ! -z "$AUTHOR_NAME" ]; then
-        sed -i.tmp "s/\"author\": \".*\"/\"author\": \"$AUTHOR_NAME\"/" package.json
-    fi
-    rm -f package.json.tmp
-    echo -e "${GREEN}✓${NC} package.json updated"
+    echo -e "${GREEN}✓${NC} Root package.json kept framework-owned (product package lives at web/package.json)"
 else
     echo -e "${RED}Warning: package.json not found${NC}"
+fi
+
+# Scaffold the product workspace at web/ with a PRODUCT-OWNED package.json.
+# Your application code, dependencies, build, and tests live here — fully separate
+# from the framework at the repo root. Guarded so an existing web/ is never clobbered.
+echo -e "${BLUE}Scaffolding product workspace at web/...${NC}"
+if [ -d "web" ]; then
+    echo -e "${YELLOW}ℹ${NC}  web/ already exists — leaving it untouched"
+else
+    mkdir -p web
+    PRODUCT_PKG_TEMPLATE=".logic-loom/templates/product-package.json.template"
+    if [ -f "$PRODUCT_PKG_TEMPLATE" ]; then
+        # Render the product package from the template; description defaults to the
+        # project name if empty. PROJECT_NAME is validated kebab-case. The description
+        # is free-form, so JSON-escape it (\ then ") and substitute LITERALLY via bash
+        # parameter expansion — avoids sed's &// reinterpretation and produces valid JSON
+        # even when the description contains quotes or backslashes.
+        PRODUCT_DESC="${PROJECT_DESCRIPTION:-$PROJECT_NAME}"
+        PRODUCT_DESC_JSON=${PRODUCT_DESC//\\/\\\\}        # escape backslashes first
+        PRODUCT_DESC_JSON=${PRODUCT_DESC_JSON//\"/\\\"}   # then double-quotes
+        PRODUCT_PKG_CONTENT=$(cat "$PRODUCT_PKG_TEMPLATE")
+        PRODUCT_PKG_CONTENT=${PRODUCT_PKG_CONTENT//__PROJECT_NAME__/$PROJECT_NAME}
+        PRODUCT_PKG_CONTENT=${PRODUCT_PKG_CONTENT//__PROJECT_DESCRIPTION__/$PRODUCT_DESC_JSON}
+        printf '%s\n' "$PRODUCT_PKG_CONTENT" > web/package.json
+        echo -e "${GREEN}✓${NC} Created web/package.json (product-owned) from template"
+    else
+        echo -e "${YELLOW}⚠${NC}  Product package template not found at $PRODUCT_PKG_TEMPLATE — skipping web/package.json"
+    fi
+
+    cat > web/README.md << 'WEBREADME'
+# Product Workspace
+
+Your product application lives here. Own `package.json`, `node_modules/`, and your
+build output. The framework lives at the repo root — its `package.json` and `tests/`
+are framework-owned; don't merge product dependencies into them.
+WEBREADME
+    echo -e "${GREEN}✓${NC} Created web/README.md"
 fi
 
 # Archive framework README and create project README
@@ -132,8 +166,11 @@ $PROJECT_NAME/
 ├── .docs/            # Documentation
 ├── features/         # Swarm pack — per-feature folders
 ├── specs/            # SDD waterfall pack — per-feature folders
-└── src/              # Your source code
+└── web/              # Your product app (own package.json)
 \`\`\`
+
+> The root \`package.json\` and \`tests/\` are framework-owned. Your product code,
+> dependencies, build, and tests live under \`web/\`.
 
 ## 🤝 Contributing
 

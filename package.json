@@ -38,8 +38,17 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/tests"
+    ],
     "testMatch": [
-      "**/tests/**/*.test.js"
+      "<rootDir>/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/web/",
+      "<rootDir>/apps/",
+      "<rootDir>/src/"
     ],
     "transform": {},
     "extensionsToTreatAsEsm": [],

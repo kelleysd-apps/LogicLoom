@@ -163,9 +163,19 @@ your-project/
 │       ├── sprints/NN-name/
 │       └── retro.md
 ├── specs/                   # SDD waterfall pack — per-feature folders
+├── web/  (or apps/<name>/)  # Product app workspace (own package.json) — see below
 ├── .docs/                   # Project documentation
 ├── CLAUDE.md  README.md  START_HERE.md
 ```
+
+### Where does my product code go?
+
+The repo root (`package.json`, `tests/`, `.claude/`, `.logic-loom/`, `plugins/`)
+is **framework-owned**. Your **product application code** lives in its own
+workspace — `web/` for a single app or `apps/<name>/` for a monorepo — each with
+its own `package.json`, `node_modules`, build, and test runner. Don't put product
+source at the repo root or share the root `package.json` / `tests/`. Full rule:
+`.docs/policies/file-structure-policy.md` (§ Product Workspace).
 
 ---
 

@@ -80,10 +80,9 @@ coverage/
 # Keep the template but ignore session data
 # .docs/rl-metrics/skill-performance.json  # Keep for now as template
 
-# Feature specs (project-specific, created during development)
-specs/*/
-!specs/README.md
-!specs/.gitkeep
+# Feature specs are TRACKED (downstream products commit their specs;
+# the framework's own dev specs are stripped at template release by
+# sanitize-for-template.sh)
 
 # Deprecated items (kept locally for reference, not in template)
 **/.deprecated/

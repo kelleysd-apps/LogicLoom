@@ -1,7 +1,7 @@
 # File Structure & Organization Policy
 
-**Version**: 1.0.0
-**Effective Date**: TBD
+**Version**: 1.1.0
+**Effective Date**: 2026-06-30
 **Authority**: Constitution v3.2.0
 **Review Cycle**: Quarterly
 
@@ -68,18 +68,80 @@ project-root/
 ├── specs/                      # Feature specs (SDD waterfall workflow pack)
 │   └── ###-feature-name/       # Per-feature spec directory
 │
-├── src/                        # Source code
-│   └── [project-specific]      # Application code
+├── web/  (or apps/<name>/)     # PRODUCT app workspace (own package.json — see "Product Workspace")
+│   └── src/                    # Product application code (NOT at repo root)
 │
-├── tests/                      # Test files
+├── tests/                      # FRAMEWORK test files (product tests live in the workspace)
 │   ├── unit/                   # Unit tests
 │   ├── integration/            # Integration tests
 │   └── contract/               # Contract tests
 │
 ├── CLAUDE.md                   # AI assistant instructions
 ├── README.md                   # Project documentation
-└── package.json                # Project configuration
+└── package.json                # Framework configuration (jest, devDeps — FRAMEWORK-OWNED)
 ```
+
+---
+
+## Product Workspace (harness vs product)
+
+**The framework owns the repo root; product application code lives in a dedicated workspace.**
+
+This is the load-bearing boundary that the rest of this policy assumes. Keeping
+it clean is what lets `/update-framework` stay operational and the governance
+floor stay path-agnostic.
+
+### Framework-owned (repo root)
+
+The following root surfaces are **FRAMEWORK-OWNED** — a product must not share or
+repurpose them:
+
+- Root `package.json` (jest, devDeps, framework coverage gates)
+- Root `tests/` (framework contract / integration / unit suites + `tests/run_all_tests.sh`)
+- `.claude/`, `.logic-loom/`, `plugins/` (governance, hooks, framework plugins)
+
+### Product-owned (dedicated workspace)
+
+PRODUCT application code lives in its own workspace **out of the repo root**, with
+its **own** `package.json`, `node_modules`, build pipeline, and test runner:
+
+```
+web/                            # single product app
+├── package.json                # product deps + product test runner (PRODUCT-OWNED)
+├── node_modules/
+└── src/
+
+apps/                           # monorepo: one workspace per app
+├── <name>/                     # e.g., apps/api/, apps/admin/
+│   ├── package.json            # each app fully self-contained (PRODUCT-OWNED)
+│   ├── node_modules/
+│   └── src/
+└── <other>/
+```
+
+- **Single app** → `web/`.
+- **Monorepo** → `apps/<name>/`, each with its own `package.json` / `node_modules` /
+  build / test runner.
+
+Product specs under `specs/<feature>/` and feature work under `features/<name>/`
+are **tracked** (committed and reaching clones) — they are the supported home for
+product specification and exploratory work.
+
+### Why a separate workspace (not the root)
+
+Sharing the root `package.json` / `tests/` with product code causes two **silent**
+collisions documented in the harness↔product-boundary exploration
+(`features/harness-product-boundary/exploration/`):
+
+- **jest-glob collision** — the framework's root `testMatch` glob sweeps product
+  tests into `npm test`, mixing them with framework suites and forcing them under
+  the framework's coverage gates.
+- **coverage collision** — the framework's `collectCoverageFrom` is scoped to
+  framework dirs; product code sharing the root distorts both gates.
+
+A dedicated product workspace with its own `package.json` and test runner avoids
+both — the framework keeps root `npm test` + contract coverage, the product keeps
+its own runner.
 
 ---
 
@@ -217,38 +279,25 @@ specs/
 - All files use templates from `.logic-loom/templates/`
 - Created via `/specification` command (SDD waterfall pack)
 
-### src/ - Source Code
+### Product source code (inside the product workspace)
 
-**Structure varies by project type**:
+Product source code lives **inside the product workspace** (`web/` for a single
+app, `apps/<name>/` for a monorepo — see "Product Workspace" above), **never at
+the repo root**. Root `src/` is not a product home: a product `src/` at the root
+trips the framework's jest-glob and coverage gates (see "Product Workspace").
 
-**Single Project**:
-```
-src/
-├── models/
-├── services/
-├── cli/
-└── utils/
-```
+**Decision rule** — pick the workspace shape first, then lay out `src/` inside it:
 
-**Web Application**:
-```
-backend/src/
-├── api/
-├── models/
-├── services/
-└── middleware/
-
-frontend/src/
-├── components/
-├── pages/
-├── hooks/
-└── utils/
-```
+| Project shape | Workspace | Source layout |
+|---------------|-----------|---------------|
+| **Single app** | `web/` | `web/src/` (`models/`, `services/`, `components/`, `utils/`, …) |
+| **Web app (split tiers)** | `web/` | `web/backend/src/` (`api/`, `models/`, `services/`, `middleware/`) + `web/frontend/src/` (`components/`, `pages/`, `hooks/`, `utils/`) |
+| **Monorepo** | `apps/<name>/` | one `apps/<name>/src/` per app, each app self-contained |
 
 **Rules**:
-- Follow language/framework conventions
-- Defined in feature's `plan.md`
-- Tests mirror source structure
+- Source lives under the product workspace, not the repo root.
+- Follow language/framework conventions; the exact tree is defined in the feature's `plan.md`.
+- Tests live with the product (the workspace's own test runner), mirroring source structure — not in the framework-owned root `tests/`.
 
 ---
 
@@ -503,6 +552,6 @@ mkdir -p .claude/skills/[category]/[skill-name]
 
 ---
 
-**Policy Version**: 1.0.0
+**Policy Version**: 1.1.0
 **Approved By**: Constitutional Authority
-**Next Review**: TBD
+**Next Review**: 2026-09-30

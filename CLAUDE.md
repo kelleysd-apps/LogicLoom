@@ -341,10 +341,16 @@ plugins/                               # See registry above
 features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
 specs/                                 # SDD pack: waterfall specs
 
+web/  (or apps/<name>/)                # Product app (own package.json) — see Harness ↔ product boundary
+
 .docs/
   architecture/loom-architecture.md    # Full architectural reference (LogicLoom shape)
   policies/
 ```
+
+The repo root (`package.json`, `tests/`, `.claude/`, `.logic-loom/`, `plugins/`)
+is **framework-owned**; product application code lives in `web/` / `apps/<name>/`.
+See **Harness ↔ product boundary** under File Creation Rules.
 
 ### Workflow scripts
 
@@ -371,6 +377,23 @@ Pre-commit compliance check:
 3. **Templates First**: Use `.logic-loom/templates/` when available
 4. **Absolute Paths**: Always use absolute paths from repository root
 5. **No Proactive Docs**: Never create README.md or other documentation files unless explicitly requested
+
+### Harness ↔ product boundary
+
+The **framework owns the repo root** — root `package.json`, `tests/`, `.claude/`,
+`.logic-loom/`, and `plugins/` are framework-owned. **Product application code
+lives in its own workspace**, each product-owned with its own `package.json`,
+`node_modules`, build, and test runner:
+
+- **Single app** → `web/`
+- **Monorepo** → `apps/<name>/` (one self-contained workspace per app)
+
+Do **not** put product source at the repo root or share the root
+`package.json` / `tests/` — that trips the framework's jest-glob and coverage
+gates (the silent collisions documented in
+`features/harness-product-boundary/exploration/`). Product specs (`specs/<feature>/`)
+and feature work (`features/<name>/`) are tracked. Full rule:
+`.docs/policies/file-structure-policy.md` (§ Product Workspace).
 
 ### Naming conventions
 
@@ -496,4 +519,4 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
-**Last Updated**: 2026-05-31
+**Last Updated**: 2026-06-30

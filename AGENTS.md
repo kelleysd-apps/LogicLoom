@@ -1,7 +1,7 @@
 # LogicLoom Agent Registry
 
 **Version**: 6.3.1
-**Last Updated**: 2026-06-15
+**Last Updated**: 2026-06-30
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 6
@@ -58,6 +58,14 @@ enforced-vs-followed matrix by host.)
   parallel-dispatch mechanism).
 - **XV File Organization** — verify a parent dir exists before creating; prefer
   editing an existing file over creating a new one; use absolute paths.
+  **Harness ↔ product boundary**: the framework owns the repo root (root
+  `package.json`, `tests/`, and the governance dirs); **product application code
+  lives in its own workspace** — `web/` for a single app or `apps/<name>/` for a
+  monorepo, each product-owned with its own `package.json` / `node_modules` /
+  build / test runner. Do not put product source at the root or share the root
+  `package.json` / `tests/`. (Claude Code: see CLAUDE.md "Harness ↔ product
+  boundary"; full rule `.docs/policies/file-structure-policy.md` § Product
+  Workspace.)
 
 ### Cross-Check Disposition
 
@@ -497,6 +505,7 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6.3.1 | 2026-06-30 | _(docs/config; no framework version bump)_ Harness↔product workspace boundary: documented `web/` (single app) / `apps/<name>/` (monorepo) product-workspace convention — root `package.json`/`tests/` framework-owned. Fixed two silent collisions: jest `testMatch`/`roots` scoped + `testPathIgnorePatterns` for `web/`·`apps/`·`src/`, and `.gitignore` no longer drops product specs. `init-project.sh` scaffolds `web/` instead of rebranding root. `file-structure-policy.md` ratified → v1.1.0. New contract test `test_product_workspace_boundary.sh` (wired into CI) |
 | 6.2.1 | 2026-06-15 | Constitution **v3.2.0** (Preamble Governance-vs-direction clause). Foundational `VISION.md` as a first-class artifact (peer to the constitution); `/initialize-project` Step 1.5 scaffolds it; new `project-vision-template.md`. dev-main (private) → sanitized **public** template release model: `promote-to-main.yml` (single-parent snapshots), `leak-guard.yml` (public backstop), `strip-harness-dev.sh` + `leak-guard.sh` + `template-strip-manifest.txt` (tracked-content model) |
 | 6.3.1 | 2026-06-24 | Release-tooling maintenance: `/promote` maintainer command + `bump-version.sh` + `release-tag.yml` auto-tag-on-merge (maintainer-only/stripped). No customer-facing framework change |
 | 6.3.0 | 2026-06-24 | Cross-Check Disposition (primary-agent default for verification-shaped asks) + provider-portable **policy** layer: AGENTS.md Tier-1/Tier-2 split, shared verdict-function seam (`governance-verdicts.sh`, self-protecting; hooks fail-safe), off-host git-approval adapter (`.logic-loom/adapters/`), per-host wiring (`HOSTS.md`), honest enforced-vs-followed matrix. Policy travels; enforcement stays Claude-Code-reference. Phase 4 (orchestration-runtime rewrite) gated |
