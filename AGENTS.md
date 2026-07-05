@@ -4,7 +4,7 @@
 **Last Updated**: 2026-06-30
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
-**Total Agents**: 6
+**Total Agents**: 8 (6 plugin + 2 project-level: deep-reasoner, fast-worker)
 **Plugins**: 8
 
 ---
@@ -174,6 +174,26 @@ The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval
 | Agent | Purpose | Model |
 |-------|---------|-------|
 | **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku |
+
+### Project-level agents (`.claude/agents/`) — orchestrator + worker ladder
+
+Dev-time delegation ladder: a **frontier orchestrator** (the main session —
+Fable 5 → Opus 4.8 fallback; set via `/model`, model-agnostic-but-frontier,
+never a non-Claude model) plans/reasons/delegates over cheaper Claude workers.
+Kept as **project** agents (not plugin agents, which lose
+`hooks`/`mcpServers`/`permissionMode`) so the hook floor still governs them.
+Full reference: `.docs/architecture/orchestrator-worker-ladder.md`.
+
+| Agent | Purpose | Model (effort) |
+|-------|---------|-------|
+| **deep-reasoner** | Architecture decisions, hard debugging, design tradeoffs | opus (high) |
+| **fast-worker** | Boilerplate, tests, routine mechanical edits | sonnet (medium) |
+
+> Dispatch inside `/workflow` via `agent(prompt, { agentType: 'deep-reasoner' })`;
+> `agent()`'s per-call `effort` supplies dynamic per-dispatch effort (raw Task
+> subagents honour only static frontmatter `effort:`). Non-Claude models stay
+> **advisory-only** (`/research`, `/cross-check`) — the ladder adds no non-Claude
+> workers.
 
 ---
 
@@ -505,6 +525,7 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6.3.1 | 2026-06-30 | _(docs/config; no framework version bump)_ Orchestrator + worker ladder: model-agnostic-but-frontier orchestrator role (`frontier` tier — Fable 5 → Opus 4.8 fallback) + `deep-reasoner` (opus) / `fast-worker` (sonnet) project agents; `models.conf` gains `LOOM_MODEL_ORCHESTRATOR`/`FRONTIER_MODEL`/`FRONTIER_FALLBACK` + refreshed tier IDs (Sonnet 5); `.docs/architecture/orchestrator-worker-ladder.md`. Non-Claude models stay advisory-only (unchanged) |
 | 6.3.1 | 2026-06-30 | _(docs/config; no framework version bump)_ Harness↔product workspace boundary: documented `web/` (single app) / `apps/<name>/` (monorepo) product-workspace convention — root `package.json`/`tests/` framework-owned. Fixed two silent collisions: jest `testMatch`/`roots` scoped + `testPathIgnorePatterns` for `web/`·`apps/`·`src/`, and `.gitignore` no longer drops product specs. `init-project.sh` scaffolds `web/` instead of rebranding root. `file-structure-policy.md` ratified → v1.1.0. New contract test `test_product_workspace_boundary.sh` (wired into CI) |
 | 6.2.1 | 2026-06-15 | Constitution **v3.2.0** (Preamble Governance-vs-direction clause). Foundational `VISION.md` as a first-class artifact (peer to the constitution); `/initialize-project` Step 1.5 scaffolds it; new `project-vision-template.md`. dev-main (private) → sanitized **public** template release model: `promote-to-main.yml` (single-parent snapshots), `leak-guard.yml` (public backstop), `strip-harness-dev.sh` + `leak-guard.sh` + `template-strip-manifest.txt` (tracked-content model) |
 | 6.3.1 | 2026-06-24 | Release-tooling maintenance: `/promote` maintainer command + `bump-version.sh` + `release-tag.yml` auto-tag-on-merge (maintainer-only/stripped). No customer-facing framework change |

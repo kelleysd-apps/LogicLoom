@@ -440,15 +440,45 @@ no consumer parses it yet). Default flagship: **Opus 4.8**.
 
 | Tier | Use Case |
 |---|---|
-| **opus** (Opus 4.8) | Default for agents; architecture, security, complex reasoning |
-| **sonnet** (Sonnet 4.6) | Cost optimization; high-volume tasks |
-| **haiku** (Haiku) | Quick lookups; formatting; file ops |
+| **frontier** (Fable 5 → Opus 4.8; see models.conf) | Orchestrator tier; plan/reason/delegate (model-agnostic-but-frontier) |
+| **opus** (Opus 4.8; see models.conf) | Default for agents; architecture, security, complex reasoning |
+| **sonnet** (Sonnet 5; see models.conf) | Cost optimization; high-volume tasks |
+| **haiku** (Haiku 4.5; see models.conf) | Quick lookups; formatting; file ops (no `effort` support) |
 
-**Model IDs**: `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`
+**Model IDs** (single source): see `.logic-loom/config/models.conf` — agents select by tier keyword, never a pinned string.
 
 > Orchestration is Claude-Code-native (Anthropic only). Cross-provider models
 > (OpenAI/Gemini) are used solely at the delegated verification layer —
 > `/research` and `/cross-check` — held advisory and read-only.
+
+### Orchestrator + worker ladder
+
+A dev-time delegation pattern: a **frontier orchestrator** plans/reasons/
+delegates over cheaper Claude **workers** that do the bulk execution. Full
+reference: `.docs/architecture/orchestrator-worker-ladder.md`.
+
+| Rung | Tier | Model | Job |
+|---|---|---|---|
+| **Orchestrator** | `frontier` | Fable 5 → Opus 4.8 fallback | Main session. Plans, reasons, delegates, synthesizes. Set via `/model claude-fable-5`. |
+| **deep-reasoner** | `opus` (effort `high`) | Opus 4.8 | Architecture, hard debugging. `.claude/agents/deep-reasoner.md`. |
+| **fast-worker** | `sonnet` (effort `medium`) | Sonnet 5 | Boilerplate, tests, routine edits. `.claude/agents/fast-worker.md`. |
+
+- **Orchestrator = model-agnostic-but-frontier**: a *role* targeting the frontier
+  tier, defaulting to Fable 5 with a one-line downgrade to Opus 4.8 when Fable is
+  unavailable/out of quota (`FRONTIER_MODEL` / `FRONTIER_FALLBACK` in
+  `models.conf`). Never a non-Claude model.
+- **Delegation policy**: reasoning/architecture → `deep-reasoner`; mechanical/
+  boilerplate → `fast-worker`; correctness-critical + scrutiny-inviting → also run
+  `/cross-check`. The orchestrator keeps the decision.
+- **In workflows**: dispatch via `agent(prompt, { agentType: 'deep-reasoner' })`
+  inside `/workflow`; `agent()`'s per-call `effort` gives the dynamic
+  per-dispatch effort that raw Task subagents lack (Claude Code honours only
+  *static* frontmatter `effort:`).
+- **Boundary unchanged**: non-Claude models stay advisory-only (`/research`,
+  `/cross-check`) — the ladder adds no non-Claude workers. Keep the two agents as
+  **project** files (`.claude/agents/`), never plugin agents (which lose
+  `hooks`/`mcpServers`/`permissionMode`). File-based agents load at session
+  start — **restart to pick up edits**.
 
 ---
 

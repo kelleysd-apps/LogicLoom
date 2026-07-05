@@ -1,6 +1,6 @@
 ---
 name: research
-description: Multi-LLM research with jury-on-demand tribunal. Query-type classifier picks 1-3 judges (Claude always present; OpenAI / Gemini added selectively). Use --judges all for the legacy 3-LLM panel.
+description: Multi-LLM research with jury-on-demand tribunal. Query-type classifier picks 1-3 judges (Claude always present; OpenAI / Gemini added selectively). Use --judges all for the legacy 3-LLM panel. Choose per-provider models with --openai-model / --gemini-model / --claude-model.
 model: opus
 ---
 
@@ -41,14 +41,33 @@ The previous version of `/research` ran a static 3-LLM tribunal (Claude + OpenAI
 
 ### Step 0a: Parse Flags
 
-Extract `--judges` from `$ARGUMENTS`:
+Extract flags from `$ARGUMENTS`:
 
 ```
---judges all           -> force full 3-judge panel (Claude + OpenAI + Gemini)
---judges <none>        -> run classifier (default)
+--judges all              -> force full 3-judge panel (Claude + OpenAI + Gemini)
+--judges <none>           -> run classifier (default)
+--openai-model <id>       -> OpenAI model for this run (else env, else config default)
+--gemini-model <id>       -> Gemini model for this run (else env, else config default)
+--claude-model <tier|id>  -> Claude researcher/judge model for this run (default: opus)
 ```
 
-The topic is `$ARGUMENTS` with the `--judges <value>` flag stripped out.
+The topic is `$ARGUMENTS` with every recognized `--<flag> <value>` stripped out.
+
+**Per-provider model resolution** — precedence **CLI flag -> env override -> config
+default**. Resolve once here; reuse for researchers B/C and the tribunal judges:
+```bash
+# --openai-model flag, else CROSS_CHECK_OPENAI_MODEL, else the models.conf default
+OPENAI_MODEL="${OPENAI_MODEL_FLAG:-${CROSS_CHECK_OPENAI_MODEL:-gpt-5.5}}"
+# --gemini-model flag, else CROSS_CHECK_GEMINI_MODEL, else the models.conf default
+GEMINI_MODEL="${GEMINI_MODEL_FLAG:-${CROSS_CHECK_GEMINI_MODEL:-gemini-3.1-pro-preview}}"
+# --claude-model flag, else the opus tier keyword (Claude researcher A + Claude judge)
+CLAUDE_MODEL="${CLAUDE_MODEL_FLAG:-opus}"
+```
+`*_MODEL_FLAG` = the value passed to the matching `--*-model` flag if present, else
+empty. The `gpt-5.5` / `gemini-3.1-pro-preview` defaults are the documented ones in the
+**"Advisory cross-provider models"** section of `.logic-loom/config/models.conf`
+(single source, shared with `/cross-check`); bump a default by editing that one line,
+setting the env var, or passing the flag.
 
 ### Step 0b: Classify the Query (Heuristic, Not Learned)
 
@@ -126,12 +145,14 @@ EOF
 
 If a researcher's API key is missing, skip that researcher and note the gap in `jury.json`. Claude (via Perplexity / WebSearch) is always available.
 
+> **Cross-provider models (researchers B/C + OpenAI/Gemini tribunal judges).** Each provider's model is resolved once in Phase 0 (Step 0a) with precedence **flag -> env -> config default**: OpenAI = `--openai-model` / `CROSS_CHECK_OPENAI_MODEL` / default `gpt-5.5` (`$OPENAI_MODEL`); Gemini = `--gemini-model` / `CROSS_CHECK_GEMINI_MODEL` / default `gemini-3.1-pro-preview` (`$GEMINI_MODEL`); Claude research/judge tier = `--claude-model` / default `opus` (`$CLAUDE_MODEL`). Defaults live in the **"Advisory cross-provider models"** section of `.logic-loom/config/models.conf` — the single source shared with `/cross-check`. These external models are strictly **advisory + read-only** at the verification layer: they return research and votes only; the governed Claude flow triages and decides, and they never write repo source or run git (Principle VI).
+
 ### Researcher A — Claude Opus via Perplexity (always runs)
 ```
 Use the Task tool:
 - description: "R-Claude: Research via Perplexity"
 - subagent_type: "general-purpose"
-- model: "opus"
+- model: "$CLAUDE_MODEL"
 - prompt: |
     You are Researcher A (Claude). Use perplexity_research (mcp__MCP_DOCKER__perplexity_research)
     for current, citation-backed research on the topic. Fall back to perplexity_ask /
@@ -145,40 +166,43 @@ Use the Task tool:
     Save to: $RESEARCH_DIR/researcher-a-claude.md
 ```
 
-### Researcher B — OpenAI GPT-4o (runs if OPENAI_API_KEY present)
+### Researcher B — OpenAI (runs if OPENAI_API_KEY present)
 ```
 Use the Task tool:
-- description: "R-OpenAI: Research via GPT-4o API"
+- description: "R-OpenAI: Research via OpenAI API"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are Researcher B (OpenAI proxy). Send the topic to GPT-4o via the API
+    You are Researcher B (OpenAI proxy). Send the topic to the OpenAI advisory
+    model ($OPENAI_MODEL — resolved flag/env/default in Phase 0) via the API
     and compile the response into a structured research report.
 
     TOPIC: $TOPIC
 
     1. Source OPENAI_API_KEY from .env.
-    2. POST to https://api.openai.com/v1/chat/completions with model gpt-4o,
-       max_tokens 16000, temperature 0.7. System: research analyst with
-       evidence-based output and citations. User: thorough research on the topic.
+    2. POST to https://api.openai.com/v1/chat/completions with model
+       "$OPENAI_MODEL", max_tokens 16000, temperature 0.7.
+       System: research analyst with evidence-based output and citations.
+       User: thorough research on the topic.
     3. Extract .choices[0].message.content. On error, save an error report.
     4. Save formatted report to: $RESEARCH_DIR/researcher-b-openai.md
 ```
 
-### Researcher C — Google Gemini 2.5 Pro (runs if GEMINI_API_KEY present)
+### Researcher C — Google Gemini (runs if GEMINI_API_KEY present)
 ```
 Use the Task tool:
 - description: "R-Gemini: Research via Gemini API"
 - subagent_type: "general-purpose"
 - model: "opus"
 - prompt: |
-    You are Researcher C (Gemini proxy). Send the topic to Gemini 2.5 Pro via the
+    You are Researcher C (Gemini proxy). Send the topic to the Gemini advisory
+    model ($GEMINI_MODEL — resolved flag/env/default in Phase 0) via the
     API and compile the response into a structured research report.
 
     TOPIC: $TOPIC
 
     1. Source GEMINI_API_KEY from .env.
-    2. POST to https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent
+    2. POST to https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent
        with maxOutputTokens 16000, temperature 0.7.
     3. Extract .candidates[0].content.parts[0].text. On error, save an error report.
     4. Save formatted report to: $RESEARCH_DIR/researcher-c-gemini.md
@@ -249,7 +273,7 @@ Use the Task tool:
     Save as JSON to: $RESEARCH_DIR/tribunal-votes-1-claude.json
     {
       "reviewer_id": "tribunal-1-claude",
-      "model": "Claude Sonnet 4.6",
+      "model": "the Claude tribunal model",
       "review_focus": "accuracy",
       "review_date": "<YYYY-MM-DD>",
       "votes": [{"claim_id": "C01", "vote": "approve", "confidence": 0.85, "reasoning": "...", "suggested_improvement": null}]
@@ -267,14 +291,16 @@ Use the Task tool:
 
     1. Read $RESEARCH_DIR/claims.json and the researcher-*.md files.
     2. Source OPENAI_API_KEY from .env.
-    3. POST to https://api.openai.com/v1/chat/completions with model gpt-4o,
-       max_tokens 8000, temperature 0.3, response_format json_object.
+    3. POST to https://api.openai.com/v1/chat/completions with model
+       "$OPENAI_MODEL" (the OpenAI advisory model, resolved
+       flag/env/default in Phase 0), max_tokens 8000, temperature 0.3,
+       response_format json_object.
        System: tribunal reviewer evaluating source quality.
        User: vote approve/challenge with confidence 0.50-0.99 on each claim.
 
     4. Save parsed JSON to: $RESEARCH_DIR/tribunal-votes-2-openai.json
        (same schema as tribunal-1; reviewer_id "tribunal-2-openai",
-        model "OpenAI GPT-4o", review_focus "sourcing")
+        model = the OpenAI advisory model used, review_focus "sourcing")
 
     On API failure, save an error report.
 ```
@@ -290,13 +316,14 @@ Use the Task tool:
 
     1. Read $RESEARCH_DIR/claims.json and the researcher-*.md files.
     2. Source GEMINI_API_KEY from .env.
-    3. POST to https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-preview-05-06:generateContent
-       with maxOutputTokens 8000, temperature 0.3, responseMimeType application/json.
+    3. POST to https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent
+       (the Gemini advisory model, resolved flag/env/default in Phase 0) with
+       maxOutputTokens 8000, temperature 0.3, responseMimeType application/json.
        Prompt: tribunal reviewer evaluating relevance, vote approve/challenge
        with confidence 0.50-0.99 on each claim.
 
     4. Save parsed JSON to: $RESEARCH_DIR/tribunal-votes-3-gemini.json
-       (reviewer_id "tribunal-3-gemini", model "Gemini 2.5 Pro",
+       (reviewer_id "tribunal-3-gemini", model = the Gemini advisory model used,
         review_focus "relevance")
 
     On API failure, save an error report.
@@ -481,8 +508,8 @@ Run `/initialize-project` to configure missing keys.
 .docs/research/YYYYMMDD-HHMMSS-topic/
   jury.json                           # Classifier decision (category + judge panel)
   researcher-a-claude.md              # Claude + Perplexity research (always)
-  researcher-b-openai.md              # OpenAI GPT-4o research (if key present)
-  researcher-c-gemini.md              # Gemini 2.5 Pro research (if key present)
+  researcher-b-openai.md              # OpenAI advisory-model research (if key present)
+  researcher-c-gemini.md              # Google Gemini advisory-model research (if key present)
   claims.json                         # Extracted claims with convergence
   tribunal-votes-1-claude.json        # Claude votes (always)
   tribunal-votes-2-openai.json        # OpenAI votes (only if openai in panel)

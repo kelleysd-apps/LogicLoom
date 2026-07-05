@@ -48,6 +48,9 @@ jobs:
       - name: Run Product Workspace Boundary Tests
         run: bash tests/contract/test_product_workspace_boundary.sh
 
+      - name: Run Model Agnosticism Tests
+        run: bash tests/contract/test_model_agnostic.sh
+
       - name: Validate All Manifests
         run: |
           python3 -c "

@@ -312,12 +312,13 @@ mkdir "$DIR"
 
 ### XIV. AI Model Selection
 
-**Rule**: Use Opus 4.8 by default for all specialized agents
+**Rule**: Use the `opus` tier by default for all specialized agents (resolves to
+the current Opus flagship; see `.logic-loom/config/models.conf`)
 
 **Rationale**: Balances performance, cost, and quality
 
 **Guidelines** (model IDs defined in `.logic-loom/config/models.conf`):
-- **Opus 4.8** (flagship default): All specialized agents, architecture, security, complex reasoning
+- **`opus` tier** (flagship default; currently Opus 4.8): All specialized agents, architecture, security, complex reasoning
 - **Sonnet** (fallback): Cost optimization, high-volume tasks, quota limits
 - **Haiku** (cost-sensitive): Simple lookups, formatting, file operations
 

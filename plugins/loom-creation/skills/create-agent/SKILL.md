@@ -45,7 +45,7 @@ If no clear match, default to `loom-creation`.
 ### Step 4: Create Agent File
 
 1. Read template: `.logic-loom/templates/agent-template.md` (if exists) or generate from SDD agent format
-2. Populate: name, description, model (default: claude-opus-4-8), tools, responsibilities
+2. Populate: name, description, model (default: opus), tools, responsibilities — use the tier keyword (opus/sonnet/haiku/inherit), never a pinned version string — Principle XIV
 3. Write to: `plugins/{target-plugin}/agents/{agent-name}.md`
 
 ### Step 5: Update Plugin Manifest
