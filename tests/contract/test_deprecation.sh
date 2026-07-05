@@ -25,9 +25,16 @@ echo "Monolithic skills removed"
 assert "No .claude/skills/ directory exists" "[ ! -d .claude/skills ]"
 
 # ── Monolithic agents removed ──
+# NOTE: .claude/agents/ is now a SANCTIONED location for project-level ladder
+# agents (deep-reasoner / fast-worker). They MUST be project files to retain
+# hooks / permissionMode enforcement — plugin-packaged agents strip those
+# fields. So the deprecation invariant is not "no .claude/agents/ dir" but
+# "the LEGACY monolithic agents (converted to plugin skills in v4/v5) have not
+# reappeared there". See .docs/architecture/orchestrator-worker-ladder.md.
 echo ""
 echo "Monolithic agents removed"
-assert "No .claude/agents/ directory exists" "[ ! -d .claude/agents ]"
+LEGACY_AGENTS="$(ls .claude/agents/ 2>/dev/null | grep -Ei 'task-orchestrator|swarm-coordinator|workflow-coordinator|specification-agent|planning-agent|tasks-agent|specification-orchestrator|sdd-domain-' || true)"
+assert "No legacy monolithic agents in .claude/agents/ (project ladder agents are OK)" "[ -z \"$LEGACY_AGENTS\" ]"
 
 # ── Legacy indexes removed ──
 echo ""
