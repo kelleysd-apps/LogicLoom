@@ -15,14 +15,14 @@ short. Acceptance criteria and schemas belong in a PRD/plan, not here.
 
 **Product**: `logic-loom` (brand: **LogicLoom**)
 **Document**: product north-star (living)
-**Version**: 1.0 · **Last updated**: 2026-06-15 · **Owner**: brian@kelleysd.com
-**Framework state**: v6.2.0 · constitution v3.1.0 · branch `loom-migration` (PR #56)
+**Version**: 2.0 · **Last updated**: 2026-07-28 · **Owner**: brian@kelleysd.com
+**Framework state**: v6.3.1 · constitution v3.2.0 · dev line `dev-main` · template line `main` (v6.3.1, 2026-06-24)
 
 ---
 
 ## North Star
 
-**LogicLoom is a constitutional-governance-focused, framework-agnostic
+**LogicLoom is a constitutional-governance-focused, workflow-agnostic
 development harness that ENHANCES the flagship model — by adding the things that
 do NOT decay as models get smarter (governance, safety, observability, cost
 discipline, file-ownership) while riding ON Claude Code's native orchestration,
@@ -49,6 +49,11 @@ that cannot be silently softened** plus a **value layer on top of native
 primitives**. Governance, safety, observability, and cost discipline do not
 decay with capability. Orchestration mechanics do.
 
+**The bet has been tested against our own output.** Five subsystems this project
+built were later cut rather than defended: the `sdd-marketplace` MCP, RL
+telemetry, the dev-loop pack, DS-STAR refinement, and the custom swarm runner.
+Willingness to delete our own work is the practical form of this bet.
+
 ## Who this is for
 
 A developer (and their agents) doing real software work in Claude Code who wants
@@ -56,6 +61,10 @@ A developer (and their agents) doing real software work in Claude Code who wants
 without standing up an orchestration framework**. They reach for native
 `/workflow` / `/loop` / `/goal` daily and want a harness that amplifies that,
 not one that competes with it.
+
+Increasingly also: **a cloner** — someone who takes the sanitized template line
+and runs their own project on it. Their experience is a first-class concern, not
+a byproduct (see Pillar 7).
 
 ## What success looks like
 
@@ -67,13 +76,18 @@ not one that competes with it.
 - A new session can re-orient from `VISION.md` + memory + `CLAUDE.md` alone and
   stay on-strategy without re-litigating decisions.
 - Adding a capability means shipping a plugin/brief, not patching the core.
+- A cloner can install, run, and **update** without touching anything they wrote.
 
 **Quantitative** *(track as they become tractable)*
 - Hook enforcement coverage of high-impact failure classes (autonomous git,
   governance self-modification, out-of-scope writes) → 100%, with residuals
   documented, not hidden.
-- Contract-suite assertions green on every commit (currently 410 / 9 suites).
+- Contract-suite assertions green on every commit
+  (currently **461 / 462 across 14 suites**; one known cosmetic failure —
+  see Open Threads).
 - Token/latency overhead of the governance layer kept negligible in `lean` mode.
+- Design-to-landed latency: no verified user-facing defect stays open while new
+  design work accumulates (see "Standing risk").
 
 ## Strategic Pillars *(each pillar seeds tasks)*
 
@@ -87,83 +101,209 @@ not one that competes with it.
    fan-out, `/workflow` for deterministic control flow, `/loop` for cadence,
    plan mode for design. LogicLoom adds the value the runtime doesn't: domain
    briefs, plan-as-DAG freeze ownership, the behavioral evaluator, jury-on-demand
-   `/research`, and memory.
+   `/research`, `/cross-check`, and memory.
 
-3. **Framework-agnostic, workflow-interchangeable.** Governance is the core;
+3. **Workflow-agnostic and workflow-interchangeable.** Governance is the core;
    workflows are peer optional packs (swarm, SDD waterfall) chosen by problem
    shape. No privileged path, no "primary/legacy."
 
-4. **Enhance the flagship; degrade gracefully.** `lean` (default, Opus-class):
-   hooks enforce, zero per-message ceremony. `strict` (weaker/non-flagship):
-   hooks plus re-injected assist. Enforcement is identical across modes; only
-   the model-side help changes.
+4. **Enhance the flagship; degrade gracefully — and visibly.** `lean` (default,
+   Opus-class): hooks enforce, zero per-message ceremony. `strict`
+   (weaker/non-flagship): hooks plus re-injected assist. Enforcement is identical
+   across modes. Where enforcement genuinely *cannot* hold (bash < 4, Windows
+   without Git Bash), it must degrade **loudly** — a silently-absent floor with
+   an identical UI is the worst outcome in the system.
 
 5. **Cross-session continuity is a feature.** The harness should stay coherent
    across sessions via memory + this living vision. Decisions get recorded once
    and respected thereafter.
 
-6. **Honest model/provider boundary.** Orchestration + governance are
-   Claude-Code-native and assume Anthropic flagship models. Cross-provider models
-   (OpenAI/Gemini) are supported ONLY at the delegated `/research` layer — never
-   for orchestration. We state the boundary plainly rather than overclaim
-   portability.
+6. **Honest model/provider boundary — policy travels, enforcement does not.**
+   *(Revised in v6.3.0; supersedes the earlier absolute "not provider-portable.")*
+   The **policy** layer is provider-neutral and portable: the constitution, the
+   operating principles, and the Cross-Check Disposition are model-followed rules
+   sourced neutrally from `AGENTS.md` Tier 1. The **enforcement** layer is not:
+   the hook floor is the Claude Code *reference adapter*, and on any other host
+   those guarantees are followed-only until a conformant adapter exists.
+   Orchestration remains Anthropic-flagship-native. Cross-provider models are
+   admitted **only** at the delegated verification layer — `/research` and
+   `/cross-check` — where they are advisory, read-only, and never touch git or
+   control flow. The enforced-vs-followed matrix lives in
+   `.docs/architecture/governance-threat-model.md`.
 
-## Recent shifts (how we now pursue the goals) — v6.2
+7. **Thin core, composable packages, untouched user layer.** The core owns only
+   the enforced floor, the constitution, and the update/bridge scaffolding.
+   Everything else is a package. Anything a *user* authors — settings, guidance,
+   commands, agents, MCPs, constitution amendments, feature work — lives in a
+   sink the updater structurally cannot see. All three properties are delivered
+   by Claude Code's **native layered-config model** (USER < PROJECT < PLUGIN),
+   not by a bespoke engine. Design:
+   `features/modular-harness/exploration/unified-architecture.md`.
 
-The pivot that this vision encodes, driven by native `/workflow`/`/loop`/`/goal`
-becoming first-class:
+8. **Deterministic over inferred, where a graph is concerned.** The project's
+   knowledge and component graph is a git-tracked, byte-reproducible text
+   artifact built from manifests, frontmatter, and author-written
+   `[[wikilink]]`/`SUPERSEDES` edges — zero LLM in the extraction path, no DB,
+   daemon, port, or watcher. LLM-semantic graph tools are a user-layer
+   escalation, never a dependency. Decision:
+   `features/code-knowledge-graph/exploration/graph-stack-decision.md`.
 
-- **Cut the dev-loop pack** — native primitives supersede it; its runtime
-  self-extension was a governance liability. Now 8 plugins, 2 workflow packs.
-- **Hardened the governance floor** against the known PreToolUse bypasses
-  (RFC#45427): added governance-surface protection (subagent→deny / main→ask),
-  realpath-canonicalized freeze scope (closes `..`/symlink escape), and a written
-  threat model that names the residuals. Codified "**floor, not sandbox.**"
-- **Re-based orchestration on native primitives** — removed the custom-runner
-  surface (launch-swarm/budget-manager, tmux/state-file coupling); the team
-  skill now spawns via Task + `/workflow`.
-- **Decoupled SDD from the agnostic core** — only `sdd-specification` carries SDD
-  identity; the governance/tooling/swarm plugins are framework-neutral.
+## Recent shifts (how we now pursue the goals) — v6.3.x
 
-See memory: `architecture-v6-2-native-primitives` (and `-v6-1-opus48-rebase`).
+- **Policy/enforcement split shipped (v6.3.0).** `AGENTS.md` Tier 1 as the
+  neutral policy source, the Cross-Check Disposition, the `governance-verdicts.sh`
+  verdict seam (self-protecting, fail-safe), and an off-host git adapter. This
+  retired the blanket "not provider-portable" claim in favor of the scoped one
+  in Pillar 6.
+- **`/cross-check` became the canonical adversarial path** — a governed
+  cross-provider reviewer, and the key-gated slot inside `/review-team` and
+  `/plan-review`.
+- **Release model settled**: `dev-main` is the publicly-visible dev mainline;
+  `main` is the sanitized template line, cut via `/promote` +
+  `promote-to-main.yml` with auto-tag-on-merge. Single public repo.
+- **Model-agnostic orchestrator ladder** — a frontier orchestrator *role*
+  (Fable 5 → Opus 4.8 fallback) over `deep-reasoner` / `fast-worker` project
+  agents, with a tier-keyword convention guarded by `test_model_agnostic.sh`.
+- **Product-workspace boundary defined** — the framework owns the repo root;
+  product code lives in `web/` or `apps/<name>/` with its own package.json and
+  test runner, ending the silent jest/coverage collisions.
+- **Anti-overbuild exercised twice more**: DS-STAR removed (61 files); the graph
+  stack was scoped down to a deterministic text artifact after an adopt-existing
+  evaluation rejected the heavyweight option on reproducibility grounds.
+
+Memory: `architecture-v7-provider-portable-pivot`,
+`unified-architecture-thin-core`, `graph-stack-decision`,
+`model-agnostic-orchestration`.
 
 ## What this is NOT
 
 - **Not an orchestration engine.** We do not own a process manager, session
   multiplexer, or shared swarm-state file. If the CLI does it natively, we ride
   it.
-- **Not a provider-portable runtime.** The orchestration/governance layer is
-  Anthropic-flagship-native by design.
+- **Not a provider-portable *runtime*.** Policy travels; enforcement is
+  Claude-Code-reference. We state which is which rather than overclaim (Pillar 6).
 - **Not a single methodology.** SDD is one pack among peers, not the product.
 - **Not a sandbox.** The hook floor is deterministic defense-in-depth, not an
   execution jail. (An opt-in sandbox is an Open Thread, not a current claim.)
 - **Not ceremony.** Governance is enforced by hooks, not by making the model
   recite a checklist every message.
+- **Not a GraphRAG / LLM-extraction system.** The graph is deterministic text.
+  LLM-inferred graphs are a user-layer option, never bundled.
+
+## Standing risk
+
+**The project generates high-quality design faster than it lands it.** As of
+this revision: three substantial exploration syntheses and one complete,
+test-green feature sit uncommitted, while a verified user-facing distribution
+defect has been known since 2026-07-09. This is an execution-cadence problem, not
+a direction problem — the direction is sound. The "Now" block below exists to
+correct it, and the design-to-landed-latency metric above exists to keep it
+visible.
 
 ## Open Threads *(the live backlog — generate tasks from here)*
 
-Unresolved directions, roughly ordered. Each is a candidate to spin into a
-feature/`vision.md` → PRD → plan, or a direct task.
+Ordered by what should happen next. Each is a candidate to spin into a
+`features/<name>/vision.md` → PRD → plan, or a direct task.
 
-- **Observability surface.** The SubagentStop hook is currently a benign stub.
-  Build out a real, low-overhead observability stream (subagent lifecycle, hook
-  decisions, cost) — Principle VII made tangible.
-- **Cost discipline / preview.** Surface token/cost budgets and a pre-flight
-  cost estimate for swarm/workflow fan-outs.
-- **Contain the documented freeze residual.** The Bash-redirect escape of
-  freeze file-ownership on arbitrary DAG paths is known and documented; decide
-  whether to extend freeze to the Bash write-path or accept-and-monitor.
-- **Lineage-based memory compression.** Hermes/Nous is ahead here; evaluate
-  compressing memory along decision lineage to keep cross-session context cheap.
-- **Tool registration-vs-exposure separation.** Another Hermes-ahead pattern:
-  register many tools, expose few per-agent. Assess fit for swarm workers.
-- **Opt-in execution sandbox.** A real isolation layer for untrusted execution,
-  offered as opt-in — keeps "floor, not sandbox" honest while giving those who
-  want a jail a path to one.
-- **Evaluator-protocol maturation.** Harden `/review-team`'s behavioral
-  evaluator contract (chrome-devtools MCP) and its hard-gate semantics.
-- **Cross-session vision↔task sync loop.** A lightweight ritual (or `/loop`) that
-  reconciles this VISION's Open Threads with active tasks and memory each session.
+### Now — verified defects and unlanded work
+
+1. **Fix the dead `.sdd-sync-ref` on the template line.** `origin/main` ships
+   `.sdd-sync-ref = 6c4c420`, a commit reachable from **neither** `origin/main`
+   nor `origin/dev-main` — a local-only artifact of the sanitizing promote flow.
+   A fresh cloner therefore gets an unresolvable ref and **`/update-framework`
+   cannot work for any new user**. Highest severity, smallest fix; distribution
+   is a stated pillar and is currently broken at step one. Also add a guard so
+   `/promote` cannot emit an unreachable ref again.
+
+2. **Fix the `.gitignore` portability bug.** Committed `.gitignore` has `.local/`
+   and `*.local`, and `*.local` matches **neither** `settings.local.json` nor
+   `CLAUDE.local.md`. They are ignored on the maintainer's machine only via a
+   personal global ignore. A cloner would **commit their own local overrides**,
+   breaking the Pillar-7 preservation model before it starts. Two lines.
+
+3. **Land the uncommitted increment on `dev-main`** (17 untracked + 6 modified
+   files): the project-graph stack (`build-graph-bridge.sh`, `lint-graph.sh`,
+   `/graph` + `project-graph` skill, `graph-bridge.jsonl`, 13/13 green), the
+   `guard-dangerous-commands.sh` bash-4 re-exec fix, the advisory `/finalize`
+   graph lint, CI wiring, and the two exploration feature folders. Resolve
+   thread 4 first — it decides file placement.
+
+4. **Resolve the graph's layer placement.** Both designs agree the graph should
+   be a **`loom-graph` package**; the code as built lives in core
+   (`.logic-loom/scripts/bash/`) plus `loom-orchestrator`, matching neither — and
+   growing the core that Pillar 7 is trying to shrink. The
+   build-vs-adopt question is already settled (keep the deterministic bespoke
+   harvester; Understand-Anything and Obsidian are user-layer-only) — only
+   placement is open.
+
+5. **Register `artifacts/` as a first-class directory.** The new repo-root
+   `artifacts/` (who/what/why/where — vision, research, forensics, docs; never
+   a plan) is untracked and absent from `CLAUDE.md`'s directory structure and
+   the file-structure policy.
+
+6. **Fix the one failing contract assertion** —
+   `test_update_framework.sh`: "Help text mentions release tags" (cosmetic;
+   461/462 otherwise green). Pairs naturally with thread 1.
+
+### Next — the thin-core / preservation track
+
+7. **Core-paths manifest + constitution split.** Add
+   `.logic-loom/config/core-paths.manifest` (CORE globs vs USER denylist, CORE
+   evaluated first for rename safety) and one `extract-proposals.sh` filter that
+   demotes denylist hits to info-only. Split user amendments into
+   `.logic-loom/memory/amendments.md` (never overwritten; immutable I–III
+   un-overridable, lint-enforced) with the effective constitution injected as
+   core ∪ amendments. Turns "never touch user files" from incidental to declared.
+
+8. **Add `marketplace.json`.** None exists anywhere — the single biggest gap in
+   the two-tier update model. One file makes the repo its own marketplace so
+   packs update via native `/plugin update` while the core updates via
+   `/update-framework`. Omit `loom-governance` from `plugins[]`; the floor stays
+   root-anchored and un-disable-able.
+
+9. **`/governance-health` self-check + per-surface conformance matrix.** Actually
+   trigger each floor hook and report which fired, on whatever surface you're on.
+   This is what makes Pillar 4's "degrade visibly" real, and it is the honest
+   answer to the Windows-without-Git-Bash silent-absence case.
+
+10. **Empirically confirm the cloud floor.** Docs say repo-committed hooks clone
+    and fire in cloud sessions; run one trivial PreToolUse `deny` hook in a cloud
+    session to *prove* it before advertising uniform enforcement — and check
+    whether managed-settings `allowManagedHooksOnly` silently de-authorizes a
+    cloned repo's hooks under an org policy.
+
+### Later — durable-value expansion
+
+11. **Observability surface.** The SubagentStop hook is still a benign stub.
+    Build a real, low-overhead stream (subagent lifecycle, hook decisions, cost)
+    — Principle VII made tangible.
+
+12. **Cost discipline / preview.** Token and cost budgets plus a pre-flight
+    estimate for swarm/workflow fan-outs.
+
+13. **Contain the documented freeze residual.** The Bash-redirect escape of
+    freeze file-ownership is known and documented; decide between extending
+    freeze to the Bash write-path and accept-and-monitor.
+
+14. **Memory as a graph, not a keyword index.** Harvest the temporal edge
+    vocabulary (`SUPERSEDES`/`CORRECTS`/`RETAINED`/`REMOVED`) the bridge
+    currently emits zero of, and wire 1-hop expansion into
+    `keyword-backend.sh` so author-written edges stop being dead metadata.
+    Subsumes the older "lineage-based memory compression" thread.
+
+15. **Opt-in execution sandbox.** A real isolation layer for untrusted execution,
+    offered opt-in — keeps "floor, not sandbox" honest while giving those who
+    want a jail a path to one.
+
+16. **Evaluator-protocol maturation.** Harden `/review-team`'s behavioral
+    evaluator contract (chrome-devtools MCP) and its hard-gate semantics.
+
+17. **Tool registration-vs-exposure separation.** Register many tools, expose few
+    per-agent. Assess fit for swarm workers.
+
+18. **Cross-session vision↔task sync loop.** A lightweight ritual (or `/loop`)
+    reconciling these Open Threads with active tasks and memory each session —
+    the mechanism that would have caught this document going 6 weeks stale.
 
 ## Keeping this document alive
 
@@ -173,12 +313,14 @@ This file is the project's steering anchor across sessions. Maintenance protocol
    and project memory. Treat the North Star + Pillars as standing constraints.
 2. **To generate work**, pull from *Open Threads* (and unmet *success* metrics)
    into a `features/<name>/vision.md` or a task list — don't expand scope here.
-3. **After each milestone**, update *Recent shifts*, *Current state* header
-   (version/date/framework state), and prune/extend *Open Threads*. Bump the
-   document **Version** and **Last updated**.
+3. **After each milestone**, update *Recent shifts*, the *Framework state* header
+   (version/date/branch), and prune/extend *Open Threads*. Bump the document
+   **Version** and **Last updated**.
 4. **When a decision lands**, record it in memory and reflect its consequence in
    the relevant Pillar or Thread — so the next session inherits it.
-5. **Keep it short.** If a section is growing acceptance criteria or schemas, it
+5. **When a claim here is superseded, revise it in place and say so** (see
+   Pillar 6) rather than leaving a stale absolute standing.
+6. **Keep it short.** If a section is growing acceptance criteria or schemas, it
    belongs in a PRD/plan, not here.
 
 ---
