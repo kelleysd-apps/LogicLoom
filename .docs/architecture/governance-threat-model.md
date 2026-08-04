@@ -137,12 +137,19 @@ the same verdict functions**.
 >   `Stop`/`SubagentStop` hooks and may therefore be silently non-firing) and
 >   their tests, after empirically confirming whether Claude Code loads either,
 >   is a tracked follow-up — not a floor dependency.
-> - **`guard-dangerous-commands.sh` fails OPEN below bash 4** (its policy lib needs
->   associative arrays; macOS system bash is 3.2). It now re-execs into a bash 4+
->   when one is installed (e.g. Homebrew); on a machine with only system bash the
->   dangerous-command policy is **NOT enforced**. The git / governance / freeze
->   gates are unaffected — they fail *safe*. Installing bash 4+ closes it; a
->   `/governance-health` self-test is the intended loud signal.
+> - **`guard-dangerous-commands.sh` — bash<4 fail-open is CLOSED.** Previously the
+>   policy lib needed bash 4+ (associative arrays, `declare -g`) while macOS ships
+>   3.2, so the dangerous-command policy was silently **unenforced** on stock
+>   macOS. `logging.sh` and `policy.sh` are now bash 3.2 compatible (`LOG_LEVELS`
+>   is a `case`; the unused `POLICY_CACHE` was removed; `declare -g` → plain
+>   top-level assignment), and the hook no longer gates on `BASH_VERSINFO`.
+>   Verified on `/bin/bash 3.2.57`: `rm -rf /` → `deny`, force-push to main →
+>   `deny`, `ls -la` → `allow`, in both CLI and PreToolUse modes. A re-exec into
+>   bash 4+ is retained as belt-and-braces when one is installed, but is no longer
+>   load-bearing. **Remaining fail-open is narrow**: a missing/unsourceable policy
+>   file or an absent `validate_tool_call` — genuine breakage, not a supported
+>   configuration. A `/governance-health` self-test is still the intended loud
+>   signal for those.
 
 > **Adapter-conformance contract.** A host's matrix cell may NOT be labeled
 > "enforced" until its adapter passes a shared **golden-fixture test** (golden
