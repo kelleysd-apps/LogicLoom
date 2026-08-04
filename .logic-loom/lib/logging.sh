@@ -29,13 +29,9 @@ COLOR_WARN='\033[0;33m'     # Yellow
 COLOR_ERROR='\033[0;31m'    # Red
 COLOR_BOLD='\033[1m'
 
-# Log level priorities (for filtering)
-declare -A LOG_LEVELS=(
-    [DEBUG]=0
-    [INFO]=1
-    [WARN]=2
-    [ERROR]=3
-)
+# Log level priorities (for filtering).
+# Expressed as a case rather than an associative array so this lib loads on
+# bash 3.2 — macOS ships 3.2 as /bin/bash, and `declare -A` is bash 4+ only.
 
 # ==============================================================================
 # Private Functions
@@ -44,7 +40,13 @@ declare -A LOG_LEVELS=(
 # Get current log level priority
 _get_log_level_priority() {
     local level="${1:-INFO}"
-    echo "${LOG_LEVELS[$level]:-1}"
+    case "$level" in
+        DEBUG) echo 0 ;;
+        INFO)  echo 1 ;;
+        WARN)  echo 2 ;;
+        ERROR) echo 3 ;;
+        *)     echo 1 ;;   # unknown level → INFO, matching the old :-1 default
+    esac
 }
 
 # Check if message should be logged based on level

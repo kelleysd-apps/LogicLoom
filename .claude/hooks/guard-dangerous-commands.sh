@@ -29,12 +29,13 @@ fail_open() { # never block on infrastructure gaps
     exit 0
 }
 
-# policy.sh / logging.sh require bash 4+ (associative arrays, declare -g). On
-# older bash (macOS system bash is 3.2) the libs can't load. Before failing open,
-# try to re-exec under a bash 4+ if one is installed at a well-known location —
-# this makes the guard actually ENFORCE on machines that have modern bash but
-# default to system 3.2 on PATH. LOOM_GUARD_REEXEC prevents an exec loop; we only
-# re-exec into a binary verified to be executable and bash-major >= 4.
+# policy.sh / logging.sh are now bash 3.2 compatible, so the guard ENFORCES on
+# stock macOS (system bash is 3.2) with no install required. This re-exec is kept
+# as belt-and-braces: when a bash 4+ is installed we prefer it, so the libs run on
+# the interpreter they are primarily developed and CI-tested against.
+# LOOM_GUARD_REEXEC prevents an exec loop; we only re-exec into a binary verified
+# to be executable and bash-major >= 4. Falling through here is NOT a failure —
+# execution continues on 3.2 and the policy is still applied.
 if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 && -z "${LOOM_GUARD_REEXEC:-}" ]]; then
     for _b in /opt/homebrew/bin/bash /usr/local/bin/bash; do
         [[ -x "$_b" ]] || continue
@@ -45,12 +46,13 @@ if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 && -z "${LOOM_GUARD_REEXEC:-}" ]]; then
     unset _b
 fi
 
-# Still on bash < 4 (no modern bash found) — the policy lib cannot load, so fail
-# open quietly rather than spam stderr on every Bash call or block. Only the
-# dangerous-command policy is unenforced here; git-safety-gate.sh and the other
-# guards gate independently and fail SAFE. See governance-threat-model.md
-# (floor residuals) — a /governance-health self-test is the intended loud signal.
-if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 || ! -f "$POLICY_LIB" ]]; then
+# Fail open ONLY on a genuine infrastructure gap — the policy file itself is
+# missing. Bash version is deliberately NOT a condition any more: the libs load on
+# 3.2, so gating on it here would disable enforcement on every stock macOS box.
+# The remaining fail-open paths below (unsourceable lib, absent validate_tool_call)
+# are real breakage, not a supported configuration. git-safety-gate.sh and the
+# other guards gate independently and fail SAFE. See governance-threat-model.md.
+if [[ ! -f "$POLICY_LIB" ]]; then
     [[ $# -gt 0 ]] && exit 0   # CLI mode: no opinion
     fail_open
 fi

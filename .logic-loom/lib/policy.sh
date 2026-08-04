@@ -26,9 +26,11 @@ else
     log_error() { echo "[ERROR] $1" >&2; }
 fi
 
-# Cache for loaded policy
-declare -g POLICY_LOADED=false
-declare -gA POLICY_CACHE
+# Cache for loaded policy.
+# Plain top-level assignment (not `declare -g`) so this lib loads on bash 3.2 —
+# macOS ships 3.2 as /bin/bash, and `declare -g` is a bash 4+ builtin option. At
+# script scope a plain assignment is already global, so behaviour is identical.
+POLICY_LOADED=false
 
 # ==============================================================================
 # JSON Parsing Helper

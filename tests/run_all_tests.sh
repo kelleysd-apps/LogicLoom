@@ -7,6 +7,11 @@ TOTAL_PASS=0
 TOTAL_FAIL=0
 TOTAL_SUITES=0
 FAILED_SUITES=""
+# Suites that exited non-zero WITHOUT emitting a parseable "Results: x/y" line —
+# i.e. they crashed before reporting (missing interpreter feature, syntax error,
+# absent file). Their assertions are counted nowhere, so they must gate the exit
+# code independently or a wholly broken suite reads as green.
+CRASHED_SUITES=0
 
 run_suite() {
   local name="$1"
@@ -23,8 +28,10 @@ run_suite() {
   echo "$output"
   
   # Parse results from output
+  parsed=false
   results_line=$(echo "$output" | grep -E "Results:|pass.*fail" | tail -1)
   if echo "$results_line" | grep -qE "[0-9]+/[0-9]+"; then
+    parsed=true
     passed=$(echo "$results_line" | grep -oE "[0-9]+" | head -1)
     total=$(echo "$results_line" | grep -oE "[0-9]+" | head -2 | tail -1)
     failed=$(echo "$results_line" | grep -oE "[0-9]+" | tail -1)
@@ -32,14 +39,20 @@ run_suite() {
     TOTAL_FAIL=$((TOTAL_FAIL + failed))
   elif echo "$output" | grep -q "^ℹ pass"; then
     # Node.js test runner format
+    parsed=true
     passed=$(echo "$output" | grep "^ℹ pass" | grep -oE "[0-9]+")
     failed=$(echo "$output" | grep "^ℹ fail" | grep -oE "[0-9]+")
     TOTAL_PASS=$((TOTAL_PASS + ${passed:-0}))
     TOTAL_FAIL=$((TOTAL_FAIL + ${failed:-0}))
   fi
-  
+
   if [ $exit_code -ne 0 ]; then
     FAILED_SUITES="${FAILED_SUITES}  ❌ ${name}\n"
+    # Crashed before reporting: contributes 0 to TOTAL_FAIL, so track separately.
+    if [ "$parsed" = false ]; then
+      CRASHED_SUITES=$((CRASHED_SUITES + 1))
+      FAILED_SUITES="${FAILED_SUITES}     ↳ crashed before reporting (exit ${exit_code})\n"
+    fi
   fi
 }
 
@@ -75,9 +88,11 @@ printf "║   Suites: %-3s                                 ║\n" "$TOTAL_SUITES
 printf "║   Passed: %-3s                                 ║\n" "$TOTAL_PASS"
 printf "║   Failed: %-3s                                 ║\n" "$TOTAL_FAIL"
 printf "║   Total:  %-3s                                 ║\n" "$((TOTAL_PASS + TOTAL_FAIL))"
+[ $CRASHED_SUITES -ne 0 ] && \
+  printf "║   Crashed suites: %-3s (assertions uncounted)  ║\n" "$CRASHED_SUITES"
 echo "║                                               ║"
 
-if [ $TOTAL_FAIL -eq 0 ]; then
+if [ $TOTAL_FAIL -eq 0 ] && [ $CRASHED_SUITES -eq 0 ]; then
   echo "║   ✅ ALL TESTS PASSING                        ║"
 else
   echo "║   ❌ FAILURES DETECTED                        ║"
@@ -91,4 +106,4 @@ fi
 echo "║                                               ║"
 echo "╚═══════════════════════════════════════════════╝"
 
-[ $TOTAL_FAIL -eq 0 ] && exit 0 || exit 1
+[ $TOTAL_FAIL -eq 0 ] && [ $CRASHED_SUITES -eq 0 ] && exit 0 || exit 1
