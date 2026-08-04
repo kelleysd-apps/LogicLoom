@@ -113,3 +113,6 @@ __pycache__/
 *.pyo
 *.egg-info/
 .loom-worktree-env
+
+# Local git worktrees (machine-specific; would be committed as a gitlink)
+.claude/worktrees/

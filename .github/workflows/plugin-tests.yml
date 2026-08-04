@@ -51,6 +51,9 @@ jobs:
       - name: Run Model Agnosticism Tests
         run: bash tests/contract/test_model_agnostic.sh
 
+      - name: Run Graph Bridge Tests
+        run: bash tests/contract/test_graph_bridge.sh
+
       - name: Validate All Manifests
         run: |
           python3 -c "

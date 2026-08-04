@@ -113,6 +113,37 @@ as the subagent-deny substitute, since `agent_id` is a Claude-internal signal no
 other host emits; a CI gate; or the host's native pre-tool-use hook) **calling
 the same verdict functions**.
 
+> **Floor housing + honest residuals (Claude Code reference adapter).**
+> - **"Root-anchored" describes the *wiring*, not the file location.** All four
+>   PreToolUse guarantees are wired from **`.claude/settings.json` at the repo
+>   root** — the single source of truth, and what makes them undisableable (a
+>   plugin can be `/plugin disable`d; a root hook cannot). Three guard *scripts*
+>   (`protect-governance-files.sh`, `subagent-git-guard.sh`, `git-safety-gate.sh`)
+>   physically live under `plugins/loom-governance/hooks/scripts/` but run because
+>   the **root** wiring invokes them by path. Consequence worth knowing:
+>   **uninstalling `loom-governance` (removing the files, not merely disabling it)
+>   would leave the root wiring pointing at missing scripts** — those hooks would
+>   then error non-blocking and the floor would silently thin. Moving the three
+>   into `.claude/hooks/` so the floor is self-contained is the durable fix
+>   (deferred). A per-plugin `hooks/hooks.json` must **never** be a second wiring
+>   source. `loom-governance` ships one anyway, in an **undocumented flat-array
+>   shape** (`{hooks:[{event,matcher,command}]}`) that Claude Code's canonical
+>   schema (object keyed by event, `hooks:[{type,command}]`) does not define — so
+>   it is almost certainly **inert**, and the floor holds only because root wires
+>   the same three scripts. It is **retained** (the contract test
+>   `test_plugin_lifecycle.sh` asserts its existence) and recorded here as
+>   **non-authoritative**. Reconciling the shape across both plugin hooks files
+>   (`loom-governance`, `loom-orchestrator` — which uses the same shape for its
+>   `Stop`/`SubagentStop` hooks and may therefore be silently non-firing) and
+>   their tests, after empirically confirming whether Claude Code loads either,
+>   is a tracked follow-up — not a floor dependency.
+> - **`guard-dangerous-commands.sh` fails OPEN below bash 4** (its policy lib needs
+>   associative arrays; macOS system bash is 3.2). It now re-execs into a bash 4+
+>   when one is installed (e.g. Homebrew); on a machine with only system bash the
+>   dangerous-command policy is **NOT enforced**. The git / governance / freeze
+>   gates are unaffected — they fail *safe*. Installing bash 4+ closes it; a
+>   `/governance-health` self-test is the intended loud signal.
+
 > **Adapter-conformance contract.** A host's matrix cell may NOT be labeled
 > "enforced" until its adapter passes a shared **golden-fixture test** (golden
 > inputs → expected `allow|ask|deny` for each verdict function). Until an adapter

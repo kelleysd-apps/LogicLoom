@@ -29,10 +29,27 @@ fail_open() { # never block on infrastructure gaps
     exit 0
 }
 
-# policy.sh / logging.sh require bash 4+ (associative arrays, declare -g).
-# On older bash (e.g. macOS system bash 3.2) the libs cannot load — fail open
-# quietly rather than spam stderr or block. git-safety-gate.sh handles the
-# critical git gating independently of this library.
+# policy.sh / logging.sh require bash 4+ (associative arrays, declare -g). On
+# older bash (macOS system bash is 3.2) the libs can't load. Before failing open,
+# try to re-exec under a bash 4+ if one is installed at a well-known location —
+# this makes the guard actually ENFORCE on machines that have modern bash but
+# default to system 3.2 on PATH. LOOM_GUARD_REEXEC prevents an exec loop; we only
+# re-exec into a binary verified to be executable and bash-major >= 4.
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 && -z "${LOOM_GUARD_REEXEC:-}" ]]; then
+    for _b in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+        [[ -x "$_b" ]] || continue
+        if [[ "$("$_b" -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null)" -ge 4 ]]; then
+            LOOM_GUARD_REEXEC=1 exec "$_b" "$0" "$@"
+        fi
+    done
+    unset _b
+fi
+
+# Still on bash < 4 (no modern bash found) — the policy lib cannot load, so fail
+# open quietly rather than spam stderr on every Bash call or block. Only the
+# dangerous-command policy is unenforced here; git-safety-gate.sh and the other
+# guards gate independently and fail SAFE. See governance-threat-model.md
+# (floor residuals) — a /governance-health self-test is the intended loud signal.
 if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 || ! -f "$POLICY_LIB" ]]; then
     [[ $# -gt 0 ]] && exit 0   # CLI mode: no opinion
     fail_open
