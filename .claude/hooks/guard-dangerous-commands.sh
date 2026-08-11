@@ -78,12 +78,19 @@ if [[ $# -gt 0 ]]; then
         2) echo "[BLOCKED] $COMMAND" >&2; display_policy_violation "$result" >&2; exit 1 ;;
         3) echo "[APPROVAL REQUIRED] $COMMAND" >&2; exit 1 ;;
         4) echo "[WARNING] $COMMAND" >&2; exit 0 ;;
+        5) echo "[POLICY UNAVAILABLE] cannot evaluate: $COMMAND" >&2; exit 1 ;;
         *) exit 0 ;;
     esac
 fi
 
 # ----- PreToolUse hook mode -----
 INPUT=$(cat)
+# jq absent/broken would previously yield an empty COMMAND and silently allow — a
+# fail-OPEN on a missing dependency. Distinguish "no jq" from "payload has no command".
+if ! command -v jq >/dev/null 2>&1; then
+    emit ask "Dangerous-command policy could not read the tool payload (jq unavailable); approve only if you are sure."
+    exit 0
+fi
 COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // .command // empty' 2>/dev/null || true)
 [[ -z "$COMMAND" ]] && { emit allow; exit 0; }
 
@@ -91,5 +98,7 @@ set +e; result=$(validate_tool_call "$COMMAND" 2>/dev/null); ec=$?; set -e 2>/de
 case "$ec" in
     2) emit deny "Policy violation: $result" ;;
     3) emit ask  "Policy requires explicit approval for: $COMMAND" ;;
+    # Matcher dependency missing — degrade to human approval, never a silent allow.
+    5) emit ask  "Dangerous-command policy could not be evaluated (matcher unavailable); approve only if you are sure: $COMMAND" ;;
     *) emit allow ;;
 esac
