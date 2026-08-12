@@ -12,6 +12,12 @@ FAILED_SUITES=""
 # absent file). Their assertions are counted nowhere, so they must gate the exit
 # code independently or a wholly broken suite reads as green.
 CRASHED_SUITES=0
+# Any suite that exits nonzero, regardless of whether its output parsed as a
+# results line. Guards against a suite that PRINTS a passing "Results: N/N"
+# line (e.g. cleanup happens before the trap-triggering failure) but then
+# exits nonzero itself — that case parses fine, so CRASHED_SUITES alone
+# would miss it and let the run report green.
+NONZERO_EXITS=0
 
 run_suite() {
   local name="$1"
@@ -48,10 +54,13 @@ run_suite() {
 
   if [ $exit_code -ne 0 ]; then
     FAILED_SUITES="${FAILED_SUITES}  ❌ ${name}\n"
+    NONZERO_EXITS=$((NONZERO_EXITS + 1))
     # Crashed before reporting: contributes 0 to TOTAL_FAIL, so track separately.
     if [ "$parsed" = false ]; then
       CRASHED_SUITES=$((CRASHED_SUITES + 1))
       FAILED_SUITES="${FAILED_SUITES}     ↳ crashed before reporting (exit ${exit_code})\n"
+    else
+      FAILED_SUITES="${FAILED_SUITES}     ↳ suite exited nonzero (exit ${exit_code}) despite parsed results\n"
     fi
   fi
 }
@@ -73,6 +82,9 @@ run_suite "Orchestration Hook" "bash tests/contract/test_orchestration_hook.sh"
 run_suite "Memory Search" "bash tests/contract/test_memory_search.sh"
 run_suite "Update Framework" "bash tests/contract/test_update_framework.sh"
 run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.sh"
+run_suite "Product Workspace Boundary" "bash tests/contract/test_product_workspace_boundary.sh"
+run_suite "Model Agnosticism" "bash tests/contract/test_model_agnostic.sh"
+run_suite "Graph Bridge" "bash tests/contract/test_graph_bridge.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"
@@ -91,9 +103,11 @@ printf "║   Failed: %-3s                                 ║\n" "$TOTAL_FAIL"
 printf "║   Total:  %-3s                                 ║\n" "$((TOTAL_PASS + TOTAL_FAIL))"
 [ $CRASHED_SUITES -ne 0 ] && \
   printf "║   Crashed suites: %-3s (assertions uncounted)  ║\n" "$CRASHED_SUITES"
+[ $NONZERO_EXITS -ne 0 ] && \
+  printf "║   Nonzero exits:  %-3s                         ║\n" "$NONZERO_EXITS"
 echo "║                                               ║"
 
-if [ $TOTAL_FAIL -eq 0 ] && [ $CRASHED_SUITES -eq 0 ]; then
+if [ $TOTAL_FAIL -eq 0 ] && [ $CRASHED_SUITES -eq 0 ] && [ $NONZERO_EXITS -eq 0 ]; then
   echo "║   ✅ ALL TESTS PASSING                        ║"
 else
   echo "║   ❌ FAILURES DETECTED                        ║"
@@ -107,4 +121,4 @@ fi
 echo "║                                               ║"
 echo "╚═══════════════════════════════════════════════╝"
 
-[ $TOTAL_FAIL -eq 0 ] && [ $CRASHED_SUITES -eq 0 ] && exit 0 || exit 1
+[ $TOTAL_FAIL -eq 0 ] && [ $CRASHED_SUITES -eq 0 ] && [ $NONZERO_EXITS -eq 0 ] && exit 0 || exit 1

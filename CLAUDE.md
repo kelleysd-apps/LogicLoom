@@ -395,6 +395,33 @@ gates (the silent collisions documented in
 and feature work (`features/<name>/`) are tracked. Full rule:
 `.docs/policies/file-structure-policy.md` (§ Product Workspace).
 
+### Harness ↔ user boundary
+
+Sibling concept to the product boundary above, on the other side: **LogicLoom
+never writes to `~/.claude/`.** The harness governs this repo only — its hooks,
+constitution, plugins, and commands are all in-repo. Never edit a user's global
+`CLAUDE.md`, `settings.json`, hooks, commands, or agents; if a change belongs
+there, say so and let the user make it.
+
+**Personal working preferences** — how the assistant talks to them, persona,
+response shape, their own model/orchestration taste, their own global hooks —
+belong in `~/.claude/CLAUDE.md`. The project `CLAUDE.md` is for repo-specific
+facts only, since every cloner reads it. Note that plugin commands like
+`/cross-check` don't travel with those preferences — they exist only inside a
+LogicLoom project.
+
+**Hooks compose**: user-level hooks and this repo's governance hooks both fire,
+and decisions combine most-restrictive. A personal hook cannot weaken the
+governance floor (Principle VI and the protected-surface hooks still hold), but
+it can add friction of its own.
+
+**Versioning personal config**: `~/.claude/` should stay out of git — it holds
+session state and secrets-adjacent material. The workable pattern is a separate
+private repo of *reference copies* for manual diffing; the tradeoff is that those
+copies drift silently from the live files unless the user adds their own check.
+Do not recommend symlinking or automating it, and do not ship tooling for it.
+User-facing version: `START_HERE.md` § *Where do my personal preferences go?*
+
 ### Naming conventions
 
 | Type | Pattern | Example |

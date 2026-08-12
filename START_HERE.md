@@ -177,6 +177,45 @@ its own `package.json`, `node_modules`, build, and test runner. Don't put produc
 source at the repo root or share the root `package.json` / `tests/`. Full rule:
 `.docs/policies/file-structure-policy.md` (§ Product Workspace).
 
+### Where do my personal preferences go?
+
+**LogicLoom never writes to `~/.claude/`.** The harness governs this repository —
+its hooks, constitution, plugins, and commands all live in-repo. Your personal
+Claude Code layer stays yours; nothing in setup, `/initialize-project`, or
+`/update-framework` touches it.
+
+That means the two layers have different jobs:
+
+| Layer | Lives in | Holds |
+|-------|----------|-------|
+| **Harness** | this repo (`.claude/`, `.logic-loom/`, `plugins/`, `CLAUDE.md`) | Repo-specific facts, governance, workflow packs |
+| **You** | `~/.claude/` (`CLAUDE.md`, `settings.json`, your hooks/commands/agents) | How the assistant talks to you, persona, response shape, your own model/orchestration taste, your global hooks |
+
+Put working preferences in `~/.claude/CLAUDE.md`, not the project `CLAUDE.md` —
+the project file is read by everyone who clones the repo, so it should carry only
+repo-specific facts.
+
+**Hooks compose.** Your user-level hooks and LogicLoom's project hooks both fire,
+and their decisions combine most-restrictive. A personal hook therefore cannot
+weaken the governance floor, but it can add friction of its own — worth knowing
+when a command is blocked and the deny message isn't one of LogicLoom's.
+
+**Commands don't travel with you.** `/cross-check` is a LogicLoom plugin command,
+so it exists only inside a LogicLoom project. If you put adversarial-review
+instructions in your own `~/.claude/CLAUDE.md`, they will also run in projects
+that have no `/cross-check` — and no governance floor. Inside a LogicLoom project,
+use `/cross-check`; outside one, if you call an external model's CLI directly,
+pass that provider's read-only sandbox flag (for Codex, `--sandbox read-only
+--ask-for-approval never`). The harness's hooks cannot see inside a CLI
+subprocess, so that flag is the only thing keeping the external model read-only.
+
+**Versioning your personal config.** Keep `~/.claude/` itself out of git — it
+holds session state and secrets-adjacent material. If you want a backup, the
+workable pattern is a separate private repo holding *reference copies* you diff
+against by hand. The honest tradeoff: those copies drift silently from the live
+files unless you add your own check. LogicLoom ships no tooling for this and
+does not automate it.
+
 ---
 
 ## Where to read next
