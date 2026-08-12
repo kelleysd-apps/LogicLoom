@@ -8,7 +8,13 @@
 #          harness-dev FILES); this scrubs history *within* files that ship.
 #
 # DATA-DRIVEN: all edits live in history-scrub-rules.json (generated from the
-# history-surface classification). Ops: drop-section | delete-line | genericize.
+# history-surface classification).
+# Ops: drop-section | delete-line | delete-line-regex | genericize.
+#   delete-line-regex exists because a LITERAL match of a DATED stamp
+#   ("**Last Updated**: 2026-06-15") silently goes stale the moment the shipped
+#   doc is touched — a missed op is only a warning, so the stamp then survives
+#   into the snapshot and trips leak-guard's HISTORY_MARKERS at release time.
+#   Dated stamps MUST use delete-line-regex (date-agnostic).
 # leak-guard.sh asserts the post-scrub markers are ABSENT (the safety net).
 #
 # DESTRUCTIVE + IDEMPOTENT. Pure text edits — does NOT require git. Runs ONLY in
@@ -81,6 +87,21 @@ def delete_line(text, match):
         out.append(ln)
     return '\n'.join(out), changed
 
+def delete_line_regex(text, pattern):
+    """Drop every full line matching an anchored-nowhere regex (re.search).
+    Date-agnostic counterpart to delete_line, for dated stamps whose literal
+    value drifts (e.g. r'^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}\\s*$')."""
+    try:
+        rx = re.compile(pattern)
+    except re.error:
+        return text, False
+    out, changed = [], False
+    for ln in text.split('\n'):
+        if rx.search(ln):
+            changed = True; continue
+        out.append(ln)
+    return text if not changed else '\n'.join(out), changed
+
 def genericize(text, frm, to):
     """Literal substring replace, ALL occurrences (per coverage note: e.g. the
     3 'Plugin-First Architecture v4.0' sites in constitutional-check.sh)."""
@@ -101,7 +122,8 @@ def collapse(text):
         out.append(ln)
     return '\n'.join(out)
 
-OP = {'drop-section': drop_section, 'delete-line': delete_line, 'genericize': genericize}
+OP = {'drop-section': drop_section, 'delete-line': delete_line,
+      'delete-line-regex': delete_line_regex, 'genericize': genericize}
 
 total_applied = total_missed = files_changed = files_missing = 0
 miss_report = []
@@ -124,6 +146,8 @@ for rule in rules['scrubRules']:
             text, ok = drop_section(text, op['match'])
         elif kind == 'delete-line':
             text, ok = delete_line(text, op['match'])
+        elif kind == 'delete-line-regex':
+            text, ok = delete_line_regex(text, op['match'])
         else:
             ok = False
         if ok:

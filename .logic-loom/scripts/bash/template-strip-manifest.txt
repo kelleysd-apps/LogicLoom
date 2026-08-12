@@ -84,6 +84,22 @@ plugins/loom-maintenance/commands/promote.md
 .logic-loom/plans       # our dev planning (docker-mcp-toolkit-integration.md)
 CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.)
 
+# --- GENERATED project-graph index (derived, repo-specific) ---
+#     .logic-loom/graph/graph-bridge.jsonl is a DERIVED index of THIS repo's
+#     markdown corpus, produced by build-graph-bridge.sh (/graph build, /finalize).
+#     It therefore embeds OUR corpus: node ids + titles for .docs/archive/,
+#     .docs/reports/ (incl. the kelleysd.com private-repo path) and other paths
+#     that are themselves stripped above — i.e. it re-introduces exactly what the
+#     entries above remove. It is also useless to a customer: an index of someone
+#     else's repo. Strip the whole directory (covers sibling generated exports,
+#     e.g. .logic-loom/graph/*.json). Customers regenerate it from their OWN repo
+#     with `/graph build` (or automatically at `/finalize`); build-graph-bridge.sh
+#     mkdir -p's the directory, and tests/contract/test_graph_bridge.sh check (c)
+#     validates the seed only "if present". If a static graph VIEWER is ever
+#     shipped under .logic-loom/graph/, re-scope this entry to the .jsonl/.json
+#     artifacts instead of the directory.
+.logic-loom/graph
+
 # --- LogicLoom-contribution scaffolding (about contributing TO the harness, not
 #     a customer's own project) ---
 .github/ISSUE_TEMPLATE

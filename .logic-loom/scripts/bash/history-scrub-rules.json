@@ -23,8 +23,8 @@
           "note": "Embedded changelog. Drop heading through the trailing '---' before the Framework/Constitution footer; collapse the resulting duplicate '---' separators."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-05-31",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated footer stamp. KEEP the adjacent Framework/Constitution/Architecture/Runtime identity lines."
         }
@@ -34,8 +34,8 @@
       "path": "AGENTS.md",
       "ops": [
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-06-15",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated header stamp. KEEP Version/Constitution/Architecture/Total Agents/Plugins identity lines."
         },
@@ -256,14 +256,14 @@
       "path": ".docs/guides/FRAMEWORK_SYNC_GUIDE.md",
       "ops": [
         {
-          "op": "delete-line",
-          "match": "**Date**: 2026-01-09",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Date\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated header stamp."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-01-09",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated footer stamp. KEEP the '**Version**: 1.0.0' identity line above it."
         }
@@ -381,8 +381,8 @@
           "note": "Dated amendment-history line. KEEP the title 'LogicLoom Constitution v3.2.0' and '**Status**: RATIFIED'."
         },
         {
-          "op": "delete-line",
-          "match": "**Effective Date**: 2026-01-13",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Effective Date\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         },
@@ -434,8 +434,8 @@
       "path": ".logic-loom/memory/constitution_update_checklist.md",
       "ops": [
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2025-11-06",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp. KEEP the blank '**Date**: _________' form fields (user-fillable scaffold)."
         }
@@ -445,8 +445,8 @@
       "path": ".logic-loom/memory/agent-collaboration-triggers.md",
       "ops": [
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-02-15",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         },
@@ -502,8 +502,8 @@
           "note": "Bump stale constitution pointer."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2025-11-07",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated template stamp."
         }
@@ -536,14 +536,14 @@
           "note": "Remove '(NEW - Sprint 3)' dev-process marker."
         },
         {
-          "op": "delete-line",
-          "match": "**Created**: 2026-01-09 (Sprint 3 Task T028)",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Created\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated/Sprint stamp. KEEP '**Module Version**: 2.0.0' and '**Constitutional Authority**'."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-02-07",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         },
@@ -565,14 +565,14 @@
           "note": "Strip version-evolution tag from generation comment."
         },
         {
-          "op": "delete-line",
-          "match": "**Created**: 2026-01-09 (Sprint 3 Task T024)",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Created\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated/Sprint stamp."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-02-07",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         },
@@ -606,8 +606,8 @@
           "note": "Remove 'replaced the former sdd-domain-*' narrative; keep domain list."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-02-15",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp. KEEP Module Version/Architecture/Authority lines."
         }
@@ -629,14 +629,14 @@
           "note": "Remove replacement narrative; describe current state."
         },
         {
-          "op": "delete-line",
-          "match": "**Created**: 2026-01-09 (Sprint 3 Task T024)",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Created\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated/Sprint stamp."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-02-07",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         },
@@ -670,14 +670,14 @@
           "note": "Strip version-evolution tag from generation comment."
         },
         {
-          "op": "delete-line",
-          "match": "**Created**: 2026-01-09 (Sprint 3 Task T024)",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Created\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated/Sprint stamp."
         },
         {
-          "op": "delete-line",
-          "match": "**Last Updated**: 2026-02-07",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         },
@@ -762,8 +762,8 @@
           "note": "Per-agent changelog table. Drop heading through the trailing '---'. KEEP '**Agent Version**: 1.0.0'."
         },
         {
-          "op": "delete-line",
-          "match": "**Created**: 2025-12-05",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Created\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp. KEEP the Agent Version identity line."
         }
@@ -779,8 +779,8 @@
           "note": "Per-agent changelog table incl. 'v5.0 Architecture' / constitution-version evolution. Drop heading through the trailing '---'. KEEP '**Agent Version**: 1.2.0'."
         },
         {
-          "op": "delete-line",
-          "match": "**Created**: 2025-09-18",
+          "op": "delete-line-regex",
+          "match": "^\\*\\*Created\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
         }
