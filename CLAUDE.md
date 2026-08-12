@@ -335,10 +335,16 @@ plugins/                               # See registry above
 features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
 specs/                                 # SDD pack: waterfall specs
 
+web/  (or apps/<name>/)                # Product app (own package.json) — see Harness ↔ product boundary
+
 .docs/
   architecture/loom-architecture.md    # Full architectural reference (LogicLoom shape)
   policies/
 ```
+
+The repo root (`package.json`, `tests/`, `.claude/`, `.logic-loom/`, `plugins/`)
+is **framework-owned**; product application code lives in `web/` / `apps/<name>/`.
+See **Harness ↔ product boundary** under File Creation Rules.
 
 ### Workflow scripts
 
@@ -365,6 +371,50 @@ Pre-commit compliance check:
 3. **Templates First**: Use `.logic-loom/templates/` when available
 4. **Absolute Paths**: Always use absolute paths from repository root
 5. **No Proactive Docs**: Never create README.md or other documentation files unless explicitly requested
+
+### Harness ↔ product boundary
+
+The **framework owns the repo root** — root `package.json`, `tests/`, `.claude/`,
+`.logic-loom/`, and `plugins/` are framework-owned. **Product application code
+lives in its own workspace**, each product-owned with its own `package.json`,
+`node_modules`, build, and test runner:
+
+- **Single app** → `web/`
+- **Monorepo** → `apps/<name>/` (one self-contained workspace per app)
+
+Do **not** put product source at the repo root or share the root
+`package.json` / `tests/` — that trips the framework's jest-glob and coverage
+gates (the silent collisions documented in
+`features/harness-product-boundary/exploration/`). Product specs (`specs/<feature>/`)
+and feature work (`features/<name>/`) are tracked. Full rule:
+`.docs/policies/file-structure-policy.md` (§ Product Workspace).
+
+### Harness ↔ user boundary
+
+Sibling concept to the product boundary above, on the other side: **LogicLoom
+never writes to `~/.claude/`.** The harness governs this repo only — its hooks,
+constitution, plugins, and commands are all in-repo. Never edit a user's global
+`CLAUDE.md`, `settings.json`, hooks, commands, or agents; if a change belongs
+there, say so and let the user make it.
+
+**Personal working preferences** — how the assistant talks to them, persona,
+response shape, their own model/orchestration taste, their own global hooks —
+belong in `~/.claude/CLAUDE.md`. The project `CLAUDE.md` is for repo-specific
+facts only, since every cloner reads it. Note that plugin commands like
+`/cross-check` don't travel with those preferences — they exist only inside a
+LogicLoom project.
+
+**Hooks compose**: user-level hooks and this repo's governance hooks both fire,
+and decisions combine most-restrictive. A personal hook cannot weaken the
+governance floor (Principle VI and the protected-surface hooks still hold), but
+it can add friction of its own.
+
+**Versioning personal config**: `~/.claude/` should stay out of git — it holds
+session state and secrets-adjacent material. The workable pattern is a separate
+private repo of *reference copies* for manual diffing; the tradeoff is that those
+copies drift silently from the live files unless the user adds their own check.
+Do not recommend symlinking or automating it, and do not ship tooling for it.
+User-facing version: `START_HERE.md` § *Where do my personal preferences go?*
 
 ### Naming conventions
 
@@ -411,15 +461,45 @@ no consumer parses it yet). Default flagship: **Opus 4.8**.
 
 | Tier | Use Case |
 |---|---|
-| **opus** (Opus 4.8) | Default for agents; architecture, security, complex reasoning |
-| **sonnet** (Sonnet 4.6) | Cost optimization; high-volume tasks |
-| **haiku** (Haiku) | Quick lookups; formatting; file ops |
+| **frontier** (Fable 5 → Opus 4.8; see models.conf) | Orchestrator tier; plan/reason/delegate (model-agnostic-but-frontier) |
+| **opus** (Opus 4.8; see models.conf) | Default for agents; architecture, security, complex reasoning |
+| **sonnet** (Sonnet 5; see models.conf) | Cost optimization; high-volume tasks |
+| **haiku** (Haiku 4.5; see models.conf) | Quick lookups; formatting; file ops (no `effort` support) |
 
-**Model IDs**: `claude-opus-4-8`, `claude-sonnet-4-6`, `claude-haiku-4-5-20251001`
+**Model IDs** (single source): see `.logic-loom/config/models.conf` — agents select by tier keyword, never a pinned string.
 
 > Orchestration is Claude-Code-native (Anthropic only). Cross-provider models
 > (OpenAI/Gemini) are used solely at the delegated verification layer —
 > `/research` and `/cross-check` — held advisory and read-only.
+
+### Orchestrator + worker ladder
+
+A dev-time delegation pattern: a **frontier orchestrator** plans/reasons/
+delegates over cheaper Claude **workers** that do the bulk execution. Full
+reference: `.docs/architecture/orchestrator-worker-ladder.md`.
+
+| Rung | Tier | Model | Job |
+|---|---|---|---|
+| **Orchestrator** | `frontier` | Fable 5 → Opus 4.8 fallback | Main session. Plans, reasons, delegates, synthesizes. Set via `/model claude-fable-5`. |
+| **deep-reasoner** | `opus` (effort `high`) | Opus 4.8 | Architecture, hard debugging. `.claude/agents/deep-reasoner.md`. |
+| **fast-worker** | `sonnet` (effort `medium`) | Sonnet 5 | Boilerplate, tests, routine edits. `.claude/agents/fast-worker.md`. |
+
+- **Orchestrator = model-agnostic-but-frontier**: a *role* targeting the frontier
+  tier, defaulting to Fable 5 with a one-line downgrade to Opus 4.8 when Fable is
+  unavailable/out of quota (`FRONTIER_MODEL` / `FRONTIER_FALLBACK` in
+  `models.conf`). Never a non-Claude model.
+- **Delegation policy**: reasoning/architecture → `deep-reasoner`; mechanical/
+  boilerplate → `fast-worker`; correctness-critical + scrutiny-inviting → also run
+  `/cross-check`. The orchestrator keeps the decision.
+- **In workflows**: dispatch via `agent(prompt, { agentType: 'deep-reasoner' })`
+  inside `/workflow`; `agent()`'s per-call `effort` gives the dynamic
+  per-dispatch effort that raw Task subagents lack (Claude Code honours only
+  *static* frontmatter `effort:`).
+- **Boundary unchanged**: non-Claude models stay advisory-only (`/research`,
+  `/cross-check`) — the ladder adds no non-Claude workers. Keep the two agents as
+  **project** files (`.claude/agents/`), never plugin agents (which lose
+  `hooks`/`mcpServers`/`permissionMode`). File-based agents load at session
+  start — **restart to pick up edits**.
 
 ---
 
@@ -458,7 +538,7 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 ---
 
 
-**Framework**: logic-loom v6.3.1 (brand: **LogicLoom**)
+**Framework**: logic-loom v6.4.0 (brand: **LogicLoom**)
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

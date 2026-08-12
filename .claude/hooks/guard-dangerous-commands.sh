@@ -29,11 +29,30 @@ fail_open() { # never block on infrastructure gaps
     exit 0
 }
 
-# policy.sh / logging.sh require bash 4+ (associative arrays, declare -g).
-# On older bash (e.g. macOS system bash 3.2) the libs cannot load — fail open
-# quietly rather than spam stderr or block. git-safety-gate.sh handles the
-# critical git gating independently of this library.
-if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 || ! -f "$POLICY_LIB" ]]; then
+# policy.sh / logging.sh are now bash 3.2 compatible, so the guard ENFORCES on
+# stock macOS (system bash is 3.2) with no install required. This re-exec is kept
+# as belt-and-braces: when a bash 4+ is installed we prefer it, so the libs run on
+# the interpreter they are primarily developed and CI-tested against.
+# LOOM_GUARD_REEXEC prevents an exec loop; we only re-exec into a binary verified
+# to be executable and bash-major >= 4. Falling through here is NOT a failure —
+# execution continues on 3.2 and the policy is still applied.
+if [[ "${BASH_VERSINFO[0]:-0}" -lt 4 && -z "${LOOM_GUARD_REEXEC:-}" ]]; then
+    for _b in /opt/homebrew/bin/bash /usr/local/bin/bash; do
+        [[ -x "$_b" ]] || continue
+        if [[ "$("$_b" -c 'echo "${BASH_VERSINFO[0]}"' 2>/dev/null)" -ge 4 ]]; then
+            LOOM_GUARD_REEXEC=1 exec "$_b" "$0" "$@"
+        fi
+    done
+    unset _b
+fi
+
+# Fail open ONLY on a genuine infrastructure gap — the policy file itself is
+# missing. Bash version is deliberately NOT a condition any more: the libs load on
+# 3.2, so gating on it here would disable enforcement on every stock macOS box.
+# The remaining fail-open paths below (unsourceable lib, absent validate_tool_call)
+# are real breakage, not a supported configuration. git-safety-gate.sh and the
+# other guards gate independently and fail SAFE. See governance-threat-model.md.
+if [[ ! -f "$POLICY_LIB" ]]; then
     [[ $# -gt 0 ]] && exit 0   # CLI mode: no opinion
     fail_open
 fi
@@ -59,12 +78,19 @@ if [[ $# -gt 0 ]]; then
         2) echo "[BLOCKED] $COMMAND" >&2; display_policy_violation "$result" >&2; exit 1 ;;
         3) echo "[APPROVAL REQUIRED] $COMMAND" >&2; exit 1 ;;
         4) echo "[WARNING] $COMMAND" >&2; exit 0 ;;
+        5) echo "[POLICY UNAVAILABLE] cannot evaluate: $COMMAND" >&2; exit 1 ;;
         *) exit 0 ;;
     esac
 fi
 
 # ----- PreToolUse hook mode -----
 INPUT=$(cat)
+# jq absent/broken would previously yield an empty COMMAND and silently allow — a
+# fail-OPEN on a missing dependency. Distinguish "no jq" from "payload has no command".
+if ! command -v jq >/dev/null 2>&1; then
+    emit ask "Dangerous-command policy could not read the tool payload (jq unavailable); approve only if you are sure."
+    exit 0
+fi
 COMMAND=$(printf '%s' "$INPUT" | jq -r '.tool_input.command // .command // empty' 2>/dev/null || true)
 [[ -z "$COMMAND" ]] && { emit allow; exit 0; }
 
@@ -72,5 +98,7 @@ set +e; result=$(validate_tool_call "$COMMAND" 2>/dev/null); ec=$?; set -e 2>/de
 case "$ec" in
     2) emit deny "Policy violation: $result" ;;
     3) emit ask  "Policy requires explicit approval for: $COMMAND" ;;
+    # Matcher dependency missing — degrade to human approval, never a silent allow.
+    5) emit ask  "Dangerous-command policy could not be evaluated (matcher unavailable); approve only if you are sure: $COMMAND" ;;
     *) emit allow ;;
 esac

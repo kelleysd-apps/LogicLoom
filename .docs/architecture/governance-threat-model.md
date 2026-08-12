@@ -1,6 +1,6 @@
 # Governance Threat Model & Enforcement Posture
 
-**Status:** v6.3.1 · **Scope:** the hook-enforced governance core.
+**Status:** v6.4.0 · **Scope:** the hook-enforced governance core.
 
 LogicLoom's governance is **hook-enforced** (model-independent), but hooks are a
 **porous floor, not a sandbox**. This document states honestly what the
@@ -112,6 +112,44 @@ pre-push/pre-commit hook; a PATH `git` wrapper that refuses non-interactive git
 as the subagent-deny substitute, since `agent_id` is a Claude-internal signal no
 other host emits; a CI gate; or the host's native pre-tool-use hook) **calling
 the same verdict functions**.
+
+> **Floor housing + honest residuals (Claude Code reference adapter).**
+> - **"Root-anchored" describes the *wiring*, not the file location.** All four
+>   PreToolUse guarantees are wired from **`.claude/settings.json` at the repo
+>   root** — the single source of truth, and what makes them undisableable (a
+>   plugin can be `/plugin disable`d; a root hook cannot). Three guard *scripts*
+>   (`protect-governance-files.sh`, `subagent-git-guard.sh`, `git-safety-gate.sh`)
+>   physically live under `plugins/loom-governance/hooks/scripts/` but run because
+>   the **root** wiring invokes them by path. Consequence worth knowing:
+>   **uninstalling `loom-governance` (removing the files, not merely disabling it)
+>   would leave the root wiring pointing at missing scripts** — those hooks would
+>   then error non-blocking and the floor would silently thin. Moving the three
+>   into `.claude/hooks/` so the floor is self-contained is the durable fix
+>   (deferred). A per-plugin `hooks/hooks.json` must **never** be a second wiring
+>   source. `loom-governance` ships one anyway, in an **undocumented flat-array
+>   shape** (`{hooks:[{event,matcher,command}]}`) that Claude Code's canonical
+>   schema (object keyed by event, `hooks:[{type,command}]`) does not define — so
+>   it is almost certainly **inert**, and the floor holds only because root wires
+>   the same three scripts. It is **retained** (the contract test
+>   `test_plugin_lifecycle.sh` asserts its existence) and recorded here as
+>   **non-authoritative**. Reconciling the shape across both plugin hooks files
+>   (`loom-governance`, `loom-orchestrator` — which uses the same shape for its
+>   `Stop`/`SubagentStop` hooks and may therefore be silently non-firing) and
+>   their tests, after empirically confirming whether Claude Code loads either,
+>   is a tracked follow-up — not a floor dependency.
+> - **`guard-dangerous-commands.sh` — bash<4 fail-open is CLOSED.** Previously the
+>   policy lib needed bash 4+ (associative arrays, `declare -g`) while macOS ships
+>   3.2, so the dangerous-command policy was silently **unenforced** on stock
+>   macOS. `logging.sh` and `policy.sh` are now bash 3.2 compatible (`LOG_LEVELS`
+>   is a `case`; the unused `POLICY_CACHE` was removed; `declare -g` → plain
+>   top-level assignment), and the hook no longer gates on `BASH_VERSINFO`.
+>   Verified on `/bin/bash 3.2.57`: `rm -rf /` → `deny`, force-push to main →
+>   `deny`, `ls -la` → `allow`, in both CLI and PreToolUse modes. A re-exec into
+>   bash 4+ is retained as belt-and-braces when one is installed, but is no longer
+>   load-bearing. **Remaining fail-open is narrow**: a missing/unsourceable policy
+>   file or an absent `validate_tool_call` — genuine breakage, not a supported
+>   configuration. A `/governance-health` self-test is still the intended loud
+>   signal for those.
 
 > **Adapter-conformance contract.** A host's matrix cell may NOT be labeled
 > "enforced" until its adapter passes a shared **golden-fixture test** (golden

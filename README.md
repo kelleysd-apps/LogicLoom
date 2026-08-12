@@ -197,7 +197,18 @@ features/                             # Swarm pack (per-feature folders)
     +-- retro.md
 
 specs/                                # SDD waterfall pack (per-feature folders)
+
+web/  (or apps/<name>/)               # Product app workspace (own package.json) — see below
 ```
+
+### Where does my product code go?
+
+The repo root (`package.json`, `tests/`, `.claude/`, `.logic-loom/`, `plugins/`)
+is **framework-owned**. Your **product application code** lives in its own
+workspace — `web/` for a single app or `apps/<name>/` for a monorepo — each with
+its own `package.json`, `node_modules`, build, and test runner. Don't put product
+source at the repo root or share the root `package.json` / `tests/`. See
+[.docs/policies/file-structure-policy.md](.docs/policies/file-structure-policy.md) (§ Product Workspace).
 
 ---
 
@@ -218,7 +229,7 @@ MIT
 
 ---
 
-**Framework**: LogicLoom v6.3.1
+**Framework**: LogicLoom v6.4.0
 **Constitution**: v3.2.0 (16 principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

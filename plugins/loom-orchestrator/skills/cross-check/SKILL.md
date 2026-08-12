@@ -115,11 +115,13 @@ provider-pluggable, mirroring the existing OpenAI+Gemini research posture:
 | `codex` / `openai` (default) | `https://api.openai.com/v1/chat/completions` | `codex exec --sandbox read-only` | `OPENAI_API_KEY` |
 | `gemini` | `https://generativelanguage.googleapis.com/v1beta/models/<model>:generateContent` | `gemini` CLI read-only (if installed; else Mode A) | `GEMINI_API_KEY` |
 
-Model is a tier-style indirection, not a pinned string (Principle XIV): default
-to a current coding-grade model for the provider, overridable via
-`CROSS_CHECK_OPENAI_MODEL` / `CROSS_CHECK_GEMINI_MODEL` in `.env`. Pick the
-provider whose lineage is *most decorrelated* from the generator — for
-Claude-authored code, Codex/GPT is the strong default.
+Model is a tier-style indirection, not a pinned string (Principle XIV): the
+`<model>` placeholder resolves from the matching `.env` override
+(`CROSS_CHECK_OPENAI_MODEL` / `CROSS_CHECK_GEMINI_MODEL`), else the documented
+default in the "Advisory cross-provider models" section of
+`.logic-loom/config/models.conf` — **OpenAI `gpt-5.5`**, **Gemini
+`gemini-3.1-pro-preview`**. Pick the provider whose lineage is *most decorrelated* from
+the generator — for Claude-authored code, Codex/GPT is the strong default.
 
 ## Procedure
 

@@ -2,17 +2,7 @@ name: Plugin & Framework Tests
 
 on:
   push:
-    paths:
-      - 'plugins/**'
-      - 'tests/**'
-      - '.claude/commands/**'
-      - '.logic-loom/scripts/**'
   pull_request:
-    paths:
-      - 'plugins/**'
-      - 'tests/**'
-      - '.claude/commands/**'
-      - '.logic-loom/scripts/**'
 
 jobs:
   contract-tests:
@@ -44,6 +34,39 @@ jobs:
 
       - name: Run Plugin Command Bridge Tests
         run: bash tests/contract/test_plugin_command_bridge.sh
+
+      - name: Run Product Workspace Boundary Tests
+        run: bash tests/contract/test_product_workspace_boundary.sh
+
+      - name: Run Model Agnosticism Tests
+        run: bash tests/contract/test_model_agnostic.sh
+
+      - name: Run Graph Bridge Tests
+        run: bash tests/contract/test_graph_bridge.sh
+
+      - name: Run Governance Hooks Tests
+        run: bash tests/contract/test_governance_hooks.sh
+
+      - name: Run Policy Matching Tests
+        run: bash tests/contract/test_policy_matching.sh
+
+      - name: Run Orchestration Hook Tests
+        run: bash tests/contract/test_orchestration_hook.sh
+
+      - name: Run Memory Search Tests
+        run: bash tests/contract/test_memory_search.sh
+
+      - name: Run Spec 006 Integration Tests
+        run: bash tests/contract/test_spec006_integration.sh
+
+      - name: Run Git Safety Tests
+        run: bash .logic-loom/tests/test-git-safety.sh
+
+      - name: Run Policy Validation Tests
+        run: bash .logic-loom/tests/test-policy-validation.sh
+
+      - name: Run Structured Logging Tests
+        run: bash .logic-loom/tests/test_logging.sh
 
       - name: Validate All Manifests
         run: |

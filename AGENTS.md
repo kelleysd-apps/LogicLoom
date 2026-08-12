@@ -1,9 +1,9 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.3.1
+**Version**: 6.4.0
 **Constitution**: v3.2.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
-**Total Agents**: 6
+**Total Agents**: 8 (6 plugin + 2 project-level: deep-reasoner, fast-worker)
 **Plugins**: 8
 
 ---
@@ -57,6 +57,14 @@ enforced-vs-followed matrix by host.)
   parallel-dispatch mechanism).
 - **XV File Organization** — verify a parent dir exists before creating; prefer
   editing an existing file over creating a new one; use absolute paths.
+  **Harness ↔ product boundary**: the framework owns the repo root (root
+  `package.json`, `tests/`, and the governance dirs); **product application code
+  lives in its own workspace** — `web/` for a single app or `apps/<name>/` for a
+  monorepo, each product-owned with its own `package.json` / `node_modules` /
+  build / test runner. Do not put product source at the root or share the root
+  `package.json` / `tests/`. (Claude Code: see CLAUDE.md "Harness ↔ product
+  boundary"; full rule `.docs/policies/file-structure-policy.md` § Product
+  Workspace.)
 
 ### Cross-Check Disposition
 
@@ -165,6 +173,26 @@ The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval
 | Agent | Purpose | Model |
 |-------|---------|-------|
 | **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku |
+
+### Project-level agents (`.claude/agents/`) — orchestrator + worker ladder
+
+Dev-time delegation ladder: a **frontier orchestrator** (the main session —
+Fable 5 → Opus 4.8 fallback; set via `/model`, model-agnostic-but-frontier,
+never a non-Claude model) plans/reasons/delegates over cheaper Claude workers.
+Kept as **project** agents (not plugin agents, which lose
+`hooks`/`mcpServers`/`permissionMode`) so the hook floor still governs them.
+Full reference: `.docs/architecture/orchestrator-worker-ladder.md`.
+
+| Agent | Purpose | Model (effort) |
+|-------|---------|-------|
+| **deep-reasoner** | Architecture decisions, hard debugging, design tradeoffs | opus (high) |
+| **fast-worker** | Boilerplate, tests, routine mechanical edits | sonnet (medium) |
+
+> Dispatch inside `/workflow` via `agent(prompt, { agentType: 'deep-reasoner' })`;
+> `agent()`'s per-call `effort` supplies dynamic per-dispatch effort (raw Task
+> subagents honour only static frontmatter `effort:`). Non-Claude models stay
+> **advisory-only** (`/research`, `/cross-check`) — the ladder adds no non-Claude
+> workers.
 
 ---
 
