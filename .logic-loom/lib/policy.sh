@@ -161,6 +161,11 @@ validate_tool_call() {
             echo "$result"
             log_warn "Command requires approval" "{\"category\":\"$category\",\"command\":\"$command\"}"
             return 3
+        elif [[ "$status" == "unavailable" ]]; then
+            # Cannot evaluate policy at all — fail SAFE (ask a human), not open.
+            echo "$result"
+            log_error "Policy matcher unavailable" "{\"category\":\"$category\"}"
+            return 5
         elif [[ "$status" == "warning" ]]; then
             # Warning but allowed
             echo "$result"
@@ -174,6 +179,65 @@ validate_tool_call() {
     return 0
 }
 
+# ------------------------------------------------------------------------------
+# Reduce a command string to the part that is CODE, for pattern matching.
+#
+# Why: patterns are matched against the raw command string, so a command that
+# merely QUOTES a dangerous example as DATA (a PR body, a commit message) used to
+# be blocked. We strip those data arguments — but only where provably safe:
+#
+#   1. Only for programs that take arbitrary prose as data (gh/git/glab/jq/curl).
+#      Interpreters (bash -c, sh -c, eval, xargs) are NEVER stripped — there the
+#      quoted content IS code.
+#   2. Only for values with no shell expansion (no `$`, no backtick). A value like
+#      -m "$(rm -rf /)" is executed by the SHELL before the program ever starts, so
+#      it must stay visible to the matcher. The negated character classes below are
+#      what enforce that, and they carry the whole security load of this function.
+#
+# Anything not provably data is left untouched. The failure direction is therefore
+# a false positive (annoying, visible), never a false negative (silent, unsafe).
+#
+# Known residual: heredoc bodies are not stripped, so a heredoc quoting a dangerous
+# string still false-positives. That fails safe; use --body-file / -F <file>.
+# ------------------------------------------------------------------------------
+_policy_strip_data_args() {
+    local command="$1"
+    local argv0="${command%%[[:space:]]*}"
+    argv0="${argv0##*/}"
+
+    case "$argv0" in
+        gh|git|glab|jq|curl) ;;
+        *) printf '%s' "$command"; return 0 ;;
+    esac
+
+    printf '%s' "$command" | sed -E \
+        -e 's/(--body-file|--body|--message|--title|--data-raw|--data|-m|-F|-d|-t)([[:space:]]+|=)"[^"$`]*"/\1 DATA/g' \
+        -e "s/(--body-file|--body|--message|--title|--data-raw|--data|-m|-F|-d|-t)([[:space:]]+|=)'[^'\$\`]*'/\1 DATA/g"
+}
+
+# Anchor a policy pattern to a real command position.
+#
+# Every pattern in tool-restrictions.json begins with a command word (rm, git,
+# pkill, chmod, curl, sudo, mv...). Matching them unanchored meant they also fired
+# on the same words appearing mid-string as prose. This prefix requires the match to
+# sit at the start of the string, or right after a shell operator or an opening
+# quote/substitution — i.e. somewhere a command can actually begin.
+#
+# It deliberately also allows leading env assignments, option flags, and known
+# wrapper commands, so `sudo rm -rf /`, `env FOO=1 rm -rf /`, `command rm -rf /`
+# and `xargs -I{} rm -rf /` still match. Without that allowance, anchoring would
+# LOSE true positives — the one outcome worse than the false positives it fixes.
+# The leading `path` term is load-bearing: without it, `/bin/rm -rf /` would stop
+# matching, which the OLD unanchored regex caught. Anchoring must never lose a true
+# positive, so any absolute/relative path qualifier is allowed before the command.
+_policy_match_anchor() {
+    local wrap='(command|exec|sudo|nohup|nice|time|timeout|setsid|builtin|env|stdbuf|xargs|then|else|do|if|while|until)'
+    local assign='([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)'
+    local opt='(-[^[:space:]]+[[:space:]]+)'
+    local path='([A-Za-z0-9_.-]*/)*'
+    printf '%s' "(^|[;&|(){}!\`\"'])[[:space:]]*(${assign}|${opt}|${wrap}[[:space:]]+)*${path}"
+}
+
 # Check command against specific policy category (simplified for bash without jq)
 check_policy_category() {
     local command="$1"
@@ -184,18 +248,36 @@ check_policy_category() {
     # Get patterns from JSON file (simplified - read directly)
     local policy_json=$(cat "$POLICY_FILE" 2>/dev/null)
 
+    # Match against the CODE portion of the command, not quoted prose data.
+    local scan_target
+    scan_target=$(_policy_strip_data_args "$command")
+    local anchor
+    anchor=$(_policy_match_anchor)
+
     # Extract patterns for this category using Node.js if available
     if command -v node &>/dev/null && [[ -f "$JSON_PARSER" ]]; then
-        local pattern_count=$(echo "$policy_json" | node "$JSON_PARSER" - ".policies.$category.patterns" | grep -c "pattern" || echo 0)
-
-        for i in $(seq 0 10); do
+        # Bound is a runaway guard only; the loop breaks on the first absent index.
+        # It was previously 10, which silently ignored any 12th pattern in a category.
+        for i in $(seq 0 99); do
             local pattern=$(echo "$policy_json" | node "$JSON_PARSER" - ".policies.$category.patterns[$i].pattern" 2>/dev/null)
             if [[ -z "$pattern" || "$pattern" == "null" ]]; then
                 break
             fi
 
-            # Check if command matches pattern
-            if echo "$command" | grep -qE "$pattern"; then
+            # Check if command matches pattern, anchored to a real command position.
+            # grep exits 2 on a malformed regex. Treating that as "no match" would be a
+            # silent fail-open on a typo'd pattern, so surface it as matcher failure.
+            local grep_ec
+            if echo "$scan_target" | grep -qE "${anchor}${pattern}"; then
+                grep_ec=0
+            else
+                grep_ec=$?
+            fi
+            if [[ $grep_ec -eq 2 ]]; then
+                echo "{\"status\":\"unavailable\",\"reason\":\"policy pattern failed to compile in category $category\"}"
+                return 0
+            fi
+            if [[ $grep_ec -eq 0 ]]; then
                 local reason=$(echo "$policy_json" | node "$JSON_PARSER" - ".policies.$category.patterns[$i].reason")
 
                 # Get alternatives (just first 3 for simplicity)
@@ -227,6 +309,14 @@ check_policy_category() {
                 esac
             fi
         done
+    else
+        # The matcher's dependency is missing, so NO pattern can be evaluated.
+        # This used to fall through to "allowed" — the entire dangerous-command
+        # policy silently stopped enforcing, with no signal anywhere. Report the
+        # condition instead so the caller can degrade to human approval rather
+        # than to a silent permit.
+        echo '{"status":"unavailable","reason":"policy matcher unavailable (node or json-parse.cjs missing)"}'
+        return 0
     fi
 
     # No match
