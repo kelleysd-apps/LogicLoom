@@ -43,7 +43,7 @@
           ]
         },
         {
-          "pattern": "rm.*-rf.*/$",
+          "pattern": "rm[[:space:]][^;&|]*[[:space:]]/([[:space:]]|$|[;&|()<>\"'`])",
           "reason": "Attempts to delete root filesystem",
           "alternatives": [
             "Use specific paths: rm -rf ./specific/directory",

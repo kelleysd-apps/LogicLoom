@@ -276,7 +276,7 @@ To enable this agent as the default entry point:
 ```json
 {
   "agent": "constitutional-governance-agent",
-  "model": "claude-opus-4-8"
+  "model": "opus"
 }
 ```
 

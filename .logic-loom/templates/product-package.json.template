@@ -1,0 +1,12 @@
+{
+  "name": "__PROJECT_NAME__",
+  "version": "0.1.0",
+  "private": true,
+  "description": "__PROJECT_DESCRIPTION__",
+  "scripts": {
+    "build": "echo \"TODO: add your product build command\" && exit 0",
+    "test": "echo \"TODO: add your product test command\" && exit 0"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

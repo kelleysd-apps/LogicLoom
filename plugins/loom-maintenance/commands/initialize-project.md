@@ -72,6 +72,12 @@ printf 'LOOM_UPSTREAM_REPO="%s"\n' "<owner>/<repo>" > .logic-loom/config/framewo
 ```
 Do NOT add a git remote — `/update-framework` fetches fetch-only into a namespaced ref.
 
+### Step 4d: Point at the Harness ↔ User Boundary
+Tell the user in one or two lines: LogicLoom governs this repo and never writes to
+`~/.claude/` — personal preferences (persona, response shape, their own global
+hooks) belong there, not in the project `CLAUDE.md`. Point them at
+`START_HERE.md` § *Where do my personal preferences go?* Do not restate the section.
+
 ### Step 5: Validate Compliance
 Run `.logic-loom/scripts/bash/constitutional-check.sh`
 

@@ -54,6 +54,10 @@ discrete enhancement proposals. Never compares downstream vs upstream; never
 pushes; never merges. Adoption + commits are done by /update-framework against
 YOUR current branch.
 
+Each proposal carries the upstream release tag it landed in (release_tag), so
+/update-framework can group proposals by release rather than presenting one flat
+undifferentiated list. Proposals with no reachable tag report release_tag: null.
+
 Output: JSON array of enhancement proposals.
 EOF
 }

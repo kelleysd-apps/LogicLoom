@@ -1,6 +1,6 @@
 {
   "name": "logic-loom",
-  "version": "6.3.1",
+  "version": "6.4.0",
   "description": "Specification-driven development framework with multi-agent orchestration, quality gates, and intelligent routing",
   "private": true,
   "scripts": {
@@ -38,8 +38,17 @@
   },
   "jest": {
     "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/tests"
+    ],
     "testMatch": [
-      "**/tests/**/*.test.js"
+      "<rootDir>/tests/**/*.test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "<rootDir>/web/",
+      "<rootDir>/apps/",
+      "<rootDir>/src/"
     ],
     "transform": {},
     "extensionsToTreatAsEsm": [],
