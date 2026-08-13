@@ -5,6 +5,48 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.4.1] - 2026-08-13
+
+A patch release fixing the **update path**. Clones of v6.3.1 and v6.4.0 could not
+run `/update-framework` at all; this release repairs those baselines
+automatically, documents the failure by its literal error string, and adds the CI
+assertion that would have caught it at merge time.
+
+### Fixed
+
+- **`/update-framework` failed with "`.sdd-sync-ref` is NOT reachable from
+  upstream main"** for clones of v6.3.1 and v6.4.0. Those releases' PRs were
+  **squash-merged**, which discards the single-parent sanitized snapshot commit
+  that `.sdd-sync-ref` names. Customers fetch only `refs/heads/main`, so the
+  recorded baseline was unresolvable in their clone and the update exited 3.
+  Root cause was a **settings conflict**: branch protection on `main` required
+  linear history, which forbids the merge commit the release design depends on.
+  Repo settings corrected — merge commits allowed; squash and rebase merging
+  disabled.
+
+### Added
+
+- **Automatic repair of the broken baselines** —
+  `plugins/loom-maintenance/scripts/extract-proposals.sh` now detects the two known-bad
+  baseline SHAs, remaps each to its equivalent commit on `main` (re-verifying
+  reachability before accepting the remap), and continues the update, so no
+  changes are skipped.
+- **`KNOWN_ISSUES.md`** at the repo root, a pointer from `README.md`, and an
+  expanded **"Broken sync baseline"** section in
+  `.docs/guides/FRAMEWORK_SYNC_GUIDE.md` — all keyed on the literal error string
+  (`.sdd-sync-ref is NOT reachable from upstream main`) so a search finds them.
+- **Release-time prevention gate** — `.github/workflows/release-tag.yml` now
+  asserts the snapshot commit is an ancestor of `main`'s HEAD
+  (`git merge-base --is-ancestor`) **before** creating the tag, and fails the
+  release loudly (naming cause, impact, and remedy) if a future promotion is
+  squash- or rebase-merged.
+
+### Changed
+
+- The **non-remappable error path** now states explicitly that the generic
+  re-baseline adopts nothing and **permanently skips** the intervening changes,
+  and offers the version-specific fix first.
+
 ## [6.4.0] - 2026-08-12
 
 Covers the `dev-main` line since v6.3.1 (2026-06-24 → 2026-08-12). Three threads:
