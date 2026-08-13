@@ -52,13 +52,30 @@ _keyword_search_dir() {
     # Exclude generated/noise trees so the live grep stays fast and does not
     # match its own audit/search-log output (which otherwise grows unbounded and
     # feeds back into every search). These are never legitimate memory content.
-    local matches
-    matches=$(grep -ril \
+    #
+    # Rank candidates by match COUNT, not by directory-traversal order. `grep -r`
+    # does not define a traversal order: BSD grep (macOS) walks sorted, GNU grep
+    # (Linux/CI) walks readdir order. Taking the first N files therefore made
+    # recall — and so whether any hit cleared MEMORY_CONFIDENCE_THRESHOLD — depend
+    # on the host filesystem and on which untracked files happened to be present.
+    # `-c` gives the count we score on anyway, so rank on it and take the top N.
+    # `-H` forces the FILE: prefix even when search_path is a single file.
+    local ranked
+    ranked=$(grep -rHic \
         --exclude-dir=audit --exclude-dir=.git --exclude-dir=node_modules \
         --exclude='search-log.jsonl' --exclude='*.log' \
-        "$keyword" "$search_path" 2>/dev/null | head -"$max_per_keyword") || true
+        "$keyword" "$search_path" 2>/dev/null \
+        | grep -v ':0$' \
+        | sort -t: -k2,2rn -k1,1) || true
+    [ -n "$ranked" ] || return 0
 
-    for match_file in $matches; do
+    local selected=0
+    local ranked_entry match_file match_count
+    while IFS= read -r ranked_entry; do
+        [ -n "$ranked_entry" ] || continue
+        [ "$selected" -ge "$max_per_keyword" ] && break
+        match_file="${ranked_entry%:*}"
+        match_count="${ranked_entry##*:}"
         [ -f "$match_file" ] || continue
         # Skip binary/large files
         local file_size
@@ -78,9 +95,13 @@ _keyword_search_dir() {
         local context
         context=$(sed -n "${start},${end}p" "$match_file" 2>/dev/null) || continue
 
-        # Score: count keyword occurrences in file
-        local match_count
-        match_count=$(grep -ci "$keyword" "$match_file" 2>/dev/null || echo "0")
+        # Score from the count grep already returned. (Do NOT re-derive it with
+        # `grep -c ... || echo 0`: grep -c PRINTS 0 and EXITS 1 on no match, so
+        # the `|| echo 0` appends a second line and yields the two-line string
+        # "0\n0", which crashes `[ ... -ge ... ]` with "integer expression
+        # expected".) Sanitize to a single integer defensively.
+        match_count=$(printf '%s' "$match_count" | tr -dc '0-9')
+        [ -n "$match_count" ] || match_count=0
 
         # Normalize score (simple: match_count / 10, capped at 1.0)
         local score
@@ -93,7 +114,10 @@ _keyword_search_dir() {
 
         local rel_path="${match_file#$KEYWORD_REPO_ROOT/}"
         format_search_result "$score" "$rel_path" "$line_num" "$context"
-    done
+        selected=$((selected + 1))
+    done <<EOF
+$ranked
+EOF
 }
 
 # ============================================
