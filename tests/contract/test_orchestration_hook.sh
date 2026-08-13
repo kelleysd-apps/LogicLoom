@@ -47,10 +47,14 @@ echo "Hook output format"
 # that only produced output via the envelope-fallback memory fluke.
 HOOK_OUTPUT=$(echo '{"prompt":"fix the authentication endpoint and update the database schema"}' | bash "$HOOK_SCRIPT" 2>/dev/null || echo '{"blocked":false}')
 
-assert "Hook returns valid JSON" \
-  "echo '$HOOK_OUTPUT' | python3 -c 'import json,sys; json.load(sys.stdin)'"
-assert "Hook output has blocked=false" \
-  "echo '$HOOK_OUTPUT' | python3 -c 'import json,sys; d=json.load(sys.stdin); assert d.get(\"blocked\") == False'"
+# NOTE: never interpolate $HOOK_OUTPUT into an assert condition — assert eval's
+# its argument, and the hook echoes memory-search snippets that can contain a
+# single quote, which terminates the surrounding '...' and breaks the eval
+# (a content-dependent false failure). Evaluate first, assert on the verdict.
+JSON_OK=$(echo "$HOOK_OUTPUT" | python3 -c 'import json,sys; json.load(sys.stdin)' >/dev/null 2>&1 && echo yes || echo no)
+assert "Hook returns valid JSON" "[ '$JSON_OK' = 'yes' ]"
+BLOCKED_FALSE=$(echo "$HOOK_OUTPUT" | python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin).get("blocked") is False else 1)' >/dev/null 2>&1 && echo yes || echo no)
+assert "Hook output has blocked=false" "[ '$BLOCKED_FALSE' = 'yes' ]"
 
 # A domain-bearing prompt yields non-empty additionalContext via the REAL
 # extraction path (not the envelope fallback).

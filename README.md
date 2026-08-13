@@ -4,6 +4,11 @@
 
 LogicLoom is a Claude Code harness for building software with disciplined multi-agent loops. Its durable core is **constitutional governance, enforced by hooks** (not by per-message ceremony). On top of that core sit **interchangeable workflow packs** — none privileged: a **swarm** pack (vision → PRD → plan → scope-bounded swarm) and an **SDD waterfall** pack (`/specification`). Pick the pack that matches the problem.
 
+> **`/update-framework` not working?** If it fails with
+> `.sdd-sync-ref is NOT reachable from upstream main`, that's a known issue in
+> v6.3.1 / v6.4.0 with a one-line fix — see
+> **[KNOWN_ISSUES.md](KNOWN_ISSUES.md)**.
+
 ---
 
 ## Quickstart
@@ -229,7 +234,7 @@ MIT
 
 ---
 
-**Framework**: LogicLoom v6.4.0
+**Framework**: LogicLoom v6.4.1
 **Constitution**: v3.2.0 (16 principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
