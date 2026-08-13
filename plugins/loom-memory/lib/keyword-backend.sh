@@ -53,40 +53,95 @@ _keyword_search_dir() {
     # match its own audit/search-log output (which otherwise grows unbounded and
     # feeds back into every search). These are never legitimate memory content.
     #
-    # Rank candidates by match COUNT, not by directory-traversal order. `grep -r`
-    # does not define a traversal order: BSD grep (macOS) walks sorted, GNU grep
-    # (Linux/CI) walks readdir order. Taking the first N files therefore made
-    # recall — and so whether any hit cleared MEMORY_CONFIDENCE_THRESHOLD — depend
-    # on the host filesystem and on which untracked files happened to be present.
-    # `-c` gives the count we score on anyway, so rank on it and take the top N.
-    # `-H` forces the FILE: prefix even when search_path is a single file.
-    local ranked
-    ranked=$(grep -rHic \
+    # Rank candidates by the number of MATCHING LINES, not by directory-traversal
+    # order. `grep -r` does not define a traversal order: BSD grep (macOS) walks
+    # sorted, GNU grep (Linux/CI) walks readdir order. Taking the first N files
+    # therefore made recall — and so whether any hit cleared
+    # MEMORY_CONFIDENCE_THRESHOLD — depend on the host filesystem and on which
+    # untracked files happened to be present.
+    #
+    # Two phases, because this runs inside a per-prompt UserPromptSubmit hook:
+    #   Phase 1 — cheap discovery with `grep -rIl`, which EARLY-EXITS on a file's
+    #     first match, and skips binary files (`-I`). A recursive `grep -c` would
+    #     instead read every file end to end, and the >50KB skip used to sit in
+    #     the loop BELOW the recursive grep, so it no longer protected the
+    #     expensive step at all.
+    #   Phase 2 — size-filter the candidate set FIRST, then count matching lines
+    #     over the survivors only. The survivor set is small, so counting is
+    #     bounded and no oversized file is ever read end to end.
+    #
+    # NOTE: the candidate list is newline-delimited, so a filename containing a
+    # literal newline is not handled. Deliberately out of scope for this corpus.
+    local candidate_files=()
+    local candidate
+    while IFS= read -r candidate; do
+        [ -n "$candidate" ] || continue
+        candidate_files+=("$candidate")
+    done < <(grep -rIil \
         --exclude-dir=audit --exclude-dir=.git --exclude-dir=node_modules \
         --exclude='search-log.jsonl' --exclude='*.log' \
-        "$keyword" "$search_path" 2>/dev/null \
-        | grep -v ':0$' \
-        | sort -t: -k2,2rn -k1,1) || true
+        "$keyword" "$search_path" 2>/dev/null || true)
+    [ "${#candidate_files[@]}" -gt 0 ] || return 0
+
+    # Phase 2. `find` applies the size filter to the candidate list and
+    # `-exec ... +` hands only the survivors to `grep -c`, so an oversized file
+    # is never counted and the size filter + counting together cost one fork.
+    # (A `wc -c` per candidate would cost more than the counting it protects.)
+    # `-size -50001c` keeps files of at most 50000 bytes — exactly the previous
+    # `-gt 50000` skip; `-L` follows symlinks so the size measured is the size
+    # grep would read.
+    #
+    # The ranking line emits the sort key FIRST, as "count<TAB>path". Sorting a
+    # `path:count` line with `sort -t: -k2,2rn` mis-ranked any path containing a
+    # colon (legal in a Unix filename) because the count was then no longer
+    # field 2. With the
+    # count leading, colons anywhere in the path are harmless. LC_ALL=C makes the
+    # tie-break collation identical on macOS and ubuntu — the cross-platform
+    # nondeterminism this ranking exists to eliminate.
+    local tab=$'\t'
+    local counted="" count_line count_val counted_lines=0
+    while IFS= read -r count_line; do
+        [ -n "$count_line" ] || continue
+        # `grep -Hc` emits "path:count"; ${x##*:} / ${x%:*} split on the LAST
+        # colon, so colons inside the path are safe here.
+        count_val="${count_line##*:}"
+        # Drop zero-count lines here with a builtin test rather than piping the
+        # whole set through `grep -v` — this function runs once per
+        # (search path x keyword) pair, so every avoided fork matters.
+        [ "$count_val" = "0" ] && continue
+        counted="${counted}${count_val}${tab}${count_line%:*}
+"
+        counted_lines=$((counted_lines + 1))
+    done < <(find -L "${candidate_files[@]}" -maxdepth 0 -type f -size -50001c \
+        -exec grep -Hci -- "$keyword" {} + 2>/dev/null || true)
+    [ "$counted_lines" -gt 0 ] || return 0
+
+    local ranked
+    if [ "$counted_lines" -eq 1 ]; then
+        # Nothing to order — skip the sort fork entirely.
+        ranked="${counted%$'\n'}"
+    else
+        ranked=$(LC_ALL=C sort -k1,1rn <<EOF
+${counted%$'\n'}
+EOF
+) || true
+    fi
     [ -n "$ranked" ] || return 0
 
     local selected=0
-    local ranked_entry match_file match_count
-    while IFS= read -r ranked_entry; do
-        [ -n "$ranked_entry" ] || continue
+    local match_file match_count
+    while IFS="$tab" read -r match_count match_file; do
+        [ -n "$match_file" ] || continue
         [ "$selected" -ge "$max_per_keyword" ] && break
-        match_file="${ranked_entry%:*}"
-        match_count="${ranked_entry##*:}"
         [ -f "$match_file" ] || continue
-        # Skip binary/large files
-        local file_size
-        file_size=$(wc -c < "$match_file" 2>/dev/null || echo "999999")
-        [ "$file_size" -gt 50000 ] && continue
 
-        # Get line number of first match
+        # Get line number of first match. `grep -m 1` already emits at most one
+        # line, and `${x%%:*}` is a builtin split — this loop body runs for every
+        # emitted result, so the dropped `| head -1` and `| cut` forks are the
+        # dominant per-prompt cost, well above the grep itself.
         local line_info
-        line_info=$(grep -n -m 1 -i "$keyword" "$match_file" 2>/dev/null | head -1) || continue
-        local line_num
-        line_num=$(echo "$line_info" | cut -d: -f1)
+        line_info=$(grep -n -m 1 -i "$keyword" "$match_file" 2>/dev/null) || continue
+        local line_num="${line_info%%:*}"
         [ -z "$line_num" ] && continue
 
         # Get surrounding context (2 lines before and after)
@@ -95,15 +150,22 @@ _keyword_search_dir() {
         local context
         context=$(sed -n "${start},${end}p" "$match_file" 2>/dev/null) || continue
 
-        # Score from the count grep already returned. (Do NOT re-derive it with
-        # `grep -c ... || echo 0`: grep -c PRINTS 0 and EXITS 1 on no match, so
-        # the `|| echo 0` appends a second line and yields the two-line string
-        # "0\n0", which crashes `[ ... -ge ... ]` with "integer expression
-        # expected".) Sanitize to a single integer defensively.
-        match_count=$(printf '%s' "$match_count" | tr -dc '0-9')
+        # Score from the count grep already returned. NOTE: `grep -c` counts
+        # MATCHING LINES, not occurrences — a line with three hits counts once.
+        # (That was equally true of the pre-ranking implementation, so the
+        # scoring semantics are unchanged; only the wording here is corrected so
+        # the 0.7 threshold is not misread as "seven occurrences".)
+        # (Do NOT re-derive the count with `grep -c ... || echo 0`: grep -c
+        # PRINTS 0 and EXITS 1 on no match, so the `|| echo 0` appends a second
+        # line and yields the two-line string "0\n0", which crashes
+        # `[ ... -ge ... ]` with "integer expression expected".) Sanitize to a
+        # single integer defensively.
+        case "$match_count" in
+            *[!0-9]*|'') match_count=$(printf '%s' "$match_count" | tr -dc '0-9') ;;
+        esac
         [ -n "$match_count" ] || match_count=0
 
-        # Normalize score (simple: match_count / 10, capped at 1.0)
+        # Normalize score (simple: matching lines / 10, capped at 1.0)
         local score
         if [ "$match_count" -ge 10 ]; then
             score="1.0"
