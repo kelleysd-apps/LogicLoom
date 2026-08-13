@@ -59,11 +59,27 @@ adopts nothing, and tells you to re-run later.
 
 - **"`.sdd-sync-ref` is NOT reachable from upstream main" / broken sync baseline.**
   An upstream release PR was squash- or rebase-merged, breaking the single-parent
-  chain the sync baseline depends on. Re-baseline (adopts nothing, just resets the
-  pointer), then re-run:
-  ```bash
-  git rev-parse refs/loom-upstream/main > .sdd-sync-ref
-  ```
+  chain the sync baseline depends on. This shipped in **v6.3.1** and **v6.4.0**;
+  see `KNOWN_ISSUES.md`.
+  - **On v6.4.1+ this repairs itself** — `/update-framework` recognises the two
+    known-bad baselines, rewrites `.sdd-sync-ref` to the matching `main` commit,
+    prints a notice, and continues with the changes you were missing.
+  - **Preferred manual fix** (keeps your real diff) — set the baseline to the
+    `main` commit for your installed version:
+    ```bash
+    # v6.3.1
+    echo a2ed86231e097886f58e7fd0e5161648c6e6cfa3 > .sdd-sync-ref
+    # v6.4.0
+    echo 75551c3574eea3f54a92d044da2e1a92b4e9590c > .sdd-sync-ref
+    ```
+    For any other version, find it with
+    `git log --oneline refs/loom-upstream/main | grep "Release v<your version>"`.
+  - **Last resort — generic re-baseline.** ⚠️ This **adopts nothing**: it declares
+    you already current, so every upstream change between your version and today
+    is **skipped permanently** and never proposed again.
+    ```bash
+    git rev-parse refs/loom-upstream/main > .sdd-sync-ref
+    ```
 - **A stale `upstream` remote from an older clone.** Older versions added a
   pushable `upstream` remote. The current flow ignores it, but it's an unused
   push footgun — remove it (it is safe to do so):

@@ -16,6 +16,22 @@ assert() {
   fi
 }
 
+# Safe replacement for the `grep -c ... || echo "0"` antipattern.
+#
+# `grep -c` PRINTS "0" and EXITS 1 when there are no matches, so `|| echo "0"`
+# appends a SECOND line: the variable becomes the two-line string "0\n0" and
+# `[ "0\n0" -ge 1 ]` dies with "integer expression expected". A legitimate
+# zero-match then looks like a crash instead of a clean failure.
+# Guard the exit status instead and sanitize to a single-line integer.
+# Usage: count_matches <pattern> [file]   (reads stdin when no file is given)
+count_matches() {
+  local n
+  n=$(grep -c "$@" 2>/dev/null || true)
+  n=$(printf '%s' "$n" | tr -dc '0-9\n' | head -1)
+  [ -n "$n" ] || n=0
+  printf '%s' "$n"
+}
+
 MEMORY_SEARCH="plugins/loom-memory/scripts/memory-search.sh"
 MEMORY_LOG="plugins/loom-memory/scripts/memory-log.sh"
 MEMORY_CONF="plugins/loom-memory/config/memory.conf"
@@ -57,13 +73,17 @@ assert "Search returns output for known content" "[ $SEARCH_OUTPUT_LEN -gt 0 ]"
 
 # Test output format
 if [ -n "$SEARCH_OUTPUT" ]; then
-  HAS_HEADER=$(echo "$SEARCH_OUTPUT" | head -1 | grep -c "MEMORY CONTEXT" || echo "0")
+  HAS_HEADER=$(echo "$SEARCH_OUTPUT" | head -1 | count_matches "MEMORY CONTEXT")
   assert "Search output has MEMORY CONTEXT header" "[ '$HAS_HEADER' -ge 1 ]"
+  if [ "$HAS_HEADER" -lt 1 ]; then
+    echo "     ↳ diagnostic: first 5 lines of search output:"
+    echo "$SEARCH_OUTPUT" | head -5 | sed 's/^/       | /'
+  fi
 fi
 
 # Test with gibberish query — should return empty/minimal
 EMPTY_OUTPUT=$(bash "$MEMORY_SEARCH" "xyzzy98765nonexistenttermfoobar" 2>/dev/null || echo "")
-NO_RESULTS=$(echo "$EMPTY_OUTPUT" | grep -c "No relevant context found" || echo "0")
+NO_RESULTS=$(echo "$EMPTY_OUTPUT" | count_matches "No relevant context found")
 assert "Search returns no-results message for gibberish query" "[ '$NO_RESULTS' -ge 1 ] || [ -z '$EMPTY_OUTPUT' ]"
 
 # ── Timeout Tests ──
@@ -137,7 +157,7 @@ for domain in frontend backend database security testing performance devops; do
   BRIEF_FILE="$GOV_DIR/domain-briefs/${domain}.md"
   assert "${domain} registry brief exists" "[ -f '$BRIEF_FILE' ]"
   if [ -f "$BRIEF_FILE" ]; then
-    HAS_BRIEF=$(grep -c '## Task Brief' "$BRIEF_FILE" || echo "0")
+    HAS_BRIEF=$(count_matches '## Task Brief' "$BRIEF_FILE")
     assert "${domain} brief has Task Brief section" "[ '$HAS_BRIEF' -ge 1 ]"
   fi
 done
@@ -215,10 +235,15 @@ V2_OUTPUT=$(bash plugins/loom-memory/scripts/memory-search.sh "constitution gove
 V2_LEN=${#V2_OUTPUT}
 assert "v2.0 search returns output for known content" "[ $V2_LEN -gt 0 ]"
 if [ -n "$V2_OUTPUT" ]; then
-  V2_HEADER=$(echo "$V2_OUTPUT" | head -1 | grep -c "MEMORY CONTEXT" || echo "0")
+  V2_HEADER=$(echo "$V2_OUTPUT" | head -1 | count_matches "MEMORY CONTEXT")
   assert "v2.0 search output has MEMORY CONTEXT header" "[ '$V2_HEADER' -ge 1 ]"
-  V2_BACKEND=$(echo "$V2_OUTPUT" | grep -c "backend: keyword" || echo "0")
+  V2_BACKEND=$(echo "$V2_OUTPUT" | count_matches "backend: keyword")
   assert "v2.0 search shows keyword backend" "[ '$V2_BACKEND' -ge 1 ]"
+  if [ "$V2_HEADER" -lt 1 ] || [ "$V2_BACKEND" -lt 1 ]; then
+    echo "     ↳ diagnostic: MEMORY_BACKEND=$(grep -E '^[[:space:]]*MEMORY_BACKEND' plugins/loom-memory/config/memory-v2.conf 2>/dev/null | tr -d '\n')"
+    echo "     ↳ diagnostic: first 5 lines of v2 search output:"
+    echo "$V2_OUTPUT" | head -5 | sed 's/^/       | /'
+  fi
 fi
 
 # ── Integration with Hook ──
