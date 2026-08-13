@@ -61,6 +61,42 @@ jobs:
           if [ -z "$VER" ]; then
             echo ".sdd-sync-ref ($SNAP) is not a release snapshot — nothing to tag."; exit 0
           fi
+          # PREVENTION GATE (v6.4.1): the snapshot MUST be an ancestor of main's
+          # HEAD. If the release PR was squash- or rebase-merged, C1 is discarded
+          # and `.sdd-sync-ref` points at a commit that is NOT in main's history —
+          # customers fetch only refs/heads/main, so the baseline is unresolvable
+          # and /update-framework fails for every clone of that release.
+          # This is what silently broke v6.3.1 and v6.4.0. Fail HARD, do not tag.
+          if ! git merge-base --is-ancestor "$SNAP" HEAD; then
+            echo "::error::RELEASE BROKEN — snapshot $SNAP is NOT an ancestor of main HEAD ($(git rev-parse HEAD))."
+            cat >&2 <<EOF
+          =============================================================================
+          RELEASE ABORTED: .sdd-sync-ref snapshot is not in main's history.
+
+          CAUSE
+            The release PR was SQUASH-merged or REBASE-merged. Either mode rewrites
+            the promotion commits, discarding the sanitized snapshot commit ($SNAP)
+            that .sdd-sync-ref names. The release design requires a MERGE COMMIT so
+            that snapshot is preserved on main as the merge's second parent.
+
+          IMPACT
+            .sdd-sync-ref is unresolvable for customers: clones fetch only
+            refs/heads/main, which does not contain $SNAP. /update-framework will
+            fail with ".sdd-sync-ref is NOT reachable from upstream main" for
+            ANYONE who clones this release. Tagging is refused so a broken release
+            is not published.
+
+          REMEDY
+            1. Revert / delete this merge from main.
+            2. Repo settings -> General -> Pull Requests: ENABLE "Allow merge
+               commits"; DISABLE "Allow squash merging" and "Allow rebase merging".
+            3. Branch protection / ruleset for main: ensure "Require linear history"
+               is OFF (it forbids the merge commit this design depends on).
+            4. Re-run /promote and merge the PR with a MERGE COMMIT.
+          =============================================================================
+          EOF
+            exit 1
+          fi
           if git rev-parse -q --verify "refs/tags/$VER" >/dev/null 2>&1 \
              || git ls-remote --exit-code --tags origin "$VER" >/dev/null 2>&1; then
             echo "Tag $VER already exists — nothing to do."; exit 0

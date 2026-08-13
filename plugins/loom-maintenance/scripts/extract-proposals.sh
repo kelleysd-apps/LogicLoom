@@ -104,6 +104,39 @@ read_sync_ref() {
     [ -f "$SYNC_REF_FILE" ] && tr -d '[:space:]' < "$SYNC_REF_FILE" || echo ""
 }
 
+# ============================================
+# Known-bad sync-ref remap (one-time historical repair)
+# ============================================
+#
+# WHY THIS EXISTS
+#   Two shipped releases (v6.3.1, v6.4.0) stamped `.sdd-sync-ref` with a commit
+#   that lives ONLY on the release branch: their release PRs were squash-merged
+#   (branch protection required linear history, so a merge commit was impossible),
+#   so the stamped SHA never landed on `main`. Every customer on those releases
+#   hits the "NOT reachable from upstream main" guard below and can never update.
+#   The release process has since been fixed.
+#
+# CRITERIA FOR ADDING AN ENTRY (all must hold)
+#   1. The bad SHA was actually SHIPPED in a template release (customers have it).
+#   2. There is an unambiguous equivalent commit ON `main` for the SAME release.
+#   3. The mapped target has been verified an ancestor of `main`.
+#   This is a fixed historical repair list, NOT a general remapping mechanism —
+#   do not use it to paper over a future baseline bug. Fix the release process.
+#
+# bash 3.2 safe: a case statement, no associative arrays.
+remap_known_bad_sync_ref() {
+    case "$1" in
+        # v6.3.1 — stamped release-branch SHA -> the v6.3.1 commit on main
+        6c4c42067161bf77e3e1af0ff91691319bd2fbdc)
+            echo "a2ed86231e097886f58e7fd0e5161648c6e6cfa3" ;;
+        # v6.4.0 — stamped release-branch SHA -> the v6.4.0 commit on main
+        c6d040f36ecb6ef4a5365e9434b4e31dc741e4ac)
+            echo "75551c3574eea3f54a92d044da2e1a92b4e9590c" ;;
+        *)
+            echo "" ;;
+    esac
+}
+
 # Bootstrap-if-missing + reachability guard. Prints the sync-ref on success.
 # On a missing sync-ref: sets the baseline to the fetched upstream tip, adopts
 # nothing this run, emits [] and exits 0. On an unreachable sync-ref (the
@@ -122,10 +155,35 @@ ensure_sync_ref() {
     fi
     if ! git -C "$REPO_ROOT" cat-file -e "${sync_ref}^{commit}" 2>/dev/null \
        || ! git -C "$REPO_ROOT" merge-base --is-ancestor "$sync_ref" "$LOOM_UPSTREAM_REF" 2>/dev/null; then
+
+        # Self-heal: a known-bad SHIPPED baseline is repaired in place, then we
+        # continue normally. The mapped target must itself be reachable from the
+        # fetched upstream (a fork/custom upstream may not have it) — otherwise
+        # fall through to the error path rather than writing a bogus value.
+        local remapped
+        remapped="$(remap_known_bad_sync_ref "$sync_ref")"
+        if [ -n "$remapped" ] \
+           && git -C "$REPO_ROOT" cat-file -e "${remapped}^{commit}" 2>/dev/null \
+           && git -C "$REPO_ROOT" merge-base --is-ancestor "$remapped" "$LOOM_UPSTREAM_REF" 2>/dev/null; then
+            printf '%s\n' "$remapped" > "$SYNC_REF_FILE"
+            echo "NOTICE: your .sdd-sync-ref ($sync_ref) was a known-bad baseline shipped by an upstream release (its release PR was squash-merged, so that commit only ever existed on a release branch, never on main). It has been repaired automatically to the equivalent main commit ($remapped); the update proceeds normally from here and WILL include the changes you were previously unable to see." >&2
+            printf '%s' "$remapped"
+            return 0
+        fi
+
         echo "ERROR: .sdd-sync-ref ($sync_ref) is NOT reachable from upstream main." >&2
         echo "An upstream release PR was likely squash/rebase-merged, breaking the single-parent chain." >&2
         echo "See .docs/guides/FRAMEWORK_SYNC_GUIDE.md -> 'Broken sync baseline'." >&2
-        echo "Safe re-baseline (adopts nothing, resets the baseline):" >&2
+        echo "" >&2
+        echo "PREFERRED FIX — keep your real diff. Point .sdd-sync-ref at the upstream main" >&2
+        echo "commit matching the LogicLoom version you actually have installed. Find it with:" >&2
+        echo "  git log --oneline $LOOM_UPSTREAM_REF | grep \"Release v<your version>\"" >&2
+        echo "then write that SHA into .sdd-sync-ref. You will then be offered every change" >&2
+        echo "made upstream since your version." >&2
+        echo "" >&2
+        echo "LAST RESORT — safe re-baseline. This ADOPTS NOTHING: it declares you already" >&2
+        echo "current, so every upstream change between your version and today's upstream is" >&2
+        echo "SKIPPED PERMANENTLY and will never be proposed to you:" >&2
         echo "  git rev-parse $LOOM_UPSTREAM_REF > .sdd-sync-ref" >&2
         exit 3
     fi
