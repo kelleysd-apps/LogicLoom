@@ -107,23 +107,77 @@ case "$TOOL" in
   Bash)
     CMD="$(json_get '.tool_input.command' || true)"
     [ -z "$CMD" ] && allow
-    # Only care about MUTATING bash that targets a protected path. Reads
-    # (cat/grep/source of a governance file) are fine.
-    if printf '%s' "$CMD" | grep -qE '(>>?|[[:space:]]tee[[:space:]]|dd[[:space:]]+[^|]*of=|sed[[:space:]]+-i|[[:space:]]rm[[:space:]]|[[:space:]]mv[[:space:]]|truncate|chmod|chown|install[[:space:]])'; then
-      # Scan each protected token; if the command mentions it, gate.
+    # Only MUTATING bash that TARGETS a protected path is gated. A read-only
+    # command that merely MENTIONS a governance path (ls / find / cat / head /
+    # grep / wc / stat / file …) must pass — an adversarial reviewer had a plain
+    # `find plugins/loom-governance/hooks` denied because the old matcher looked
+    # for a mutation shape ANYWHERE in the line (a bare ">" matched the
+    # `2>/dev/null` of a read; "chmod"/"truncate" matched unanchored).
+    #
+    # Two anchored signals now, evaluated per shell segment (segments start at a
+    # command position, so the command WORD is identifiable):
+    #   1. the segment's command word is a mutator (tee/dd of=/sed -i/rm/mv/
+    #      truncate/chmod/chown/install) AND the segment mentions a protected path
+    #   2. a REDIRECTION TARGET (> / >>) in the segment is a protected path
+    # The gated set is unchanged; only the false positives are gone.
+    gate_bash() { # protected-token
+      if [ -n "$AGENT_ID" ]; then
+        decide deny "Subagent ('$(json_get '.agent_type')') may not modify governance file '$1' via Bash. Governance changes are main-agent + user-approval only."
+      else
+        decide ask "Bash command appears to MODIFY a governance path ('$1'). Approve only if you intend to change governance itself. Command: $CMD"
+      fi
+    }
+
+    # Command word of a segment, path-stripped; skips VAR=value assignments and
+    # sudo/env-style prefix words.
+    seg_cmd_word() { # segment -> command word (may be empty)
+      local s="$1" tok
+      while :; do
+        s="${s#"${s%%[![:space:]]*}"}"
+        [ -n "$s" ] || { printf ''; return 0; }
+        tok="${s%%[[:space:]]*}"
+        case "${tok##*/}" in
+          *=*|sudo|env|command|nohup|nice|time|exec|xargs|stdbuf|ionice) ;;
+          -*) ;;
+          *) printf '%s' "${tok##*/}"; return 0 ;;
+        esac
+        s="${s#"$tok"}"
+      done
+    }
+
+    seg_is_mutator() { # segment -> 0 if its command word writes files
+      case "$(seg_cmd_word "$1")" in
+        tee|truncate|chmod|chown|install|rm|mv) return 0 ;;
+        dd)  printf '%s' "$1" | grep -qE '(^|[[:space:]])of=' && return 0 ;;
+        sed) printf '%s' "$1" | grep -qE '(^|[[:space:]])-i' && return 0 ;;
+      esac
+      return 1
+    }
+
+    seg_redirect_targets() { # segment -> one redirection target per line
+      printf '%s' "$1" \
+        | grep -oE '>>?[[:space:]]*[^[:space:]<>|;&]+' \
+        | sed -e 's/^>>*//' -e 's/^[[:space:]]*//'
+    }
+
+    while IFS= read -r SEG; do
+      [ -n "$SEG" ] || continue
+      SEG_MUTATES=0
+      seg_is_mutator "$SEG" && SEG_MUTATES=1
+      RTARGETS="$(seg_redirect_targets "$SEG" || true)"
+      [ "$SEG_MUTATES" = 0 ] && [ -z "$RTARGETS" ] && continue
       for prot in ".claude/hooks" ".claude/settings.json" ".claude/settings.local.json" \
                   ".logic-loom/config/governance.conf" ".logic-loom/memory/constitution.md" \
                   ".logic-loom/lib/governance-verdicts.sh" ".logic-loom/lib/policy.sh" \
                   "plugins/loom-governance/hooks" "plugins/loom-governance/.claude-plugin/plugin.json"; do
-        if printf '%s' "$CMD" | grep -qF "$prot"; then
-          if [ -n "$AGENT_ID" ]; then
-            decide deny "Subagent ('$(json_get '.agent_type')') may not modify governance file '$prot' via Bash. Governance changes are main-agent + user-approval only."
-          else
-            decide ask "Bash command appears to MODIFY a governance path ('$prot'). Approve only if you intend to change governance itself. Command: $CMD"
-          fi
+        if [ "$SEG_MUTATES" = 1 ] && printf '%s' "$SEG" | grep -qF "$prot"; then
+          gate_bash "$prot"
+        fi
+        if [ -n "$RTARGETS" ] && printf '%s' "$RTARGETS" | grep -qF "$prot"; then
+          gate_bash "$prot"
         fi
       done
-    fi
+    done <<< "$(printf '%s' "$CMD" | tr ';|&(){}`' '\n\n\n\n\n\n\n\n')"
     ;;
 esac
 
