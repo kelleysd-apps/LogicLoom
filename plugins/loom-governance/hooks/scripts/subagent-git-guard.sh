@@ -76,6 +76,15 @@ if declare -f loom_verdict_subagent_git >/dev/null 2>&1; then
     AGENT_TYPE="$(json_get '.agent_type' || true)"
     deny "Git is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run git — return findings to the main agent, which will run git with user approval. Blocked: '${COMMAND}'"
   fi
+  # Same rule for the GitHub CLI. `gh pr create` / `gh pr merge` /
+  # `gh workflow run` mutate the repository server-side, so a subagent that may
+  # not run `git push` must not be able to merge a PR either. Categorical (reads
+  # included), matching the git rule.
+  if declare -f loom_verdict_subagent_gh >/dev/null 2>&1 \
+     && [ "$(loom_verdict_subagent_gh "$COMMAND" "$AGENT_ID")" = "deny" ]; then
+    AGENT_TYPE="$(json_get '.agent_type' || true)"
+    deny "The GitHub CLI is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run gh — a subagent must not create/merge PRs or dispatch workflows. Return findings to the main agent. Blocked: '${COMMAND}'"
+  fi
   allow
 fi
 
@@ -87,5 +96,9 @@ fi
 if [ -n "$AGENT_ID" ] && printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'; then
   AGENT_TYPE="$(json_get '.agent_type' || true)"
   deny "Git is restricted to the main agent (verdict lib unavailable — failing safe). Subagent '${AGENT_TYPE:-unknown}' may not run git. Blocked: '${COMMAND}'"
+fi
+if [ -n "$AGENT_ID" ] && printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?gh([[:space:]]|$)'; then
+  AGENT_TYPE="$(json_get '.agent_type' || true)"
+  deny "The GitHub CLI is restricted to the main agent (verdict lib unavailable — failing safe). Subagent '${AGENT_TYPE:-unknown}' may not run gh. Blocked: '${COMMAND}'"
 fi
 allow
