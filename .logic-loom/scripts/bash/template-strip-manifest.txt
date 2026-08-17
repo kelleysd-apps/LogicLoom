@@ -59,7 +59,10 @@ stub: VISION.md
 #     ship — stripped at promote. The sanitized-tree bridge test scans
 #     .claude/commands files (the wrapper is gone, so it stays green); loom-
 #     maintenance plugin.json keeps a now-3rd entry, which no test validates
-#     against files. ---
+#     against files. NOTE: .claude/commands/.bridge-manifest.json SHIPS and is a
+#     DERIVED index of .claude/commands/*.md — removing the wrapper alone would
+#     leave it advertising /promote. strip-harness-dev.sh re-derives it (via
+#     sync-plugin-commands.sh prune) after this manifest is applied. ---
 .logic-loom/scripts/bash/bump-version.sh
 plugins/loom-maintenance/commands/promote.md
 .claude/commands/promote.md

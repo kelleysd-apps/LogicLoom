@@ -40,7 +40,14 @@ assert "Manifest exists" "[ -f .claude/commands/.bridge-manifest.json ]"
 assert "Manifest is valid JSON" "python3 -c 'import json; json.load(open(\".claude/commands/.bridge-manifest.json\"))'"
 assert "Manifest has bridged section" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"bridged\" in d'"
 assert "Manifest has static section" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"static\" in d'"
-assert "Manifest has generated timestamp" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"generated\" in d'"
+# The manifest SHIPS in the public template and is a pure function of
+# .claude/commands/*.md, so it must carry no dated stamp: one would ship a date
+# to customers AND make every sync a spurious diff. (This assertion replaced an
+# earlier "has generated timestamp" check — the stamp was the defect.)
+assert "Manifest carries no dated stamp" \
+  "! grep -qE '\"(generated|date|timestamp|last_updated)\"' .claude/commands/.bridge-manifest.json"
+assert "Manifest regeneration is byte-stable" \
+  "cp .claude/commands/.bridge-manifest.json /tmp/loom-bm-\$\$.json && .logic-loom/scripts/bash/sync-plugin-commands.sh sync >/dev/null 2>&1 && cmp -s /tmp/loom-bm-\$\$.json .claude/commands/.bridge-manifest.json; rc=\$?; rm -f /tmp/loom-bm-\$\$.json; [ \$rc -eq 0 ]"
 assert "Manifest has zero statics" "python3 -c 'import json,sys; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); sys.exit(0 if len(d.get(\"static\",[])) == 0 else 1)'"
 
 # ── Command Coverage Tests ──

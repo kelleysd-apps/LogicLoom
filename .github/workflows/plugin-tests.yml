@@ -74,6 +74,12 @@ jobs:
       - name: Run Suite Registration Tests
         run: bash tests/contract/test_suite_registration.sh
 
+      - name: Run Generated Artifacts Declared Tests
+        run: bash tests/contract/test_generated_artifacts_declared.sh
+
+      - name: Run Scrub Rules Match Tests
+        run: bash tests/contract/test_scrub_rules_match.sh
+
       - name: Run Git Safety Tests
         run: bash .logic-loom/tests/test-git-safety.sh
 

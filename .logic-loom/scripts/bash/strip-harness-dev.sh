@@ -119,4 +119,26 @@ while IFS= read -r raw; do
   strip_entry "$line"
 done < "$MANIFEST"
 
+# --- Re-derive the plugin→command bridge manifest -----------------------------
+# .claude/commands/.bridge-manifest.json SHIPS (it is how Claude Code discovers
+# slash commands), but it is a DERIVED index of .claude/commands/*.md. Stripping
+# a maintainer-only command (e.g. /promote: both the plugin source and its bridge
+# wrapper are manifest entries above) leaves the index advertising a command the
+# shipped tree no longer contains.
+#
+# Fix it by RE-DERIVING rather than by teaching either side about the other:
+# the bridge stays ignorant of release topology (it has no "maintainer-only"
+# concept and should not grow one — that lives in template-strip-manifest.txt),
+# and the strip step does not hand-edit a generated file. `prune` is the right
+# verb: it drops orphaned wrappers and rewrites the manifest, without re-adding
+# anything `sync` would resurrect. Output is deterministic, so on a tree with
+# nothing stripped this is a no-op.
+BRIDGE="$REPO_ROOT/.logic-loom/scripts/bash/sync-plugin-commands.sh"
+if [ -f "$BRIDGE" ]; then
+  bash "$BRIDGE" prune >/dev/null
+  echo -e "${GREEN}  regen ${NC}.claude/commands/.bridge-manifest.json (post-strip)"
+else
+  echo -e "${YELLOW}  warn  ${NC}sync-plugin-commands.sh absent — bridge manifest NOT re-derived"
+fi
+
 echo -e "${GREEN}Done.${NC} Next: sanitize-for-template.sh, then sanitization-audit.sh"

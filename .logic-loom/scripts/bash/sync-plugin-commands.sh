@@ -240,9 +240,13 @@ generate_manifest() {
     fi
   done
   
+  # DETERMINISTIC BY CONTRACT: the manifest is a pure function of
+  # .claude/commands/*.md, and it SHIPS in the public template. It therefore
+  # carries no timestamp — a regeneration stamp would (a) be a dated stamp in a
+  # shipped artifact and (b) make every `sync` a spurious diff even when nothing
+  # changed. Same input tree ⇒ byte-identical file.
   cat > "$MANIFEST" <<EOF
 {
-  "generated": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "bridge_marker": "${BRIDGE_MARKER}",
   "bridged": {${bridged_json}
   },
