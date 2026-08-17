@@ -1,6 +1,6 @@
 ---
 name: promote
-description: "[MAINTAINER] Cut a sanitized template release — bump version, commit/push dev-main, dispatch promote-to-main.yml, open the PR (Actions can't), monitor checks."
+description: "[MAINTAINER] Cut a sanitized template release — bump version, commit/push dev-main, dispatch promote-to-main.yml, open the PR with a user token (Actions never does), verify checks actually reported."
 model: opus
 ---
 
@@ -22,9 +22,12 @@ harness-dev content and fail leak-guard. Two frictions the workflow alone can't
 smooth, which this command absorbs:
 1. **Version stamps must be bumped on dev-main first** — the workflow keeps
    "version identity intact" and will NOT bump `6.x → 6.y`.
-2. **The workflow's own `gh pr create` fails** when the repo setting *"Allow
-   GitHub Actions to create and approve pull requests"* is OFF — so the PR is
-   opened with a user token instead (which also lets `leak-guard.yml` run on it).
+2. **The workflow deliberately does not open the PR.** A PR opened with the
+   built-in `GITHUB_TOKEN` does **not** trigger `pull_request` workflows (GitHub
+   suppresses them to prevent recursion), so `leak-guard.yml` — the one check
+   that exists to guard PRs into `main` — would silently never run on it. The PR
+   is therefore always opened here, with a **user token**, which does fire
+   `pull_request` events. The workflow pushes `release/$TAG` and stops.
 
 ## Procedure
 
@@ -54,30 +57,68 @@ nothing autonomously.
   runs the **binding audit (Checks 1–7)** → composes the single-parent snapshot →
   advances `.sdd-sync-ref` → pushes `release/$TAG`.
 
-### 5. Resolve the publish step
-- **Run fully succeeded** → the workflow opened the PR. Capture its URL (`gh pr list --base main --head "release/$TAG"`).
-- **Run failed ONLY at "Publish via PR to main"** with *"GitHub Actions is not permitted to create or approve pull requests"* → the `release/$TAG` branch was still pushed. Open the PR yourself:
+### 5. Open the PR yourself (approval) — the workflow never does
+- **Run fully succeeded** → `release/$TAG` was pushed and **no PR exists**. That is
+  correct, not a failure. Open it with the user token (this is a git/PR mutation —
+  surface it for approval):
   ```
   gh pr create --base main --head "release/$TAG" \
     --title "Release $TAG: sanitized template" \
     --body "Single-parent promotion from dev-main. The in-workflow sanitization audit (Checks 1-7) already passed — the binding gate. Merge with a MERGE COMMIT (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags $TAG (the sanitized snapshot) — no manual tagging."
   ```
 - **Run failed at the AUDIT step** (Checks 1–7) → the snapshot is UNSANITIZED. Report the exact leak/failure from `gh run view <id> --log-failed`; do NOT open a PR. Fix on dev-main and re-run `/promote`.
+- **A PR into `main` from `release/$TAG` already exists** (e.g. a re-dispatch) → do
+  not open a second one; go to step 6 and verify that one.
 
-### 6. Hand off at the green PR — do NOT merge it
-- `gh pr checks <pr>` — `leak-guard` + `contract-tests` should pass on the sanitized snapshot.
+### 6. Verify the PR — checks must have REPORTED, not merely "not failed"
+The failure mode this guards: a PR whose checks never ran shows **no red**, and
+`gh pr checks` does **not** reliably distinguish that from all-green. Do not read
+"nothing failed" as "validated".
+
+**6a. Assert checks reported at all.** Count the rollup — this is the reliable
+signal, because it returns an empty array when nothing ran:
+```
+gh pr view <pr> --json statusCheckRollup --jq '.statusCheckRollup | length'
+```
+- **`0` → FAILURE STATE. Do not hand off.** No `pull_request` event fired for this
+  PR (the usual cause: it was opened by Actions/`GITHUB_TOKEN` rather than a user
+  token). Remediate by closing and reopening it under the user token, which emits
+  a fresh `pull_request` event (approval-gated, like any mutation):
+  ```
+  gh pr close <pr> && gh pr reopen <pr>
+  ```
+  Wait ~30s, then **re-run 6a**. If it is still `0` after a reopen, STOP and report
+  — do not proceed to a hand-off on an unverified PR.
+- **`> 0` → proceed to 6b.**
+
+**6b. Assert the expected checks are present and green.** Both must appear by
+name — a rollup with only one of them is still an incomplete verification:
+```
+gh pr checks <pr>
+```
+- Required: **`leak-guard`** and **`contract-tests`**, both `pass`.
+- Anything `pending` → wait and re-check. Anything `fail` → report and STOP.
+- A missing *name* is the same failure class as 6a: the check did not run.
+  Remediate the same way (close/reopen), then re-verify.
+
+**6c. Hand off — do NOT merge it.**
 - **STOP here. This command never merges to `main`** — that is the deliberate
   human release gate (`main` is branch-protected, review-required). Do **not**
-  `--admin`-bypass it.
-- Report: PR URL, check status, mergeability, and any audit failure. Tell the
-  maintainer to **merge it themselves with a MERGE COMMIT** (never squash/rebase —
-  it keeps `.sdd-sync-ref` + `v*` tags reachable for `/update-framework`). On
-  merge, `.github/workflows/release-tag.yml` **auto-applies the `$TAG` tag** to the
+  `--admin`-bypass it, and never merge to "work around" a check that did not run.
+- Report: PR URL, the rollup count from 6a, the per-check status from 6b,
+  mergeability, and any audit failure. Tell the maintainer to **merge it
+  themselves with a MERGE COMMIT** (never squash/rebase — it keeps `.sdd-sync-ref`
+  + `v*` tags reachable for `/update-framework`). On merge,
+  `.github/workflows/release-tag.yml` **auto-applies the `$TAG` tag** to the
   sanitized snapshot — no manual tagging needed.
 
 ## Notes
-- To make the workflow open its own PR (skip step 5's fallback), enable repo
-  Settings → Actions → General → *Allow GitHub Actions to create and approve pull requests*.
+- **Do not** enable repo Settings → Actions → General → *Allow GitHub Actions to
+  create and approve pull requests* in the hope of skipping step 5. Even with it
+  ON, a PR opened by `GITHUB_TOKEN` triggers no `pull_request` workflows, so the
+  PR lands with **no checks at all** — the success path would silently lose
+  `leak-guard`. The workflow has no `pull-requests: write` permission for exactly
+  this reason. Step 5 is the only path.
 - The `release` GitHub **environment** can carry required reviewers as an
   additional human gate before the bot publishes — configure in Settings → Environments.
 
