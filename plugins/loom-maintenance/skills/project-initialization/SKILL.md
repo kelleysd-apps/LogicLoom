@@ -93,6 +93,7 @@ not the customer's project. Remove it from the new project (keep `plugin-tests.y
 rm -f .github/workflows/promote-to-main.yml   # maintainer release workflow (not for your project)
 rm -f .github/workflows/release-tag.yml       # maintainer auto-tag-on-release-merge (not for your project)
 rm -f .github/workflows/leak-guard.yml        # maintainer identity-marker backstop (not for your project)
+rm -f .github/workflows/branch-topology-guard.yml  # maintainer release-branch-only gate on main (your main takes feature branches)
 ```
 
 State clearly in the report that these were removed and why (they would otherwise

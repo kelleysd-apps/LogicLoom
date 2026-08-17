@@ -138,6 +138,13 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #                                main — must be on main to run on main pushes
 #                                (ship; marker-free; stripped from a CUSTOMER
 #                                project at init, like promote-to-main.yml)
+#   .github/workflows/branch-topology-guard.yml : fails any PR into main whose
+#                                head branch is not release/vX.Y.Z. MUST ship —
+#                                a `pull_request` workflow is evaluated from the
+#                                BASE branch, so stripping it would delete the
+#                                only copy that can ever run (ship; marker-free;
+#                                stripped from a CUSTOMER project at init, like
+#                                promote-to-main.yml)
 #   .github/workflows/plugin-tests.yml: validates the shipped harness (ship)
 #   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
 #   .sdd-sync-ref              : /update-framework upstream pointer (ship)

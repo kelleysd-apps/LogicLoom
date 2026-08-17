@@ -366,7 +366,7 @@ echo ""
 # harness you are using.)
 echo ""
 echo -e "${BLUE}Removing maintainer-only template-release CI...${NC}"
-for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml; do
+for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml .github/workflows/branch-topology-guard.yml; do
     if [ -f "$wf" ]; then
         rm -f "$wf"
         echo -e "${GREEN}✓${NC} Removed $wf (LogicLoom template-release CI, not for your project)"
