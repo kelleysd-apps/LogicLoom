@@ -629,7 +629,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Pre-Release
 
-- [ ] All features merged to develop/main
+- [ ] All features merged to the branch you release from
 - [ ] Version number determined
 - [ ] CHANGELOG.md updated
 - [ ] Documentation updated
@@ -690,9 +690,8 @@ git merge --no-ff hotfix/critical-bug
 git tag -a v1.2.1 -m "Hotfix v1.2.1 - Critical bug fix"
 git push origin v1.2.1
 
-# 7. Merge to develop
-git checkout develop
-git merge --no-ff hotfix/critical-bug
+# 7. Forward-port to your integration branch, if you run one (see the
+#    Branching Strategy Policy — no such branch is required or assumed)
 
 # 8. Deploy immediately
 deploy-to-production v1.2.1

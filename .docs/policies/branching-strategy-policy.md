@@ -1,6 +1,6 @@
 # Branching Strategy Policy
 
-**Version**: 1.0.0
+**Version**: 2.0.0
 **Effective Date**: TBD
 **Authority**: Constitution v3.2.0 - Principle VI (Git Operation Approval)
 **Review Cycle**: Quarterly
@@ -9,7 +9,10 @@
 
 ## Purpose
 
-This policy establishes Git branching standards and workflows for the LogicLoom framework, ensuring clean history, collaborative development, and safe integration following constitutional principles.
+This policy establishes Git branching conventions for **your project** — the
+repository you build with LogicLoom. It documents the small set of things the
+harness actually assumes about your branches, and offers conventions for
+everything else.
 
 ---
 
@@ -24,11 +27,55 @@ This policy enforces:
 
 ## Scope
 
-All Git repositories using the LogicLoom framework must follow this branching strategy, including:
-- Application repositories
-- Library repositories
-- Infrastructure repositories
-- Documentation repositories
+This policy applies to repositories using the LogicLoom framework — application,
+library, infrastructure, and documentation repositories alike.
+
+---
+
+## What the harness requires vs. what it merely suggests
+
+**Be clear about which is which.** The distinction below is the same
+enforced-vs-followed honesty the framework applies to governance generally (see
+`.docs/architecture/governance-threat-model.md`).
+
+### Enforced (hook-side, model-independent)
+
+| Guarantee | Mechanism |
+|---|---|
+| No autonomous git mutation by the main agent — every `commit`/`push`/`merge`/`rebase`/branch create or delete raises an approval prompt | `.claude/hooks/git-safety-gate.sh` (Principle VI) |
+| No git command at all from a subagent | `.claude/hooks/subagent-git-guard.sh` (Principle VI) |
+
+That is the entire enforced surface. **The harness enforces nothing about your
+branch *names*, your branch *topology*, or where branches merge.**
+
+### Assumed (convention; nothing checks it)
+
+- **A mainline exists** and is called `main` by default. Commands that suggest a
+  base branch (`/git-push`, the feature-bootstrapping commands) default to it and
+  will use whatever you tell them instead.
+- **Work happens on a branch off that mainline**, one branch per unit of work, so
+  that a review gate has something to review. This is a convention — the harness
+  will operate perfectly well on a single branch if that is what you want.
+
+### Your choice (the harness has no opinion)
+
+Everything else: whether you run trunk-based development, GitHub Flow, GitFlow,
+release trains, stacked PRs, or something bespoke. Whether a long-lived
+integration branch exists. Which branch deploys where. **Pick the model that fits
+your team and your release cadence, then record that choice here in your own copy
+of this policy.** The sections below are a menu, not a mandate.
+
+### A note on LogicLoom's own repository
+
+The LogicLoom upstream repository uses a branching topology specific to
+**maintaining a distributed template** — a working mainline, plus a separate,
+machine-composed, sanitized branch that customer copies are cut from. Its
+`release/*` branches are produced by a CI workflow, not hand-cut by a developer.
+
+**That topology exists because LogicLoom is a template. Your project is not a
+template, and should not inherit it.** It is documented for maintainers in the
+upstream repository and is deliberately not described here, because copying it
+into a product repository would add real cost for no benefit.
 
 ---
 
@@ -57,26 +104,30 @@ All Git repositories using the LogicLoom framework must follow this branching st
 - ❌ No force pushes
 - ❌ No deletions
 
-#### develop (optional)
+#### Long-lived integration branch (optional — off by default)
 
-**Purpose**: Integration branch for ongoing development
+**Purpose**: Accumulate merged work before it reaches the mainline
 
-**Characteristics**:
-- Latest development changes
-- May be unstable
-- Integration testing
-- Auto-deploys to development environment
+**Conventional name**: `develop`
 
-**Naming**: `develop`
+**The harness neither creates, requires, nor knows about such a branch.** It is
+one option among several, and it carries a real cost — a second branch to keep
+green, a second merge to remember, and drift between the two. Add it only if you
+have a concrete reason.
 
-**When to Use**:
-- Teams ≥5 developers
-- Continuous integration workflow
-- Need for stable main branch
+**Reasons that justify it**:
+- Releases are scheduled rather than continuous, and the mainline must always
+  match what is in production
+- Enough parallel work is in flight that integration failures need to surface
+  somewhere other than the mainline
 
-**When to Skip**:
-- Small teams (<5 developers)
-- GitHub Flow (direct to main)
+**Reasons to skip it** (the common case):
+- You deploy from the mainline continuously
+- Feature branches are short-lived enough that integration risk stays low
+
+**If you adopt one**, say so explicitly in your copy of this policy and update
+the branch-protection and deployment sections to match — otherwise the rest of
+this document will describe a repository you do not have.
 
 ---
 
@@ -102,9 +153,9 @@ All Git repositories using the LogicLoom framework must follow this branching st
 - Format: 3-digit number + kebab-case description
 - Example: "Add user profile" → `001-user-profile`
 
-**Branch From**: `main` (or `develop` if using)
+**Branch From**: the mainline (`main`), or your integration branch if you adopted one
 
-**Merge Into**: `main` (or `develop`)
+**Merge Into**: the same branch you cut from
 
 **Lifetime**: Until feature complete and merged (typically 1-7 days)
 
@@ -146,7 +197,7 @@ hotfix/{issue-description}
 
 **Branch From**: `main`
 
-**Merge Into**: `main` AND `develop` (if exists)
+**Merge Into**: `main` — and your integration branch too, if you adopted one
 
 **Lifetime**: Short (hours, not days)
 
@@ -163,10 +214,8 @@ git commit -m "fix: resolve password reset email bug"
 git push -u origin hotfix/password-reset-bug
 gh pr create --base main --head hotfix/password-reset-bug
 
-# After merge to main, also merge to develop
-git checkout develop
-git merge hotfix/password-reset-bug
-git push origin develop
+# If you run a separate integration branch, forward-port the fix to it as well,
+# so the next release does not silently revert the hotfix.
 ```
 
 **Fast-Track Approval**: Yes (single approver for emergencies)
@@ -184,9 +233,10 @@ release/v{major}.{minor}.{patch}
 - `release/v1.2.0`
 - `release/v2.0.0-beta.1`
 
-**Branch From**: `develop`
+**Branch From**: whichever branch accumulates finished work — the mainline, or
+your integration branch if you adopted one
 
-**Merge Into**: `main` AND `develop`
+**Merge Into**: `main` (and back into the integration branch, if you have one)
 
 **Lifetime**: Until release deployed (typically 1-3 days)
 
@@ -195,10 +245,13 @@ release/v{major}.{minor}.{patch}
 - Version-specific testing
 - Release candidates
 
+**When to Skip**: you deploy from the mainline and tag it. Most projects do not
+need this branch type.
+
 **Workflow**:
 ```bash
-# Create release branch from develop
-git checkout -b release/v1.2.0 develop
+# Create release branch from the branch holding finished work
+git checkout -b release/v1.2.0 main
 
 # Bump version, update changelog
 npm version minor
@@ -214,10 +267,8 @@ git merge --no-ff release/v1.2.0
 git tag -a v1.2.0 -m "Release v1.2.0"
 git push origin main --tags
 
-# Merge back to develop
-git checkout develop
-git merge --no-ff release/v1.2.0
-git push origin develop
+# If you run a separate integration branch, merge the release branch back into
+# it as well, so the version bump and any release fixes are not lost.
 
 # Delete release branch
 git branch -d release/v1.2.0
@@ -250,11 +301,13 @@ main
 - Continuous deployment
 - Simple release process
 
-**LogicLoom Default**: GitHub Flow
+**Suggested starting point.** This is what the rest of this document's examples
+assume, because it is the model with the fewest moving parts — not because the
+harness requires it.
 
 ### Git Flow (Optional for Large Teams)
 
-**Complex workflow**: feature branches → develop → release → main
+**Complex workflow**: feature branches → integration branch → release → main
 
 ```
 main ← release/v1.0 ← develop
@@ -264,7 +317,7 @@ main ← release/v1.0 ← develop
 ```
 
 **Characteristics**:
-- Two main branches (main + develop)
+- Two long-lived branches (mainline + integration)
 - Release branches for preparation
 - Hotfix branches for emergencies
 - Formal versioning
@@ -273,6 +326,16 @@ main ← release/v1.0 ← develop
 - Large teams (≥5 developers)
 - Scheduled releases
 - Complex QA process
+
+**Cost**: two branches to keep green, a forward-port obligation on every hotfix,
+and a standing source of drift. Adopt deliberately.
+
+### Choosing
+
+Neither model is enforced, and neither is "the LogicLoom way." If your team
+already has a branching model that works, keep it — the harness will not fight
+it. Record whichever you chose in this section of your own copy, so the rest of
+the document stops being hypothetical.
 
 ---
 
@@ -472,9 +535,13 @@ protection:
   required_signatures: false
 ```
 
-### Develop Branch Protection (if using)
+> **Not enforced by the harness.** Branch protection lives in your Git host's
+> settings, not in LogicLoom. The hooks gate *the agent's* git operations; they
+> cannot stop a human with push access. Configure protection on the host.
 
-**Recommended settings** for `develop`:
+### Integration Branch Protection (only if you adopted one)
+
+**Recommended settings** for a long-lived integration branch:
 
 - Require PR: Yes
 - Required approvals: 1
@@ -570,10 +637,11 @@ git rebase main
 
 **Definition**: Branch with no commits for >14 days
 
-**Policy**:
-- Automated reminder at 14 days
-- Automated closure warning at 21 days
-- Automated closure at 28 days (with notification)
+**Suggested escalation** (nothing ships to automate this — if you want it
+automated, wire it up in your own CI):
+- Reminder at 14 days
+- Closure warning at 21 days
+- Closure at 28 days, with notification
 
 **Developer Responsibility**:
 - Keep branches active (commit/sync regularly)
@@ -819,6 +887,15 @@ Track these branching metrics:
 - Conventional Commits: https://www.conventionalcommits.org/
 - Git Flow: https://nvie.com/posts/a-successful-git-branching-model/
 - GitHub Flow: https://guides.github.com/introduction/flow/
+
+---
+
+## Version History
+
+| Version | Change |
+|---|---|
+| 2.0.0 | Stopped prescribing GitFlow. The framework requires no particular branching model; added the explicit enforced/assumed/your-choice split, demoted `develop` to an opt-in with its cost stated, corrected release branches to cut from the branch holding finished work, and marked stale-branch escalation and branch protection as unautomated. Noted that the upstream repository's template-maintenance topology is not a prescription for product repositories. |
+| 1.0.0 | Initial policy. |
 
 ---
 

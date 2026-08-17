@@ -1,6 +1,6 @@
 # Deployment Policy
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Effective Date**: TBD
 **Authority**: Constitution v3.2.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
@@ -83,6 +83,17 @@ All deployments to production and production-like environments must follow this 
 
 ## Deployment Environments
 
+The three environments below are **roles**, not branch names. LogicLoom ships no
+deployment machinery and defines no environment branches — **which branch (or
+tag, or manual dispatch) advances which environment is a decision your project
+makes**, and it belongs in your own copy of this policy. The triggers named below
+are stated as roles precisely so they cannot rot into a description of branches
+that do not exist.
+
+> **Nothing in this section is enforced.** There is no hook, no check, and no
+> workflow behind it. It is a template for the deployment discipline your project
+> should adopt; the harness will not notice if you deviate.
+
 ### Development (dev)
 
 **Purpose**: Active development and testing
@@ -94,9 +105,11 @@ All deployments to production and production-like environments must follow this 
 - Debug mode enabled
 - No user data
 
-**Deployment**: Automatic on push to `develop` branch
+**Deployment trigger**: continuous, on every change that lands in the mainline
+(or in your integration branch, if you run one). Record the concrete trigger
+here.
 
-### Staging (staging)
+### Staging
 
 **Purpose**: Pre-production verification
 
@@ -107,7 +120,8 @@ All deployments to production and production-like environments must follow this 
 - User acceptance testing
 - Integration testing
 
-**Deployment**: Automatic on push to `staging` branch
+**Deployment trigger**: on each release candidate — a tag, a release branch, or a
+manual dispatch. Record the concrete trigger here.
 
 **Requirements**:
 - All tests pass
@@ -570,10 +584,14 @@ ci:
 
 ### Continuous Deployment
 
+**LogicLoom ships none of the pipelines below.** They are shapes to adapt. Each
+`trigger:` is written as a role — substitute the branch, tag, or dispatch event
+your project actually uses.
+
 **Development** (Automatic):
 ```yaml
 deploy-dev:
-  trigger: push to develop branch
+  trigger: <changes landing on your mainline>
   steps:
     - run CI pipeline
     - deploy to dev environment
@@ -583,7 +601,7 @@ deploy-dev:
 **Staging** (Automatic):
 ```yaml
 deploy-staging:
-  trigger: push to staging branch
+  trigger: <release candidate — tag, release branch, or dispatch>
   steps:
     - run CI pipeline
     - deploy to staging environment
@@ -661,6 +679,15 @@ Deployment logs retained for:
 - Security Policy: `.docs/policies/security-policy.md`
 - Branching Strategy: `.docs/policies/branching-strategy-policy.md`
 - Release Management: `.docs/policies/release-management-policy.md`
+
+---
+
+## Version History
+
+| Version | Change |
+|---|---|
+| 1.1.0 | Environments are now described as **roles** rather than branch names. Removed the assertions that deployment is automatic on push to `develop` / `staging` — neither branch exists, and the framework defines no environment branches. Stated plainly that no deployment machinery ships and none of this section is enforced. |
+| 1.0.0 | Initial policy. |
 
 ---
 
