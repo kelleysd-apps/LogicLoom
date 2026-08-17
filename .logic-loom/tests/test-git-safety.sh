@@ -14,11 +14,30 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # from a sourced file), so only source when running on bash 4+. The T007-T011
 # function tests below skip gracefully when the functions are absent, and the
 # hook-gate tests drive the hook scripts as subprocesses and need nothing here.
-if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+# Probe with THIS interpreter in a subshell first (a failure inside a sourced
+# file can't be `||`-caught), then source for real only if the probe survives.
+# This replaces a hard `bash >= 4` version gate: the libs are bash-3.2-clean
+# now, and the version gate silently skipped every T007-T011 assertion on
+# stock macOS.
+if "${BASH:-bash}" -c "set -euo pipefail; source \"$REPO_ROOT/.logic-loom/scripts/bash/common.sh\"" >/dev/null 2>&1; then
     source "$REPO_ROOT/.logic-loom/scripts/bash/common.sh"
 else
-    echo "[skip] bash ${BASH_VERSION%%(*}: common.sh not sourced (lib needs bash 4+) — T007-T011 function tests will skip"
+    echo "[skip] bash ${BASH_VERSION%%(*}: common.sh could not be sourced — T007-T011 function tests will skip"
 fi
+
+# Git checkpoint isolation: point the checkpoint writer at a temp dir so the
+# suite never writes into the repo working tree and is not stateful across runs.
+# common.sh honours LOOM_CHECKPOINT_DIR (see checkpoint_dir_path).
+LOOM_CHECKPOINT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-checkpoints.XXXXXX")"
+export LOOM_CHECKPOINT_DIR
+cleanup_test_checkpoints() {
+    if [ -n "${LOOM_CHECKPOINT_DIR:-}" ] && [ -d "$LOOM_CHECKPOINT_DIR" ]; then
+        case "$LOOM_CHECKPOINT_DIR" in
+            */loom-checkpoints.*) rm -rf "$LOOM_CHECKPOINT_DIR" ;;
+        esac
+    fi
+}
+trap cleanup_test_checkpoints EXIT
 
 # Test utilities
 TESTS_RUN=0
@@ -108,10 +127,14 @@ test_get_git_diff_preview() {
     local diff_output="1 file changed, 10 insertions(+), 2 deletions(-)"
 
     # Function should format the output appropriately
-    local preview=$(get_git_diff_preview 2>/dev/null || echo "")
+    # NOTE: assign first, capture status on the NEXT line. `local x=$(cmd)`
+    # makes $? the status of `local` (always 0), so the assertion below would
+    # pass unconditionally.
+    local preview="" rc=0
+    preview=$(get_git_diff_preview 2>/dev/null) || rc=$?
 
     # Check that function executed without error
-    assert_equals "0" "$?" "get_git_diff_preview executes without error"
+    assert_equals "0" "$rc" "get_git_diff_preview executes without error"
 }
 
 test_request_git_approval_with_preview() {
@@ -147,12 +170,20 @@ test_create_git_checkpoint() {
     if [[ -n "$checkpoint_id" ]]; then
         assert_contains "$checkpoint_id" "^[0-9]\{10\}$" "Checkpoint ID is a valid epoch timestamp"
 
-        # Verify checkpoint file was created
-        local checkpoint_file=".logic-loom/logs/git-checkpoints/$(date +%Y-%m-%d).json"
+        # Verify checkpoint file was created (in the isolated temp dir)
+        local checkpoint_file="$LOOM_CHECKPOINT_DIR/$(date +%Y-%m-%d).json"
         assert_file_exists "$checkpoint_file" "Checkpoint file created"
 
-        # Cleanup test checkpoint
-        # (In real implementation, would restore from this checkpoint)
+        # Each record must be ONE line of valid JSON (JSONL) — line-by-line
+        # readers (list_git_checkpoints) depend on it.
+        local bad_lines=0
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            echo "$line" | jq -e . >/dev/null 2>&1 || bad_lines=$((bad_lines + 1))
+        done < "$checkpoint_file"
+        assert_equals "0" "$bad_lines" "Checkpoint records are one-line valid JSON (JSONL)"
+
+        # Temp checkpoint dir is removed by the EXIT trap.
     else
         echo -e "${YELLOW}⊘${NC} Checkpoint creation returned empty (function may not be complete)"
     fi
@@ -167,11 +198,19 @@ test_list_git_checkpoints() {
         return 0
     fi
 
-    # Test checkpoint listing
-    local checkpoints=$(list_git_checkpoints 2>/dev/null || echo "")
+    # Seed a checkpoint so listing has something real to render.
+    create_git_checkpoint "list-test-operation" >/dev/null 2>&1 || true
+
+    # Assign first, capture status on the NEXT line (see note above).
+    local checkpoints="" rc=0
+    checkpoints=$(list_git_checkpoints 2>/dev/null) || rc=$?
 
     # Should at least execute without error
-    assert_equals "0" "$?" "list_git_checkpoints executes without error"
+    assert_equals "0" "$rc" "list_git_checkpoints executes without error"
+
+    # ...and actually render the checkpoint it was given, not a silent blank.
+    assert_contains "$checkpoints" "list-test-operation" \
+        "list_git_checkpoints renders the checkpoint record it just wrote"
 }
 
 test_restore_git_checkpoint() {
@@ -197,9 +236,11 @@ test_cleanup_old_checkpoints() {
         return 0
     fi
 
-    # Should execute without error
-    cleanup_old_checkpoints 2>/dev/null || true
-    assert_equals "0" "$?" "cleanup_old_checkpoints executes without error"
+    # Should execute without error. `|| true` would make $? unconditionally 0,
+    # so capture the real status instead.
+    local rc=0
+    cleanup_old_checkpoints >/dev/null 2>&1 || rc=$?
+    assert_equals "0" "$rc" "cleanup_old_checkpoints executes without error"
 }
 
 # ==============================================================================
