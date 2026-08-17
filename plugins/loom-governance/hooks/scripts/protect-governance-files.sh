@@ -59,6 +59,15 @@ TOOL="$(json_get '.tool_name' || true)"
 # Protected governance surface (repo-root-relative path prefixes). Delegates to
 # the shared verdict lib (single, conformance-tested source of the protected
 # set); the inline case below is the fail-open fallback when the lib is absent.
+#
+# The lib's set is the built-in FLOOR plus any ADDITIVE `protected_paths` entries
+# in governance.conf (see the invariant block in governance-verdicts.sh: config
+# can only add, the floor can never be removed). The inline fallback below
+# reproduces only the floor — it is a last resort for a missing lib, and by
+# construction it can be a SUBSET of the real set, never a superset. That is
+# consistent with this hook's documented fail-open-on-infra-gap posture: a fork
+# whose extra paths matter should notice the lib is gone, not rely on a duplicate
+# config parser here.
 is_protected() { # rel_path -> 0 if protected
   if declare -f loom_path_is_protected >/dev/null 2>&1; then
     loom_path_is_protected "$1"; return
@@ -68,10 +77,26 @@ is_protected() { # rel_path -> 0 if protected
     |.claude/settings.json|.claude/settings.local.json \
     |.logic-loom/config/governance.conf \
     |.logic-loom/memory/constitution.md \
+    |.logic-loom/lib/governance-verdicts.sh|.logic-loom/lib/policy.sh \
     |plugins/loom-governance/hooks/*|plugins/loom-governance/hooks \
     |plugins/loom-governance/.claude-plugin/plugin.json) return 0 ;;
   esac
   return 1
+}
+
+# The same set as TOKENS for the Bash branch, which substring-matches command
+# text rather than asking a yes/no about one path. Same sourcing rule: the lib
+# when present (floor + config additions), the floor-only fallback otherwise.
+protected_tokens() { # -> one protected path/prefix per line
+  if declare -f loom_protected_path_tokens >/dev/null 2>&1; then
+    loom_protected_path_tokens; return
+  fi
+  printf '%s\n' \
+    '.claude/hooks' '.claude/settings.json' '.claude/settings.local.json' \
+    '.logic-loom/config/governance.conf' '.logic-loom/memory/constitution.md' \
+    '.logic-loom/lib/governance-verdicts.sh' '.logic-loom/lib/policy.sh' \
+    'plugins/loom-governance/hooks' \
+    'plugins/loom-governance/.claude-plugin/plugin.json'
 }
 
 # Canonicalize a path and make it repo-root-relative for matching.
@@ -160,23 +185,26 @@ case "$TOOL" in
         | sed -e 's/^>>*//' -e 's/^[[:space:]]*//'
     }
 
+    # Token list comes from the verdict lib so the Bash branch and the Write/Edit
+    # branch protect the SAME set — including any additive governance.conf
+    # entries. Computed once, outside the segment loop.
+    PROT_TOKENS="$(protected_tokens || true)"
+
     while IFS= read -r SEG; do
       [ -n "$SEG" ] || continue
       SEG_MUTATES=0
       seg_is_mutator "$SEG" && SEG_MUTATES=1
       RTARGETS="$(seg_redirect_targets "$SEG" || true)"
       [ "$SEG_MUTATES" = 0 ] && [ -z "$RTARGETS" ] && continue
-      for prot in ".claude/hooks" ".claude/settings.json" ".claude/settings.local.json" \
-                  ".logic-loom/config/governance.conf" ".logic-loom/memory/constitution.md" \
-                  ".logic-loom/lib/governance-verdicts.sh" ".logic-loom/lib/policy.sh" \
-                  "plugins/loom-governance/hooks" "plugins/loom-governance/.claude-plugin/plugin.json"; do
+      while IFS= read -r prot; do
+        [ -n "$prot" ] || continue
         if [ "$SEG_MUTATES" = 1 ] && printf '%s' "$SEG" | grep -qF "$prot"; then
           gate_bash "$prot"
         fi
         if [ -n "$RTARGETS" ] && printf '%s' "$RTARGETS" | grep -qF "$prot"; then
           gate_bash "$prot"
         fi
-      done
+      done <<< "$PROT_TOKENS"
     done <<< "$(printf '%s' "$CMD" | tr ';|&(){}`' '\n\n\n\n\n\n\n\n')"
     ;;
 esac

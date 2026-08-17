@@ -211,6 +211,77 @@ check "verdict lib + main → ask"      ask  "$(loom_verdict_protected_path '.lo
 check "policy.sh + subagent → deny"   deny "$(loom_verdict_protected_path '.logic-loom/lib/policy.sh' 'a8e')"
 
 echo ""
+echo "protected-path FLOOR vs ADDITIVE config (§3.1 — security-critical invariant)"
+# The protected set is config-EXTENSIBLE so a fork that renames directories does
+# not get a silently broken guard. The invariant that makes that safe: config can
+# only ADD. If config could REPLACE the set, the first move is to drop
+# governance.conf and this lib from it and then rewrite every hook — a
+# privilege-escalation hole, not a portability win. These fixtures pin it.
+#
+# Each case re-sources the lib in a SUBSHELL with LOOM_GOVERNANCE_CONF pointed at
+# a fixture, so no state leaks between cases and the outer suite is unaffected.
+PROT_TMP="$(mktemp -d)"
+trap 'rm -rf "$PROT_TMP"' EXIT
+
+protq() { # conf_path rel_path -> protected|not
+  ( export LOOM_GOVERNANCE_CONF="$1"
+    # shellcheck disable=SC1090
+    . "$LIB"
+    if loom_path_is_protected "$2"; then echo protected; else echo not; fi )
+}
+
+PROT_MISSING="$PROT_TMP/absent/governance.conf"
+printf 'mode = lean\nprotected_paths =\n' > "$PROT_TMP/empty.conf"
+# Every removal the syntax makes possible: empty value, negation prefixes,
+# plausible override/reset/remove key names, re-declaration, injection shapes.
+cat > "$PROT_TMP/removal.conf" <<'PROTEOF'
+mode = lean
+protected_paths =
+protected_paths = -.claude/hooks
+protected_paths = !.logic-loom/memory/constitution.md
+protected_paths_override = src
+protected_paths_replace = src
+protected_paths_reset = true
+protected_paths_remove = .logic-loom/lib/governance-verdicts.sh
+LOOM_PROTECTED_PATHS = src
+protected_paths = .claude/hooks -> /dev/null
+protected_paths = $(rm -rf /)
+protected_paths = ;unset -f loom_path_is_protected
+PROTEOF
+printf 'mode = lean\nprotected_paths = .specify/hooks\nprotected_paths = tools/policy/*\n' > "$PROT_TMP/add.conf"
+printf '[oops\nprotected_paths\nprotected_pathsX = src\nprotected_paths = /etc/passwd\nprotected_paths = *\nprotected_paths = ../../etc\nprotected_paths = ok/kept\n' > "$PROT_TMP/malformed.conf"
+
+# The floor holds with NO config, with an EMPTY key, with a removal attempt, and
+# with a malformed file. Four representative floor members × four config states.
+for _cf in "$PROT_MISSING:no-config" "$PROT_TMP/empty.conf:empty-key" \
+           "$PROT_TMP/removal.conf:removal-attempt" "$PROT_TMP/malformed.conf:malformed"; do
+  _p="${_cf%%:*}"; _n="${_cf##*:}"
+  check "floor: .claude/hooks/x.sh ($_n)"      protected "$(protq "$_p" '.claude/hooks/x.sh')"
+  check "floor: settings.json ($_n)"           protected "$(protq "$_p" '.claude/settings.json')"
+  check "floor: constitution.md ($_n)"         protected "$(protq "$_p" '.logic-loom/memory/constitution.md')"
+  check "floor: governance.conf ITSELF ($_n)"  protected "$(protq "$_p" '.logic-loom/config/governance.conf')"
+  check "floor: verdict lib ITSELF ($_n)"      protected "$(protq "$_p" '.logic-loom/lib/governance-verdicts.sh')"
+  check "floor: policy.sh ($_n)"               protected "$(protq "$_p" '.logic-loom/lib/policy.sh')"
+  check "floor: loom-governance hooks ($_n)"   protected "$(protq "$_p" 'plugins/loom-governance/hooks/scripts/x.sh')"
+  check "not protected: README.md ($_n)"       not       "$(protq "$_p" 'README.md')"
+done
+# A removal attempt must also leave the VERDICT unchanged, not merely the predicate.
+check "removal attempt: hooks + subagent → deny" deny "$( export LOOM_GOVERNANCE_CONF="$PROT_TMP/removal.conf"; . "$LIB"; loom_verdict_protected_path '.claude/hooks/x.sh' 'a8e')"
+check "removal attempt: conf + main → ask"       ask  "$( export LOOM_GOVERNANCE_CONF="$PROT_TMP/removal.conf"; . "$LIB"; loom_verdict_protected_path '.logic-loom/config/governance.conf' '')"
+# Config ADDS: the fork-friendliness the item exists for.
+check "config adds .specify/hooks"           protected "$(protq "$PROT_TMP/add.conf" '.specify/hooks')"
+check "config adds beneath .specify/hooks"   protected "$(protq "$PROT_TMP/add.conf" '.specify/hooks/pre.sh')"
+check 'config dir/* spelling == dir'         protected "$(protq "$PROT_TMP/add.conf" 'tools/policy/a.json')"
+check "config addition is segment-anchored"  not       "$(protq "$PROT_TMP/add.conf" 'tools/policyX')"
+check "addition absent without config"       not       "$(protq "$PROT_MISSING" '.specify/hooks')"
+check "addition never protects README.md"    not       "$(protq "$PROT_TMP/add.conf" 'README.md')"
+# Malformed entries are skipped INDIVIDUALLY; valid ones on the same file survive.
+check "malformed: glob entry ignored"        not       "$(protq "$PROT_TMP/malformed.conf" 'anything/at/all')"
+check "malformed: absolute entry ignored"    not       "$(protq "$PROT_TMP/malformed.conf" '/etc/passwd')"
+check "malformed: key-lookalike ignored"     not       "$(protq "$PROT_TMP/malformed.conf" 'src')"
+check "malformed: valid entry still kept"    protected "$(protq "$PROT_TMP/malformed.conf" 'ok/kept/f.txt')"
+
+echo ""
 echo "freeze write-scope (freeze-hit deny / no-owns allow / owns-hit allow / else deny)"
 check "in owns → allow"          allow "$(loom_verdict_freeze_scope 'features/x/src/a.ts' 'features/x/src' '')"
 check "owns exact → allow"       allow "$(loom_verdict_freeze_scope 'features/x/src' 'features/x/src' '')"

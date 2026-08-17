@@ -26,7 +26,7 @@ Governance is one layer among several; rely on the stack, not any single gate:
 |---|---|---|
 | `subagent-git-guard.sh` | PreToolUse·Bash | Denies MUTATING git from a subagent (`agent_id` present). Explicitly allowlisted read-only git (status/log/diff/show/listing/…) is permitted; everything else — including `fetch`, code-executing globals like `-c core.fsmonitor=<cmd>`, and any command substitution — is denied. `gh` stays categorically denied. |
 | `git-safety-gate.sh` | PreToolUse·Bash | Main-agent git mutations → `ask`. |
-| `protect-governance-files.sh` | PreToolUse·Write/Edit + Bash | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent `deny` / main `ask`. Stops the model softening its own rules. |
+| `protect-governance-files.sh` | PreToolUse·Write/Edit + Bash | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, the verdict lib + `policy.sh`, `loom-governance/hooks/`) → subagent `deny` / main `ask`. Stops the model softening its own rules. That set is a **fixed floor**; `governance.conf`'s `protected_paths` key can only ADD to it — see *Protected-path floor* below. |
 | `guard-dangerous-commands.sh` | PreToolUse·Bash | Policy-based dangerous-command blocking (bash 4+; fails open on 3.2). |
 | `freeze-write-scope.sh` | PreToolUse·Write/Edit | Plan-as-DAG file-ownership; paths canonicalized (`realpath`) so `..`/symlink/`//` cannot escape the `owns:` scope. |
 | `governance-preflight.sh` | UserPromptSubmit | Domain briefs + memory; strict-mode recitation. |
@@ -325,6 +325,40 @@ v6.1/v6.2 supersession-note pattern.
 > `git`, `git push --no-verify`, the honor-system `LOOM_GIT_APPROVED` token). The
 > **governance-file protection** and **freeze-write-scope** adapters are NOT yet
 > shipped, so those cells stay "followed-only" on non-Claude hosts.
+>
+> **Protected-path floor (fixed) + config additions (additive-only).** The
+> protected set is now EXTENSIBLE, because hardcoding `.logic-loom/…` and
+> `plugins/loom-governance/…` meant a fork that renamed those directories got a
+> **silently broken** governance-file guard — no error, no protection. The shape
+> of that extensibility is the whole security question, and the answer is
+> deliberately one-directional:
+> - **The built-in floor cannot be removed.** `protected_paths` in
+>   `governance.conf` may only ADD paths. There is no removal, override, reset, or
+>   negation syntax — the parser appends and nothing else, so no config file can
+>   express a removal. The floor is checked FIRST and never consults config.
+> - **Why it must be one-directional.** The protected set contains
+>   `governance.conf` itself and the verdict lib. A REPLACEABLE set would let a
+>   fork — or the model — drop those two entries and then rewrite every hook, the
+>   constitution, and the lib unopposed. That is privilege escalation dressed as
+>   portability. Additive-only bounds the worst case to protecting *too much*:
+>   loud, obvious, and undone by deleting a line.
+> - **Fail-safe, never fail-open.** Missing, unreadable, or malformed config
+>   leaves the floor standing alone; invalid entries are skipped individually. No
+>   code path lets a config problem reduce protection.
+> - **Entries are literals, not globs.** Matching uses a QUOTED `case` pattern, so
+>   `*`/`?`/`[`/`]`/`\` are never interpreted; entries containing them (beyond an
+>   optional trailing `/*`, which is spelling for "and everything beneath"),
+>   absolute paths, `~`, and `..` segments are ignored. A literal cannot be
+>   crafted to match less than it appears to.
+> - **Renames self-protect.** Half the floor is derived from the verdict lib's own
+>   file location, so a fork using `.specify/` gets its `lib/`,
+>   `config/governance.conf`, and `memory/constitution.md` protected with zero
+>   configuration; `protected_paths` covers whatever else it moved.
+> - **Enforced status is unchanged.** This widens *what* is protected and *who can
+>   widen it*; it does not change the `deny`/`ask`/`allow` verdicts or the matrix
+>   cells. The invariant is pinned by fixtures in
+>   `tests/contract/test_governance_verdicts.sh` (floor holds with no config, an
+>   empty key, every removal attempt the syntax permits, and a malformed file).
 >
 > **Floor-integrity hardening (post-gate-review).** Because the verdict lib is now
 > load-bearing, it is itself in the protected set (`loom_path_is_protected` covers

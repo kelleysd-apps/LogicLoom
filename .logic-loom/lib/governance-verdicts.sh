@@ -681,9 +681,119 @@ loom_verdict_subagent_gh() { # command agent_id -> allow|deny
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Governance-file protection (verbatim from protect-governance-files.sh)
+# Governance-file protection — FIXED FLOOR + ADDITIVE config
 # ─────────────────────────────────────────────────────────────────────────────
-loom_path_is_protected() { # repo-relative path -> 0 if protected
+# INVARIANT (security-critical; pinned by tests/contract/test_governance_verdicts.sh)
+#
+#   The built-in floor below is UN-REMOVABLE. `governance.conf` may only ADD
+#   paths to the protected set. It can never remove, replace, narrow, or
+#   re-order-away a built-in entry. There is deliberately NO removal syntax:
+#   no `-path`, no `protected_paths_override`, no "empty value clears the list".
+#   The parser only ever APPENDS, so no config file — however written, by a fork
+#   or by an agent — can express a removal.
+#
+# WHY THIS SHAPE. The protected set is self-protecting: it contains
+# `governance.conf` itself and this library. If config could REPLACE the set,
+# step one for a hostile (or merely careless) edit is to drop those two entries;
+# step two is rewriting every hook, the constitution, and this file with nothing
+# left to stop it. Additive-only is what makes a config-driven protected set
+# safe: the worst a bad config can do is protect TOO MUCH — loud, obvious, and
+# fixed by deleting a line — never too little, which is silent.
+#
+# FAIL-SAFE, NEVER FAIL-OPEN. A missing, unreadable, or malformed config is not
+# an error; the floor simply stands alone. Invalid entries are skipped one by
+# one, and the rest of the file is still honored. No code path exists in which a
+# config problem REDUCES protection.
+#
+# FORK-FRIENDLINESS. The floor has two halves:
+#   (a) the LITERAL LogicLoom paths (unchanged, always present); and
+#   (b) SELF-DERIVED paths computed from THIS FILE's own location, so a fork that
+#       renames the framework directory (`.logic-loom/` -> `.specify/`) still gets
+#       its own `lib/`, `config/governance.conf`, and `memory/constitution.md`
+#       protected with zero configuration. Without (b) a rename produced a
+#       silently broken guard — the defect this section fixes.
+# Anything else a fork renames (its hooks directory, its governance plugin) is
+# what the `protected_paths` config key is for.
+#
+# CONFIG SYNTAX (in `<framework-dir>/config/governance.conf`):
+#
+#     protected_paths = .specify/hooks
+#     protected_paths = tools/policy/*        # trailing /* is optional spelling
+#
+# One path per occurrence; the key REPEATS to add more. (Contrast `mode`, where
+# the FIRST occurrence wins — that key is an override, this one is a union.)
+# Repeatable-key was chosen over a comma/space-separated list because it matches
+# the file's existing `key = value` grammar exactly, parses with plain bash 3.2
+# string operations, diffs one path per line, and — decisively — has no syntax
+# capable of expressing a removal.
+#
+# ENTRY SEMANTICS. Entries are LITERAL, repo-root-relative paths, matched as
+# "this path, or anything beneath it" at a path-segment boundary. A trailing
+# `/*` is accepted and means exactly the same thing (`dir` == `dir/*`); it is
+# spelling, not a glob. NO OTHER PATTERN SYNTAX IS SUPPORTED, by design: the
+# entry is compared inside a QUOTED `case` pattern, so `*`, `?`, `[`, `]`, `\`
+# are never interpreted as metacharacters. Entries that still contain any of
+# them (after the optional trailing `/*`), plus absolute paths, `~`-relative
+# paths, `..` segments, and empty values, are IGNORED. Rationale: a literal
+# cannot be crafted to match LESS than it appears to (no escape-by-pattern), and
+# a bare `*` cannot silently become "protect everything" — that direction is only
+# annoying rather than dangerous, but ruling it out keeps a reader's mental model
+# and the matcher's behavior identical. `#` begins a comment.
+#
+# CONFIG LOCATION. `<framework-dir>/config/governance.conf`, derived from this
+# file's path so it follows a renamed framework directory. `LOOM_GOVERNANCE_CONF`
+# may point elsewhere (off-host adapter / test seam). Both sources are
+# additive-only and neither can weaken the floor, which is why this key UNIONS
+# its sources instead of following the `env > file > built-in` override
+# precedence that `mode` uses.
+
+# Self-derived framework location (half (b) of the floor). Resolved once, at
+# source time, from this file's own path — not from $PWD, which a caller controls.
+_LOOM_VERDICTS_DIR=""
+if [ -n "${BASH_SOURCE[0]:-}" ]; then
+  _LOOM_VERDICTS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
+fi
+_LOOM_FRAMEWORK_DIR="${_LOOM_VERDICTS_DIR%/*}"        # e.g. /repo/.logic-loom
+_LOOM_FRAMEWORK_NAME=""                               # e.g. .logic-loom
+if [ -n "$_LOOM_FRAMEWORK_DIR" ] && [ "$_LOOM_FRAMEWORK_DIR" != "$_LOOM_VERDICTS_DIR" ]; then
+  _LOOM_FRAMEWORK_NAME="${_LOOM_FRAMEWORK_DIR##*/}"
+fi
+if [ -z "${LOOM_GOVERNANCE_CONF:-}" ] && [ -n "$_LOOM_FRAMEWORK_DIR" ]; then
+  LOOM_GOVERNANCE_CONF="$_LOOM_FRAMEWORK_DIR/config/governance.conf"
+fi
+LOOM_GOVERNANCE_CONF="${LOOM_GOVERNANCE_CONF:-}"
+
+# Normalize a repo-relative path for comparison: drop a leading `./` and any
+# trailing `/`. Does NOT resolve `..` — callers pass already-canonicalized,
+# repo-root-relative paths (the hooks realpath upstream).
+_loom_norm_path() { # path -> normalized path
+  local p="$1"
+  p="${p#./}"
+  while :; do
+    case "$p" in
+      */) p="${p%/}" ;;
+      *)  break ;;
+    esac
+  done
+  printf '%s' "$p"
+}
+
+# Floor half (b): paths derived from this file's own location, so a renamed
+# framework directory protects itself.
+_loom_path_in_derived_floor() { # normalized path -> 0 if protected
+  local p="$1" fw="${_LOOM_FRAMEWORK_NAME:-}"
+  [ -n "$fw" ] || return 1
+  case "$p" in
+    "$fw"/lib/governance-verdicts.sh \
+    |"$fw"/lib/policy.sh \
+    |"$fw"/config/governance.conf \
+    |"$fw"/memory/constitution.md) return 0 ;;
+  esac
+  return 1
+}
+
+# THE FLOOR. Config never reaches this function; nothing here can be turned off.
+_loom_path_in_builtin_floor() { # normalized path -> 0 if protected
   case "$1" in
     .claude/hooks/*|.claude/hooks \
     |.claude/settings.json|.claude/settings.local.json \
@@ -693,7 +803,90 @@ loom_path_is_protected() { # repo-relative path -> 0 if protected
     |plugins/loom-governance/hooks/*|plugins/loom-governance/hooks \
     |plugins/loom-governance/.claude-plugin/plugin.json) return 0 ;;
   esac
+  _loom_path_in_derived_floor "$1" && return 0
   return 1
+}
+
+# Validate + normalize ONE raw config value. Returns 1 (entry ignored) for
+# anything that is not a plain relative literal path. See ENTRY SEMANTICS above.
+_loom_sanitize_protected_entry() { # raw-value -> echoes entry, or returns 1
+  local e="$1"
+  e="${e%%#*}"                                   # strip inline comment
+  e="$(_loom_ltrim "$e")"
+  e="${e%"${e##*[![:space:]]}"}"                 # strip trailing whitespace
+  case "$e" in */\*) e="${e%/\*}" ;; esac        # `dir/*` == `dir` (spelling)
+  e="$(_loom_norm_path "$e")"
+  [ -n "$e" ] || return 1
+  case "$e" in
+    /*|'~'*)                    return 1 ;;      # absolute / home-relative
+    ..|../*|*/..|*/../*)        return 1 ;;      # parent-directory escape
+    *'*'*|*'?'*|*'['*|*']'*|*'\'*) return 1 ;;   # glob / escape metacharacters
+  esac
+  printf '%s' "$e"
+}
+
+# Every VALID `protected_paths` value in the config, one per line. Never sources
+# or evaluates the file. Absent / unreadable / malformed -> emits nothing.
+_loom_config_protected_entries() { # -> one sanitized entry per line
+  local conf="${LOOM_GOVERNANCE_CONF:-}" line rest entry
+  [ -n "$conf" ] || return 0
+  [ -f "$conf" ] || return 0
+  [ -r "$conf" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(_loom_ltrim "$line")"
+    case "$line" in protected_paths*) ;; *) continue ;; esac
+    rest="$(_loom_ltrim "${line#protected_paths}")"
+    case "$rest" in =*) ;; *) continue ;; esac    # `protected_pathsX` is not the key
+    entry="$(_loom_sanitize_protected_entry "${rest#=}")" || continue
+    [ -n "$entry" ] && printf '%s\n' "$entry"
+  done < "$conf"
+  return 0
+}
+
+# ADDITIONS ONLY. Consulted after the floor, and only ever able to say "yes".
+_loom_path_in_config_additions() { # normalized path -> 0 if an entry matches
+  local p="$1" entry
+  while IFS= read -r entry; do
+    [ -n "$entry" ] || continue
+    case "$p" in
+      "$entry"|"$entry"/*) return 0 ;;            # QUOTED: literal, never a glob
+    esac
+  done <<< "$(_loom_config_protected_entries)"
+  return 1
+}
+
+loom_path_is_protected() { # repo-relative path -> 0 if protected
+  local p
+  p="$(_loom_norm_path "$1")"
+  _loom_path_in_builtin_floor "$p" && return 0      # floor FIRST — un-removable
+  _loom_path_in_config_additions "$p" && return 0   # then additive config
+  return 1
+}
+
+# The full protected set as path TOKENS (floor + config additions), one per line.
+# For adapters that need the list rather than a yes/no — e.g. the Bash branch of
+# protect-governance-files.sh, which substring-matches command text. May contain
+# duplicates when a fork has NOT renamed the framework directory; harmless for
+# every consumer, and de-duplicating would need bash 4 or a subshell sort.
+loom_protected_path_tokens() { # -> one protected path/prefix per line
+  printf '%s\n' \
+    '.claude/hooks' \
+    '.claude/settings.json' \
+    '.claude/settings.local.json' \
+    '.logic-loom/config/governance.conf' \
+    '.logic-loom/memory/constitution.md' \
+    '.logic-loom/lib/governance-verdicts.sh' \
+    '.logic-loom/lib/policy.sh' \
+    'plugins/loom-governance/hooks' \
+    'plugins/loom-governance/.claude-plugin/plugin.json'
+  if [ -n "${_LOOM_FRAMEWORK_NAME:-}" ]; then
+    printf '%s\n' \
+      "$_LOOM_FRAMEWORK_NAME/lib/governance-verdicts.sh" \
+      "$_LOOM_FRAMEWORK_NAME/lib/policy.sh" \
+      "$_LOOM_FRAMEWORK_NAME/config/governance.conf" \
+      "$_LOOM_FRAMEWORK_NAME/memory/constitution.md"
+  fi
+  _loom_config_protected_entries
 }
 
 # Editing a protected path -> subagent deny / main ask / else allow.
