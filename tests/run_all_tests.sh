@@ -85,6 +85,11 @@ run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.s
 run_suite "Product Workspace Boundary" "bash tests/contract/test_product_workspace_boundary.sh"
 run_suite "Model Agnosticism" "bash tests/contract/test_model_agnostic.sh"
 run_suite "Graph Bridge" "bash tests/contract/test_graph_bridge.sh"
+run_suite "Governance Verdicts" "bash tests/contract/test_governance_verdicts.sh"
+run_suite "Freeze Scope" "bash tests/contract/test_freeze_scope.sh"
+run_suite "Git Adapter" "bash tests/contract/test_git_adapter.sh"
+run_suite "Disposition Tandem" "bash tests/contract/test_disposition_tandem.sh"
+run_suite "Suite Registration" "bash tests/contract/test_suite_registration.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # governance-verdicts.sh — shared allow|ask|deny decision logic for the LogicLoom
-# enforcement guarantees (Principle VI git-gate + subagent-git-deny, the matching
-# gh-gate + subagent-gh-deny, governance-file protection, plan-as-DAG
+# enforcement guarantees (Principle VI git-gate + subagent-git-mutation-deny, the
+# matching gh-gate + subagent-gh-deny, governance-file protection, plan-as-DAG
 # freeze-write-scope).
 #
 # This is the L2 "verdict function" seam (see
@@ -225,10 +225,304 @@ loom_git_is_mutation() { # command -> 0 if a MUTATING git command
   return 1
 }
 
-# Subagent (non-empty agent_id) may NOT run ANY git (mutating or read-only).
+# ─────────────────────────────────────────────────────────────────────────────
+# Subagent read-only git ALLOWLIST (§7.3)
+# ─────────────────────────────────────────────────────────────────────────────
+# The guarantee is "a subagent never MUTATES git", not "a subagent never touches
+# git". Read-only exploration (`git status`, `git log`, `git diff`) is legitimate
+# worker behavior and blocking it bought nothing.
+#
+# DESIGN CONSTRAINT — this is an ALLOWLIST of known-safe reads, then deny
+# everything else. It is NOT "classify mutations and allow the remainder", and it
+# must never be refactored into one. With a mutation-classifier the failure mode
+# is a false NEGATIVE — a silent subagent mutation, exactly what Principle VI
+# exists to prevent. With an allowlist the failure mode is a false POSITIVE — a
+# worker is loudly denied `git shortlog`, someone notices, and it is fixed in a
+# day. Trade the loud failure for the silent one, always.
+#
+# A subagent git invocation is ALLOWED only if ALL of these hold:
+#   1. the subcommand is on the explicit read-only allowlist below;
+#   2. for subcommands with both read and write forms (branch/tag/stash/remote/
+#      worktree/config/notes/bisect/submodule/reflog/symbolic-ref) the specific
+#      args are the READ form;
+#   3. no git GLOBAL flag that can execute code or redirect the repo is present —
+#      only a short safe-global allowlist passes. Rationale: `git -c
+#      core.fsmonitor=<cmd> status` EXECUTES <cmd>; so do `core.pager`,
+#      `alias.*=!cmd`, `--exec-path=<dir>`; and `--git-dir`/`--work-tree`/
+#      `--namespace` point git at a different repository entirely;
+#   4. no ENVIRONMENT ASSIGNMENT precedes the `git` word (see
+#      _loom_seg_has_env_assignment — git's environment is a complete bypass of
+#      rule 3);
+#   5. no argument anywhere in the invocation hands git a program to run, a file
+#      to write, or a path outside the repo (see LOOM_GIT_SUBAGENT_DENIED_ARGS);
+#   6. the command contains no command/process substitution that could smuggle
+#      another command past the gate.
+# Anything else -> deny.
+#
+# `fetch` is deliberately absent: it writes remote-tracking refs and touches the
+# network. Main-agent behavior is unchanged (fetch is still a non-mutation there).
+#
+# `ls-remote` was REMOVED from the read allowlist (upstream review G3): it is a
+# read of the *remote*, i.e. unattended network I/O from a worker — and with a
+# hostile GIT_SSH_COMMAND / --upload-pack it is also an execution primitive. A
+# worker that needs remote refs asks the main agent.
+# `submodule` (status/summary) was REMOVED for the same review: both dispatch
+# git's submodule helper and run git inside each submodule, so the args the gate
+# just validated are not the args that ultimately execute.
+
+# Read-only git subcommands with no meaningful write form.
+LOOM_GIT_SUBAGENT_READ_SUBCOMMANDS='status log diff show rev-parse rev-list ls-files ls-tree cat-file describe blame shortlog whatchanged grep merge-base name-rev count-objects verify-commit verify-tag check-ignore check-attr diff-tree diff-index for-each-ref show-ref'
+
+# git GLOBAL flags a subagent may use. Everything NOT here is denied — including
+# -c / --config-env / --exec-path / --git-dir / --work-tree / --namespace.
+# `-C <path>` consumes its argument; the rest are valueless.
+LOOM_GIT_SUBAGENT_SAFE_GLOBAL_FLAGS='--no-pager -P --paginate -p --literal-pathspecs --noglob-pathspecs --glob-pathspecs --icase-pathspecs --no-optional-locks'
+
+# Arguments a subagent may never pass to git, WHEREVER they appear — before or
+# after the subcommand, in `--flag=value` or `--flag value` spelling. The global-
+# flag allowlist (rule 3) only covers the pre-subcommand position; these are the
+# post-subcommand equivalents, which are just as dangerous:
+#   --output              writes an arbitrary file (`git log --output=/tmp/f`)
+#   --ext-diff/--textconv runs the configured external diff / textconv program
+#   --contents            reads an arbitrary file (`git blame --contents /etc/passwd`)
+#   --upload-pack/--receive-pack/--open-files-in-pager   run a named program
+#   --exec-path/--git-dir/--work-tree/--namespace/--config-env/--attr-source/
+#   --super-prefix        redirect git at a different repo or helper tree
+# Matched on the token's name half (`${tok%%=*}`) so both spellings are caught.
+# NOTE: short flags are deliberately NOT listed here — `-c` means "count" to
+# `git grep` and "combined diff" to `git log`, both legitimate reads; the global
+# `-c <key>=<value>` is already denied by the safe-global allowlist.
+LOOM_GIT_SUBAGENT_DENIED_ARGS='--output --ext-diff --textconv --contents --upload-pack --receive-pack --open-files-in-pager --exec-path --git-dir --work-tree --namespace --config-env --attr-source --super-prefix'
+
+# Does an environment assignment precede the command word in this segment?
+#
+# _loom_cmd_after_prefix deliberately skips `VAR=value` as a harmless prefix so
+# that `env FOO=1 git push` is still recognized as git. For the SUBAGENT READ
+# path that is a hole big enough to drive everything through: git's environment
+# achieves every single thing the denied global flags achieve, without ever
+# looking like a flag.
+#   GIT_EXTERNAL_DIFF / GIT_SSH_COMMAND / GIT_PAGER / GIT_EDITOR  -> git EXECUTES it
+#   GIT_DIR / GIT_WORK_TREE / GIT_CONFIG* / GIT_ALTERNATE_OBJECT_DIRECTORIES
+#                                                                 -> redirects the repo
+#   LD_PRELOAD / DYLD_INSERT_LIBRARIES / PATH / IFS / BASH_ENV    -> hijacks the process
+#
+# The rule implemented here is the categorical one, NOT a GIT_*-plus-known-bad
+# enumeration: DENY ANY leading assignment. An enumeration is one new git
+# environment variable away from a silent hole, and a worker running read-only
+# git has no legitimate reason to set a variable inline — it can ask the main
+# agent. Consistent with the allowlist doctrine above: prefer the loud false
+# positive over the silent false negative. Main-agent verdicts are untouched.
+_loom_seg_has_env_assignment() { # segment -> 0 if an assignment precedes `git`
+  local s="$1" tok expect_arg=0
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || return 1
+    tok="${s%%[[:space:]]*}"
+    if [ "$expect_arg" = 1 ]; then expect_arg=0; s="${s#"$tok"}"; continue; fi
+    case "$tok" in
+      git|*/git) return 1 ;;                      # reached the command word
+      *=*)       return 0 ;;                      # VAR=value / env VAR=value
+      -u|-g|--user|--group) expect_arg=1 ;;
+      -*) ;;
+      *) _loom_in_list "${tok##*/}" "$LOOM_GIT_CMD_PREFIXES" || return 1 ;;
+    esac
+    s="${s#"$tok"}"
+  done
+}
+
+# Scan EVERY argument of a git invocation for a denied argument. Runs over the
+# whole arg string (globals + subcommand + subcommand args), so position does not
+# matter and neither does `--flag value` vs `--flag=value`.
+_loom_git_args_are_safe() { # args-after-the-'git'-word -> 0 if none are denied
+  local s="$1" tok
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    if _loom_in_list "${tok%%=*}" "$LOOM_GIT_SUBAGENT_DENIED_ARGS"; then return 1; fi
+    case "$tok" in
+      -C)  s="${s#"$tok"}"; s="$(_loom_ltrim "$s")"   # -C <path>: skip the path,
+           [ -n "$s" ] || break                       # which may contain an 'O'
+           tok="${s%%[[:space:]]*}" ;;
+      -C*) ;;                                         # -C/attached/path
+      --*) ;;
+      # `git grep -O <cmd>` opens matches in a pager == arbitrary execution.
+      # Checked as a short-flag CLUSTER so bundled `-nO` is caught too.
+      -*O*) return 1 ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  return 0
+}
+
+# `git branch` read form (subagent). Stricter than _loom_git_branch_mutates: also
+# rejects --track/--no-track, which set upstream on creation.
+_loom_git_branch_readonly_sub() { # args-after-'branch' -> 0 if a pure listing
+  local s="$1" tok
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    case "$tok" in
+      --track|--track=*|--no-track|-t) return 1 ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  if _loom_git_branch_mutates "$1"; then return 1; fi
+  return 0
+}
+
+# `git remote` read form: bare, -v/--verbose, `show`, `get-url`. Every other verb
+# (add/remove/rm/rename/set-url/set-branches/set-head/prune/update) writes.
+_loom_git_remote_readonly_sub() { # args-after-'remote' -> 0 if read
+  local s="$1" tok verb=""
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    case "$tok" in
+      -v|--verbose) ;;
+      -*) return 1 ;;
+      *) verb="$tok"; break ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  case "$verb" in ''|show|get-url) return 0 ;; esac
+  return 1
+}
+
+# `git config` read form: ONLY --get/--get-all/--get-regexp/--list/-l. Any other
+# form is (or can be) `key value`, which writes.
+_loom_git_config_readonly_sub() { # args-after-'config' -> 0 if read
+  local s="$1" tok found=0
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    case "$tok" in
+      --get|--get-all|--get-regexp|--get-urlmatch|--list|-l) found=1 ;;
+      --global|--local|--system|--worktree|--file|--null|-z \
+      |--show-origin|--show-scope|--name-only|--includes|--no-includes \
+      |--int|--bool|--path|--bool-or-int|--type=*|--default=*) ;;
+      -*) return 1 ;;
+      *) ;;                                       # key / value-pattern operand
+    esac
+    s="${s#"$tok"}"
+  done
+  [ "$found" = 1 ] && return 0
+  return 1
+}
+
+# `git symbolic-ref` read form: at most ONE operand (`git symbolic-ref HEAD`).
+# A second operand is the value being written; -d/-m are the write/delete forms.
+_loom_git_symbolic_ref_readonly_sub() { # args-after-'symbolic-ref' -> 0 if read
+  local s="$1" tok n=0
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    case "$tok" in
+      -d|--delete|-m) return 1 ;;
+      --short|-q|--quiet|--recurse|--no-recurse) ;;
+      -*) return 1 ;;
+      *) n=$((n + 1)) ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  [ "$n" -le 1 ] && return 0
+  return 1
+}
+
+# One segment -> 0 if it is NOT a git invocation, or is an ALLOWLISTED read-only
+# one. Returns 1 the moment anything is not provably a read.
+_loom_seg_git_readonly_for_subagent() { # segment -> 0 if safe
+  local s tok sub="" expect_arg=0 first all_args
+  s="$(_loom_git_after_prefix "$1")" || return 0   # not git: nothing to judge
+  # Rule 4: `GIT_EXTERNAL_DIFF=/tmp/evil git diff` is an execution primitive that
+  # never touches a flag. Any inline assignment -> deny.
+  _loom_seg_has_env_assignment "$1" && return 1
+  tok="${s%%[[:space:]]*}"; s="${s#"$tok"}"        # drop the `git` word itself
+  all_args="$s"
+  # Rule 5: denied arguments, wherever they appear and in either spelling.
+  _loom_git_args_are_safe "$all_args" || return 1
+
+  while :; do                                      # git GLOBAL flags (allowlist)
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    if [ "$expect_arg" = 1 ]; then expect_arg=0; s="${s#"$tok"}"; continue; fi
+    case "$tok" in
+      -C)  expect_arg=1 ;;                         # -C <path> is safe
+      -C*) ;;                                      # -C/path (attached value)
+      -*)  _loom_in_list "$tok" "$LOOM_GIT_SUBAGENT_SAFE_GLOBAL_FLAGS" || return 1 ;;
+      *)   sub="$tok"; s="${s#"$tok"}"; break ;;   # <- the SUBCOMMAND
+    esac
+    s="${s#"$tok"}"
+  done
+  [ -n "$sub" ] || return 1                        # bare git / globals only
+
+  # (The old substring test for --upload-pack= / --receive-pack= /
+  # --open-files-in-pager / --output= and the `git grep -O` special case are now
+  # subsumed by _loom_git_args_are_safe above, which is token-anchored and also
+  # catches the `--flag value` spelling and bundled short flags.)
+
+  if _loom_in_list "$sub" "$LOOM_GIT_SUBAGENT_READ_SUBCOMMANDS"; then
+    return 0
+  fi
+
+  first="$(_loom_first_arg "$s")"
+  case "$sub" in
+    symbolic-ref) _loom_git_symbolic_ref_readonly_sub "$s" && return 0; return 1 ;;
+    reflog)       [ "$first" = "show" ] && return 0; return 1 ;;
+    notes)        _loom_in_list "$first" 'list show' && return 0; return 1 ;;
+    bisect)       _loom_in_list "$first" 'log view' && return 0; return 1 ;;
+    # `submodule` is intentionally absent: see the header note. Even `status`
+    # runs git-submodule--helper and re-enters git inside each submodule.
+    stash)        _loom_in_list "$first" "$LOOM_GIT_STASH_READ_VERBS" && return 0; return 1 ;;
+    worktree)     [ "$first" = "list" ] && return 0; return 1 ;;
+    remote)       _loom_git_remote_readonly_sub "$s" && return 0; return 1 ;;
+    config)       _loom_git_config_readonly_sub "$s" && return 0; return 1 ;;
+    # END-OF-OPTIONS / flag-shaped names (upstream review G4). Verified behavior,
+    # documented rather than "fixed" because it is already deny-safe:
+    #   `git branch -- newname`  -> DENY. `--` falls through the generic `-*`
+    #      case and `newname` still hits the NAME arm, so a name cannot be
+    #      smuggled past the creation check by an end-of-options marker.
+    #   `git branch --list newname` -> DENY. _loom_git_branch_mutates has no
+    #      saw_list state: with `--list` present the name is really a glob
+    #      PATTERN (a read), but the gate still calls it creation. That is a
+    #      deliberate false POSITIVE — loud, and in the allowlist's preferred
+    #      direction. Do not "fix" it by adding saw_list; that trades a loud
+    #      false positive for a silent false negative on `git branch newname`.
+    #   `git tag --list v1` -> ALLOW. _loom_git_tag_mutates DOES track saw_list,
+    #      so a name alongside --list is treated as a listing pattern. The two
+    #      subcommands genuinely differ here; the asymmetry is intended.
+    branch)       _loom_git_branch_readonly_sub "$s" && return 0; return 1 ;;
+    tag)          _loom_git_tag_mutates "$s" && return 1; return 0 ;;
+  esac
+  return 1                                         # not on the allowlist -> deny
+}
+
+# command -> 0 if EVERY git invocation in it is an allowlisted read-only one.
+loom_git_is_readonly_for_subagent() { # command -> 0 if safe for a subagent
+  local cmd="$1" seg
+  # Smuggling: command/process substitution is checked against the RAW command,
+  # not the split segments — _loom_split_segments turns `(` into a newline, which
+  # would destroy the `$(` marker before we could see it.
+  case "$cmd" in
+    *'$('*|*'`'*|*'<('*|*'>('*) return 1 ;;
+  esac
+  while IFS= read -r seg; do
+    if ! _loom_seg_git_readonly_for_subagent "$seg"; then return 1; fi
+  done <<< "$(_loom_split_segments "$cmd")"
+  return 0
+}
+
+# Subagent (non-empty agent_id): allowlisted read-only git is ALLOWED; every
+# other git invocation is DENIED. See the allowlist rationale above.
 loom_verdict_subagent_git() { # command agent_id -> allow|deny
   local cmd="$1" agent_id="$2"
   if [ -n "$agent_id" ] && loom_git_is_invoke "$cmd"; then
+    if loom_git_is_readonly_for_subagent "$cmd"; then echo allow; return 0; fi
     echo deny; return 0
   fi
   echo allow; return 0

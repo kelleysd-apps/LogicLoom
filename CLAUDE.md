@@ -83,7 +83,7 @@ message. The hooks are the floor; the policies below are the standing intent.
 
 | Hook | Enforces |
 |---|---|
-| `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies ANY git command from a subagent (detected via `agent_id` in the hook payload). Git is main-agent + direct-user-request only. |
+| `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies MUTATING git from a subagent (detected via `agent_id` in the hook payload). A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, listings, `rev-parse`, `config --get`, …); everything else — write forms, `fetch`, code-executing globals (`-c`, `--git-dir`, `--work-tree`, `--exec-path`), command substitution — is denied. Mutating git stays main-agent + direct-user-request only. `gh` remains categorically denied for subagents. |
 | `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — main-agent git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
 | `protect-governance-files.sh` (PreToolUse · Write/Edit + Bash) | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent **deny** / main **ask**. The model can't silently soften its own rules. |
 | `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
@@ -248,7 +248,7 @@ how each maps to a principle):
 
 | Hook | Purpose |
 |---|---|
-| `subagent-git-guard.sh` | Denies ANY git command from a subagent (Principle VI). Git is main-agent + direct-user-request only |
+| `subagent-git-guard.sh` | Denies MUTATING git from a subagent (Principle VI); allowlisted read-only git is permitted. Mutating git is main-agent + direct-user-request only. `gh` stays categorically denied for subagents |
 | `git-safety-gate.sh` | Forces an approval prompt on main-agent git mutations (Principle VI). No autonomous git |
 | `guard-dangerous-commands.sh` | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
 | `governance-preflight.sh` | Injects domain briefs + memory context on `UserPromptSubmit` (and, in strict mode, the pre-flight recitation) |

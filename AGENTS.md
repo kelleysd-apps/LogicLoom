@@ -35,7 +35,7 @@ This file is the **Single Source of Truth (SSOT)** for agent information in Logi
 
 **These principles are MODEL-FOLLOWED unless your host enforces them.**
 LogicLoom's deterministic backstops — the git-approval gate, governance-file
-protection, subagent-git-deny, and freeze-write-scope — are **Claude Code
+protection, subagent-git-mutation-deny, and freeze-write-scope — are **Claude Code
 hooks**. They exist **only on the Claude Code host**. On every other host there
 is **no automated enforcement** of these rules today: if you skip an approval,
 run git autonomously, or write outside your assigned scope, nothing stops you.
@@ -126,6 +126,8 @@ cheaper-faster model".
 - **`strict`** — hooks enforce **and** the explicit step-by-step compliance assist is re-injected on every message, as a graceful-degradation path for weaker / non-flagship models.
 
 The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval on any git mutation regardless of mode (Principle VI). The dangerous-command guard and freeze-write-scope hooks likewise run independent of the mode.
+
+The **subagent git guard** denies MUTATING git from a subagent. A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, branch/tag/stash listings, `rev-parse`, `config --get`, `worktree list`, …); write forms, `fetch`, code-executing global flags (`-c`, `--git-dir`, `--work-tree`, `--exec-path`) and command substitution are denied. The GitHub CLI (`gh`) stays **categorically** denied for subagents, reads included. Kept in tandem with CLAUDE.md § Governance; full statement in `.docs/architecture/governance-threat-model.md` § *The subagent git guarantee*.
 
 **Key Responsibilities** (via hooks):
 1. Inject constitutional governance context (lean) or full compliance assist (strict)

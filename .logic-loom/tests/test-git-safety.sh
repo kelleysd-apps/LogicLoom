@@ -301,9 +301,9 @@ run_safety_gate() {
 
 test_subagent_git_guard() {
     echo ""
-    echo "Test: subagent-git-guard.sh blocks git from subagents (path-prefix safe)"
+    echo "Test: subagent-git-guard.sh blocks MUTATING git from subagents (path-prefix safe)"
 
-    # Subagent + git invocations (including path-prefix bypasses) -> deny
+    # Subagent + MUTATING git invocations (including path-prefix bypasses) -> deny
     assert_equals "deny" "$(run_subagent_guard "a8e123" "/usr/bin/git push")" \
         "subagent '/usr/bin/git push' -> deny"
     assert_equals "deny" "$(run_subagent_guard "a8e123" "./git clean -fd")" \
@@ -312,8 +312,21 @@ test_subagent_git_guard() {
         "subagent 'git -C /t reset --hard' -> deny"
     assert_equals "deny" "$(run_subagent_guard "a8e123" "cd x && /usr/bin/git push")" \
         "subagent 'cd x && /usr/bin/git push' -> deny"
-    assert_equals "deny" "$(run_subagent_guard "a8e123" "git status")" \
-        "subagent 'git status' (read-only still blocked) -> deny"
+    # §7.3: read-only git from a subagent is ALLOWED (was: blanket deny). The
+    # allowlist is explicit — known-safe reads pass, everything else is denied.
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "git status")" \
+        "subagent 'git status' (read-only allowlist) -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "git log --oneline -20")" \
+        "subagent 'git log' (read-only allowlist) -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "git branch -a")" \
+        "subagent 'git branch -a' (listing) -> allow"
+    # ...but the write forms and the code-execution globals stay denied.
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git branch newfeature")" \
+        "subagent 'git branch newfeature' (creates) -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git -c core.fsmonitor=evil status")" \
+        "subagent 'git -c core.fsmonitor=<cmd> status' (executes cmd) -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git fetch")" \
+        "subagent 'git fetch' (writes remote-tracking refs) -> deny"
 
     # Subagent + non-git substrings -> allow (no false positives)
     assert_equals "allow" "$(run_subagent_guard "a8e123" "ls && grep digit f")" \

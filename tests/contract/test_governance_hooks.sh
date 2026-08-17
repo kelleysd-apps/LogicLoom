@@ -61,6 +61,21 @@ SUB_PUSH_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-pur
 SUB_PUSH_DECISION="$(printf '%s' "$SUB_PUSH_JSON" | bash "$GUARD" | decision)"
 assert "subagent git push -> deny (got '${SUB_PUSH_DECISION}')" "[ '${SUB_PUSH_DECISION}' = 'deny' ]"
 
+# §7.3: read-only git from a subagent -> ALLOW (explicit allowlist), while the
+# write forms and the code-execution globals stay denied.
+SUB_RO_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git status"}}'
+D="$(printf '%s' "$SUB_RO_JSON" | bash "$GUARD" | decision)"
+assert "subagent git status -> allow (read-only allowlist, got '$D')" "[ '$D' = 'allow' ]"
+SUB_RO2_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git log --oneline -20"}}'
+D="$(printf '%s' "$SUB_RO2_JSON" | bash "$GUARD" | decision)"
+assert "subagent git log -> allow (read-only allowlist, got '$D')" "[ '$D' = 'allow' ]"
+SUB_BR_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git branch newfeature"}}'
+D="$(printf '%s' "$SUB_BR_JSON" | bash "$GUARD" | decision)"
+assert "subagent git branch <name> -> deny (got '$D')" "[ '$D' = 'deny' ]"
+SUB_CFG_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git -c core.fsmonitor=evil status"}}'
+D="$(printf '%s' "$SUB_CFG_JSON" | bash "$GUARD" | decision)"
+assert "subagent git -c core.fsmonitor=<cmd> -> deny (got '$D')" "[ '$D' = 'deny' ]"
+
 # Subagent running a NON-git command -> allow (not the guard's concern).
 SUB_NONGIT_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"ls -la"}}'
 SUB_NONGIT_DECISION="$(printf '%s' "$SUB_NONGIT_JSON" | bash "$GUARD" | decision)"

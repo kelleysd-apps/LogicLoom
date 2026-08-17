@@ -24,7 +24,7 @@ Governance is one layer among several; rely on the stack, not any single gate:
 
 | Hook | Matcher | Enforces |
 |---|---|---|
-| `subagent-git-guard.sh` | PreToolUse·Bash | Denies ANY git from a subagent (`agent_id` present). |
+| `subagent-git-guard.sh` | PreToolUse·Bash | Denies MUTATING git from a subagent (`agent_id` present). Explicitly allowlisted read-only git (status/log/diff/show/listing/…) is permitted; everything else — including `fetch`, code-executing globals like `-c core.fsmonitor=<cmd>`, and any command substitution — is denied. `gh` stays categorically denied. |
 | `git-safety-gate.sh` | PreToolUse·Bash | Main-agent git mutations → `ask`. |
 | `protect-governance-files.sh` | PreToolUse·Write/Edit + Bash | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent `deny` / main `ask`. Stops the model softening its own rules. |
 | `guard-dangerous-commands.sh` | PreToolUse·Bash | Policy-based dangerous-command blocking (bash 4+; fails open on 3.2). |
@@ -37,6 +37,82 @@ A subagent's tool call carries an `agent_id` (and `agent_type`) in the
 PreToolUse payload; the main agent's does not. This is the basis for
 "subagent → deny, main → ask" and is **empirically verified** (not documented
 contract) — re-verify if a future Claude Code version changes the field.
+
+## The subagent git guarantee (what it is, precisely)
+
+**The guarantee is "a subagent never MUTATES git" — not "a subagent never
+touches git".** It was the latter until §7.3; the blanket deny also blocked
+`git status`, which bought no safety and blocked legitimate read-only worker
+exploration.
+
+The rule is an **ALLOWLIST of known-safe reads, then deny everything else**
+(`loom_git_is_readonly_for_subagent` in `.logic-loom/lib/governance-verdicts.sh`).
+It is deliberately NOT "classify mutations and allow the remainder", and must not
+be refactored into one: with a mutation-classifier the failure mode is a false
+NEGATIVE — a silent subagent mutation, the exact thing Principle VI exists to
+prevent. With an allowlist the failure mode is a false POSITIVE — a worker is
+loudly denied some read, someone notices, and it is fixed in a day.
+
+A subagent git invocation is allowed only when **all** of these hold:
+
+1. the subcommand is on the explicit read-only allowlist (`status`, `log`,
+   `diff`, `show`, `rev-parse`, `rev-list`, `ls-files`, `ls-tree`,
+   `cat-file`, `describe`, `blame`, `shortlog`, `whatchanged`, `grep`,
+   `merge-base`, `name-rev`, `count-objects`, `verify-commit`, `verify-tag`,
+   `check-ignore`, `check-attr`, `diff-tree`, `diff-index`, `for-each-ref`,
+   `show-ref`);
+2. for a subcommand with both read and write forms, the args are the read form —
+   `branch` listing only, `tag -l`-style listing only, `stash list|show`,
+   `remote` bare/`-v`/`show`/`get-url`, `worktree list`, `config
+   --get|--get-all|--get-regexp|--list`, `reflog show`, `notes list|show`,
+   `bisect log|view`, `symbolic-ref` with at most one operand;
+3. no git global flag outside a short safe list (`-C <path>`, `--no-pager`,
+   `-P`/`--paginate`, the pathspec-mode flags, `--no-optional-locks`). In
+   particular `-c` / `--config-env` / `--exec-path` / `--git-dir` / `--work-tree`
+   / `--namespace` are denied — `git -c core.fsmonitor=<cmd> status` *executes*
+   `<cmd>`, and the dir/tree flags point git at a different repository;
+4. **no environment assignment precedes the `git` word** — see "Closed vector:
+   environment assignment" below;
+5. no argument anywhere in the invocation is on the denied-argument list
+   (`--output`, `--ext-diff`, `--textconv`, `--contents`, `--upload-pack`,
+   `--receive-pack`, `--open-files-in-pager`, `--exec-path`, `--git-dir`,
+   `--work-tree`, `--namespace`, `--config-env`, `--attr-source`,
+   `--super-prefix`, and any short-flag cluster containing `-O`). These are the
+   post-subcommand equivalents of the rule-3 globals: `git log --output=/tmp/f`
+   writes a file, `git diff --ext-diff` runs the configured external diff
+   program, `git blame --contents /etc/passwd` reads outside the repo, and
+   `git grep -O <cmd>` executes `<cmd>`. Matched on the token's name half, so
+   both `--flag=value` and `--flag value` are caught;
+6. the command line contains no command or process substitution (`$(…)`,
+   backticks, `<(…)`), checked against the raw command before segment splitting.
+
+**Removed from the allowlist** (upstream cross-provider review): `ls-remote` —
+unattended network I/O from a worker, and an execution primitive when paired with
+a hostile `GIT_SSH_COMMAND`/`--upload-pack`; and `submodule status|summary` —
+both dispatch `git-submodule--helper` and re-enter git inside each submodule, so
+the args the gate validated are not the args that ultimately run.
+
+**Closed vector: environment assignment.** `_loom_cmd_after_prefix` skips
+`VAR=value` as a harmless prefix so that `env FOO=1 git push` is still recognized
+as git. On the subagent *read* path that was a full bypass of rules 3 and 5 —
+git's environment achieves everything the denied flags achieve without ever
+looking like a flag: `GIT_EXTERNAL_DIFF` / `GIT_SSH_COMMAND` / `GIT_PAGER` /
+`GIT_EDITOR` make git **execute** a named program; `GIT_DIR` / `GIT_WORK_TREE` /
+`GIT_CONFIG*` / `GIT_ALTERNATE_OBJECT_DIRECTORIES` **redirect the repository**;
+`LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` / `PATH` / `IFS` / `BASH_ENV` hijack the
+process. The gate now denies **any** leading assignment on the subagent read
+path, including via `env` — categorical rather than a `GIT_*`-plus-known-bad
+enumeration, because an enumeration is one new git environment variable away
+from a silent hole and a worker running read-only git has no legitimate reason
+to set a variable inline. Main-agent verdicts are unchanged.
+
+`fetch` is denied for subagents (it writes remote-tracking refs and touches the
+network). `gh` remains **categorically** denied for subagents, reads included —
+unchanged. Main-agent behavior is unchanged in every respect.
+
+The inline fallback in `subagent-git-guard.sh` (used only when the verdict lib is
+missing) stays **categorical**: it denies all subagent git, reads included. It
+deliberately does not re-implement the allowlist.
 
 ## Residual bypass surface (KNOWN — not closed)
 
@@ -75,6 +151,45 @@ hidden; close them with the defense-in-depth stack above, not by trusting hooks.
    regardless of mode (it returns findings, never edits). Acceptable for an
    advisory read-only adversary; revisit if the provider CLI is ever granted
    write or auto-approval from this slot.
+6. **The subagent read-only git allowlist is still a string gate (new in §7.3).**
+   Two honest consequences of replacing the blanket subagent-git deny with an
+   allowlist:
+   - **Indirection is unchanged but now matters more.** Residual #1 already meant
+     a subagent could reach git through `bash script.sh` / `eval` / `$G push`.
+     That was true before §7.3 too — the blanket deny never saw those either — so
+     this is not a new hole, but the surface is worth naming again: the allowlist
+     grants nothing to an indirect invocation, and blocks nothing there either.
+   - **A mis-parsed read form is now a possible false-ALLOW.** Before §7.3 a
+     parsing bug in the git argument scanner could only cost a false deny. Now a
+     write form that the scanner mis-reads as a read form would be *allowed* —
+     bounded to the read/write subcommands listed above (`branch`, `tag`,
+     `stash`, `remote`, `worktree`, `config`, `reflog`, `notes`, `bisect`,
+     `symbolic-ref`), since every other subcommand must appear
+     verbatim on the allowlist to pass at all. The blast radius therefore
+     excludes `push`/`commit`/`reset`/`clean`/`checkout`/`rebase`/`merge`, which
+     can never be reached by an arg-parsing mistake. **Mitigations:** the
+     allowlist shape (unknown ⇒ deny), the golden fixtures in
+     `tests/contract/test_governance_verdicts.sh`, the categorical fallback in
+     the hook, and the unchanged main-agent approval gate on the same operations.
+   - **ACCEPTED RESIDUAL — the policy boundary is a raw string, not argv.** The
+     gate splits and tokenizes the command *text* with shell-parameter
+     expansion; it never sees the argv the kernel will actually receive. So
+     quoting, backslash escapes, `$IFS` games, and glob expansion can in
+     principle separate what the gate reads from what git runs (e.g. a quoted
+     `"--out""put=/tmp/f"`, or a pathspec that a later expansion turns into a
+     flag). The cross-provider review recommended moving the boundary to
+     tokenized argv, or rejecting every shell metacharacter outright.
+     **Decision: not now — accepted, not closed.** Both options are a redesign of
+     the gate rather than a hardening of it: real argv requires intercepting at a
+     different layer than PreToolUse text, and a blanket metacharacter rejection
+     would deny most legitimate worker reads (quoted `--grep` patterns, globs,
+     `--` pathspecs) and push workers toward `bash -c`, i.e. residual #1, which
+     is strictly worse. This is the same "floor, not sandbox" trade the rest of
+     this document documents. **Mitigations:** command/process substitution is
+     already rejected against the raw string; unknown ⇒ deny bounds the blast
+     radius as above; the main-agent approval gate is unchanged. **Revisit if:**
+     a structured-argv PreToolUse payload becomes available from the host, or
+     subagent auto-approval is ever enabled.
 
 ## Bottom line
 
@@ -101,7 +216,7 @@ Off Claude Code this is the ONLY layer left, and it is **unenforced**.
 
 **L2 — host ENFORCEMENT ADAPTERS (host-specific; Claude Code = reference).** Four
 guarantees need real enforcement: (VI) git-mutation approval gate, (VI)
-subagent-git-deny, (governance) governance-file self-protection, (DAG)
+subagent-git-mutation-deny, (governance) governance-file self-protection, (DAG)
 freeze-write-scope. Today each is a Claude Code `PreToolUse` script emitting
 `permissionDecision` JSON wired only in `.claude/settings.json` — invisible to
 every other host. The portable move factors each guarantee's **decision logic**
@@ -173,7 +288,7 @@ procedure.
 
 ### Honest enforced-vs-followed matrix
 
-| Host         | L1 policy | git-gate (VI)    | subagent-deny       | gov-file protect | freeze-scope (DAG) |
+| Host         | L1 policy | git-gate (VI)    | subagent-mut-deny   | gov-file protect | freeze-scope (DAG) |
 |--------------|-----------|------------------|---------------------|------------------|--------------------|
 | Claude Code  | followed  | ENFORCED (hook)  | ENFORCED (agent_id) | ENFORCED (hook)  | ENFORCED (hook)    |
 | Codex CLI    | followed  | adapter†         | followed            | followed-only\*  | followed-only\*    |
@@ -184,7 +299,7 @@ procedure.
 
 \* the host HAS a pre-tool-use mechanism that COULD host an adapter, but **no
 conformant adapter ships today**, so the cell is "followed-only" until one passes
-the golden fixture. `subagent-deny` is "followed" everywhere but Claude Code
+the golden fixture. `subagent-mut-deny` is "followed" everywhere but Claude Code
 because `agent_id` is a Claude-internal signal no other host emits.
 
 **Blunt truth.** Governance does NOT "degrade gracefully" onto other hosts —
@@ -215,7 +330,7 @@ v6.1/v6.2 supersession-note pattern.
 > load-bearing, it is itself in the protected set (`loom_path_is_protected` covers
 > `.logic-loom/lib/governance-verdicts.sh` + `policy.sh`) — a subagent cannot blank
 > it to disarm the git gates. And the two git hooks **fail SAFE, not open**, if the
-> lib is ever absent: `subagent-git-guard` still denies any subagent git inline and
+> lib is ever absent: `subagent-git-guard` falls back to denying ALL subagent git inline (categorical — the §7.3 read-only allowlist is deliberately not duplicated there) and
 > `git-safety-gate` still asks on a mutating git inline (verified). The off-host
 > adapter likewise fails CLOSED (refuses all git when it cannot classify).
 >
