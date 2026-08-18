@@ -22,8 +22,9 @@
 #
 # Integration:
 #   - setup.sh → calls after initial setup
-#   - marketplace-install → calls after plugin install
-#   - marketplace-update → calls after plugin update
+#   (The former `marketplace-install` / `marketplace-update` callers are gone —
+#    the in-house sdd-marketplace MCP was removed. Plugins are bundled in-repo,
+#    so this bridge is invoked by setup.sh or by hand.)
 # ═══════════════════════════════════════════════════════════════════
 set -euo pipefail
 

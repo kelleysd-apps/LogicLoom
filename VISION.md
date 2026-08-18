@@ -15,8 +15,8 @@ short. Acceptance criteria and schemas belong in a PRD/plan, not here.
 
 **Product**: `logic-loom` (brand: **LogicLoom**)
 **Document**: product north-star (living)
-**Version**: 2.0 · **Last updated**: 2026-07-28 · **Owner**: brian@kelleysd.com
-**Framework state**: v6.3.1 · constitution v3.2.0 · dev line `dev-main` · template line `main` (v6.3.1, 2026-06-24)
+**Version**: 2.1 · **Last updated**: 2026-08-15 · **Owner**: brian@kelleysd.com
+**Framework state**: v6.4.1 · constitution v3.2.0 · dev line `dev-main` · template line `main` (v6.4.1, 2026-08-13)
 
 ---
 
@@ -205,15 +205,30 @@ visible.
 Ordered by what should happen next. Each is a candidate to spin into a
 `features/<name>/vision.md` → PRD → plan, or a direct task.
 
+**Convention for closed threads:** a resolved thread is **kept in place**, marked
+`✅ RESOLVED (<date>, <version>)`, its original text left intact, and a short
+`**Fix:**` line appended recording what actually landed. Threads are pruned only
+when the whole section is rewritten — a closed thread is the record that the
+defect was real. Anything not marked `✅ RESOLVED` is still open.
+
 ### Now — verified defects and unlanded work
 
-1. **Fix the dead `.sdd-sync-ref` on the template line.** `origin/main` ships
-   `.sdd-sync-ref = 6c4c420`, a commit reachable from **neither** `origin/main`
-   nor `origin/dev-main` — a local-only artifact of the sanitizing promote flow.
-   A fresh cloner therefore gets an unresolvable ref and **`/update-framework`
-   cannot work for any new user**. Highest severity, smallest fix; distribution
-   is a stated pillar and is currently broken at step one. Also add a guard so
-   `/promote` cannot emit an unreachable ref again.
+1. ✅ **RESOLVED (2026-08-13, v6.4.1) — Fix the dead `.sdd-sync-ref` on the
+   template line.** `origin/main` shipped `.sdd-sync-ref = 6c4c420`, a commit
+   reachable from **neither** `origin/main` nor `origin/dev-main` — a local-only
+   artifact of the sanitizing promote flow. A fresh cloner therefore got an
+   unresolvable ref and **`/update-framework` could not work for any new user**.
+   **Fix:** four parts, all landed —
+   (a) one-time auto-remap of the known-bad baseline in
+   `plugins/loom-maintenance/scripts/extract-proposals.sh`
+   (`remap_known_bad_sync_ref`, with a user-visible NOTICE), so existing clones
+   self-repair on the next `/update-framework`;
+   (b) a prevention gate in `.github/workflows/release-tag.yml` that aborts the
+   release when the snapshot is not an ancestor of `main` HEAD;
+   (c) repo settings corrected to **merge-commit-only** (squash-merging the
+   release PR was the root cause — it left the snapshot commit only ever on a
+   release branch);
+   (d) pinned issue #66 telling already-cloned users what to expect.
 
 2. **Fix the `.gitignore` portability bug.** Committed `.gitignore` has `.local/`
    and `*.local`, and `*.local` matches **neither** `settings.local.json` nor
@@ -221,12 +236,22 @@ Ordered by what should happen next. Each is a candidate to spin into a
    personal global ignore. A cloner would **commit their own local overrides**,
    breaking the Pillar-7 preservation model before it starts. Two lines.
 
-3. **Land the uncommitted increment on `dev-main`** (17 untracked + 6 modified
+3. ✅ **RESOLVED (2026-08-17, v6.4.1) — Land the uncommitted increment on
+   `dev-main`** (17 untracked + 6 modified
    files): the project-graph stack (`build-graph-bridge.sh`, `lint-graph.sh`,
    `/graph` + `project-graph` skill, `graph-bridge.jsonl`, 13/13 green), the
    `guard-dangerous-commands.sh` bash-4 re-exec fix, the advisory `/finalize`
    graph lint, CI wiring, and the two exploration feature folders. Resolve
    thread 4 first — it decides file placement.
+   **Fix:** landed in commit `24dda52` ("feat(graph): deterministic project graph
+   bridge + guard-dangerous bash4 re-exec") — the graph scripts, the
+   `graph-bridge.jsonl` artifact at `.logic-loom/graph/`, the `/graph` command +
+   `project-graph` skill, the guard bash-4 re-exec, the advisory `/finalize`
+   graph lint, the `plugin-tests.yml` CI wiring, and the exploration feature
+   folders are all tracked; the working tree is clean. Thread 4 (layer
+   placement) was **not** resolved first and remains open — the code landed in
+   core (`.logic-loom/scripts/bash/` + `loom-orchestrator`), so relocating it to
+   a `loom-graph` package is still outstanding under thread 4.
 
 4. **Resolve the graph's layer placement.** Both designs agree the graph should
    be a **`loom-graph` package**; the code as built lives in core
@@ -241,9 +266,11 @@ Ordered by what should happen next. Each is a candidate to spin into a
    a plan) is untracked and absent from `CLAUDE.md`'s directory structure and
    the file-structure policy.
 
-6. **Fix the one failing contract assertion** —
-   `test_update_framework.sh`: "Help text mentions release tags" (cosmetic;
-   461/462 otherwise green). Pairs naturally with thread 1.
+6. ✅ **RESOLVED (2026-08-13, v6.4.1) — Fix the one failing contract
+   assertion** — `test_update_framework.sh`: "Help text mentions release tags"
+   (cosmetic; 461/462 otherwise green). **Fix:** landed alongside thread 1's
+   `extract-proposals.sh` work; the suite is now 19/19 green and the whole
+   contract set is 25 suites / 914 assertions / 0 failed.
 
 ### Next — the thin-core / preservation track
 
@@ -255,11 +282,33 @@ Ordered by what should happen next. Each is a candidate to spin into a
    un-overridable, lint-enforced) with the effective constitution injected as
    core ∪ amendments. Turns "never touch user files" from incidental to declared.
 
-8. **Add `marketplace.json`.** None exists anywhere — the single biggest gap in
-   the two-tier update model. One file makes the repo its own marketplace so
-   packs update via native `/plugin update` while the core updates via
-   `/update-framework`. Omit `loom-governance` from `plugins[]`; the floor stays
-   root-anchored and un-disable-able.
+8. ⚠️ **CONTESTED — pending a maintainer direction call. Do not action.**
+   *Original thread:* **Add `marketplace.json`.** None exists anywhere — the
+   single biggest gap in the two-tier update model. One file makes the repo its
+   own marketplace so packs update via native `/plugin update` while the core
+   updates via `/update-framework`. Omit `loom-governance` from `plugins[]`; the
+   floor stays root-anchored and un-disable-able.
+
+   **The contradiction (recorded 2026-08-15, not decided):** this thread points
+   the repo *into* the marketplace business. The maintainer has since stated the
+   intent to *shut the marketplace down* ("finish shutting down the plugin
+   marketplace repo"), and the in-repo residue of the removed `sdd-marketplace`
+   MCP was cleared on that basis. A separate, still-open proposal
+   (backlog-2026-08-13 §8.1) goes further and asks whether LogicLoom's eight
+   plugins should be **externalized** to third-party sources — the opposite of
+   this repo publishing its own marketplace. The two directions cannot both be
+   pursued.
+
+   Constraints already established and unchanged by any of this:
+   `loom-governance` **is** the hook floor and a user-disablable
+   marketplace-installed plugin is not a floor; all 19 bridged commands are
+   pointers into `plugins/` with no static fallback; Principle XVI requires every
+   plugin to declare `loom-governance` as a dependency, which a harness-agnostic
+   third-party plugin cannot do.
+
+   **Next step is a decision, not an implementation.** Until the maintainer picks
+   a direction, treat this thread as unsettled and cite neither position as
+   agreed.
 
 9. **`/governance-health` self-check + per-surface conformance matrix.** Actually
    trigger each floor hook and report which fired, on whatever surface you're on.

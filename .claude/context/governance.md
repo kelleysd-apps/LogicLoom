@@ -346,15 +346,20 @@ the current Opus flagship; see `.logic-loom/config/models.conf`)
 
 **Rule**: All framework capabilities must be organized as discrete installable plugins
 
-**Rationale**: Ensures modularity, extensibility, and marketplace-ready distribution
+**Rationale**: Ensures modularity and extensibility. LogicLoom's own plugins are
+**bundled in-repo** under `plugins/` — it does not run a plugin marketplace.
+Third-party discovery is delegated to Anthropic's Claude Code Plugin Marketplace
+and the Docker MCP Toolkit.
 
 **Requirements**:
 - All new features implemented as plugins at `plugins/`
 - Each plugin has `plugin.json` manifest, agents, skills, commands
+- Every plugin declares `loom-governance` as a dependency; `loom-governance` is
+  protected and cannot be disabled
 - Plugin command bridge syncs commands to `.claude/commands/`
-- Plugin governance validation via marketplace tools
 
-**Enforcement**: Plugin validation, marketplace governance checks
+**Enforcement**: In-repo plugin manifest validation (contract tests + CI); the
+governance-file protection hook guards the core plugin surface
 
 ---
 
