@@ -251,7 +251,9 @@ done
 assert "All plugin.json files are valid JSON (${INVALID_JSON} invalid)" "[ ${INVALID_JSON} -eq 0 ]"
 
 # Constitution still references 16 principles
-PRINCIPLE_COUNT=$(grep -c '^### Principle' "$ROOT_DIR/.logic-loom/memory/constitution.md" 2>/dev/null || echo "0")
+# `grep -c` prints "0" and exits 1 on no match, so `|| echo "0"` would append a
+# second line and break the `-eq` below. See .docs/policies/shell-idiom-policy.md §1.
+PRINCIPLE_COUNT=$(grep -c '^### Principle' "$ROOT_DIR/.logic-loom/memory/constitution.md" 2>/dev/null || true); PRINCIPLE_COUNT=${PRINCIPLE_COUNT:-0}
 assert "Constitution has 16 principles (found ${PRINCIPLE_COUNT})" "[ ${PRINCIPLE_COUNT} -eq 16 ]"
 
 echo ""

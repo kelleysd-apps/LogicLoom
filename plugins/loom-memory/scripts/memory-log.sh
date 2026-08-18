@@ -21,8 +21,11 @@ RESULTS="${2:-}"
 TIMESTAMP=$(date -Iseconds 2>/dev/null || date "+%Y-%m-%dT%H:%M:%S%z")
 SESSION_ID="${CLAUDE_SESSION_ID:-unknown}"
 
-# Count results
-CHUNK_COUNT=$(echo "$RESULTS" | grep -c '\-\-\-\[' 2>/dev/null || echo "0")
+# Count results.
+# NOTE: `grep -c` prints "0" and exits 1 on no match, so `|| echo "0"` appended a
+# second line ("0\n0") and emitted INVALID JSON into the log below.
+# See .docs/policies/shell-idiom-policy.md §1.
+CHUNK_COUNT=$(echo "$RESULTS" | grep -c '\-\-\-\[' 2>/dev/null || true); CHUNK_COUNT=${CHUNK_COUNT:-0}
 CHAR_COUNT=${#RESULTS}
 EST_TOKENS=$((CHAR_COUNT / 4))
 

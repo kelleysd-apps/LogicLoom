@@ -95,30 +95,15 @@ jobs:
       - name: Run Structured Logging Tests
         run: bash .logic-loom/tests/test_logging.sh
 
+      - name: Run Plugin Manifest Schema Tests
+        run: bash tests/contract/test_plugin_manifest_schema.sh
+
+      # Same contract as before (valid JSON + name/version/dependencies present),
+      # lifted out of an inline heredoc so it can be run and tested locally, plus
+      # a shape check for the OPTIONAL `eval` block (absent = fine).
+      # Schema: plugins/MANIFEST-SCHEMA.md
       - name: Validate All Manifests
-        run: |
-          python3 -c "
-          import json, os, sys
-          errors = []
-          for name in sorted(os.listdir('plugins')):
-              manifest = os.path.join('plugins', name, '.claude-plugin', 'plugin.json')
-              if not os.path.exists(manifest):
-                  continue
-              try:
-                  with open(manifest) as f:
-                      d = json.load(f)
-                  for field in ['name', 'version', 'dependencies']:
-                      if field not in d:
-                          errors.append(f'{name}: missing {field}')
-              except json.JSONDecodeError as e:
-                  errors.append(f'{name}: invalid JSON - {e}')
-          if errors:
-              for e in errors:
-                  print(f'❌ {e}')
-              sys.exit(1)
-          else:
-              print(f'✅ All plugin manifests valid')
-          "
+        run: python3 .logic-loom/scripts/python/validate-plugin-manifests.py
 
       - name: Constitutional Compliance Check
         if: github.event_name == 'pull_request'

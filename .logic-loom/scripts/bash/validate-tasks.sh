@@ -88,14 +88,17 @@ HAS_DEPENDENCIES=false
 HAS_TEST_TASKS=false
 HAS_CONTRACT_TASKS=false
 
-# Count tasks
-TASK_COUNT=$(grep -cE "^- \[[ x]\]" "$TASKS_FILE" || echo "0")
+# Count tasks.
+# NOTE: `grep -c` prints "0" and exits 1 on no match, so `|| echo "0"` appends a
+# second line ("0\n0") and breaks every arithmetic comparison downstream.
+# `|| true` keeps grep's own "0". See .docs/policies/shell-idiom-policy.md §1.
+TASK_COUNT=$(grep -cE "^- \[[ x]\]" "$TASKS_FILE" 2>/dev/null || true); TASK_COUNT=${TASK_COUNT:-0}
 
 # Count parallel tasks (marked with [P])
-PARALLEL_TASK_COUNT=$(grep -cE "\[P\]" "$TASKS_FILE" || echo "0")
+PARALLEL_TASK_COUNT=$(grep -cE "\[P\]" "$TASKS_FILE" 2>/dev/null || true); PARALLEL_TASK_COUNT=${PARALLEL_TASK_COUNT:-0}
 
 # Count completed tasks
-COMPLETED_TASK_COUNT=$(grep -cE "^- \[x\]" "$TASKS_FILE" || echo "0")
+COMPLETED_TASK_COUNT=$(grep -cE "^- \[x\]" "$TASKS_FILE" 2>/dev/null || true); COMPLETED_TASK_COUNT=${COMPLETED_TASK_COUNT:-0}
 
 # Check for dependencies
 if grep -qiE "(depends on|dependency|prerequisite|after|before)" "$TASKS_FILE"; then

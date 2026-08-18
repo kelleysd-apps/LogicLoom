@@ -69,6 +69,15 @@ empty. The `gpt-5.5` / `gemini-3.1-pro-preview` defaults are the documented ones
 (single source, shared with `/cross-check`); bump a default by editing that one line,
 setting the env var, or passing the flag.
 
+> **Grounding rule — fail closed.** These model names, endpoints, and request
+> parameters move on the provider's schedule, not ours, and nothing validates
+> them. When a fast-moving external API or model name is involved, **verify
+> against live provider documentation rather than recalling it**; if you cannot
+> verify, **say you are unsure** and name what you could not confirm — never
+> assert a stale detail as current. This binds the governed Claude flow's
+> assertions about the provider; it grants the external model nothing and adds
+> no checker. Full rule: the GROUNDING RULE block in `models.conf`.
+
 ### Step 0b: Classify the Query (Heuristic, Not Learned)
 
 Inspect the topic and assign it to **one** category. Match keywords case-insensitively; use the first category that matches. If nothing matches, fall back to `other`.

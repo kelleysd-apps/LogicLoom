@@ -453,15 +453,21 @@ parse_conventional_commit_type() {
         return 0
     fi
 
-    # Count different types of changes
-    local new_files=$(echo "$changes" | grep -c "^A" || echo 0)
-    local modified_files=$(echo "$changes" | grep -c "^M" || echo 0)
-    local deleted_files=$(echo "$changes" | grep -c "^D" || echo 0)
+    # Count different types of changes.
+    # NOTE: `grep -c` PRINTS "0" and EXITS 1 on no match, so `|| echo 0` appends
+    # a SECOND line and yields "0\n0" — every `-gt` test below then dies with
+    # "syntax error in expression". Use `|| true` (grep already printed the 0)
+    # and default the empty case. See .docs/policies/shell-idiom-policy.md §1.
+    local new_files modified_files deleted_files
+    new_files=$(echo "$changes" | grep -c "^A" 2>/dev/null || true);      new_files=${new_files:-0}
+    modified_files=$(echo "$changes" | grep -c "^M" 2>/dev/null || true); modified_files=${modified_files:-0}
+    deleted_files=$(echo "$changes" | grep -c "^D" 2>/dev/null || true);  deleted_files=${deleted_files:-0}
 
-    # Check file patterns
-    local has_tests=$(echo "$changes" | grep -c "test\|spec" || echo 0)
-    local has_docs=$(echo "$changes" | grep -c "\.md$\|README\|docs/" || echo 0)
-    local has_config=$(echo "$changes" | grep -c "package\.json\|\.config\|\.rc$" || echo 0)
+    # Check file patterns (same idiom)
+    local has_tests has_docs has_config
+    has_tests=$(echo "$changes" | grep -c "test\|spec" 2>/dev/null || true);                       has_tests=${has_tests:-0}
+    has_docs=$(echo "$changes" | grep -c "\.md$\|README\|docs/" 2>/dev/null || true);              has_docs=${has_docs:-0}
+    has_config=$(echo "$changes" | grep -c "package\.json\|\.config\|\.rc$" 2>/dev/null || true);  has_config=${has_config:-0}
 
     # Determine commit type based on patterns
     if [[ $has_tests -gt 0 && $new_files -gt 0 ]]; then

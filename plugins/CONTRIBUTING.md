@@ -55,6 +55,15 @@ To add or change a domain:
    - `dependencies`: Must include `loom-governance`
    - `version`: Semantic versioning
 
+   These three are **conventions CI does not check**. The full field-by-field
+   spec — every field in use, required vs optional, types, the optional `eval`
+   block, and exactly what CI enforces versus what is convention — is
+   [`plugins/MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md). Validate locally with:
+
+   ```bash
+   python3 .logic-loom/scripts/python/validate-plugin-manifests.py
+   ```
+
 3. **Testing requirements**:
    - Skills must load without errors
    - Agents must have valid YAML frontmatter
@@ -73,3 +82,22 @@ bash .logic-loom/scripts/bash/sync-plugin-commands.sh sync
 LogicLoom no longer ships its own marketplace MCP. For third-party plugin
 discovery and install, use the **Anthropic Claude Code Plugin Marketplace**
 (`/plugin`) and the **Docker MCP Toolkit** gateway.
+
+### No plugin registry index
+
+Two separate facts, previously conflated. Stated plainly:
+
+1. **The dropped marketplace MCP** (above) was a *server* for discovering
+   **third-party** plugins. It is gone by decision, and that decision is
+   documented.
+2. **There is no registry index for this repo's own bundled plugins** — no
+   `marketplace.json`, no `registry.json`, no list file. Discovery is a
+   directory walk of `plugins/`, and adding a plugin requires no registration
+   step anywhere. Until now this was simply undocumented, not decided.
+
+`VISION.md` Thread #8 proposes adding a `marketplace.json`. That thread is
+**unresolved** and is contradicted by the plugin-externalization proposal in
+`.docs/reports/backlog-2026-08-13.md` §8.1 — do not build against it yet.
+
+See [`plugins/MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) § *The absent plugin
+registry index*.
