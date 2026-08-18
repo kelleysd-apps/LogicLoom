@@ -83,6 +83,30 @@ If PRD specifies:
 - **Access tiers** (Principle XIII): Create `.docs/access-control.md` documenting tiers
 - **Project config**: Create `.logic-loom/config/project.conf` with thresholds
 
+### Step 6b: gh telemetry — detect and inform (never write)
+
+GitHub CLI telemetry is **opt-out** (on by default since gh v2.91.0) and LogicLoom
+uses `gh` heavily, so surface it once during initialization:
+
+```bash
+bash .logic-loom/scripts/bash/check-gh-telemetry.sh
+```
+
+The detector is read-only: it probes `command -v gh`, the `DO_NOT_TRACK` /
+`GH_TELEMETRY` environment variables, and the `telemetry:` key in the gh config
+file. It never invokes a `gh` subcommand (`gh config get` can materialize a
+default config file — that would be a write outside the repo), always exits 0,
+and prints nothing when `gh` is absent or telemetry is already off.
+
+Relay its output verbatim when it prints. **Never remediate on the user's behalf**
+— no `gh config set`, no edit to `~/.config/gh/config.yml`, no append to
+`~/.zshrc` / `~/.bashrc`. The harness↔user boundary is absolute: LogicLoom writes
+nothing outside this repository, and a per-machine telemetry preference is the
+user's call to make with their own hands. This is the settled disposition of
+GitHub issue #55, whose original "write it for them during setup" proposal was
+rejected precisely because a silent bootstrap write to a shell rc is the
+unapproved action Principle VI exists to prevent.
+
 ### Step 7: Remove maintainer-only template-release CI
 
 The template ships with CI that releases + guards the **LogicLoom template itself**,

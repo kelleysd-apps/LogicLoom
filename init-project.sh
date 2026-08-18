@@ -227,6 +227,19 @@ fi
 echo -e "${GREEN}✓${NC} Framework updates: run /update-framework (fetch-only; upstream in .logic-loom/config/framework-upstream.conf)"
 
 # ====================================
+# GitHub CLI telemetry — DETECT AND INFORM (never write)
+# ====================================
+# gh telemetry is opt-OUT and LogicLoom leans on gh heavily, so surface it once
+# here. This is READ-ONLY and INFORMATIONAL: the harness does not touch
+# ~/.config/gh/config.yml and does not touch any shell rc file. gh's config is
+# the user's layer (START_HERE.md § "Where do my personal preferences go?").
+# `|| true` because an informational check must never fail the bootstrap — and
+# init-project.sh runs under `set -e`.
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/check-gh-telemetry.sh" ]; then
+    bash "$SCRIPT_DIR/.logic-loom/scripts/bash/check-gh-telemetry.sh" || true
+fi
+
+# ====================================
 # Docker MCP Toolkit Installation
 # ====================================
 echo ""

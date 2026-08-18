@@ -209,6 +209,31 @@ pass that provider's read-only sandbox flag (for Codex, `--sandbox read-only
 --ask-for-approval never`). The harness's hooks cannot see inside a CLI
 subprocess, so that flag is the only thing keeping the external model read-only.
 
+### A note on GitHub CLI telemetry
+
+GitHub CLI telemetry is **opt-out** — it is on by default (gh v2.91.0 onward) —
+and LogicLoom uses `gh` heavily. So setup tells you once and stops there:
+
+```bash
+bash .logic-loom/scripts/bash/check-gh-telemetry.sh   # read-only; run it any time
+```
+
+It reads `command -v gh`, the `DO_NOT_TRACK` / `GH_TELEMETRY` environment
+variables, and the `telemetry:` key in your gh config file. It **changes
+nothing** — not your gh config, not `~/.zshrc`, not `~/.bashrc` — and it always
+exits 0, so a missing or unreadable gh install never blocks setup. Silence means
+there is nothing to tell you.
+
+If you want to opt out, that is yours to run:
+
+```bash
+gh config set telemetry disabled
+```
+
+Same boundary as above: this is a per-user, per-machine preference. LogicLoom
+will not make it for you, and neither `init-project.sh` nor `/initialize-project`
+will offer to.
+
 **Versioning your personal config.** Keep `~/.claude/` itself out of git — it
 holds session state and secrets-adjacent material. If you want a backup, the
 workable pattern is a separate private repo holding *reference copies* you diff

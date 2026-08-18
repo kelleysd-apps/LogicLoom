@@ -78,6 +78,19 @@ Tell the user in one or two lines: LogicLoom governs this repo and never writes 
 hooks) belong there, not in the project `CLAUDE.md`. Point them at
 `START_HERE.md` § *Where do my personal preferences go?* Do not restate the section.
 
+### Step 4e: gh Telemetry — Inform, Never Change
+Run the read-only detector and relay its output verbatim if it prints anything:
+```bash
+bash .logic-loom/scripts/bash/check-gh-telemetry.sh
+```
+It is silent when `gh` is absent or telemetry is already opted out, and prints a
+short notice plus the exact one-line opt-out when telemetry is on.
+
+**Do NOT run `gh config set`, do NOT edit `~/.config/gh/config.yml`, and do NOT
+touch any shell rc file — not even if the user asks in passing.** That setting is
+the user's, on their machine, outside this repo. Report it and let them run the
+command themselves.
+
 ### Step 5: Validate Compliance
 Run `.logic-loom/scripts/bash/constitutional-check.sh`
 
