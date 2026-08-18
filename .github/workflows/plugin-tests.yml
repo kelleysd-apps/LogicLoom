@@ -83,6 +83,9 @@ jobs:
       - name: Run gh Telemetry Notice Tests
         run: bash tests/contract/test_gh_telemetry_notice.sh
 
+      - name: Run Environment Declaration Tests
+        run: bash tests/contract/test_environment_declaration.sh
+
       - name: Run Git Safety Tests
         run: bash .logic-loom/tests/test-git-safety.sh
 

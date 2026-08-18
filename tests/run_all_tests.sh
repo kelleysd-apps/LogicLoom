@@ -93,6 +93,7 @@ run_suite "Suite Registration" "bash tests/contract/test_suite_registration.sh"
 run_suite "Generated Artifacts Declared" "bash tests/contract/test_generated_artifacts_declared.sh"
 run_suite "Scrub Rules Match" "bash tests/contract/test_scrub_rules_match.sh"
 run_suite "gh Telemetry Notice" "bash tests/contract/test_gh_telemetry_notice.sh"
+run_suite "Environment Declaration" "bash tests/contract/test_environment_declaration.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"
