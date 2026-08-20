@@ -118,11 +118,14 @@ EOF
   return 1
 }
 
-# Manifest entries: drop comments, drop the `stub:` / `warn:` op prefixes (all
-# three forms are deliberate, reviewed declarations), trim.
+# Manifest entries: drop comments, drop the `stub:` / `warn:` op prefixes and a
+# `stub:` entry's ` :: <template>` field (the declared path is the TARGET; the
+# template is a build input, not a declared artifact), trim. All three forms are
+# deliberate, reviewed declarations.
 manifest_entries() {
   sed 's/[[:space:]]*#.*$//' "$MANIFEST" \
     | sed -E 's/^[[:space:]]*(stub|warn):[[:space:]]*//' \
+    | sed -E 's/[[:space:]]*::.*$//' \
     | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
     | grep -v '^$'
 }
@@ -234,6 +237,79 @@ EOF3
 [ -n "$STALE" ] && { echo "     STALE ALLOW_TO_SHIP ENTRIES (nothing generated matches — remove them):";
   printf '%s' "$STALE" | sed 's/^/       - /'; }
 assert "no stale ALLOW_TO_SHIP entry" "[ -z \"\$STALE\" ]"
+
+# ── 4. Every `stub:` entry resolves to a real stub template ──────────────────
+# The bug this closes: strip-harness-dev.sh implemented `stub:` as
+# write_vision_stub(), hardcoded to the project-vision template regardless of the
+# target path. With one stub entry (VISION.md) that was invisible; a second entry
+# would have been content-replaced with a PRODUCT VISION stub — silently wrong,
+# and shipped. The grammar is now `stub: <path> :: <template>` with NO default,
+# and these assertions keep it resolvable.
+echo ""
+echo "4. Every stub: entry declares a template that exists"
+STUB_LINES="$(sed 's/[[:space:]]*#.*$//' "$MANIFEST" \
+  | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
+  | grep '^stub:' || true)"
+assert "manifest declares at least one stub: entry" "[ -n \"\$STUB_LINES\" ]"
+
+STUB_BAD=""
+STUB_N=0
+while IFS= read -r sl; do
+  [ -n "$sl" ] || continue
+  STUB_N=$((STUB_N + 1))
+  spec="$(printf '%s' "${sl#stub:}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  case "$spec" in
+    *::*) ;;
+    *) STUB_BAD="${STUB_BAD}${spec}  (no ':: <template>' field)"$'\n'; continue ;;
+  esac
+  st="$(printf '%s' "${spec#*::}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  sp="$(printf '%s' "${spec%%::*}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+  [ -n "$st" ] || { STUB_BAD="${STUB_BAD}${sp}  (empty template)"$'\n'; continue; }
+  [ -f "$ROOT/$st" ] || STUB_BAD="${STUB_BAD}${sp}  (template missing: ${st})"$'\n'
+done <<EOF4
+$STUB_LINES
+EOF4
+[ -n "$STUB_BAD" ] && { echo "     UNRESOLVABLE stub: entries:"; printf '%s' "$STUB_BAD" | sed 's/^/       - /'; }
+assert "every stub: entry resolves to an existing template" "[ -z \"\$STUB_BAD\" ]"
+
+# The two shipped stubs, named explicitly: a rename of either template must fail
+# here rather than at release time.
+assert "VISION.md stubs from the project-vision template" \
+  "printf '%s' \"\$STUB_LINES\" | grep -qF 'stub: VISION.md :: .logic-loom/templates/project-vision-template.md'"
+assert "backlog.md stubs from the project-backlog template" \
+  "printf '%s' \"\$STUB_LINES\" | grep -qF 'stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-template.md'"
+
+# ── 5. The stripper ABORTS on an unresolvable stub: entry ────────────────────
+# Assertion 4 checks the declaration; this checks the ENFORCEMENT. Run the real
+# strip-harness-dev.sh in a throwaway git repo against a manifest whose stub:
+# entry has no template — it must exit non-zero and say so, never fall back.
+echo ""
+echo "5. strip-harness-dev.sh fails loudly on an unresolvable stub:"
+STRIPPER="$ROOT/.logic-loom/scripts/bash/strip-harness-dev.sh"
+assert "strip-harness-dev.sh present" "[ -f \"\$STRIPPER\" ]"
+if [ -f "$STRIPPER" ]; then
+  TMPD="$(mktemp -d 2>/dev/null || mktemp -d -t loomstub)"
+  mkdir -p "$TMPD/.logic-loom/scripts/bash"
+  cp "$STRIPPER" "$TMPD/.logic-loom/scripts/bash/"
+  printf 'stub: DOES_NOT_MATTER.md :: .logic-loom/templates/no-such-template.md\n' \
+    > "$TMPD/.logic-loom/scripts/bash/template-strip-manifest.txt"
+  ( cd "$TMPD" && git init -q . && git config user.email t@t && git config user.name t \
+      && git add -A >/dev/null 2>&1 && git commit -qm seed >/dev/null 2>&1 ) || true
+  OUT="$(cd "$TMPD" && bash .logic-loom/scripts/bash/strip-harness-dev.sh 2>&1)"; RC=$?
+  assert "missing template -> non-zero exit" "[ $RC -ne 0 ]"
+  assert "missing template -> names the template in the error" \
+    "printf '%s' \"\$OUT\" | grep -q 'stub template not found'"
+  assert "missing template -> did NOT write a fallback stub" "[ ! -f \"$TMPD/DOES_NOT_MATTER.md\" ]"
+
+  # ...and on a stub: entry with no `:: <template>` field at all.
+  printf 'stub: DOES_NOT_MATTER.md\n' \
+    > "$TMPD/.logic-loom/scripts/bash/template-strip-manifest.txt"
+  OUT2="$(cd "$TMPD" && bash .logic-loom/scripts/bash/strip-harness-dev.sh 2>&1)"; RC2=$?
+  assert "template-less stub: entry -> non-zero exit" "[ $RC2 -ne 0 ]"
+  assert "template-less stub: entry -> names the grammar in the error" \
+    "printf '%s' \"\$OUT2\" | grep -q 'declares no template'"
+  rm -rf "$TMPD"
+fi
 
 echo ""
 echo "════════════════════════════════"

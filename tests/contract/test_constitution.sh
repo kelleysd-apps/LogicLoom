@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Contract Tests: Constitution v3.2.0 (16 Principles)
+# Contract Tests: Constitution v3.3.0 (16 Principles)
 set -euo pipefail
 
 PASS=0; FAIL=0; TOTAL=0
@@ -14,13 +14,13 @@ assert() {
   fi
 }
 
-echo "═══ Constitution v3.2.0 Contract Tests ═══"
+echo "═══ Constitution v3.3.0 Contract Tests ═══"
 echo ""
 
 echo "Structure"
 assert "constitution.md exists" "[ -f .logic-loom/memory/constitution.md ]"
-assert "Title is v3.2.0" "grep -q '# LogicLoom Constitution v3.2.0' .logic-loom/memory/constitution.md"
-assert "Version is v3.2.0" "grep -q 'v3.2.0' .logic-loom/memory/constitution.md"
+assert "Title is v3.3.0" "grep -q '# LogicLoom Constitution v3.3.0' .logic-loom/memory/constitution.md"
+assert "Version is v3.3.0" "grep -q 'v3.3.0' .logic-loom/memory/constitution.md"
 assert "Has 16 enforceable principles" "grep -q '16 enforceable principles' .logic-loom/memory/constitution.md"
 # Amendment dates + version-history rows exist on dev-main but are intentionally
 # scrubbed from the published template (history-scrub.sh erases dev-history dates).

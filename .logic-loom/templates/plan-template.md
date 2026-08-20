@@ -34,6 +34,28 @@ Semantics:
   section titled "## Upstream interfaces". Both keys are OPTIONAL and
   warn-not-block: an unresolved `consumes` ref WARNs (it never blocks dispatch),
   and legacy plans declaring neither key parse unchanged.
+- `status`: optional, CLOSED vocabulary — exactly one of:
+    - `open`         not started (the DEFAULT when the key is absent)
+    - `in_progress`  a worker is on it right now
+    - `blocked`      cannot proceed; see `blocked_on`
+    - `done`         complete and its rubric passed
+  No other value is legal. Absent means `open` — legacy plans that predate this
+  key parse unchanged. This exists so completion is MACHINE-READABLE: before it,
+  a plan's DAG could be walked but nothing could say what was finished.
+- `blocked_on`: optional, a list of task ids that are BLOCKING this task.
+  Distinct from `depends_on`, and the distinction is the whole point:
+    - `depends_on` is ORDERING — a permanent structural fact of the plan,
+      declared up front, and what the scheduler topologically sorts on.
+    - `blocked_on` is a LIVE IMPEDIMENT — "this cannot proceed right now" —
+      added and removed as work happens. A consumer SURFACES it (a backlog
+      report, a status roll-up); the scheduler does not sort on it.
+  A task listing `blocked_on` should normally carry `status: blocked`.
+  Deliberately NOT in this schema — owners, estimates, percent-complete,
+  per-item timestamps, priority. A richer schema on day one is the standard way
+  this kind of file rots: every extra field is one more thing to keep true.
+- Task `id`s are PROJECT-LOCAL and short (`t1`, `t2`) — unique within this plan,
+  not across repositories. What qualifies them when they leave the repo is
+  `id_prefix` in `.logic-loom/config/project.conf` (e.g. `ACME-t1`).
 - Rubric: each task ships acceptance predicates that the evaluator
   (/review-team) checks before downstream tasks are dispatched. A task with a
   failing rubric blocks its dependents.
@@ -58,6 +80,7 @@ sprints:
     tasks:
       - id: t1
         description: One-line task goal.
+        status: open                    # open | in_progress | blocked | done (default: open)
         owns:
           - src/auth/login.ts
           - src/auth/types.ts
@@ -71,10 +94,13 @@ sprints:
           - submits credentials via POST /api/auth
       - id: t2
         description: Persist session after successful login.
+        status: blocked                 # cannot proceed right now — see blocked_on
         owns:
           - src/auth/session.ts
         freeze: []
-        depends_on:
+        depends_on:                     # ORDERING — structural, sorted on
+          - t1
+        blocked_on:                     # LIVE IMPEDIMENT — surfaced, not sorted on
           - t1
         consumes:                       # optional; each ref must match an upstream `produces` string verbatim
           - "api-contract: src/auth/types.ts#LoginRequest"
@@ -86,6 +112,7 @@ sprints:
     tasks:
       - id: t3
         description: One-line task goal.
+        # status omitted on purpose — an absent `status` means `open`.
         owns:
           - tests/auth/*.test.ts
         depends_on:

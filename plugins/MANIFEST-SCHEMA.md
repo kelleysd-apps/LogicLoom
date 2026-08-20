@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2026-08-17
-**Authority**: Constitution v3.2.0 — Principle XVI (Plugin-First Architecture)
+**Authority**: Constitution v3.3.0 — Principle XVI (Plugin-First Architecture)
 **Review Cycle**: Quarterly
 **Applies to**: LogicLoom v6.4.1, all 8 bundled plugins under `plugins/`
 
@@ -259,7 +259,7 @@ bash tests/contract/test_plugin_manifest_schema.sh
 - CI step: `.github/workflows/plugin-tests.yml` → *Validate All Manifests*
 - Validator: `.logic-loom/scripts/python/validate-plugin-manifests.py`
 - Schema tests: `tests/contract/test_plugin_manifest_schema.sh`
-- Constitution v3.2.0 (Principle XVI): `.logic-loom/memory/constitution.md`
+- Constitution v3.3.0 (Principle XVI): `.logic-loom/memory/constitution.md`
 - Origin: `.docs/reports/backlog-2026-08-13.md` §3.6 and §3.4
 
 ---

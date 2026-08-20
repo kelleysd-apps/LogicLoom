@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: 2026-08-17
-**Authority**: Constitution v3.2.0 — Principle VI (Git Approval), Principle IV (Idempotency), Principle VII (Observability)
+**Authority**: Constitution v3.3.0 — Principle VI (Git Approval), Principle IV (Idempotency), Principle VII (Observability)
 **Review Cycle**: Quarterly
 
 ---
@@ -236,7 +236,7 @@ as of `38b0144`; subagents are denied `gh` wholesale, reads included. Read-only
 
 ## References
 
-- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.3.0: `.logic-loom/memory/constitution.md`
 - Governance threat model: `.docs/architecture/governance-threat-model.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`

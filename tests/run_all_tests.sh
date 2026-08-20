@@ -73,7 +73,7 @@ echo "╚═══════════════════════�
 # Contract Tests
 run_suite "Plugin Lifecycle" "bash tests/contract/plugins/test_plugin_lifecycle.sh"
 run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh"
-run_suite "Constitution v3.2.0" "bash tests/contract/test_constitution.sh"
+run_suite "Constitution v3.3.0" "bash tests/contract/test_constitution.sh"
 run_suite "Governance Hooks" "bash tests/contract/test_governance_hooks.sh"
 run_suite "Policy Matching" "bash tests/contract/test_policy_matching.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
@@ -95,6 +95,9 @@ run_suite "Scrub Rules Match" "bash tests/contract/test_scrub_rules_match.sh"
 run_suite "gh Telemetry Notice" "bash tests/contract/test_gh_telemetry_notice.sh"
 run_suite "Environment Declaration" "bash tests/contract/test_environment_declaration.sh"
 run_suite "Plugin Manifest Schema" "bash tests/contract/test_plugin_manifest_schema.sh"
+run_suite "Project Identity" "bash tests/contract/test_project_identity.sh"
+run_suite "Backlog Index" "bash tests/contract/test_backlog_index.sh"
+run_suite "Backlog Dashboard" "bash tests/contract/test_backlog_dashboard.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

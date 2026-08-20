@@ -347,9 +347,15 @@
       "ops": [
         {
           "op": "delete-line",
-          "match": "**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0) · 2026-06-15 (v3.2.0)",
+          "match": "**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0) · 2026-06-15 (v3.2.0) · 2026-08-17 (v3.3.0)",
           "replacement": "",
-          "note": "Dated amendment-history line. KEEP the title 'LogicLoom Constitution v3.2.0' and '**Status**: RATIFIED'."
+          "note": "Dated amendment-history line. KEEP the title 'LogicLoom Constitution v3.3.0' and '**Status**: RATIFIED'."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Changes Summary (v3.3.0)",
+          "replacement": "",
+          "note": "Embedded release notes. Drop heading through the line before '## Changes Summary (v3.2.0)'."
         },
         {
           "op": "delete-line-regex",
@@ -395,9 +401,9 @@
         },
         {
           "op": "genericize",
-          "match": "*v3.1.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall\nand vision/swarm are interchangeable workflow packs.*",
-          "replacement": "*LogicLoom Constitution v3.2.0. Governance is the durable core; workflow packs are interchangeable.*",
-          "note": "Footer: bump stale v3.1.0 to canonical v3.2.0; keep present-tense identity."
+          "match": "*v3.3.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall\nand vision/swarm are interchangeable workflow packs.*",
+          "replacement": "*LogicLoom Constitution v3.3.0. Governance is the durable core; workflow packs are interchangeable.*",
+          "note": "Footer: drop the leading version-tag form; keep present-tense identity."
         }
       ]
     },
@@ -437,12 +443,6 @@
           "match": "# NOTE: RL telemetry was removed in the LogicLoom migration. There is\n# intentionally no RL or legacy-blocking configuration in this file.",
           "replacement": "",
           "note": "Removed-subsystem (RL telemetry) migration narrative."
-        },
-        {
-          "op": "genericize",
-          "match": "CONSTITUTION_VERSION=3.1.0",
-          "replacement": "CONSTITUTION_VERSION=3.2.0",
-          "note": "Bump stale constitution pointer to canonical v3.2.0. KEEP ARCHITECTURE_VERSION=6.2.0."
         },
         {
           "op": "delete-line",

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # UserPromptSubmit Hook: Orchestration Guidance + Memory Context Injection
 # Version: 3.2.0 (adds verification-intent nudge → cross-check disposition)
-# Constitution: v3.2.0 (16 principles)
+# Constitution: v3.3.0 (16 principles)
 #
 # Provides Claude Code with orchestration guidance and memory context via
 # additionalContext injection. Does NOT override Claude Code's native capabilities.

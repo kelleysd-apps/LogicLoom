@@ -2,8 +2,8 @@
 
 **Purpose**: Ensure all dependent documents are updated when the constitution changes.
 
-**Version**: 1.0.0
-**Last Updated**: 2025-11-06
+**Version**: 1.1.0
+**Last Updated**: 2026-08-17
 
 ---
 
@@ -75,6 +75,48 @@ When removing a principle:
 - [ ] Remove enforcement mechanisms
 - [ ] Archive old principle content
 
+### Category D: Adding or changing an extension mechanism
+
+When the change adds a *mechanism* rather than a principle (e.g. the v3.3.0
+Project Amendments extension point) — no principle body, numbering, immutability
+marker, or enforcement claim may change:
+
+- [ ] Confirm the principles section is **byte-identical** before and after
+      (diff it; an additive change touches nothing between the Preamble and the
+      end of Principle XVI)
+- [ ] State the composition rule explicitly (how the extension combines with the
+      principles)
+- [ ] Verify the mechanism has **no syntax for weakening** — no field, keyword,
+      or convention that could express "override", "disable", "exempt", "waive",
+      or "relax" a principle
+- [ ] State the conflict resolution direction: conflicts resolve **toward the
+      floor**, never away from it
+- [ ] If the mechanism uses a new file, ship a **template** rather than the file
+      itself, so `/update-framework` has no upstream counterpart to conflict
+      against a fork's copy
+- [ ] MINOR version bump (mechanism added, principles untouched); PATCH only for
+      wording/typo fixes
+
+---
+
+## Project Amendments (do not confuse with this checklist)
+
+This checklist governs changes to **`constitution.md` itself** — an upstream core
+file. A **fork** adding project-specific mandates does **not** use it: mandates go
+in `.logic-loom/memory/amendments.md` (seeded from
+`.logic-loom/templates/amendments-template.md`), which upstream never ships.
+See `constitution.md` § *Project Amendments (the fork extension point)*.
+
+If a proposed constitution edit turns out to be project-specific, stop and write
+a named mandate instead.
+
+A mandate is **followed policy, not enforcement**: nothing loads `amendments.md`,
+nothing validates it, and nothing fails closed if it is missing. The additive-only
+property is an adjudication rule applied by whoever reads the file — the mandate
+grammar does not guarantee it, because `Rule` is unrestricted natural language.
+Do not describe it as structural anywhere in the docs; see `constitution.md`
+§ *Project Amendments* → *Composition* and *Precedence and adjudication*.
+
 ---
 
 ## Mandatory Update Steps
@@ -86,7 +128,20 @@ After changing constitution, update ALL of the following:
 - [ ] Increment version number (e.g., 1.5.0 → 1.5.1 or 1.6.0)
 - [ ] Update "Last Amended" date
 - [ ] Add change to version history (if maintained)
+- [ ] Add a "Changes Summary (vX.Y.Z)" block
 - [ ] Update line count if significant change
+- [ ] **Update `.logic-loom/scripts/bash/history-scrub-rules.json`** — the
+      constitution's dated `**Ratified**/**Amended**` line, each
+      `## Changes Summary (vX.Y.Z)` heading, and the footer are matched by
+      *literal* scrub ops. A version bump that leaves them stale makes the ops
+      match nothing, which `tests/contract/test_scrub_rules_match.sh` fails.
+- [ ] **Update `.logic-loom/config/architecture.conf`** (`CONSTITUTION_VERSION=`)
+- [ ] **Update `.claude/hooks/user-prompt-submit/governance-preflight.sh`**
+      (`# Constitution:` header) — asserted by
+      `tests/contract/test_plugin_command_bridge.sh`. Protected surface: the
+      edit prompts for approval.
+- [ ] **Update `tests/contract/test_constitution.sh`** current-version
+      assertions (leave the historical version-history-row assertions alone)
 
 ### Step 2: Update Main Instruction Files
 

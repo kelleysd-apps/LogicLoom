@@ -87,6 +87,24 @@ coverage/
 # Deprecated items (kept locally for reference, not in template)
 **/.deprecated/
 
+# Backlog index (DERIVED from backlog.md / features/*/plan.md / specs/*/tasks.md
+# by .logic-loom/scripts/bash/build-backlog-index.sh). Deliberately UNTRACKED: a
+# tracked derived artifact goes stale the moment a source is edited without
+# regenerating, and this repo has been bitten by that class three times.
+# Regenerate on demand; never commit. (tests/contract/test_backlog_index.sh
+# asserts this ignore rule is still in force.)
+.logic-loom/backlog-index.json
+
+# Backlog dashboard (DERIVED from backlog-index.json by
+# .logic-loom/scripts/bash/build-backlog-dashboard.sh). Untracked for the SAME
+# reason as the index above, and one step more so: a `file://` page cannot
+# fetch() a sibling JSON, so the generator INLINES a snapshot of the index into
+# the HTML. That snapshot is frozen at generation time — tracking it would ship
+# a page that silently disagrees with both the index and the sources. Regenerate
+# on demand; never commit. (tests/contract/test_backlog_dashboard.sh asserts
+# this ignore rule is still in force.)
+.logic-loom/backlog-dashboard.html
+
 # Memory search index (generated, regenerable)
 .loom-memory-index/
 .sdd-memory-index/

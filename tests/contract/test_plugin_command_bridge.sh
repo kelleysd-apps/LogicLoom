@@ -267,7 +267,7 @@ echo "Governance hook integrity"
 HOOK_FILE=".claude/hooks/user-prompt-submit/governance-preflight.sh"
 assert "Governance hook exists" "[ -f '$HOOK_FILE' ]"
 assert "Governance hook is executable" "[ -x '$HOOK_FILE' ]"
-assert "Hook references constitution v3.2.0" "grep -q 'v3.2.0' '$HOOK_FILE'"
+assert "Hook references constitution v3.3.0" "grep -q 'v3.3.0' '$HOOK_FILE'"
 assert "Hook detects command invocations" "grep -q 'detect_slash_command' '$HOOK_FILE'"
 
 # ═══════════════════════════════════════

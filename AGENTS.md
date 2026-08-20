@@ -1,8 +1,8 @@
 # LogicLoom Agent Registry
 
 **Version**: 6.4.1
-**Last Updated**: 2026-06-30
-**Constitution**: v3.2.0 (16 Principles)
+**Last Updated**: 2026-08-17
+**Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 8 (6 plugin + 2 project-level: deep-reasoner, fast-worker)
 **Plugins**: 8
@@ -66,6 +66,36 @@ enforced-vs-followed matrix by host.)
   `package.json` / `tests/`. (Claude Code: see CLAUDE.md "Harness ↔ product
   boundary"; full rule `.docs/policies/file-structure-policy.md` § Product
   Workspace.)
+
+### Project amendments (project extension of the floor)
+
+A project may layer its own mandates on top of the principles above. They live in
+**`.logic-loom/memory/amendments.md`** (fork-owned; seeded from
+`.logic-loom/templates/amendments-template.md`), never inside the constitution
+itself — so upstream framework updates never collide with them.
+
+Nothing loads that file. No hook, preflight, or context module reads it; nothing
+validates a mandate; nothing fails closed. A project that does not read it gets no
+mandates and no warning. So: **read `amendments.md` if it exists** and treat its
+mandates as binding alongside the principles. Mandates are followed policy, never
+host enforcement.
+
+The only normative unit is a **named mandate**: `### Mandate: <NAME>` with
+`Constrains:` / `Rule:` / `Rationale:`. Composition is a conjunction — **effective
+governance = the principles AND every mandate**. The principles remain normatively
+supreme: a mandate may *tighten* any principle (including the immutable three) or
+cover ground the principles are silent on, and may never relax, disable, exempt
+from, or override one. There is no field for that, but `Rule` is free natural
+language, so a weakening mandate can still be written — the invariant is upheld by
+your adjudication, not by the shape of the file.
+
+Adjudicate toward the floor, always: relaxing wording is void in that respect; an
+ambiguous mandate takes its tightening reading, and is void if it has none; a
+formal tightening that makes a principle impossible to satisfy is void the same
+way; two conflicting mandates compose to the stricter obligation, and genuinely
+contradicting ones are both void in that respect; validity is per-effect, so a
+partly-valid mandate keeps only its valid part. Direction documents such as
+`VISION.md` never relax a mandate or a principle.
 
 ### Cross-Check Disposition
 
@@ -451,7 +481,7 @@ plugins/
 
 ## Constitutional Compliance
 
-All agents enforce Constitution v3.2.0 (16 Principles), the durable governance core for every workflow pack:
+All agents enforce Constitution v3.3.0 (16 Principles), the durable governance core for every workflow pack:
 
 ### Immutable Principles (I-III)
 - **I: Library-First** — Features as standalone libraries
@@ -469,8 +499,20 @@ All agents enforce Constitution v3.2.0 (16 Principles), the durable governance c
   `/build-team`, `/fullstack-team`, and `/finalize` are all first-class pack
   entry points — pick the pack that fits the problem shape.
 
+### Project amendments
+Constitution v3.3.0 adds a fork extension point: project mandates live in
+`.logic-loom/memory/amendments.md` (optional, fork-owned), composed
+conjunctively with the 16 principles. Intended additive-only, with precedence
+rules that resolve conflict and ambiguity toward the floor — reader-adjudicated,
+not grammar-guaranteed, and with no loader, validator, or enforcement behind it.
+Agents read it when present.
+Reference: `plugins/MANIFEST-SCHEMA.md` (Principle XVI plugin manifests) and
+`.docs/policies/shell-idiom-policy.md` (hook/script shell idioms) are the
+companion contributor references.
+
 ### All Agents Must
 - Reference constitution in their system prompt
+- Honor `.logic-loom/memory/amendments.md` mandates when the file exists
 - Enforce TDD and library-first patterns
 - Defer git mutations to the git-safety-gate hook (which forces approval)
 - Maintain audit trails
@@ -527,6 +569,7 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 6.4.1 | 2026-08-17 | _(docs/governance; no framework version bump)_ Constitution **v3.3.0** — Project Amendments fork extension point: project mandates live as named mandates in a separate, fork-owned `.logic-loom/memory/amendments.md` (seeded from `amendments-template.md`), composed conjunctively with the 16 principles. Intended additive-only, with precedence rules resolving conflict, contradiction, and ambiguity toward the floor; reader-adjudicated rather than grammar-guaranteed, and explicitly followed-not-enforced (no loader, validator, or fail-closed behaviour). No principle body, numbering, immutability marker, or enforcement claim changed |
 | 6.4.1 | 2026-08-13 | Fixes the update path broken for v6.3.1 / v6.4.0 clones: those release PRs were squash-merged, discarding the single-parent snapshot `.sdd-sync-ref` names, so `/update-framework` exited 3 with "`.sdd-sync-ref` is NOT reachable from upstream main". Repo settings corrected (merge commits only). `extract-proposals.sh` auto-remaps the two known-bad baselines to their `main` equivalents; `release-tag.yml` now refuses to tag when the snapshot is not an ancestor of `main`; new `KNOWN_ISSUES.md` + sync-guide section keyed on the error string |
 | 6.4.0 | 2026-08-12 | Full contract-suite CI gating — every suite (including Git Safety, covering Principle VI) now gates PRs. Orchestrator + worker ladder shipped with the framework-wide model-agnostic tier-keyword convention; deterministic text-first project graph (`/graph` + `graph-bridge.jsonl`, no engine/daemon); harness↔product and harness↔user boundaries written down. Governance floor hardened: bash 3.2 fail-open closed, dangerous-command matching at command position (not prose), test-runner accounting corrected |
 | 6.3.1 | 2026-06-30 | _(docs/config; no framework version bump)_ Orchestrator + worker ladder: model-agnostic-but-frontier orchestrator role (`frontier` tier — Fable 5 → Opus 4.8 fallback) + `deep-reasoner` (opus) / `fast-worker` (sonnet) project agents; `models.conf` gains `LOOM_MODEL_ORCHESTRATOR`/`FRONTIER_MODEL`/`FRONTIER_FALLBACK` + refreshed tier IDs (Sonnet 5); `.docs/architecture/orchestrator-worker-ladder.md`. Non-Claude models stay advisory-only (unchanged) |
@@ -549,4 +592,4 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 **Registry Maintainer**: subagent-architect
 **Review Cycle**: On any agent change
-**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `features/README.md`
+**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `.logic-loom/memory/amendments.md` (fork-owned, optional), `.docs/policies/shell-idiom-policy.md`, `plugins/MANIFEST-SCHEMA.md`, `features/README.md`

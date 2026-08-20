@@ -28,8 +28,17 @@
 #
 # Grammar (one entry per line; `#` begins a comment):
 #   <path-or-glob>     -> REMOVED by stripper; asserted ABSENT by leak-guard
-#   stub: <path>       -> CONTENT-REPLACED with the project-vision template stub;
-#                         asserted to carry NO harness-dev markers (not absent)
+#   stub: <path> :: <template>
+#                      -> CONTENT-REPLACED with <template> (a repo-relative path,
+#                         conventionally under .logic-loom/templates/); asserted
+#                         to carry NO harness-dev markers (not absent).
+#                         The `:: <template>` field is REQUIRED and there is NO
+#                         default: the stripper ABORTS on a `stub:` entry with no
+#                         template, or whose template file is missing. Shipping
+#                         the WRONG stub is worse than failing the release, and a
+#                         default is exactly how the wrong stub gets shipped
+#                         silently (the stripper used to hardcode the VISION stub
+#                         for every `stub:` target).
 #   warn: <path-glob>  -> NOT stripped; leak-guard emits a WARNING (non-fatal).
 #                         Use for deferred decisions so nothing silently ships.
 # Globs are matched against `git ls-files` output (tracked paths only).
@@ -39,7 +48,15 @@
 #     roadmap (cites loom-migration / PR #56 / freeze residual). Ship the stub so
 #     the constitution / CLAUDE.md / AGENTS.md references resolve on a fresh
 #     clone; /initialize-project then fills it in place. ---
-stub: VISION.md
+stub: VISION.md :: .logic-loom/templates/project-vision-template.md
+
+# --- Harness maintenance backlog (SSOT Level 0): the FILE is machinery a cloner
+#     should inherit -- the todo-architecture policy points at this exact path,
+#     so a missing file breaks that reference on a fresh clone. The CONTENT is
+#     ours: dev commit SHAs, a private sibling repo, our release topology, and
+#     open governance decisions. Ship the stub (header + grammar + empty Items),
+#     never our items. Same shape and same reason as VISION.md above. ---
+stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-template.md
 
 # --- Release plumbing SCRIPTS: maintainer-only. These contain identity markers
 #     as detection patterns / origin provenance by design, so they must NEVER
@@ -86,6 +103,22 @@ plugins/loom-maintenance/commands/promote.md
 .docs/guides/dev-main-template-split.md   # OUR release runbook (maintainer-only)
 .logic-loom/plans       # our dev planning (docker-mcp-toolkit-integration.md)
 CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.)
+
+# --- Repo-root `artifacts/`: the CONVENTION ships (documented in CLAUDE.md's
+#     directory structure and .docs/policies/file-structure-policy.md), the
+#     CONTENTS are ours. Today that is two hand-authored LogicLoom pages —
+#     artifacts/harness-graph.html ("What the harness is actually made of") and
+#     artifacts/logicloom-vision.html ("Vision, Findings & Record", carrying our
+#     decisions, verified problems and open evidence gaps). Same class as
+#     .docs/reports and .docs/design above, which are already stripped wholesale
+#     — and until now `artifacts/` was in NO list at all, so both files were
+#     shipping to customers verbatim.
+#     WHOLESALE, not `artifacts/*.html`: a glob would silently ship the first
+#     non-HTML artifact we drop in there. Nothing is stubbed and no .gitkeep is
+#     shipped, so the directory simply does not exist in a customer clone —
+#     the same treatment as `web/`, which the policy documents without shipping.
+#     A customer creates it the first time they have an artifact to put in it.
+artifacts
 
 # --- GENERATED project-graph index (derived, repo-specific) ---
 #     .logic-loom/graph/graph-bridge.jsonl is a DERIVED index of THIS repo's

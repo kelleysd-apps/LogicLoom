@@ -2,7 +2,7 @@
 
 **Version**: 1.1.0
 **Effective Date**: 2026-06-30
-**Authority**: Constitution v3.2.0
+**Authority**: Constitution v3.3.0
 **Review Cycle**: Quarterly
 
 ---
@@ -67,6 +67,9 @@ project-root/
 │
 ├── specs/                      # Feature specs (SDD waterfall workflow pack)
 │   └── ###-feature-name/       # Per-feature spec directory
+│
+├── artifacts/                  # Standalone deliverables (vision, research, forensics,
+│                               # docs — never a plan). Create on first use.
 │
 ├── web/  (or apps/<name>/)     # PRODUCT app workspace (own package.json — see "Product Workspace")
 │   └── src/                    # Product application code (NOT at repo root)
@@ -278,6 +281,38 @@ specs/
 - Directory name: `###-feature-name` (kebab-case)
 - All files use templates from `.logic-loom/templates/`
 - Created via `/specification` command (SDD waterfall pack)
+
+### artifacts/ - Standalone deliverables (who/what/why/where)
+
+A repo-root directory for **standalone deliverables**: a vision page, a research
+write-up, a forensic record of an incident, a rendered doc. The test is
+*who / what / why / where* — an artifact states something. It is **never a plan**:
+sequencing belongs to `features/<name>/plan.md` or `specs/###-name/tasks.md`, and
+hardwiring a plan into an artifact confines the agent that should be deciding it.
+
+**Structure**:
+```
+artifacts/
+├── <name>.html                 # self-contained page (inline CSS/JS, no external requests)
+└── <name>.md                   # or plain markdown
+```
+
+**Rules**:
+- **Create on first use.** The directory does not ship in a fresh clone — like
+  `web/`, it is documented here and created when there is something to put in it.
+- **Contents are project-owned**, not framework machinery. LogicLoom's own
+  artifacts are stripped at template release (`artifacts` is a wholesale entry in
+  `.logic-loom/scripts/bash/template-strip-manifest.txt`), so a cloner inherits
+  the convention and none of our pages.
+- Flat by default; add subdirectories only when the file count warrants it.
+- An HTML artifact must be **self-contained** — inline CSS and JS, no CDN, no
+  webfont, no remote image — because it is opened directly from disk over
+  `file://`, where cross-origin requests (including `fetch()` of a sibling JSON)
+  are blocked. `.logic-loom/scripts/bash/build-backlog-dashboard.sh` is the
+  worked example: it inlines a snapshot of its data source for exactly this reason.
+- **Generated** artifacts belong under `.logic-loom/` and are gitignored
+  (`backlog-index.json`, `backlog-dashboard.html`), not here. `artifacts/` is for
+  hand-authored, committed deliverables.
 
 ### Product source code (inside the product workspace)
 
@@ -523,6 +558,7 @@ All agents MUST:
 | Feature (vision/PRD/plan pack) | `features/<name>/` |
 | Feature (SDD waterfall pack) | `specs/###-[name]/` |
 | Template | `.logic-loom/templates/[name]-template.md` |
+| Standalone deliverable (vision / research / forensics / doc) | `artifacts/[name].html` or `.md` |
 
 ### Creation Commands
 

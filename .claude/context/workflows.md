@@ -395,7 +395,7 @@ Manual Git Operations (User Approval Required)
 ```
 .logic-loom/
 ├── memory/
-│   ├── constitution.md                    # Core principles (v3.2.0 - 16 principles)
+│   ├── constitution.md                    # Core principles (v3.3.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
 │   └── agent-collaboration-triggers.md    # Agent delegation reference
 ├── scripts/bash/                          # Workflow automation scripts
@@ -469,7 +469,7 @@ Load workflow context when needed:
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
 - `.logic-loom/scripts/bash/` workflow scripts
-- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `.logic-loom/memory/constitution.md` (v3.3.0)
 - `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow (NEW)

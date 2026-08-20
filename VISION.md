@@ -16,7 +16,7 @@ short. Acceptance criteria and schemas belong in a PRD/plan, not here.
 **Product**: `logic-loom` (brand: **LogicLoom**)
 **Document**: product north-star (living)
 **Version**: 2.1 · **Last updated**: 2026-08-15 · **Owner**: brian@kelleysd.com
-**Framework state**: v6.4.1 · constitution v3.2.0 · dev line `dev-main` · template line `main` (v6.4.1, 2026-08-13)
+**Framework state**: v6.4.1 · constitution v3.3.0 · dev line `dev-main` · template line `main` (v6.4.1, 2026-08-13)
 
 ---
 
@@ -281,6 +281,25 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
    `.logic-loom/memory/amendments.md` (never overwritten; immutable I–III
    un-overridable, lint-enforced) with the effective constitution injected as
    core ∪ amendments. Turns "never touch user files" from incidental to declared.
+
+   **Partially landed (2026-08-17, constitution v3.3.0) — thread stays OPEN.**
+   The *constitution-split half* is done: constitution v3.3.0 § *Project
+   Amendments* declares `.logic-loom/memory/amendments.md` as the fork extension
+   point, `amendments-template.md` seeds it, and upstream deliberately never
+   ships the file — so it is never overwritten and the constitution stops being a
+   `conflict-review` file. The unit is a **named mandate**, composed
+   conjunctively; a mandate may tighten I–III, and conflicts, contradictions, and
+   ambiguity all resolve toward the floor under an explicit precedence order.
+   **Still open, and why this is not marked resolved:** (a)
+   `.logic-loom/config/core-paths.manifest` does not exist and
+   `extract-proposals.sh` has no denylist→info-only filter, so "never touch user
+   files" is still incidental rather than declared for every other user path;
+   (b) nothing *injects* core ∪ amendments — no loader, preflight hook, or
+   context module reads `amendments.md`, so mandates are followed only because
+   `CLAUDE.md`/`AGENTS.md` tell agents to read it; (c) the additive-only property is stated and adjudicated, not structural — the
+   grammar has no relaxing verb, but `Rule` is free natural language, so a
+   semantically weakening mandate can still be written, and there is no lint
+   asserting anything.
 
 8. ⚠️ **CONTESTED — pending a maintainer direction call. Do not action.**
    *Original thread:* **Add `marketplace.json`.** None exists anywhere — the

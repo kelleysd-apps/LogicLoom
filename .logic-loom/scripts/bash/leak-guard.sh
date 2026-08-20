@@ -59,9 +59,11 @@ while IFS= read -r raw; do
   line="$(printf '%s' "$line" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
   [ -z "$line" ] && continue
 
-  # stub: <path>  -> must exist clean (markers checked below if tracked)
+  # stub: <path> :: <template>  -> target must exist clean (markers checked below
+  # if tracked). Only the TARGET is asserted here; the template it was written
+  # from is a build input, and the stripper is what fails on an unresolvable one.
   if [[ "$line" == stub:* ]]; then
-    target="$(printf '%s' "${line#stub:}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+    target="$(printf '%s' "${line#stub:}" | sed -e 's/::.*$//' -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
     f="$REPO_ROOT/$target"
     if [ -f "$f" ] && grep -qiE "$VISION_MARKERS" "$f"; then
       echo -e "${RED}LEAK${NC}: $target carries harness-dev markers (must be the clean stub)"
