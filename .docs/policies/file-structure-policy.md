@@ -310,9 +310,41 @@ artifacts/
   `file://`, where cross-origin requests (including `fetch()` of a sibling JSON)
   are blocked. `.logic-loom/scripts/bash/build-backlog-dashboard.sh` is the
   worked example: it inlines a snapshot of its data source for exactly this reason.
-- **Generated** artifacts belong under `.logic-loom/` and are gitignored
-  (`backlog-index.json`, `backlog-dashboard.html`), not here. `artifacts/` is for
-  hand-authored, committed deliverables.
+- **Placement follows what a file IS; tracking follows how it is PRODUCED.**
+  These are separate questions and `artifacts/` answers only the first. Most
+  artifacts are hand-authored and committed. A **generated** page that meets the
+  who/what/why/where test belongs here too — and is **tracked like its
+  neighbours, on one condition**: a fail-closed freshness gate covers it.
+  Worked example: `artifacts/backlog-dashboard.html`, produced by
+  `.logic-loom/scripts/bash/build-backlog-dashboard.sh` from
+  `.logic-loom/backlog-index.json`. It is a *what/where* view — which work
+  exists, of what class, from which source, in what state — and it sequences
+  nothing, so it is an artifact and not a plan.
+
+  **The rule for a generated deliverable, in full:**
+  1. **Track only what a human opens.** The dashboard is read by people, so it
+     is committed and travels worktree → feature branch → `dev-main` like any
+     other file. A **machine-readable intermediate with no standalone reader** —
+     `.logic-loom/backlog-index.json` — is not a deliverable, stays under
+     `.logic-loom/`, and stays **gitignored**: nothing is lost by regenerating
+     it, so nothing justifies the staleness cost of tracking it.
+  2. **Pay the staleness cost with a gate, not a warning.** A tracked derived
+     artifact drifts from its sources the moment one is edited without
+     regenerating — the class that produced three defects in this repo, two of
+     them behind a warn-only lint. The licence to track is
+     `.logic-loom/scripts/bash/check-generated-freshness.sh`, which regenerates
+     the artifact and **fails** if the committed copy differs. It runs in
+     `.github/workflows/plugin-tests.yml`. Add a tracked generated file and you
+     add it to that gate in the same change; remove the gate and the file goes
+     back to being ignored.
+  3. **Keep it out of the customer template at promote, not with an ignore
+     rule.** Our artifacts are ours: `artifacts` is a **wholesale** entry in
+     `.logic-loom/scripts/bash/template-strip-manifest.txt`, so the directory is
+     removed when the sanitized template is built. Note that `.gitignore` is
+     **not branch-scoped** in any reliable way — it is itself a tracked file, so
+     a per-branch divergence merges and propagates like any other content
+     difference. "Not ignored + stripped at promote" is the mechanism; a
+     dev-only ignore rule is not.
 
 ### Product source code (inside the product workspace)
 

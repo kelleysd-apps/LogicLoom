@@ -88,22 +88,50 @@ coverage/
 **/.deprecated/
 
 # Backlog index (DERIVED from backlog.md / features/*/plan.md / specs/*/tasks.md
-# by .logic-loom/scripts/bash/build-backlog-index.sh). Deliberately UNTRACKED: a
-# tracked derived artifact goes stale the moment a source is edited without
-# regenerating, and this repo has been bitten by that class three times.
-# Regenerate on demand; never commit. (tests/contract/test_backlog_index.sh
-# asserts this ignore rule is still in force.)
+# by .logic-loom/scripts/bash/build-backlog-index.sh). Deliberately UNTRACKED,
+# and the DISTINCTION from the dashboard is the point:
+#
+#   * The INDEX is a MACHINE INTERMEDIATE with no standalone reader. Nobody
+#     opens it; it exists to be fed to the renderer. Nothing is lost by
+#     regenerating it on demand, so there is no reason to accept the staleness
+#     cost of tracking it — and nothing to gate, because there is no committed
+#     copy that could disagree with the sources.
+#   * The DASHBOARD (artifacts/backlog-dashboard.html) is the thing a HUMAN
+#     looks at, so it is TRACKED. See the note below.
+#
+# Only the thing a human opens becomes tracked. Regenerate this one on demand;
+# never commit it. (tests/contract/test_backlog_index.sh asserts this ignore
+# rule is still in force.)
 .logic-loom/backlog-index.json
 
-# Backlog dashboard (DERIVED from backlog-index.json by
-# .logic-loom/scripts/bash/build-backlog-dashboard.sh). Untracked for the SAME
-# reason as the index above, and one step more so: a `file://` page cannot
-# fetch() a sibling JSON, so the generator INLINES a snapshot of the index into
-# the HTML. That snapshot is frozen at generation time — tracking it would ship
-# a page that silently disagrees with both the index and the sources. Regenerate
-# on demand; never commit. (tests/contract/test_backlog_dashboard.sh asserts
-# this ignore rule is still in force.)
-.logic-loom/backlog-dashboard.html
+# NOTE — artifacts/backlog-dashboard.html is deliberately NOT listed here.
+#
+# It used to be. It was gitignored, which meant it existed only in whichever
+# checkout last ran the generator: the maintainer went looking for it in their
+# main checkout and it was not there, twice. Work here happens on worktrees and
+# feature branches and always lands on dev-main, and dev state has to be
+# consistent across that line — so the page is now TRACKED and flows
+# worktree → feature branch → dev-main like any other file. Customers never
+# receive it: `artifacts` is a WHOLESALE strip entry in
+# .logic-loom/scripts/bash/template-strip-manifest.txt, so the whole directory is
+# removed when the sanitized template is built.
+#
+# The mechanism is "NOT IGNORED + STRIPPED AT PROMOTE" — not a per-branch ignore
+# rule. .gitignore is NOT branch-scoped in any reliable way: it is itself a
+# tracked file, so a per-branch divergence in it is just a normal file
+# difference that merges, conflicts, and silently propagates in whichever
+# direction the merge went. Do not try to solve this by giving dev-main and main
+# different .gitignore contents.
+#
+# The cost of tracking a derived artifact is real — it goes stale the moment a
+# source is edited without regenerating, the class that has bitten this repo
+# three times (dead scrub rules, orphaned test suites, a manifest advertising a
+# stripped command). A warn-only lint does not hold; that IS the manifest bug.
+# The cost is paid by a FAIL-CLOSED gate:
+#     .logic-loom/scripts/bash/check-generated-freshness.sh
+# which regenerates the page and fails if the committed copy differs. It runs in
+# CI (.github/workflows/plugin-tests.yml). Tracking is licensed by that gate; if
+# the gate is ever removed, this file goes back to being ignored.
 
 # Memory search index (generated, regenerable)
 .loom-memory-index/

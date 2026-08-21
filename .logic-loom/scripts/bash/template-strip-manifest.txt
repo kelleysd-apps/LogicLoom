@@ -118,6 +118,22 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #     shipped, so the directory simply does not exist in a customer clone —
 #     the same treatment as `web/`, which the policy documents without shipping.
 #     A customer creates it the first time they have an artifact to put in it.
+#
+#     NOTE on artifacts/backlog-dashboard.html — THIS ENTRY IS NOW LOAD-BEARING
+#     FOR IT. That page is GENERATED, and it used to be gitignored, so the old
+#     text here said the wholesale entry "never sees it" and the two mechanisms
+#     were independent. That is no longer true. The page is now TRACKED (it was
+#     invisible in every checkout that had not run the generator; dev state has
+#     to be consistent across the dev line), so it DOES enter a promotion
+#     checkout and this entry is the ONE thing that keeps it out of a customer's
+#     tree. Its content is ours end to end — our backlog ids, our item titles,
+#     our source paths — so it must never ship.
+#     This is exactly why the entry is WHOLESALE and not `artifacts/*.html` or
+#     any other glob: the wholesale form already covered a future tracked
+#     artifact before there was one, and it is what made this change safe to
+#     make. Do not narrow it. Its freshness is guarded separately, in-repo, by
+#     .logic-loom/scripts/bash/check-generated-freshness.sh (CI: plugin-tests.yml)
+#     — a different concern from shipping, and neither substitutes for the other.
 artifacts
 
 # --- GENERATED project-graph index (derived, repo-specific) ---
@@ -134,6 +150,11 @@ artifacts
 #     validates the seed only "if present". If a static graph VIEWER is ever
 #     shipped under .logic-loom/graph/, re-scope this entry to the .jsonl/.json
 #     artifacts instead of the directory.
+#     FRESHNESS (separate concern, in-repo): graph-bridge.jsonl is tracked and
+#     was carrying no staleness guard at all — it had drifted from the corpus.
+#     .logic-loom/scripts/bash/check-generated-freshness.sh now regenerates it
+#     and fails CI on a difference. That is about OUR repo staying honest; this
+#     entry is about it never reaching a customer. Neither replaces the other.
 .logic-loom/graph
 
 # --- LogicLoom-contribution scaffolding (about contributing TO the harness, not

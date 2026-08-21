@@ -13,6 +13,7 @@
 {"type":"entity","name":".docs/architecture/governance-threat-model.md","entityType":"note","observations":["Governance Threat Model & Enforcement Posture"]}
 {"type":"entity","name":".docs/architecture/loom-architecture.md","entityType":"note","observations":["LogicLoom Architecture"]}
 {"type":"entity","name":".docs/architecture/model-selection-policy.md","entityType":"note","observations":["Model Selection Policy"]}
+{"type":"entity","name":".docs/architecture/orchestration-hook-enforcement.md","entityType":"note","observations":["Orchestration hook enforcement"]}
 {"type":"entity","name":".docs/architecture/orchestrator-worker-ladder.md","entityType":"note","observations":["Orchestrator + Worker Ladder"]}
 {"type":"entity","name":".docs/archive/feature-003/implementation-plan.md","entityType":"note","observations":["Feature 003: Upstream Sync Implementation Plan"]}
 {"type":"entity","name":".docs/archive/feature-003/upstream-sync-report.md","entityType":"note","observations":["Feature 003: Upstream Sync Report"]}
@@ -33,34 +34,52 @@
 {"type":"entity","name":".docs/policies/instruction-files-policy.md","entityType":"note","observations":["Instruction Files Policy (CLAUDE.md & AGENTS.md)"]}
 {"type":"entity","name":".docs/policies/release-management-policy.md","entityType":"note","observations":["Release Management Policy"]}
 {"type":"entity","name":".docs/policies/security-policy.md","entityType":"note","observations":["Security Policy"]}
+{"type":"entity","name":".docs/policies/shell-idiom-policy.md","entityType":"note","observations":["Shell Idiom Policy"]}
 {"type":"entity","name":".docs/policies/testing-policy.md","entityType":"note","observations":["Testing Policy"]}
 {"type":"entity","name":".docs/policies/todo-architecture-policy.md","entityType":"note","observations":["Todo Architecture Policy - Single Source of Truth (SSOT)"]}
 {"type":"entity","name":".docs/references/devops/deployment-templates.md","entityType":"note","observations":["Deployment Templates Reference"]}
 {"type":"entity","name":".docs/references/security/owasp-checklist.md","entityType":"note","observations":["OWASP Top 10 Security Checklist"]}
 {"type":"entity","name":".docs/references/testing/test-patterns.md","entityType":"note","observations":["Test Patterns Reference"]}
 {"type":"entity","name":".docs/reports/README.md","entityType":"note","observations":["Framework Enhancements Integration Reports"]}
+{"type":"entity","name":".docs/reports/backlog-2026-08-13.md","entityType":"note","observations":["LogicLoom Living Backlog — opened 2026-08-13"]}
 {"type":"entity","name":".docs/reports/harness-parity-proposal.md","entityType":"note","observations":["LogicLoom Harness-Machinery Parity Proposal"]}
 {"type":"entity","name":".docs/reviews/LOGICLOOM_ISSUE_harness-product-boundary.md","entityType":"note","observations":["LogicLoom issue draft — Clarify the harness ↔ product boundary; support products with their own toolchain"]}
 {"type":"entity","name":".docs/workflows/sdd-overview.md","entityType":"note","observations":["sdd-overview.md"]}
 {"type":"entity","name":".logic-loom/memory/constitution.md","entityType":"note","observations":["constitution.md"]}
 {"type":"entity","name":"AGENTS.md","entityType":"note","observations":["LogicLoom Agent Registry"]}
 {"type":"entity","name":"CLAUDE.md","entityType":"note","observations":["CLAUDE.md — LogicLoom"]}
+{"type":"entity","name":"KNOWN_ISSUES.md","entityType":"note","observations":["KNOWN_ISSUES.md"]}
 {"type":"entity","name":"README.md","entityType":"note","observations":["LogicLoom"]}
 {"type":"entity","name":"START_HERE.md","entityType":"note","observations":["START HERE — LogicLoom Onboarding"]}
 {"type":"entity","name":"VISION.md","entityType":"note","observations":["Vision: LogicLoom"]}
+{"type":"entity","name":"artifacts/backlog-dashboard.html","entityType":"code-path","observations":["backlog-dashboard.html"]}
 {"type":"entity","name":"features/README.md","entityType":"note","observations":["`features/` — Vision / Swarm workflow pack"]}
+{"type":"entity","name":"features/code-knowledge-graph/exploration/graph-design.md","entityType":"code-path","observations":["graph-design.md"]}
+{"type":"entity","name":"features/code-knowledge-graph/exploration/graph-stack-decision.md","entityType":"code-path","observations":["graph-stack-decision.md"]}
+{"type":"entity","name":"features/escalation-advisor/vision.md","entityType":"note","observations":["Vision: Universal Advisor + Escalation System"]}
 {"type":"entity","name":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","entityType":"note","observations":["Cross-reference — exploration findings vs. the Cosmos production codebase"]}
 {"type":"entity","name":"features/harness-product-boundary/exploration/harness-product-boundary.md","entityType":"note","observations":["Exploration — harness↔product boundary"]}
+{"type":"entity","name":"features/modular-harness/exploration/modular-harness-design.md","entityType":"note","observations":["Modular Harness Design — Cherry-Pickable Packs over a Fixed Governance Core"]}
+{"type":"entity","name":"features/modular-harness/exploration/unified-architecture.md","entityType":"note","observations":["LogicLoom — The Unified Architecture"]}
 {"type":"entity","name":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","entityType":"note","observations":["FRAMEWORK_ENHANCEMENTS_SUMMARY.md"]}
+{"type":"entity","name":"plugins/CONTRIBUTING.md","entityType":"code-path","observations":["CONTRIBUTING.md"]}
+{"type":"entity","name":"plugins/MANIFEST-SCHEMA.md","entityType":"code-path","observations":["MANIFEST-SCHEMA.md"]}
+{"type":"entity","name":"plugins/loom-git/commands/finalize.md","entityType":"code-path","observations":["finalize.md"]}
 {"type":"entity","name":"plugins/loom-governance/agents/constitutional-governance-agent.md","entityType":"code-path","observations":["constitutional-governance-agent.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/security.md","entityType":"code-path","observations":["security.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/testing.md","entityType":"code-path","observations":["testing.md"]}
+{"type":"entity","name":"plugins/loom-governance/hooks/hooks.json","entityType":"code-path","observations":["hooks.json"]}
+{"type":"entity","name":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","entityType":"code-path","observations":["git-safety-gate.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-memory/config/memory.conf","entityType":"code-path","observations":["memory.conf"]}
 {"type":"entity","name":"plugins/loom-memory/lib/bm25-search.sh","entityType":"code-path","observations":["bm25-search.sh"]}
 {"type":"entity","name":"plugins/loom-memory/lib/keyword-backend.sh","entityType":"code-path","observations":["keyword-backend.sh"]}
+{"type":"entity","name":"plugins/loom-memory/scripts/memory-log.sh","entityType":"code-path","observations":["memory-log.sh"]}
 {"type":"entity","name":"plugins/loom-orchestrator-hook/config/domains.conf","entityType":"code-path","observations":["domains.conf"]}
+{"type":"entity","name":"plugins/loom-orchestrator/commands/graph.md","entityType":"code-path","observations":["graph.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/research.md","entityType":"code-path","observations":["research.md"]}
+{"type":"entity","name":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/retro/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/swarm-explore/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -70,8 +89,12 @@
 {"type":"entity","name":"tests/contract/test_freeze_scope.sh","entityType":"code-path","observations":["test_freeze_scope.sh"]}
 {"type":"entity","name":"tests/contract/test_git_adapter.sh","entityType":"code-path","observations":["test_git_adapter.sh"]}
 {"type":"entity","name":"tests/contract/test_governance_verdicts.sh","entityType":"code-path","observations":["test_governance_verdicts.sh"]}
+{"type":"entity","name":"tests/contract/test_graph_bridge.sh","entityType":"code-path","observations":["test_graph_bridge.sh"]}
 {"type":"entity","name":"tests/contract/test_model_agnostic.sh","entityType":"code-path","observations":["test_model_agnostic.sh"]}
+{"type":"entity","name":"tests/contract/test_spec006_integration.sh","entityType":"code-path","observations":["test_spec006_integration.sh"]}
+{"type":"entity","name":"tests/contract/test_suite_registration.sh","entityType":"code-path","observations":["test_suite_registration.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
+{"type":"entity","name":"wikilink.md","entityType":"note","observations":["wikilink"]}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/team-orchestration/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/freeze-scope-protocol.md","to":"tests/contract/test_freeze_scope.sh","relationType":"mentions"}
@@ -79,6 +102,7 @@
 {"type":"relation","from":".docs/architecture/governance-threat-model.md","to":"tests/contract/test_governance_verdicts.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"plugins/loom-orchestrator/commands/research.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"tests/contract/test_model_agnostic.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/architecture/orchestration-hook-enforcement.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".docs/guides/unified-specification-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}
@@ -86,8 +110,14 @@
 {"type":"relation","from":".docs/guides/unified-specification-guide.md","to":".docs/workflows/sdd-overview.md","relationType":"links-to"}
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/security.md","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/testing.md","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/file-structure-policy.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-memory/scripts/memory-log.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_spec006_integration.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_suite_registration.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/README.md","to":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","relationType":"links-to"}
+{"type":"relation","from":".docs/reports/backlog-2026-08-13.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-memory/config/memory.conf","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-memory/lib/bm25-search.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-memory/lib/keyword-backend.sh","relationType":"mentions"}
@@ -96,15 +126,30 @@
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-orchestrator/skills/swarm-explore/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":"AGENTS.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
 {"type":"relation","from":"AGENTS.md","to":"plugins/loom-governance/agents/constitutional-governance-agent.md","relationType":"mentions"}
+{"type":"relation","from":"CLAUDE.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
 {"type":"relation","from":"README.md","to":".docs/policies/file-structure-policy.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"AGENTS.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"CLAUDE.md","relationType":"links-to"}
+{"type":"relation","from":"README.md","to":"KNOWN_ISSUES.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"START_HERE.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"features/README.md","relationType":"links-to"}
+{"type":"relation","from":"VISION.md","to":"features/code-knowledge-graph/exploration/graph-stack-decision.md","relationType":"mentions"}
+{"type":"relation","from":"VISION.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
+{"type":"relation","from":"VISION.md","to":"wikilink.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","to":"features/harness-product-boundary/exploration/harness-product-boundary.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/harness-product-boundary.md","to":".docs/reviews/LOGICLOOM_ISSUE_harness-product-boundary.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/harness-product-boundary.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-git/commands/finalize.md","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-governance/hooks/hooks.json","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-orchestrator/commands/graph.md","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"tests/contract/test_graph_bridge.sh","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/unified-architecture.md","to":"features/code-knowledge-graph/exploration/graph-design.md","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/unified-architecture.md","to":"tests/contract/test_governance_verdicts.sh","relationType":"mentions"}
+{"type":"relation","from":"features/modular-harness/exploration/unified-architecture.md","to":"wikilink.md","relationType":"links-to"}
 {"type":"relation","from":"specs/README.md","to":"README.md","relationType":"links-to"}

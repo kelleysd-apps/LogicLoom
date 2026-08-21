@@ -385,6 +385,13 @@ artifacts/                             # Standalone deliverables: who/what/why/w
                                        # (sequencing belongs to plan.md / tasks.md).
                                        # Create on first use; contents are project-owned
                                        # and are stripped at template release.
+                                       # Mostly hand-authored + committed; a GENERATED
+                                       # deliverable belongs here too and is ALSO tracked
+                                       # (artifacts/backlog-dashboard.html) — licensed by
+                                       # the fail-closed freshness gate
+                                       # .logic-loom/scripts/bash/check-generated-freshness.sh.
+                                       # Its machine intermediate (.logic-loom/backlog-index.json)
+                                       # stays gitignored: track only what a human opens.
 
 web/  (or apps/<name>/)                # Product app (own package.json) — see Harness ↔ product boundary
 

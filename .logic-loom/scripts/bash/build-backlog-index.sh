@@ -37,6 +37,47 @@
 # features and no specs) and produces a valid index with an empty `items` array,
 # exit 0.
 #
+# That list is not prose describing code — it is the SOURCE TABLE below, and the
+# collection loop walks it. See ADDING A SOURCE.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# ADDING A SOURCE — the one extension point
+# ─────────────────────────────────────────────────────────────────────────────
+# Adding a fourth item class is a DECLARED change: one row in `SOURCE_TABLE`
+# plus one parser function. Nothing else in this script changes — the collection
+# loop, the fatal gate, the digest and the emit step are all class-agnostic.
+#
+#   1. Write a parser function. It is a plain filter: called as
+#          <parser> <ABSOLUTE-FILE> <REPO-RELATIVE-PATH> <QUALIFIER>
+#      and it writes TAB-separated rows to stdout, one per item:
+#          level<TAB>id<TAB>status<TAB>blocked_on<TAB>file<TAB>heading<TAB>title
+#      `blocked_on` is a comma-joined string ("" for none). A defect the parser
+#      wants to treat as FATAL is written to the SAME stdout as
+#          !ERR<TAB>message
+#      and `collect` splits the two streams. QUALIFIER is the directory name
+#      that disambiguates project-local ids (see column 1 below); it is the
+#      empty string for a fixed single-file source, and such a parser may ignore
+#      its third argument.
+#   2. Add one row to SOURCE_TABLE.
+#   3. Add the new `level` value to the CONSUMER-FACING vocabulary note in the
+#      COMPATIBILITY CONTRACT below, and to the class table in
+#      build-backlog-dashboard.sh (the contract test asserts the two agree).
+#
+# THE ONE RULE THAT MUST HOLD. A new `level` value is an ADDITIVE schema change:
+# `schema_version` does NOT bump (see ADDITIVE in the COMPATIBILITY CONTRACT).
+# That is only safe because every consumer is required to CARRY AN UNKNOWN LEVEL
+# THROUGH rather than drop the item — bucket it under a catch-all, never coerce
+# it to a known value, never fail. A consumer that filters on a hardcoded list
+# of levels silently loses the entire new class the day it is added, and loses
+# it invisibly, which is the failure this index exists to prevent. If you add a
+# level, check the consumers honour that rule; do not assume it.
+#
+# DELIBERATELY NOT A PLUGIN SYSTEM. There is no config file, no source
+# directory scanned for drop-in parsers, no registration call. A table of three
+# literal rows and a `case` on `*` is the whole mechanism (Principle V,
+# Progressive Enhancement): the extension point is meant to be OBVIOUS and
+# DOCUMENTED, not dynamic. Adding a source should require reading this file.
+#
 # ─────────────────────────────────────────────────────────────────────────────
 # THE OUTPUT IS UNTRACKED — ON PURPOSE
 # ─────────────────────────────────────────────────────────────────────────────
@@ -59,13 +100,25 @@
 # stale in someone else's clone because it does not travel there. Staleness
 # becomes structurally impossible rather than merely detectable.
 #
-# THE PRECEDENT NOT TO FOLLOW: `.logic-loom/graph/graph-bridge.jsonl` is a
-# generated index of this whole repo and it IS git-tracked. It carries exactly
-# this risk, and it is also the artifact that leaked the maintainer's private
-# domain into the public v6.4.0 template — which is why
-# tests/contract/test_generated_artifacts_declared.sh now exists. That file is
-# deliberately left alone by this change; it is cited here as the shape to avoid,
-# not as something to imitate.
+# THE LINE, AND WHY THE INDEX IS ON THIS SIDE OF IT. The rule is not "no derived
+# artifact is ever tracked" — it is that the only derived artifact worth paying
+# the staleness cost for is THE ONE A HUMAN OPENS. This index has no standalone
+# reader; it exists to be fed to build-backlog-dashboard.sh. Nothing is lost by
+# regenerating it, so nothing justifies tracking it, so it stays ignored.
+#
+# The DASHBOARD is on the other side of that line and IS tracked: an ignored
+# page existed only in the checkout that last ran the generator, which made it
+# absent exactly when someone went looking for it. The cost that buys is paid in
+# full by a fail-closed gate — .logic-loom/scripts/bash/check-generated-
+# freshness.sh regenerates the page and fails CI if the committed copy differs.
+# Note what that gate does NOT check: this index. There is no committed copy of
+# it to disagree with the sources, so there is nothing to gate.
+#
+# `.logic-loom/graph/graph-bridge.jsonl` — a generated index of this whole repo,
+# git-tracked, and the artifact that leaked the maintainer's private domain into
+# the public v6.4.0 template (hence tests/contract/test_generated_artifacts_
+# declared.sh) — was long cited here as the shape to avoid, because it was
+# tracked with NO freshness guard at all. It is now covered by the same gate.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # SCHEMA (version 1) — brutally small on purpose
@@ -295,6 +348,35 @@ collect() { # reads a parser's stdout on stdin
   done
 }
 
+# ═════════════════════════════════════════════════════════════════════════════
+# SOURCE TABLE — the declared list of item classes. THE extension point.
+# ═════════════════════════════════════════════════════════════════════════════
+# One row per class, three pipe-separated columns:
+#
+#   1  PATH PATTERN   repo-relative. Either a FIXED FILE
+#                     (".logic-loom/memory/backlog.md") or a ONE-LEVEL GLOB
+#                     ("features/*/plan.md"). In the glob form the `*` segment
+#                     names the containing directory, and that directory name is
+#                     passed to the parser as the QUALIFIER so project-local ids
+#                     (`t1`, `T001`) can be namespaced `<dir>:<id>` and not
+#                     collide across features. Only that one shape is supported;
+#                     a deeper or multi-`*` pattern is a code change, on purpose.
+#   2  LEVEL          the `level` value every item from this source carries.
+#                     Must be in the vocabulary stated in the COMPATIBILITY
+#                     CONTRACT above — adding one there is ADDITIVE.
+#   3  PARSER         shell function, called: <parser> ABS REL QUALIFIER
+#
+# Rows are walked TOP TO BOTTOM (authority order); within a row, matching files
+# are LC_ALL=C sorted. Blank lines and `#` lines are ignored. Every source is
+# OPTIONAL — a pattern that matches nothing contributes nothing and is not an
+# error. To add a class, add a row here and a parser below. See ADDING A SOURCE
+# in the header.
+SOURCE_TABLE='
+.logic-loom/memory/backlog.md|backlog|parse_backlog
+features/*/plan.md|feature|parse_plan
+specs/*/tasks.md|spec|parse_tasks
+'
+
 # ── project identity (parsed as text; NEVER sourced) ─────────────────────────
 CONF="${LOOM_PROJECT_CONF:-$ROOT/.logic-loom/config/project.conf}"
 P_SLUG=""; P_NAME=""; P_PREFIX=""; P_REPO=""
@@ -313,7 +395,7 @@ if [ -r "$CONF" ]; then
   done < "$CONF"
 fi
 
-# ── 1. backlog.md ────────────────────────────────────────────────────────────
+# ── PARSER: backlog.md  (level "backlog") ────────────────────────────────────────────────────────────
 # Items live ONLY below `## Items`, to the next `## ` or EOF. Fenced blocks are
 # skipped everywhere — without that rule the grammar's own worked examples become
 # real items. Emits: level id status blocked_on file heading title
@@ -375,13 +457,7 @@ parse_backlog() { # $1 = absolute file  $2 = repo-relative path
   ' "$1"
 }
 
-BACKLOG="$ROOT/.logic-loom/memory/backlog.md"
-if [ -f "$BACKLOG" ]; then
-  printf '%s\n' ".logic-loom/memory/backlog.md" >> "$SRCLIST"
-  parse_backlog "$BACKLOG" ".logic-loom/memory/backlog.md" | collect
-fi
-
-# ── 2. features/*/plan.md ────────────────────────────────────────────────────
+# ── PARSER: features/*/plan.md  (level "feature") ────────────────────────────────────────────────────
 # The plan DAG lives in leading YAML frontmatter. Task ids are PROJECT-LOCAL and
 # short (`t1`), so two features would collide in one index — they are qualified
 # here as `<feature>:<task-id>`. `blocked_on` refs are qualified the same way, so
@@ -452,19 +528,7 @@ parse_plan() { # $1 = absolute file  $2 = repo-relative path  $3 = feature name
   ' "$1"
 }
 
-if [ -d "$ROOT/features" ]; then
-  while IFS= read -r pf; do
-    [ -n "$pf" ] || continue
-    rel="${pf#$ROOT/}"
-    feat="$(basename "$(dirname "$pf")")"
-    printf '%s\n' "$rel" >> "$SRCLIST"
-    parse_plan "$pf" "$rel" "$feat" | collect
-  done <<EOF
-$(find "$ROOT/features" -mindepth 2 -maxdepth 2 -name plan.md -type f 2>/dev/null | LC_ALL=C sort)
-EOF
-fi
-
-# ── 3. specs/*/tasks.md ──────────────────────────────────────────────────────
+# ── PARSER: specs/*/tasks.md  (level "spec") ──────────────────────────────────────────────────────
 # SDD checkboxes: `- [ ] T001 Description`, optionally `[P]`. There is no status
 # tag in this format, so the checkbox IS the status: `[x]` -> done, else open.
 # That is the one place a checkbox is load-bearing, and only because the SDD
@@ -500,17 +564,52 @@ parse_tasks() { # $1 = absolute file  $2 = repo-relative path  $3 = spec dir nam
   ' "$1"
 }
 
-if [ -d "$ROOT/specs" ]; then
-  while IFS= read -r tf; do
-    [ -n "$tf" ] || continue
-    rel="${tf#$ROOT/}"
-    spec="$(basename "$(dirname "$tf")")"
-    printf '%s\n' "$rel" >> "$SRCLIST"
-    parse_tasks "$tf" "$rel" "$spec" | collect
+# ── COLLECTION LOOP — walks SOURCE_TABLE; knows nothing about any class ──────
+# Every class-specific fact lives in the table row and its parser. This loop
+# only expands a pattern, records the file in SRCLIST (which feeds
+# `source_digest`), and hands each match to the declared parser.
+expand_source() { # $1 = repo-relative pattern -> absolute paths on stdout, sorted
+  case "$1" in
+    *'*'*)
+      _dir="${1%%/\**}"                       # "features/*/plan.md" -> "features"
+      _leaf="${1##*/}"                        #                      -> "plan.md"
+      [ -d "$ROOT/$_dir" ] || return 0
+      find "$ROOT/$_dir" -mindepth 2 -maxdepth 2 -name "$_leaf" -type f 2>/dev/null \
+        | LC_ALL=C sort
+      ;;
+    *)
+      [ -f "$ROOT/$1" ] && printf '%s\n' "$ROOT/$1"
+      ;;
+  esac
+  return 0
+}
+
+while IFS='|' read -r s_pat s_level s_parser; do
+  [ -n "${s_pat:-}" ] || continue
+  case "$s_pat" in \#*) continue ;; esac
+  [ -n "${s_level:-}" ] && [ -n "${s_parser:-}" ] || {
+    echo "WARN: malformed SOURCE_TABLE row '$s_pat' — want PATTERN|LEVEL|PARSER; skipped" >&2
+    continue
+  }
+  command -v "$s_parser" >/dev/null 2>&1 || {
+    echo "WARN: SOURCE_TABLE row '$s_pat' names parser '$s_parser', which is not defined; skipped" >&2
+    continue
+  }
+  while IFS= read -r s_file; do
+    [ -n "$s_file" ] || continue
+    s_rel="${s_file#$ROOT/}"
+    case "$s_pat" in
+      *'*'*) s_qual="$(basename "$(dirname "$s_file")")" ;;
+      *)     s_qual="" ;;
+    esac
+    printf '%s\n' "$s_rel" >> "$SRCLIST"
+    "$s_parser" "$s_file" "$s_rel" "$s_qual" | collect
   done <<EOF
-$(find "$ROOT/specs" -mindepth 2 -maxdepth 2 -name tasks.md -type f 2>/dev/null | LC_ALL=C sort)
+$(expand_source "$s_pat")
 EOF
-fi
+done <<EOF
+$SOURCE_TABLE
+EOF
 
 # ── FATAL GATE ───────────────────────────────────────────────────────────────
 # Everything above only COLLECTED. Nothing is written until this passes.

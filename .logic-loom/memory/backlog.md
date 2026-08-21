@@ -532,21 +532,51 @@ reasoning instead of re-deriving it.
       that needs it. Additive when it happens: a new optional field, no
       `schema_version` bump (see *Schema compatibility* in the grammar above).
 
-- [ ] LOOM-0022 — Make the dashboard honour the consumer-liberal compatibility rule `status:open`
+- [x] LOOM-0022 — Make the dashboard honour the consumer-liberal compatibility rule `status:done`
       The grammar's *Schema compatibility* section states the contract as
       **producer strict, consumer liberal**: a consumer must carry an
       unrecognised `status` or `level` through verbatim, never drop the item,
       bucket it under a catch-all, and never fail. `build-backlog-dashboard.sh`
-      does not honour that rule — it groups by a fixed list of the four known
-      statuses, so an item carrying a future value would be **silently omitted
-      from the page**. Not reachable from today's collector, which rejects an
-      out-of-vocabulary status at the fatal gate, so this is latent rather than
+      did not honour that rule — it grouped by a fixed list of the four known
+      statuses, so an item carrying a future value was **silently omitted from
+      the page**. Not reachable from today's collector, which rejects an
+      out-of-vocabulary status at the fatal gate, so it was latent rather than
       live. It becomes real the moment a second producer writes an index, which
-      is the whole point of publishing a schema. Fix: an explicit catch-all
-      group, plus an assertion in `tests/contract/test_backlog_dashboard.sh`
-      that feeds a fixture with an unknown status and proves the item still
-      renders. Recorded rather than fixed because the dashboard is our first
-      consumer and the rule is worth proving on it deliberately, not in passing.
+      is the whole point of publishing a schema.
+      **Done**, on BOTH fields rather than the one recorded here. The rework that
+      made item CLASS the page's outer dimension had to derive its groups from
+      the data anyway, so the fix landed properly instead of half-way:
+      * `status` — the group list is now `known vocabulary, in order` **+**
+        `every other status actually present, unique-sorted`. An unknown status
+        gets its own labelled group ("<value> (unrecognised status)"), and is
+        counted in the page-level tally.
+      * `level` — a level outside the viewer's class table lands in an explicit
+        **Other** section naming the levels it saw, rather than falling out of
+        every class section. This is the same defect one field over, and it
+        became reachable the moment `level` was made a visible dimension.
+      Asserted in `tests/contract/test_backlog_dashboard.sh` § 14 with a fixture
+      carrying an unknown status **and** an unknown level: both items render,
+      both values appear verbatim, neither is coerced, and the generator exits 0.
+
+- [ ] LOOM-0023 — Stamp this repo's own project identity without shipping it `status:open`
+      `.logic-loom/config/project.conf` must ship as `__UNSET__` so a cloner
+      never inherits our slug — `tests/contract/test_project_identity.sh`
+      asserts exactly that, correctly. But LogicLoom's own dev tree therefore
+      cannot stamp its identity either, so the tracked
+      `artifacts/backlog-dashboard.html` renders as `__UNSET__ — Backlog` for
+      the maintainer who looks at it daily.
+      This repo is both the harness AND the template source, which is the same
+      tension `VISION.md` already resolves: ours in dev, stubbed at promote.
+      The fix is the established pattern, not new machinery — stamp
+      `project_slug = logicloom` / `project_name = LogicLoom` /
+      `id_prefix = LOOM` in dev, add a `history-scrub` rule (or a `stub:`
+      manifest entry) that resets the three keys at promote, and retarget the
+      six placeholder assertions to check the SANITIZED tree rather than the
+      dev tree.
+      `id_prefix = LOOM` is not a free choice: 22 ids are already minted with
+      that prefix and the grammar declares the prefix immutable once minted.
+      Recorded rather than done because retargeting a passing security-shaped
+      assertion deserves its own change, not a drive-by during a merge.
 
 ---
 
@@ -580,4 +610,4 @@ Mapping from the original letters, for anyone reading the old report:
 | J — constitutional-check residual | LOOM-0013 |
 | K — dead code left deliberately | LOOM-0014, LOOM-0015 |
 
-**Next id to mint: LOOM-0023.**
+**Next id to mint: LOOM-0024.**

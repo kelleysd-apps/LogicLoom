@@ -72,7 +72,16 @@ MANIFEST="${LOOM_STRIP_MANIFEST:-$ROOT/.logic-loom/scripts/bash/template-strip-m
 #   .logic-loom/graph/ — build-graph-bridge.sh (/graph build, /finalize) writes
 #     graph-bridge.jsonl + sibling exports. JSONL has no comment syntax, so the
 #     artifact cannot carry a banner. THIS is the class that leaked in v6.4.0.
-KNOWN_GENERATED=".logic-loom/graph/"
+#   artifacts/backlog-dashboard.html — build-backlog-dashboard.sh. Became TRACKED
+#     when the dashboard moved from gitignored to tracked-with-a-freshness-gate.
+#     Listed explicitly rather than given a banner: the page's load-bearing
+#     property is that it is self-contained and carries exactly one <script> and
+#     no stray markup claims, and tests/contract/test_backlog_dashboard.sh
+#     asserts its head region byte-for-byte in places. A path here costs one line
+#     and changes no output. Without it this suite would simply not SEE the file
+#     — the silent-omission failure this suite exists to prevent.
+KNOWN_GENERATED=".logic-loom/graph/
+artifacts/backlog-dashboard.html"
 
 # ── ALLOW-TO-SHIP ────────────────────────────────────────────────────────────
 # Generated artifacts that legitimately ship in the public template. A path or a

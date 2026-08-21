@@ -4,7 +4,7 @@
 # Artifact under test:
 #   .logic-loom/scripts/bash/build-backlog-dashboard.sh — reads the index emitted
 #   by build-backlog-index.sh and renders ONE self-contained HTML page at
-#   .logic-loom/backlog-dashboard.html.
+#   artifacts/backlog-dashboard.html.
 #
 # What this suite guards, and why each one is here:
 #
@@ -26,9 +26,34 @@
 #     contain <, &, quotes and backticks. Proven with an XSS-shaped fixture: the
 #     payload must appear entity-escaped, and the page must still carry exactly
 #     one <script> (its own theme toggle).
-#   * THE OUTPUT IS GITIGNORED AND UNTRACKED — same decision as the index, one
-#     step stronger: the page embeds a FROZEN snapshot, so a tracked copy would
-#     disagree with both the index and the sources.
+#   * CLASS IS A FIRST-CLASS DIMENSION — the index AGGREGATES different documents
+#     (cross-cutting backlog, feature plans, spec tasks) and `level` records
+#     which. A class section renders for EVERY declared class, including the
+#     empty ones, and an empty one names the path it would have read from: an
+#     absent section is ambiguous ("no work" or "never looked?"), an empty one is
+#     a fact. Proven on a THREE-CLASS fixture, because the real repo exercises
+#     only one class today and would leave the other two paths untested.
+#   * THE CLASS TABLE MIRRORS THE COLLECTOR'S SOURCE TABLE — two declarations in
+#     two files, so the suite asserts they name the same (level, path) pairs. A
+#     new source is one row in each; this is the guard that makes forgetting the
+#     second row loud instead of silent.
+#   * CONSUMER-LIBERAL COMPATIBILITY (LOOM-0022) — the index contract is producer
+#     strict / consumer liberal. An unrecognised `status` OR `level` must be
+#     carried through verbatim, bucketed under a catch-all, never coerced, never
+#     dropped, never fatal. Proven with a fixture carrying both.
+#   * THE OUTPUT IS TRACKED, AND A FAIL-CLOSED GATE LICENSES THAT — it lives in
+#     `artifacts/` because of WHAT it is (a standalone deliverable opened from
+#     disk), and it is COMMITTED like its neighbours because it is the artifact a
+#     human actually opens: while gitignored it existed only in whichever
+#     checkout last ran the generator. Tracking a derived artifact reintroduces
+#     staleness, so the suite asserts BOTH halves — not ignored, AND covered by
+#     .logic-loom/scripts/bash/check-generated-freshness.sh, which regenerates
+#     the page and FAILS on a difference (in CI, via plugin-tests.yml). Warn-only
+#     is not sufficient; a warning is how the manifest bug shipped. The INDEX
+#     stays ignored: track only what a human opens, and a machine intermediate
+#     has no committed copy to be stale. Note also that .gitignore is not
+#     branch-scoped, so "ignore on dev, ship on main" is not a real mechanism —
+#     the customer-facing half is the wholesale `artifacts` strip at promote.
 #   * WRITES NOTHING but its output path — shasum-manifest diff of a fixture tree.
 #   * RUNS NO GIT — runtime PATH shim, not a source grep.
 #   * THE artifacts/ SHIPPING DEFECT STAYS CLOSED (LOOM-0009 / VISION #5) —
@@ -55,7 +80,7 @@ cd "$ROOT"
 
 GEN="$ROOT/.logic-loom/scripts/bash/build-backlog-dashboard.sh"
 COLLECTOR="$ROOT/.logic-loom/scripts/bash/build-backlog-index.sh"
-OUT_REL=".logic-loom/backlog-dashboard.html"
+OUT_REL="artifacts/backlog-dashboard.html"
 IDX_REL=".logic-loom/backlog-index.json"
 MANIFEST="$ROOT/.logic-loom/scripts/bash/template-strip-manifest.txt"
 
@@ -134,10 +159,17 @@ assert "the page names the regeneration command" \
   "grep -q 'build-backlog-index.sh' '$PAGE' && grep -q 'build-backlog-dashboard.sh' '$PAGE'"
 echo ""
 
-# ── 3. Grouping by status, with resolvable blocked_on links ──────────────────
-echo "3. Items grouped by status; blocked_on renders as on-page links"
-assert "all four status groups are present" \
-  "grep -q 'id=\"grp-open\"' '$PAGE' && grep -q 'id=\"grp-in_progress\"' '$PAGE' && grep -q 'id=\"grp-blocked\"' '$PAGE' && grep -q 'id=\"grp-done\"' '$PAGE'"
+# ── 3. Class sections outside, status groups inside, blocked_on links ────────
+# The outer dimension is item CLASS, because the index aggregates DIFFERENT
+# documents and `level` is what records which one an item came from. Status is
+# the inner dimension. Group ids are therefore `grp-<class>-<status>`.
+echo "3. Class sections outside; status groups inside; blocked_on links resolve"
+assert "a section exists for every declared class" \
+  "grep -q 'id=\"cls-backlog\"' '$PAGE' && grep -q 'id=\"cls-feature\"' '$PAGE' && grep -q 'id=\"cls-spec\"' '$PAGE'"
+assert "status groups are nested per class, not global" \
+  "grep -q 'id=\"grp-backlog-open\"' '$PAGE' && grep -q 'id=\"grp-backlog-done\"' '$PAGE' && grep -q 'id=\"grp-feature-open\"' '$PAGE'"
+assert "no legacy global status group survives" \
+  "! grep -q 'id=\"grp-open\"' '$PAGE'"
 assert "every fixture item rendered (5 articles)" \
   "[ \"\$(grep -c 'class=\"item\"' '$PAGE')\" = '5' ]"
 assert "each item is an anchor target" "grep -q 'id=\"item-LOOM-0003\"' '$PAGE'"
@@ -147,6 +179,36 @@ assert "a resolvable blocker becomes a link to the item on the page" \
   "grep -q 'href=\"#item-LOOM-0001\"' '$PAGE'"
 assert "a DANGLING blocker is NOT linked (it is not on the page)" \
   "! grep -q 'href=\"#item-LOOM-0404\"' '$PAGE' && grep -q 'LOOM-0404' '$PAGE'"
+echo ""
+
+# ── 3b. A class with ZERO items is REPRESENTED, not omitted ──────────────────
+# This is the whole reason class is a dimension. An absent section is ambiguous:
+# a reader cannot tell "there is no spec work" from "the collector never looked
+# at specs/". An empty section that names its source path is unambiguous.
+echo "3b. An empty class renders as empty-with-its-source-path"
+assert "the empty 'spec' class still has a section" "grep -q 'id=\"cls-spec\"' '$PAGE'"
+assert "the empty class shows a count of 0" \
+  "[ \"\$(grep -c '<span class=\"count cls-count\">0<' '$PAGE')\" = '1' ]"
+assert "the empty class names the path it would have read" \
+  "grep -q 'specs/\*/tasks.md' '$PAGE'"
+assert "the empty class says so in words, not by absence" \
+  "grep -q 'No items of this class' '$PAGE'"
+assert "the empty section distinguishes 'no work' from 'never looked'" \
+  "grep -qi 'not because the collector never looked' '$PAGE'"
+echo ""
+
+# ── 3c. Summary: totals, by status, by class ─────────────────────────────────
+# The index deliberately carries NO rollups (see DELIBERATELY ABSENT in the
+# collector) — aggregation is the consumer's job. This is the consumer doing it.
+echo "3c. Summary carries total, per-status counts and per-class counts"
+assert "a summary block exists" "grep -q 'class=\"summary\"' '$PAGE'"
+assert "the total is stated" "grep -q '5 item(s)' '$PAGE'"
+assert "a per-status tally is present" "grep -q 'class=\"tally by-status\"' '$PAGE'"
+assert "a per-class tally is present" "grep -q 'class=\"tally by-class\"' '$PAGE'"
+assert "the per-class tally links to each class section" \
+  "grep -q 'href=\"#cls-backlog\"' '$PAGE' && grep -q 'href=\"#cls-spec\"' '$PAGE'"
+assert "class counts sum to the item total" \
+  "[ \"\$(grep -oE '<span class=\"count cls-count\">[0-9]+' '$PAGE' | grep -oE '[0-9]+\$' | awk '{s+=\$1} END {print s+0}')\" = '5' ]"
 echo ""
 
 # ── 4. Dual light/dark ───────────────────────────────────────────────────────
@@ -245,24 +307,45 @@ assert "the page carries exactly ONE <script> — its own theme toggle" \
   "[ \"\$(grep -c '<script' '$XP')\" = '1' ]"
 echo ""
 
-# ── 9. The output path is gitignored and untracked ───────────────────────────
-# Same load-bearing decision as the index, and stronger: this page embeds a
-# FROZEN snapshot of the index, so a tracked copy could disagree with the index
-# AND with the sources.
-echo "9. The dashboard is gitignored and NOT tracked"
-assert ".gitignore declares the dashboard path" \
-  "grep -qxF '.logic-loom/backlog-dashboard.html' '$ROOT/.gitignore'"
-assert "the ignore rule carries its rationale" \
-  "grep -q 'Backlog dashboard (DERIVED' '$ROOT/.gitignore'"
-TRACKED="$(git ls-files 2>/dev/null | grep -xF "$OUT_REL" || true)"
-assert "git does not track the dashboard" "[ -z \"\$TRACKED\" ]"
+# ── 9. The output path is TRACKED, and a fail-closed gate licenses that ──────
+# This page is the thing a HUMAN opens, and while it was gitignored it existed
+# only in whichever checkout last ran the generator. It is now tracked. The
+# staleness cost that buys is not hand-waved: a fail-closed freshness gate
+# regenerates the page and fails if the committed copy differs. Tracking without
+# the gate is the defect, so both halves are asserted here.
+#
+# The INDEX stays ignored — the distinction is deliberate: track only the
+# artifact a human reads; a machine intermediate with no standalone reader has
+# nothing to gate because there is no committed copy to disagree.
+echo "9. The dashboard is TRACKED, and the freshness gate licenses it"
+assert ".gitignore no longer ignores the dashboard" \
+  "! grep -qxF 'artifacts/backlog-dashboard.html' '$ROOT/.gitignore'"
+assert ".gitignore records WHY it is tracked, not just silence" \
+  "grep -q 'artifacts/backlog-dashboard.html is deliberately NOT listed here' '$ROOT/.gitignore'"
+assert ".gitignore states the mechanism is strip-at-promote, not a per-branch ignore" \
+  "grep -q 'NOT branch-scoped' '$ROOT/.gitignore'"
+assert "the machine intermediate (the index) IS still ignored" \
+  "grep -qxF '.logic-loom/backlog-index.json' '$ROOT/.gitignore'"
 GR="$TMP/gitignore-probe"
-mkdir -p "$GR/.logic-loom"
+mkdir -p "$GR/$(dirname "$OUT_REL")" "$GR/.logic-loom"
 cp "$ROOT/.gitignore" "$GR/.gitignore"
 ( cd "$GR" && git init -q . && git config user.email t@t && git config user.name t ) >/dev/null 2>&1
 printf '<!DOCTYPE html>' > "$GR/$OUT_REL"
-PROBE="$(cd "$GR" && git status --porcelain 2>/dev/null | grep -F 'backlog-dashboard.html' || true)"
-assert "a dashboard file is invisible to git status under this .gitignore" "[ -z \"\$PROBE\" ]"
+printf '{}' > "$GR/.logic-loom/backlog-index.json"
+# -uall, not the default: git COLLAPSES an untracked directory to `?? artifacts/`,
+# which would make this probe silently test nothing.
+PROBE="$(cd "$GR" && git status --porcelain -uall 2>/dev/null | grep -F 'backlog-dashboard.html' || true)"
+assert "a dashboard file IS visible to git status under this .gitignore" "[ -n \"\$PROBE\" ]"
+IPROBE="$(cd "$GR" && git status --porcelain -uall 2>/dev/null | grep -F 'backlog-index.json' || true)"
+assert "an index file is still INVISIBLE to git status under this .gitignore" "[ -z \"\$IPROBE\" ]"
+# The gate itself.
+GATE="$ROOT/.logic-loom/scripts/bash/check-generated-freshness.sh"
+assert "the freshness gate script exists" "[ -f '$GATE' ]"
+assert "the gate covers the dashboard" "grep -q 'artifacts/backlog-dashboard.html' '$GATE'"
+assert "the gate is wired into CI" \
+  "grep -q 'check-generated-freshness.sh' '$ROOT/.github/workflows/plugin-tests.yml'"
+# Fail-CLOSED, not warn-only — a warning is exactly how the manifest bug shipped.
+assert "the gate exits non-zero on drift (fail-closed)" "grep -q 'exit 1' '$GATE'"
 echo ""
 
 # ── 10. Writes nothing outside its output path ───────────────────────────────
@@ -315,6 +398,30 @@ assert "artifacts/ has its own section in the file-structure policy" \
   "grep -q '^### artifacts/' '$ROOT/.docs/policies/file-structure-policy.md'"
 assert "the policy states artifacts are never a plan" \
   "grep -qi 'never a plan' '$ROOT/.docs/policies/file-structure-policy.md'"
+# The dashboard is a GENERATED artifact living in artifacts/ and gitignored
+# per-file. The policy has to say that explicitly, or the next reader concludes
+# artifacts/ is tracked-only and puts the page back under .logic-loom/.
+assert "the policy separates placement (what it IS) from tracking (how it is MADE)" \
+  "grep -qi 'Placement follows what a file IS' '$ROOT/.docs/policies/file-structure-policy.md'"
+assert "the policy names the generated dashboard as the worked example" \
+  "grep -q 'artifacts/backlog-dashboard.html' '$ROOT/.docs/policies/file-structure-policy.md'"
+assert "the policy states the track-only-what-a-human-opens rule" \
+  "grep -qi 'Track only what a human opens' '$ROOT/.docs/policies/file-structure-policy.md'"
+assert "the policy names the gate as the licence to track a generated file" \
+  "grep -q 'check-generated-freshness.sh' '$ROOT/.docs/policies/file-structure-policy.md'"
+assert "the policy warns that .gitignore is not branch-scoped" \
+  "grep -qi 'not branch-scoped' '$ROOT/.docs/policies/file-structure-policy.md'"
+assert "CLAUDE.md's directory block records the same exception" \
+  "grep -q 'artifacts/backlog-dashboard.html' '$ROOT/CLAUDE.md'"
+# Now that the dashboard is TRACKED, the wholesale `artifacts` strip is the ONE
+# thing keeping it out of a customer's tree — it is no longer belt-and-braces.
+# The strip walks `git ls-files`, so a tracked artifact IS a strip candidate.
+assert "the strip is tracked-content only (which is why a tracked artifact reaches it)" \
+  "grep -q 'git ls-files' '$ROOT/.logic-loom/scripts/bash/strip-harness-dev.sh'"
+assert "the manifest records that the wholesale entry is now load-bearing for the dashboard" \
+  "grep -q 'artifacts/backlog-dashboard.html' '$MANIFEST'"
+assert ".gitignore does not ignore the artifacts/ directory either" \
+  "! grep -qxE 'artifacts/?' '$ROOT/.gitignore'"
 echo ""
 
 # ── 13. Live check against the REAL repo ─────────────────────────────────────
@@ -332,10 +439,191 @@ if [ -f "$COLLECTOR" ]; then
   assert "every index item reached the page" "[ \"$RENDERED\" = \"$REAL_N\" ]"
   assert "the real page has zero external references" \
     "! grep -qE 'http://|https://|//cdn' '$TMP/real.html'"
-  SUM="$(grep -oE '<span class=\"count\">[0-9]+' "$TMP/real.html" | grep -oE '[0-9]+' | awk '{s+=$1} END {print s+0}')"
-  assert "the four group counts sum to the item total" "[ \"\$SUM\" = \"$REAL_N\" ]"
+  SUM="$(grep -oE '<span class=\"count cls-count\">[0-9]+' "$TMP/real.html" | grep -oE '[0-9]+$' | awk '{s+=$1} END {print s+0}')"
+  assert "the class counts sum to the item total" "[ \"\$SUM\" = \"$REAL_N\" ]"
+  # Today's repo carries backlog items only. The other two classes MUST still
+  # appear, empty and with their paths — that is the assertion that would fail
+  # if a future edit made a class section conditional on having items.
+  assert "all three declared classes have a section on the real page" \
+    "grep -q 'id=\"cls-backlog\"' '$TMP/real.html' && grep -q 'id=\"cls-feature\"' '$TMP/real.html' && grep -q 'id=\"cls-spec\"' '$TMP/real.html'"
+  assert "the real page carries no 'Other' section (no unknown level in this repo)" \
+    "! grep -q 'id=\"cls-other\"' '$TMP/real.html'"
 else
   echo "     (collector absent — live check skipped)"
+fi
+echo ""
+
+# ── 14. Consumer-liberal: unknown status AND unknown level (LOOM-0022) ───────
+# The index contract is PRODUCER STRICT, CONSUMER LIBERAL. This page is the
+# index's first consumer. An unrecognised `status` or `level` must be carried
+# through verbatim, bucketed under a catch-all, never coerced to a known value,
+# never dropped, never fatal. Not reachable from today's collector (its fatal
+# gate rejects an out-of-vocabulary status) — which is exactly why it is proven
+# here against a hand-written index, the way a second producer would write one.
+echo "14. Unknown status and unknown level are carried through, not dropped"
+LIB="$TMP/liberal"; mkdir -p "$LIB/.logic-loom"
+cat > "$LIB/$IDX_REL" <<'LIB_EOF'
+{
+  "schema_version": 1,
+  "generated_at": "2026-01-02T03:04:05Z",
+  "source_digest": "cafe",
+  "project": { "slug": "future", "name": "Future Producer", "id_prefix": "LOOM" },
+  "items": [
+    { "id": "LOOM-0001", "title": "A known item", "status": "open",
+      "blocked_on": [], "source": { "file": ".logic-loom/memory/backlog.md", "heading": "H" }, "level": "backlog" },
+    { "id": "LOOM-0002", "title": "A future status", "status": "deferred",
+      "blocked_on": [], "source": { "file": ".logic-loom/memory/backlog.md", "heading": "H" }, "level": "backlog" },
+    { "id": "runbook:r1", "title": "A future level", "status": "open",
+      "blocked_on": [], "source": { "file": "runbooks/x/steps.md", "heading": "S" }, "level": "runbook" },
+    { "id": "runbook:r2", "title": "A future level AND status", "status": "waiting",
+      "blocked_on": [], "source": { "file": "runbooks/x/steps.md", "heading": "S" }, "level": "runbook" }
+  ]
+}
+LIB_EOF
+bash "$GEN" "$LIB" >/dev/null 2>"$TMP/lib.err"; RCL=$?
+LP="$LIB/$OUT_REL"
+assert "an unknown status/level is NOT fatal — exit 0" "[ $RCL -eq 0 ]"
+assert "the page was written" "[ -f '$LP' ]"
+assert "ALL FOUR items reached the page — none dropped" \
+  "[ \"\$(grep -c 'class=\"item\"' '$LP')\" = '4' ]"
+assert "the unknown-status item is present by id" "grep -q 'id=\"item-LOOM-0002\"' '$LP'"
+assert "the unknown status is carried through VERBATIM, not coerced" \
+  "grep -q '>deferred<' '$LP'"
+assert "the unknown status gets its own group, labelled as unrecognised" \
+  "grep -q 'id=\"grp-backlog-deferred\"' '$LP' && grep -q 'deferred (unrecognised status)' '$LP'"
+assert "the unknown status is counted in the page tally" \
+  "grep -q 'class=\"badge b-deferred\"' '$LP'"
+assert "the unknown LEVEL lands in an explicit Other catch-all section" \
+  "grep -q 'id=\"cls-other\"' '$LP'"
+assert "the Other section names the level(s) it saw, verbatim" \
+  "grep -q '>runbook<' '$LP'"
+assert "the Other section states the consumer-liberal rule it is honouring" \
+  "grep -qi 'never coerced and never dropped' '$LP'"
+assert "both unknown-level items are inside it" \
+  "grep -q 'id=\"item-runbook:r1\"' '$LP' && grep -q 'id=\"item-runbook:r2\"' '$LP'"
+assert "the class counts still sum to the item total WITH the catch-all" \
+  "[ \"\$(grep -oE '<span class=\"count cls-count\">[0-9]+' '$LP' | grep -oE '[0-9]+\$' | awk '{s+=\$1} END {print s+0}')\" = '4' ]"
+assert "known classes are still declared even with an Other section present" \
+  "grep -q 'id=\"cls-feature\"' '$LP'"
+echo ""
+
+# ── 15. THREE-CLASS proof, end to end through the real collector ─────────────
+# The real repo has backlog items only, so the feature and spec paths are
+# untested in practice. This builds a repo-shaped fixture with all three source
+# documents populated, runs the ACTUAL collector over it, and renders. It proves
+# the collector's SOURCE TABLE and the dashboard's CLASS TABLE agree in fact,
+# not just on paper.
+echo "15. Three-class fixture: backlog + feature plan + spec tasks all render"
+if [ -f "$COLLECTOR" ]; then
+  T3="$TMP/three"
+  mkdir -p "$T3/.logic-loom/memory" "$T3/.logic-loom/config" \
+           "$T3/features/alpha" "$T3/specs/001-widgets"
+  cat > "$T3/.logic-loom/config/project.conf" <<'CONF_EOF'
+project_slug=tri
+project_name=Tri Class
+id_prefix=TRI
+CONF_EOF
+  {
+    printf '# Backlog\n\n## Items\n\n'
+    printf '### Governance\n\n'
+    printf -- '- [ ] TRI-0001 — A cross-cutting open item `status:open`\n'
+    printf -- '- [ ] TRI-0002 — A cross-cutting blocked item `status:blocked` `blocked_on:TRI-0001`\n'
+    printf -- '- [x] TRI-0003 — A cross-cutting done item `status:done`\n'
+  } > "$T3/.logic-loom/memory/backlog.md"
+  cat > "$T3/features/alpha/plan.md" <<'PLAN_EOF'
+---
+sprints:
+  - name: 01-foundations
+    tasks:
+      - id: t1
+        description: Lay the foundation
+        status: done
+      - id: t2
+        description: Build on it
+        status: in_progress
+        blocked_on: [t1]
+  - name: 02-polish
+    tasks:
+      - id: t3
+        description: Polish it
+---
+
+# Plan
+PLAN_EOF
+  cat > "$T3/specs/001-widgets/tasks.md" <<'TASK_EOF'
+# Tasks
+
+## Phase 1
+- [x] T001 Write the contract test
+- [ ] T002 [P] Implement the widget
+- [ ] not a task, just a checklist line
+TASK_EOF
+  bash "$COLLECTOR" "$T3" --out "$TMP/three.json" >/dev/null 2>"$TMP/three.err"; RC3=$?
+  bash "$GEN" "$T3" --index "$TMP/three.json" --out "$TMP/three.html" >/dev/null 2>&1
+  T3P="$TMP/three.html"
+  N3="$(jq -r '.items | length' "$TMP/three.json" 2>/dev/null || echo 0)"
+  echo "     (collector exit $RC3; index: $N3 item(s); levels: $(jq -rc '[.items[].level]|unique' "$TMP/three.json" 2>/dev/null))"
+  assert "the collector accepted the three-source fixture" "[ $RC3 -eq 0 ]"
+  assert "it collected all 8 items (3 backlog + 3 feature + 2 spec)" "[ \"\$N3\" = '8' ]"
+  assert "the index carries all three levels" \
+    "[ \"\$(jq -rc '[.items[].level]|unique|join(\",\")' '$TMP/three.json')\" = 'backlog,feature,spec' ]"
+  assert "every item reached the page" \
+    "[ \"\$(grep -c 'class=\"item\"' '$T3P')\" = \"\$N3\" ]"
+  assert "all three class sections rendered" \
+    "grep -q 'id=\"cls-backlog\"' '$T3P' && grep -q 'id=\"cls-feature\"' '$T3P' && grep -q 'id=\"cls-spec\"' '$T3P'"
+  assert "no class is empty in this fixture (no empty-section text)" \
+    "! grep -q 'No items of this class' '$T3P'"
+  assert "per-class counts are 3 / 3 / 2 in table order" \
+    "[ \"\$(grep -oE '<span class=\"count cls-count\">[0-9]+' '$T3P' | grep -oE '[0-9]+\$' | tr '\\n' ' ')\" = '3 3 2 ' ]"
+  assert "each class shows the source document it came from" \
+    "grep -q '.logic-loom/memory/backlog.md' '$T3P' && grep -q 'features/\*/plan.md' '$T3P' && grep -q 'specs/\*/tasks.md' '$T3P'"
+  assert "feature ids are namespaced by their feature directory" \
+    "grep -q 'id=\"item-alpha:t2\"' '$T3P'"
+  assert "spec ids are namespaced by their spec directory" \
+    "grep -q 'id=\"item-001-widgets:T001\"' '$T3P'"
+  assert "a feature blocker resolves to an on-page link" \
+    "grep -q 'href=\"#item-alpha:t1\"' '$T3P'"
+  assert "status grouping still happens INSIDE each class" \
+    "grep -q 'id=\"grp-feature-done\"' '$T3P' && grep -q 'id=\"grp-feature-in_progress\"' '$T3P' && grep -q 'id=\"grp-spec-done\"' '$T3P'"
+  assert "the sprint name is carried as the feature item's heading" \
+    "grep -q '02-polish' '$T3P'"
+  assert "the three-class page is still self-contained" \
+    "! grep -qE 'http://|https://|//cdn|@import|<script[^>]+src=|<link[^>]+href=' '$T3P'"
+else
+  echo "     (collector absent — three-class proof skipped)"
+fi
+echo ""
+
+# ── 16. The class table MIRRORS the collector's source table ─────────────────
+# Two declarations in two files. A new item class is one row in each; forgetting
+# the second row would silently bucket a whole class into "Other". This is the
+# guard that makes that loud. It compares the (level, path) pairs only — labels
+# are the viewer's business.
+echo "16. Dashboard CLASS_TABLE and collector SOURCE_TABLE declare the same classes"
+if [ -f "$COLLECTOR" ]; then
+  # collector row:  PATH|LEVEL|PARSER   -> normalise to "<level> <path>"
+  sed -n "/^SOURCE_TABLE='\$/,/^'\$/p" "$COLLECTOR" | grep '|' \
+    | awk -F'|' '{ print $2 " " $1 }' | LC_ALL=C sort > "$TMP/src-pairs.txt"
+  # dashboard row:  LEVEL|LABEL|PATH    -> normalise to "<level> <path>"
+  sed -n "/^CLASS_TABLE='\$/,/^'\$/p" "$GEN" | grep '|' \
+    | awk -F'|' '{ print $1 " " $3 }' | LC_ALL=C sort > "$TMP/cls-pairs.txt"
+  echo "     (collector: $(tr '\n' ';' < "$TMP/src-pairs.txt"))"
+  echo "     (dashboard: $(tr '\n' ';' < "$TMP/cls-pairs.txt"))"
+  assert "the collector declares a SOURCE_TABLE" "grep -q '^SOURCE_TABLE=' '$COLLECTOR'"
+  assert "the dashboard declares a CLASS_TABLE" "grep -q '^CLASS_TABLE=' '$GEN'"
+  assert "both tables are non-empty" "[ -s '$TMP/src-pairs.txt' ] && [ -s '$TMP/cls-pairs.txt' ]"
+  assert "they declare the SAME (level, path) pairs" \
+    "diff -q '$TMP/src-pairs.txt' '$TMP/cls-pairs.txt' >/dev/null 2>&1"
+  assert "the collector documents how to add a source" \
+    "grep -q 'ADDING A SOURCE' '$COLLECTOR'"
+  assert "it states that a new level is an ADDITIVE schema change" \
+    "grep -qi 'ADDITIVE schema change' '$COLLECTOR'"
+  assert "it states the rule every consumer must honour" \
+    "grep -qi 'CARRY AN UNKNOWN LEVEL' '$COLLECTOR'"
+  assert "it rules out a plugin system / config file (Principle V)" \
+    "grep -qi 'NOT A PLUGIN SYSTEM' '$COLLECTOR'"
+else
+  echo "     (collector absent — table parity skipped)"
 fi
 echo ""
 

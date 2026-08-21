@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__UNSET__ — Backlog</title>
+<style>
+  :root {
+    --ink:#15171c; --ink-soft:#3d4250; --thread:#6e7a99; --thread-dim:#9aa2b8;
+    --ground:#f3f2ee; --panel:#fbfaf8; --rule:#d8d6d0;
+    --indigo:#27358f; --indigo-tint:#e6e8f5;
+    --madder:#a32c33; --ochre:#8f6317; --verdigris:#2c6a56; --slate:#4a5570;
+    --madder-bg:#f7e7e7; --ochre-bg:#f7eedb; --verd-bg:#e2efe9; --slate-bg:#e8eaf0;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink:#eceef4; --ink-soft:#b3b9c9; --thread:#8b95b3; --thread-dim:#616a85;
+      --ground:#101218; --panel:#171a22; --rule:#2b3040;
+      --indigo:#93a2ee; --indigo-tint:#1c2340;
+      --madder:#e2757e; --ochre:#d5a44b; --verdigris:#5cb195; --slate:#8892b0;
+      --madder-bg:#2c1b1e; --ochre-bg:#2b2317; --verd-bg:#14291f; --slate-bg:#1b1f2b;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:#eceef4; --ink-soft:#b3b9c9; --thread:#8b95b3; --thread-dim:#616a85;
+    --ground:#101218; --panel:#171a22; --rule:#2b3040;
+    --indigo:#93a2ee; --indigo-tint:#1c2340;
+    --madder:#e2757e; --ochre:#d5a44b; --verdigris:#5cb195; --slate:#8892b0;
+    --madder-bg:#2c1b1e; --ochre-bg:#2b2317; --verd-bg:#14291f; --slate-bg:#1b1f2b;
+  }
+  :root[data-theme="light"] {
+    --ink:#15171c; --ink-soft:#3d4250; --thread:#6e7a99; --thread-dim:#9aa2b8;
+    --ground:#f3f2ee; --panel:#fbfaf8; --rule:#d8d6d0;
+    --indigo:#27358f; --indigo-tint:#e6e8f5;
+    --madder:#a32c33; --ochre:#8f6317; --verdigris:#2c6a56; --slate:#4a5570;
+    --madder-bg:#f7e7e7; --ochre-bg:#f7eedb; --verd-bg:#e2efe9; --slate-bg:#e8eaf0;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--ground); color:var(--ink);
+    font-family:var(--sans); font-size:15px; line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap { max-width:60rem; margin:0 auto; padding:2rem 1.25rem 4rem; }
+  header { border-bottom:1px solid var(--rule); padding-bottom:1rem; margin-bottom:1.25rem; }
+  h1 { font-size:1.4rem; margin:0 0 .35rem; letter-spacing:-.01em; }
+  .sub { color:var(--ink-soft); font-size:.85rem; margin:0; }
+  .facts { display:flex; flex-wrap:wrap; gap:.4rem 1.25rem; margin:.8rem 0 0; padding:0; list-style:none;
+           font-family:var(--mono); font-size:.75rem; color:var(--ink-soft); }
+  .facts b { font-weight:600; color:var(--ink); }
+  .facts .digest { word-break:break-all; }
+  .snapshot {
+    margin:1rem 0 0; padding:.7rem .85rem; border:1px solid var(--rule);
+    border-left:3px solid var(--ochre); background:var(--ochre-bg);
+    color:var(--ink); font-size:.82rem; border-radius:2px;
+  }
+  .snapshot code { font-family:var(--mono); font-size:.95em; }
+  .toolbar { display:flex; gap:.5rem; align-items:center; margin-top:1rem; }
+  button {
+    font:inherit; font-size:.8rem; padding:.3rem .7rem; cursor:pointer;
+    color:var(--ink); background:var(--panel);
+    border:1px solid var(--rule); border-radius:3px;
+  }
+  button:hover { border-color:var(--thread); }
+  /* Summary: total, by status, by class. The index carries no rollups by
+     design — these numbers are computed here, from the items on this page. */
+  .summary { border:1px solid var(--rule); border-radius:3px; background:var(--panel);
+             padding:.75rem .9rem; margin:0 0 1.5rem; }
+  .tally-h { margin:0 0 .5rem; font-size:.85rem; font-weight:600; }
+  .tally { display:flex; flex-wrap:wrap; gap:.4rem .9rem; margin:0 0 .4rem;
+           padding:0; list-style:none; font-size:.8rem; align-items:center; }
+  .tally:last-child { margin-bottom:0; }
+  .tally b { font-family:var(--mono); font-weight:600; }
+  .tally a { color:var(--indigo); text-decoration:none; border-bottom:1px solid var(--rule); }
+  .by-class { padding-top:.4rem; border-top:1px dashed var(--rule); }
+  .t-other a { color:var(--madder); }
+
+  /* CLASS is the outer dimension; status groups nest inside it. */
+  .cls { margin:2rem 0 0; }
+  .cls-h { font-size:1.05rem; margin:0 0 .2rem; padding-bottom:.35rem;
+           border-bottom:2px solid var(--indigo); letter-spacing:-.005em; }
+  .cls-src { margin:0 0 .4rem; font-size:.76rem; color:var(--ink-soft); }
+  .cls-src code { font-family:var(--mono); }
+  .lvl-tag { font-family:var(--mono); font-size:.7rem; font-weight:400; color:var(--thread-dim); }
+  .grp { margin:1rem 0 0; }
+  .grp-h { font-size:.9rem; margin:0 0 .5rem; padding-bottom:.25rem;
+           border-bottom:1px solid var(--rule); letter-spacing:.02em; font-weight:600; }
+  .count { font-family:var(--mono); font-size:.78rem; color:var(--ink-soft); font-weight:400; }
+  .empty { color:var(--thread-dim); font-size:.85rem; margin:.2rem 0 0; font-style:italic; }
+  .empty code { font-family:var(--mono); font-style:normal; }
+  .item {
+    background:var(--panel); border:1px solid var(--rule); border-radius:3px;
+    padding:.7rem .85rem; margin:0 0 .5rem;
+  }
+  .item:target { border-color:var(--indigo); background:var(--indigo-tint); }
+  .meta { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+  .iid { font-family:var(--mono); font-size:.8rem; color:var(--indigo); font-weight:600; }
+  .badge {
+    font-family:var(--mono); font-size:.68rem; text-transform:uppercase;
+    letter-spacing:.04em; padding:.1rem .4rem; border-radius:2px; border:1px solid transparent;
+  }
+  .b-open        { background:var(--slate-bg);  color:var(--slate); }
+  .b-in_progress { background:var(--ochre-bg);  color:var(--ochre); }
+  .b-blocked     { background:var(--madder-bg); color:var(--madder); }
+  .b-done        { background:var(--verd-bg);   color:var(--verdigris); }
+  .lvl { font-family:var(--mono); font-size:.68rem; color:var(--thread-dim); }
+  .title { margin:.35rem 0 .3rem; }
+  .src { margin:0; font-size:.76rem; color:var(--ink-soft); }
+  .src code { font-family:var(--mono); }
+  .heading { color:var(--thread); }
+  .bo { margin:.35rem 0 0; font-size:.78rem; }
+  .bo-l { color:var(--ink-soft); }
+  .ref { font-family:var(--mono); color:var(--indigo); }
+  .ref.dangling { color:var(--madder); text-decoration:line-through; }
+  /* An `external:` blocker is OUTSIDE the index by design, not a broken
+     reference — it must not render as one. Plain text, no link, no strike. */
+  .ref.external { font-family:inherit; color:var(--ink-soft); font-style:italic; }
+  footer { margin-top:2.5rem; padding-top:1rem; border-top:1px solid var(--rule);
+           color:var(--thread-dim); font-size:.75rem; }
+  footer code { font-family:var(--mono); }
+</style>
+<div class="wrap">
+<header>
+  <h1>__UNSET__ — backlog</h1>
+  <p class="sub">A snapshot of the collected backlog index — every item class the
+  collector aggregates, each from its own source document. 23 item(s).</p>
+  <ul class="facts">
+    <li><b>project</b> __UNSET__</li>
+    <li><b>id prefix</b> __UNSET__</li>
+    <li><b>generated_at</b> 2026-08-21T18:45:33Z</li>
+    <li><b>schema_version</b> 1</li>
+  </ul>
+  <p class="facts digest"><b>source_digest</b>&nbsp;f290348936c5008407201b5dee12892925c919fc9fdbac5c27fdd67e0405a905</p>
+  <p class="snapshot"><b>This page is a snapshot, not a live view.</b> The index was
+  inlined when this file was generated; it does not re-read anything and it does not
+  update itself. If the digest above no longer matches the sources, what you are
+  reading is out of date. Regenerate with
+  <code>.logic-loom/scripts/bash/build-backlog-index.sh</code> then
+  <code>.logic-loom/scripts/bash/build-backlog-dashboard.sh</code>.</p>
+  <div class="toolbar"><button type="button" id="theme">Toggle theme</button></div>
+</header>
+<main>
+  <div class="summary">
+    <p class="tally-h">Totals <span class="count">23 item(s)</span></p>
+    <ul class="tally by-status">
+      <li class="t-status"><span class="badge b-open">open</span> <b>16</b></li>
+      <li class="t-status"><span class="badge b-in_progress">in_progress</span> <b>1</b></li>
+      <li class="t-status"><span class="badge b-blocked">blocked</span> <b>4</b></li>
+      <li class="t-status"><span class="badge b-done">done</span> <b>2</b></li>
+    </ul>
+    <ul class="tally by-class">
+      <li class="t-class"><a href="#cls-backlog">Cross-cutting backlog</a> <b>23</b></li>
+      <li class="t-class"><a href="#cls-feature">Feature plans</a> <b>0</b></li>
+      <li class="t-class"><a href="#cls-spec">Spec tasks</a> <b>0</b></li>
+    </ul>
+  </div>
+
+<section class="cls" id="cls-backlog">
+  <h2 class="cls-h">Cross-cutting backlog <span class="count cls-count">23</span> <span class="lvl-tag">level: backlog</span></h2>
+  <p class="cls-src">source: <code>.logic-loom/memory/backlog.md</code></p>
+  <section class="grp" id="grp-backlog-open">
+    <h3 class="grp-h">Open <span class="count">16</span></h3>
+    <article class="item" id="item-LOOM-0006">
+      <div class="meta"><code class="iid">LOOM-0006</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Resolve the `/promote &lt;env&gt;` name collision</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Release, distribution and externalization</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0007">
+      <div class="meta"><code class="iid">LOOM-0007</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Make `.gitignore` patterns actually match the local-override filenames (VISION #2)</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">VISION threads awaiting work</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0008">
+      <div class="meta"><code class="iid">LOOM-0008</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Settle graph-layer placement (VISION #4)</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">VISION threads awaiting work</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0010">
+      <div class="meta"><code class="iid">LOOM-0010</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Withdraw one side of the contested marketplace direction (VISION #8)</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">VISION threads awaiting work</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0011">
+      <div class="meta"><code class="iid">LOOM-0011</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Fix the `grep -c … || echo 0` two-line-value bug at `governance-preflight.sh:160`</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Governance and constitution</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0012">
+      <div class="meta"><code class="iid">LOOM-0012</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Reconcile or remove the `loom-orchestrator` manifest inventory counts</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Release, distribution and externalization</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0013">
+      <div class="meta"><code class="iid">LOOM-0013</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Decide whether Principles I and III should report SKIP for a harness-shaped repo</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Governance and constitution</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0014">
+      <div class="meta"><code class="iid">LOOM-0014</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Remove the dead `mcp-servers/` loop at `setup.sh:206`</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Dead code and test hygiene</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0015">
+      <div class="meta"><code class="iid">LOOM-0015</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Give `logging.sh` an override for `LOG_DIR`</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Dead code and test hygiene</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0016">
+      <div class="meta"><code class="iid">LOOM-0016</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Audit VISION threads #9–#18</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">VISION threads awaiting work</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0017">
+      <div class="meta"><code class="iid">LOOM-0017</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Add a `stub:` entry for this backlog file to the strip manifest</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Release, distribution and externalization</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0018">
+      <div class="meta"><code class="iid">LOOM-0018</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Add a monorepo-scoped `project.id` to the backlog index</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Backlog schema — deferred, not rejected</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0019">
+      <div class="meta"><code class="iid">LOOM-0019</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Decide whether the backlog schema needs parent/child grouping</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Backlog schema — deferred, not rejected</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0020">
+      <div class="meta"><code class="iid">LOOM-0020</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Consider an append-only tombstone registry for burned ids</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Backlog schema — deferred, not rejected</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0021">
+      <div class="meta"><code class="iid">LOOM-0021</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Add a revision descriptor alongside `source_digest`</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Backlog schema — deferred, not rejected</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0023">
+      <div class="meta"><code class="iid">LOOM-0023</code><span class="badge b-open">open</span><span class="lvl">backlog</span></div>
+      <p class="title">Stamp this repo&apos;s own project identity without shipping it</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Backlog schema — deferred, not rejected</span></p>
+    </article>
+  </section>
+  <section class="grp" id="grp-backlog-in_progress">
+    <h3 class="grp-h">In progress <span class="count">1</span></h3>
+    <article class="item" id="item-LOOM-0001">
+      <div class="meta"><code class="iid">LOOM-0001</code><span class="badge b-in_progress">in_progress</span><span class="lvl">backlog</span></div>
+      <p class="title">Maintainer sign-off on constitution v3.3.0 + the amendments extension point</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Governance and constitution</span></p>
+    </article>
+  </section>
+  <section class="grp" id="grp-backlog-blocked">
+    <h3 class="grp-h">Blocked <span class="count">4</span></h3>
+    <article class="item" id="item-LOOM-0002">
+      <div class="meta"><code class="iid">LOOM-0002</code><span class="badge b-blocked">blocked</span><span class="lvl">backlog</span></div>
+      <p class="title">Inject `amendments.md` into the governance preflight</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Governance and constitution</span></p>
+      <p class="bo"><span class="bo-l">blocked on</span> <a class="ref" href="#item-LOOM-0001">LOOM-0001</a></p>
+    </article>
+    <article class="item" id="item-LOOM-0003">
+      <div class="meta"><code class="iid">LOOM-0003</code><span class="badge b-blocked">blocked</span><span class="lvl">backlog</span></div>
+      <p class="title">Answer the hook noise-reduction proposal</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Governance and constitution</span></p>
+      <p class="bo"><span class="bo-l">blocked on</span> <span class="ref external" title="blocked on something outside this index">maintainer answer on the proposal below</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0004">
+      <div class="meta"><code class="iid">LOOM-0004</code><span class="badge b-blocked">blocked</span><span class="lvl">backlog</span></div>
+      <p class="title">Archive `kelleysd-apps/sdd-plugins-marketplace`</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Release, distribution and externalization</span></p>
+      <p class="bo"><span class="bo-l">blocked on</span> <span class="ref external" title="blocked on something outside this index">maintainer archiving that repository (outside this repo)</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0005">
+      <div class="meta"><code class="iid">LOOM-0005</code><span class="badge b-blocked">blocked</span><span class="lvl">backlog</span></div>
+      <p class="title">Decide the plugin-externalization direction</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Release, distribution and externalization</span></p>
+      <p class="bo"><span class="bo-l">blocked on</span> <a class="ref" href="#item-LOOM-0010">LOOM-0010</a></p>
+    </article>
+  </section>
+  <section class="grp" id="grp-backlog-done">
+    <h3 class="grp-h">Done <span class="count">2</span></h3>
+    <article class="item" id="item-LOOM-0009">
+      <div class="meta"><code class="iid">LOOM-0009</code><span class="badge b-done">done</span><span class="lvl">backlog</span></div>
+      <p class="title">Document `artifacts/` (VISION #5)</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">VISION threads awaiting work</span></p>
+    </article>
+    <article class="item" id="item-LOOM-0022">
+      <div class="meta"><code class="iid">LOOM-0022</code><span class="badge b-done">done</span><span class="lvl">backlog</span></div>
+      <p class="title">Make the dashboard honour the consumer-liberal compatibility rule</p>
+      <p class="src"><code>.logic-loom/memory/backlog.md</code> &middot; <span class="heading">Backlog schema — deferred, not rejected</span></p>
+    </article>
+  </section>
+</section>
+<section class="cls" id="cls-feature">
+  <h2 class="cls-h">Feature plans <span class="count cls-count">0</span> <span class="lvl-tag">level: feature</span></h2>
+  <p class="cls-src">source: <code>features/*/plan.md</code></p>
+  <p class="empty">No items of this class. <code>features/*/plan.md</code> was read and contributed nothing — this section is empty because there is no work of this kind, not because the collector never looked.</p>
+</section>
+<section class="cls" id="cls-spec">
+  <h2 class="cls-h">Spec tasks <span class="count cls-count">0</span> <span class="lvl-tag">level: spec</span></h2>
+  <p class="cls-src">source: <code>specs/*/tasks.md</code></p>
+  <p class="empty">No items of this class. <code>specs/*/tasks.md</code> was read and contributed nothing — this section is empty because there is no work of this kind, not because the collector never looked.</p>
+</section>
+
+</main>
+<footer>
+  Generated by <code>.logic-loom/scripts/bash/build-backlog-dashboard.sh</code> from
+  <code>.logic-loom/backlog-index.json</code> into
+  <code>artifacts/backlog-dashboard.html</code>. The index is a machine intermediate,
+  gitignored and regenerated on demand; this page is committed, and CI fails if it
+  no longer matches its sources.
+</footer>
+</div>
+<script>
+  // The page's only script: a light/dark override on top of prefers-color-scheme.
+  // No network, no storage of anything but the preference.
+  (function () {
+    var root = document.documentElement;
+    try {
+      var saved = localStorage.getItem("loom-backlog-theme");
+      if (saved === "light" || saved === "dark") root.setAttribute("data-theme", saved);
+    } catch (e) { /* file:// with storage disabled — the media query still works */ }
+    var btn = document.getElementById("theme");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      var cur = root.getAttribute("data-theme");
+      if (!cur) {
+        cur = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark" : "light";
+      }
+      var next = cur === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      try { localStorage.setItem("loom-backlog-theme", next); } catch (e) { /* ignore */ }
+    });
+  })();
+</script>

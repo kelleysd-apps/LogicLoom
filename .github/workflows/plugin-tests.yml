@@ -95,6 +95,15 @@ jobs:
       - name: Run Backlog Dashboard Tests
         run: bash tests/contract/test_backlog_dashboard.sh
 
+      # FAIL-CLOSED staleness gate for the repo's git-TRACKED generated
+      # artifacts (artifacts/backlog-dashboard.html, .logic-loom/graph/
+      # graph-bridge.jsonl). Regenerates each and fails if the committed copy
+      # differs. This is the licence for tracking a derived artifact at all —
+      # a warn-only lint is what let the manifest bug ship. Run it locally with
+      #   ./.logic-loom/scripts/bash/check-generated-freshness.sh
+      - name: Check Generated Artifact Freshness
+        run: bash .logic-loom/scripts/bash/check-generated-freshness.sh
+
       - name: Run Git Safety Tests
         run: bash .logic-loom/tests/test-git-safety.sh
 
