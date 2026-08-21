@@ -224,8 +224,10 @@ test_parse_policy_json() {
     source "$policy_lib" 2>/dev/null || true
 
     if type load_policy &>/dev/null; then
-        load_policy 2>/dev/null || true
-        assert_equals "0" "$?" "Policy JSON loaded successfully"
+        # `|| true` would make $? unconditionally 0 — capture the real status.
+        local rc=0
+        load_policy >/dev/null 2>&1 || rc=$?
+        assert_equals "0" "$rc" "Policy JSON loaded successfully"
     else
         echo -e "${YELLOW}⊘${NC} Function load_policy not implemented"
     fi

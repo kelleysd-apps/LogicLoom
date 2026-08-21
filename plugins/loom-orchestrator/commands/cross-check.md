@@ -76,3 +76,10 @@ artifact path. The report file is the deliverable — do not echo it in full.
   adjudicates only.
 - **Principle XIV (Provider Boundary)**: cross-provider use stays at the
   verification layer, held advisory — never orchestration.
+- **Grounding rule (fail closed)**: provider model names, endpoints, and
+  parameters are fast-moving external facts nothing here validates. Verify
+  against live provider documentation rather than recall; if you cannot verify,
+  say you are unsure and name what you could not confirm — do not assert a stale
+  detail. This binds *your* assertions about the provider, not the provider's
+  output, so it strengthens the advisory boundary rather than crossing it. Full
+  rule: the GROUNDING RULE block in `.logic-loom/config/models.conf`.

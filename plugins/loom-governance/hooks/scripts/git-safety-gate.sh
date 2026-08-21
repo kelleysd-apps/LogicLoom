@@ -71,6 +71,15 @@ if declare -f loom_verdict_git_mutation >/dev/null 2>&1; then
   if [ "$(loom_verdict_git_mutation "$COMMAND")" = "ask" ]; then
     emit_ask "Principle VI: git operation requires explicit user approval — '${COMMAND}'"
   fi
+  # Same gate for the GitHub CLI: `gh pr create/merge`, `gh workflow run`,
+  # `gh release create`, `gh api -X POST|PUT|PATCH|DELETE` and friends mutate the
+  # repository server-side. Read-only gh (pr list/view/checks/diff, run
+  # list/view/watch, issue/repo/release/workflow view, `gh api` with no write
+  # method) passes through unprompted.
+  if declare -f loom_verdict_gh_mutation >/dev/null 2>&1 \
+     && [ "$(loom_verdict_gh_mutation "$COMMAND")" = "ask" ]; then
+    emit_ask "Principle VI: GitHub CLI operation mutates the repository and requires explicit user approval — '${COMMAND}'"
+  fi
   emit_allow
 fi
 
@@ -81,5 +90,11 @@ _GIT_INVOKE='(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'
 _GIT_MUT='(^|[^[:alnum:]-])(push|pull|commit|merge|rebase|reset|checkout|switch|tag|stash|cherry-pick|revert|am|apply|clean|rm|mv|restore|update-ref|symbolic-ref|filter-branch|fast-import)([^[:alnum:]-]|$)'
 if printf '%s' "$COMMAND" | grep -qE "$_GIT_INVOKE" && printf '%s' "$COMMAND" | grep -qE "$_GIT_MUT"; then
   emit_ask "Principle VI: git operation requires explicit user approval (verdict lib unavailable — failing safe) — '${COMMAND}'"
+fi
+# Same last-resort copy for the GitHub CLI.
+_GH_INVOKE='(^|[^[:alnum:]_])([^[:space:]]*/)?gh([[:space:]]|$)'
+_GH_MUT='(pr[[:space:]]+(create|merge|close|reopen|review|edit)|workflow[[:space:]]+(run|enable|disable)|run[[:space:]]+(rerun|cancel)|release[[:space:]]+(create|delete|edit)|repo[[:space:]]+(delete|archive|edit)|issue[[:space:]]+(create|close|edit|delete|pin)|alias[[:space:]]+set|secret[[:space:]]+set|variable[[:space:]]+set|ssh-key[[:space:]]+add|auth[[:space:]]+(login|refresh)|(-X|--method)[[:space:]]*=?[[:space:]]*(POST|PUT|PATCH|DELETE))'
+if printf '%s' "$COMMAND" | grep -qE "$_GH_INVOKE" && printf '%s' "$COMMAND" | grep -qE "$_GH_MUT"; then
+  emit_ask "Principle VI: GitHub CLI operation requires explicit user approval (verdict lib unavailable — failing safe) — '${COMMAND}'"
 fi
 emit_allow

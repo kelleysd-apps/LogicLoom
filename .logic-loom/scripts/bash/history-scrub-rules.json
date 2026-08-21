@@ -76,12 +76,6 @@
         },
         {
           "op": "genericize",
-          "match": "**Constitution**: v3.1.0 (16 principles)",
-          "replacement": "**Constitution**: v3.2.0 (16 principles)",
-          "note": "Bump stale constitution pointer to canonical v3.2.0."
-        },
-        {
-          "op": "genericize",
           "match": "- **Version**: v6.1.0",
           "replacement": "- **Version**: v6.2.0",
           "note": "Bump stale Identity version to current."
@@ -139,12 +133,6 @@
           "match": "The v5.0.0 `mcp-servers/sdd-marketplace/` MCP server is retired.",
           "replacement": "",
           "note": "Removed-subsystem narrative (retired component)."
-        },
-        {
-          "op": "genericize",
-          "match": "The 16-principle constitution (v3.1.0) at `.logic-loom/memory/constitution.md`",
-          "replacement": "The 16-principle constitution (v3.2.0) at `.logic-loom/memory/constitution.md`",
-          "note": "Bump stale inline constitution version pointer."
         },
         {
           "op": "drop-section",
@@ -249,23 +237,6 @@
           "match": "*This convention is a Stage-5 addition to LogicLoom. No existing functionality\nis affected. See `.docs/plans/loom-migration.md` for the full migration plan.*",
           "replacement": "",
           "note": "Stage-5 build milestone + reference to removed loom-migration plan doc."
-        }
-      ]
-    },
-    {
-      "path": ".docs/guides/FRAMEWORK_SYNC_GUIDE.md",
-      "ops": [
-        {
-          "op": "delete-line-regex",
-          "match": "^\\*\\*Date\\*\\*: \\d{4}-\\d{2}-\\d{2}",
-          "replacement": "",
-          "note": "Dated header stamp."
-        },
-        {
-          "op": "delete-line-regex",
-          "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
-          "replacement": "",
-          "note": "Dated footer stamp. KEEP the '**Version**: 1.0.0' identity line above it."
         }
       ]
     },
@@ -376,9 +347,15 @@
       "ops": [
         {
           "op": "delete-line",
-          "match": "**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0) · 2026-06-15 (v3.2.0)",
+          "match": "**Ratified**: 2026-01-13 (v3.0.0) · **Amended**: 2026-05-28 (v3.1.0) · 2026-06-15 (v3.2.0) · 2026-08-17 (v3.3.0)",
           "replacement": "",
-          "note": "Dated amendment-history line. KEEP the title 'LogicLoom Constitution v3.2.0' and '**Status**: RATIFIED'."
+          "note": "Dated amendment-history line. KEEP the title 'LogicLoom Constitution v3.3.0' and '**Status**: RATIFIED'."
+        },
+        {
+          "op": "drop-section",
+          "match": "## Changes Summary (v3.3.0)",
+          "replacement": "",
+          "note": "Embedded release notes. Drop heading through the line before '## Changes Summary (v3.2.0)'."
         },
         {
           "op": "delete-line-regex",
@@ -424,9 +401,9 @@
         },
         {
           "op": "genericize",
-          "match": "*v3.1.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall\nand vision/swarm are interchangeable workflow packs.*",
-          "replacement": "*LogicLoom Constitution v3.2.0. Governance is the durable core; workflow packs are interchangeable.*",
-          "note": "Footer: bump stale v3.1.0 to canonical v3.2.0; keep present-tense identity."
+          "match": "*v3.3.0 — LogicLoom Constitution. Governance is the durable core; SDD waterfall\nand vision/swarm are interchangeable workflow packs.*",
+          "replacement": "*LogicLoom Constitution v3.3.0. Governance is the durable core; workflow packs are interchangeable.*",
+          "note": "Footer: drop the leading version-tag form; keep present-tense identity."
         }
       ]
     },
@@ -468,12 +445,6 @@
           "note": "Removed-subsystem (RL telemetry) migration narrative."
         },
         {
-          "op": "genericize",
-          "match": "CONSTITUTION_VERSION=3.1.0",
-          "replacement": "CONSTITUTION_VERSION=3.2.0",
-          "note": "Bump stale constitution pointer to canonical v3.2.0. KEEP ARCHITECTURE_VERSION=6.2.0."
-        },
-        {
           "op": "delete-line",
           "match": "# Last updated\nCONFIG_UPDATED=2026-06-15",
           "replacement": "",
@@ -482,25 +453,8 @@
       ]
     },
     {
-      "path": ".logic-loom/templates/agent-template.md",
-      "ops": [
-        {
-          "op": "genericize",
-          "match": "- **Primary Authority**: `.logic-loom/memory/constitution.md` (v3.0.0 - 16 principles)",
-          "replacement": "- **Primary Authority**: `.logic-loom/memory/constitution.md` (v3.2.0 - 16 principles)",
-          "note": "Bump stale constitution pointer. KEEP the blank '## Update History' scaffold (with {{CREATION_DATE}}) — that is product behavior for generated agents."
-        }
-      ]
-    },
-    {
       "path": ".logic-loom/templates/skill-template.md",
       "ops": [
-        {
-          "op": "genericize",
-          "match": "- Constitution v3.0.0: `.logic-loom/memory/constitution.md`",
-          "replacement": "- Constitution v3.2.0: `.logic-loom/memory/constitution.md`",
-          "note": "Bump stale constitution pointer."
-        },
         {
           "op": "delete-line-regex",
           "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
@@ -546,12 +500,6 @@
           "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
-        },
-        {
-          "op": "genericize",
-          "match": "- `.logic-loom/memory/constitution.md` (v3.1.0)",
-          "replacement": "- `.logic-loom/memory/constitution.md` (v3.2.0)",
-          "note": "Bump stale constitution pointer in Source Documents."
         }
       ]
     },
@@ -575,12 +523,6 @@
           "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",
           "note": "Dated stamp."
-        },
-        {
-          "op": "genericize",
-          "match": "- `.logic-loom/memory/constitution.md` (v3.1.0)",
-          "replacement": "- `.logic-loom/memory/constitution.md` (v3.2.0)",
-          "note": "Bump stale constitution pointer."
         }
       ]
     },
@@ -866,17 +808,6 @@
       ]
     },
     {
-      "path": "plugins/loom-orchestrator/commands/review-team.md",
-      "ops": [
-        {
-          "op": "genericize",
-          "match": "4. **Evaluator (NEW)** — behavioral verification via `chrome-devtools` MCP (for UI changes) and pure-function quality checks (placeholder for property-based testing, deferred to v6.1)",
-          "replacement": "4. **Evaluator** — behavioral verification via `chrome-devtools` MCP (for UI changes) and pure-function quality checks",
-          "note": "Remove '(NEW)' marker and 'deferred to v6.1' roadmap parenthetical; describe current capability."
-        }
-      ]
-    },
-    {
       "path": ".logic-loom/lib/policy.sh",
       "ops": [
         {
@@ -917,17 +848,6 @@
           "match": "# PreToolUse Hook: Freeze write-scope (gstack-D)",
           "replacement": "# PreToolUse Hook: Freeze write-scope",
           "note": "Strip '(gstack-D)' build-process tag. Comment-only; no behavior change. (Governance-protected file — build-time text op, not a model Edit.)"
-        }
-      ]
-    },
-    {
-      "path": ".env.example",
-      "ops": [
-        {
-          "op": "genericize",
-          "match": "# Multi-LLM Tribunal (/research command, /dev-loop tribunal voting)",
-          "replacement": "# Multi-LLM Tribunal (/research command tribunal voting)",
-          "note": "Remove reference to removed /dev-loop subsystem."
         }
       ]
     },

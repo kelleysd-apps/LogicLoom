@@ -45,7 +45,7 @@ distribution machinery.
 
 **The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v3.2.0) contains **16 enforceable principles**:
+The constitution (v3.3.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **7 Workflow & Delegation Principles** (X-XVI): Delegation & Context Isolation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
@@ -121,7 +121,7 @@ Or analyze request automatically:
 **Last Updated**: 2026-02-07
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `.logic-loom/memory/constitution.md` (v3.3.0)
 - CLAUDE.md core sections
 - `.logic-loom/config/governance.conf` (LOOM_GOVERNANCE_MODE)
 - `.claude/hooks/` (preflight + dangerous-command guard)

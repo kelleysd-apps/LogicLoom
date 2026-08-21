@@ -25,11 +25,17 @@ name: Promote dev-main → sanitized main (clean template)
 #
 # THE BINDING SANITIZATION GATE is the in-workflow audit (Checks 1-7, where
 # Check 7 IS leak-guard.sh) run in the `release` job below. The PR's
-# `leak-guard.yml` is a customer-visible backstop — NOTE: a PR opened by the
-# built-in GITHUB_TOKEN does NOT trigger `pull_request` workflows, so leak-guard
-# may not auto-run on the promotion PR. Do not rely on it; the in-workflow audit
-# is what blocks an unsanitized snapshot. (Re-run leak-guard manually on the PR,
-# or merge knowing the in-workflow audit already passed.)
+# `leak-guard.yml` is a customer-visible backstop.
+#
+# WHY THIS WORKFLOW NEVER OPENS THE PR (do not "fix" this by adding gh pr create):
+#   A PR opened with the built-in GITHUB_TOKEN does NOT trigger `pull_request`
+#   workflows — GitHub suppresses them to prevent recursion. So a PR opened here
+#   would show "no checks reported" and `leak-guard.yml` would silently never run
+#   on the one PR it exists to guard. That bit us on the SUCCESS path only, which
+#   is the worst possible shape: the better outcome lost validation. In `pr` mode
+#   this job therefore pushes `release/<version>` and STOPS. A human (or the
+#   maintainer `/promote` driver) opens the PR with a USER token, which does fire
+#   `pull_request` events. The exact command is printed to the job summary.
 # =============================================================================
 
 on:
@@ -46,7 +52,9 @@ on:
 
 permissions:
   contents: write          # push the release branch (and, in direct-push, main + tag)
-  pull-requests: write     # open the promotion PR
+  # NO `pull-requests: write` — this workflow deliberately never opens the PR
+  # (see the header). Least privilege: the release bot cannot create a PR at all,
+  # so the "checks silently did not run" failure mode cannot reappear.
 
 jobs:
   # ---- GATE: tests + constitution + ORIGIN sanitization on UNsanitized dev-main
@@ -83,7 +91,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: release        # human-approval gate (configure reviewers!)
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # No GH_TOKEN: nothing in this job shells out to `gh` any more. Pushes use
+      # the checkout action's credential.
       THIS_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
@@ -190,17 +199,43 @@ jobs:
                  | git commit-tree "$TREE2" -p "$C1")
           echo "commit=$C2" >> "$GITHUB_OUTPUT"
 
-      # PUBLISH (default): push a release branch to THIS repo + open a PR to main,
-      # so leak-guard.yml is available as the customer-visible backstop. A human
-      # merges with a MERGE COMMIT; the tag is applied AFTER merge.
-      - name: Publish via PR to main
+      # PUBLISH (default): push the release branch to THIS repo and STOP. The PR
+      # is opened afterwards with a USER token — see the header for why this
+      # workflow must not open it. A human merges with a MERGE COMMIT; the tag is
+      # applied AFTER merge by release-tag.yml.
+      - name: Publish release branch (PR is opened with a user token)
         if: ${{ inputs.publish_mode == 'pr' }}
         run: |
+          set -euo pipefail
           BR="release/${{ inputs.version }}"
           git push origin "${{ steps.sync.outputs.commit }}:refs/heads/$BR"
-          gh pr create --repo "$THIS_REPO" --base main --head "$BR" \
-            --title "Release ${{ inputs.version }}: sanitized template" \
-            --body "Automated single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ inputs.version }} (the sanitized snapshot) — no manual tagging. NOTE: leak-guard.yml may not auto-run on this PR (PRs opened by GITHUB_TOKEN don't trigger pull_request workflows); re-run it manually if you want the customer-visible backstop on the record."
+          BODY="Single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ inputs.version }} (the sanitized snapshot) — no manual tagging."
+          {
+            echo "## Release branch pushed — PR NOT opened (by design)"
+            echo ""
+            echo "Branch: \`$BR\`"
+            echo ""
+            echo "This workflow does not open the promotion PR. A PR created with the"
+            echo "built-in \`GITHUB_TOKEN\` does not trigger \`pull_request\` workflows, so"
+            echo "\`leak-guard.yml\` would never run on it. Open it with a **user token**:"
+            echo ""
+            echo '```'
+            echo "gh pr create --repo \"$THIS_REPO\" --base main --head \"$BR\" \\"
+            echo "  --title \"Release ${{ inputs.version }}: sanitized template\" \\"
+            echo "  --body-file <(cat <<'EOF'"
+            echo "$BODY"
+            echo "EOF"
+            echo ")"
+            echo '```'
+            echo ""
+            echo "Then confirm checks actually REPORTED (not merely that none failed):"
+            echo ""
+            echo '```'
+            echo "gh pr view <pr> --repo \"$THIS_REPO\" --json statusCheckRollup \\"
+            echo "  --jq '.statusCheckRollup | length'   # must be > 0"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Release branch $BR pushed. Open the PR with a user token (see job summary)."
 
       # PUBLISH (alt): fast-forward push straight to main + tag immediately. Use
       # only if main's branch protection permits the bot and you accept skipping

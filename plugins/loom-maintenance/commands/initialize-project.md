@@ -39,6 +39,37 @@ single, living, peer-to-the-constitution document — NOT a per-feature vision
 This is a STANDING north-star seeded from the PRD. It must precede Step 2 because
 the constitution defers product direction to `VISION.md`.
 
+### Step 1.6: Stamp the Project Identity
+`.logic-loom/config/project.conf` ships UNSTAMPED — its three required values are
+the literal placeholder `__UNSET__`, so a cloner can never inherit a
+plausible-looking slug. Stamp it now; nothing else in the repo carries a stable
+per-project identifier (`package.json` `name` is the same in every clone until
+this step, and `framework-upstream.conf` identifies UPSTREAM, not this project).
+
+1. Read the file. If **no active key line** matches
+   `^\s*(project_slug|project_name|id_prefix)\s*=\s*__UNSET__\s*$`, it is already
+   stamped — **do not rewrite it** (Principle IV) and skip to Step 2. Grep for the
+   active line, not the bare string: the file's own comments discuss `__UNSET__`.
+2. Otherwise set the three required values from the PRD:
+   - `project_slug` — lowercase kebab (`[a-z0-9][a-z0-9-]*`). **IMMUTABLE ONCE
+     SET.** Everything that references this project across repositories keys on
+     this string; changing it later orphans that history. Confirm it with the
+     user in their own words before writing.
+   - `project_name` — the human display name. Free text; safe to change later.
+   - `id_prefix` — uppercase, 2-6 chars (`[A-Z][A-Z0-9]{1,5}`). Used to mint
+     task ids that stay unambiguous next to another project's backlog
+     (`ACME-014`). Default: the slug's alphanumerics, uppercased, first 4.
+3. Leave `repo` alone unless the user asks. It is optional and shipped commented
+   out — the git remote is the truth, and a stale declared value is worse than
+   none. Do NOT run git to populate it.
+4. Confirm with the read-only reader (it never writes and never runs git):
+   ```bash
+   bash .logic-loom/scripts/bash/validate-project-identity.sh
+   ```
+
+An unstamped file is a WARNING, never an error — a fresh clone that has not run
+this command is a normal state.
+
 ### Step 2: Customize Constitution
 Read PRD goals and constraints. Update `.logic-loom/memory/constitution.md` principles as needed.
 
@@ -77,6 +108,19 @@ Tell the user in one or two lines: LogicLoom governs this repo and never writes 
 `~/.claude/` — personal preferences (persona, response shape, their own global
 hooks) belong there, not in the project `CLAUDE.md`. Point them at
 `START_HERE.md` § *Where do my personal preferences go?* Do not restate the section.
+
+### Step 4e: gh Telemetry — Inform, Never Change
+Run the read-only detector and relay its output verbatim if it prints anything:
+```bash
+bash .logic-loom/scripts/bash/check-gh-telemetry.sh
+```
+It is silent when `gh` is absent or telemetry is already opted out, and prints a
+short notice plus the exact one-line opt-out when telemetry is on.
+
+**Do NOT run `gh config set`, do NOT edit `~/.config/gh/config.yml`, and do NOT
+touch any shell rc file — not even if the user asks in passing.** That setting is
+the user's, on their machine, outside this repo. Report it and let them run the
+command themselves.
 
 ### Step 5: Validate Compliance
 Run `.logic-loom/scripts/bash/constitutional-check.sh`

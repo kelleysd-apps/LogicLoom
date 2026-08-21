@@ -59,6 +59,15 @@ TOOL="$(json_get '.tool_name' || true)"
 # Protected governance surface (repo-root-relative path prefixes). Delegates to
 # the shared verdict lib (single, conformance-tested source of the protected
 # set); the inline case below is the fail-open fallback when the lib is absent.
+#
+# The lib's set is the built-in FLOOR plus any ADDITIVE `protected_paths` entries
+# in governance.conf (see the invariant block in governance-verdicts.sh: config
+# can only add, the floor can never be removed). The inline fallback below
+# reproduces only the floor — it is a last resort for a missing lib, and by
+# construction it can be a SUBSET of the real set, never a superset. That is
+# consistent with this hook's documented fail-open-on-infra-gap posture: a fork
+# whose extra paths matter should notice the lib is gone, not rely on a duplicate
+# config parser here.
 is_protected() { # rel_path -> 0 if protected
   if declare -f loom_path_is_protected >/dev/null 2>&1; then
     loom_path_is_protected "$1"; return
@@ -68,10 +77,26 @@ is_protected() { # rel_path -> 0 if protected
     |.claude/settings.json|.claude/settings.local.json \
     |.logic-loom/config/governance.conf \
     |.logic-loom/memory/constitution.md \
+    |.logic-loom/lib/governance-verdicts.sh|.logic-loom/lib/policy.sh \
     |plugins/loom-governance/hooks/*|plugins/loom-governance/hooks \
     |plugins/loom-governance/.claude-plugin/plugin.json) return 0 ;;
   esac
   return 1
+}
+
+# The same set as TOKENS for the Bash branch, which substring-matches command
+# text rather than asking a yes/no about one path. Same sourcing rule: the lib
+# when present (floor + config additions), the floor-only fallback otherwise.
+protected_tokens() { # -> one protected path/prefix per line
+  if declare -f loom_protected_path_tokens >/dev/null 2>&1; then
+    loom_protected_path_tokens; return
+  fi
+  printf '%s\n' \
+    '.claude/hooks' '.claude/settings.json' '.claude/settings.local.json' \
+    '.logic-loom/config/governance.conf' '.logic-loom/memory/constitution.md' \
+    '.logic-loom/lib/governance-verdicts.sh' '.logic-loom/lib/policy.sh' \
+    'plugins/loom-governance/hooks' \
+    'plugins/loom-governance/.claude-plugin/plugin.json'
 }
 
 # Canonicalize a path and make it repo-root-relative for matching.
@@ -107,23 +132,80 @@ case "$TOOL" in
   Bash)
     CMD="$(json_get '.tool_input.command' || true)"
     [ -z "$CMD" ] && allow
-    # Only care about MUTATING bash that targets a protected path. Reads
-    # (cat/grep/source of a governance file) are fine.
-    if printf '%s' "$CMD" | grep -qE '(>>?|[[:space:]]tee[[:space:]]|dd[[:space:]]+[^|]*of=|sed[[:space:]]+-i|[[:space:]]rm[[:space:]]|[[:space:]]mv[[:space:]]|truncate|chmod|chown|install[[:space:]])'; then
-      # Scan each protected token; if the command mentions it, gate.
-      for prot in ".claude/hooks" ".claude/settings.json" ".claude/settings.local.json" \
-                  ".logic-loom/config/governance.conf" ".logic-loom/memory/constitution.md" \
-                  ".logic-loom/lib/governance-verdicts.sh" ".logic-loom/lib/policy.sh" \
-                  "plugins/loom-governance/hooks" "plugins/loom-governance/.claude-plugin/plugin.json"; do
-        if printf '%s' "$CMD" | grep -qF "$prot"; then
-          if [ -n "$AGENT_ID" ]; then
-            decide deny "Subagent ('$(json_get '.agent_type')') may not modify governance file '$prot' via Bash. Governance changes are main-agent + user-approval only."
-          else
-            decide ask "Bash command appears to MODIFY a governance path ('$prot'). Approve only if you intend to change governance itself. Command: $CMD"
-          fi
-        fi
+    # Only MUTATING bash that TARGETS a protected path is gated. A read-only
+    # command that merely MENTIONS a governance path (ls / find / cat / head /
+    # grep / wc / stat / file …) must pass — an adversarial reviewer had a plain
+    # `find plugins/loom-governance/hooks` denied because the old matcher looked
+    # for a mutation shape ANYWHERE in the line (a bare ">" matched the
+    # `2>/dev/null` of a read; "chmod"/"truncate" matched unanchored).
+    #
+    # Two anchored signals now, evaluated per shell segment (segments start at a
+    # command position, so the command WORD is identifiable):
+    #   1. the segment's command word is a mutator (tee/dd of=/sed -i/rm/mv/
+    #      truncate/chmod/chown/install) AND the segment mentions a protected path
+    #   2. a REDIRECTION TARGET (> / >>) in the segment is a protected path
+    # The gated set is unchanged; only the false positives are gone.
+    gate_bash() { # protected-token
+      if [ -n "$AGENT_ID" ]; then
+        decide deny "Subagent ('$(json_get '.agent_type')') may not modify governance file '$1' via Bash. Governance changes are main-agent + user-approval only."
+      else
+        decide ask "Bash command appears to MODIFY a governance path ('$1'). Approve only if you intend to change governance itself. Command: $CMD"
+      fi
+    }
+
+    # Command word of a segment, path-stripped; skips VAR=value assignments and
+    # sudo/env-style prefix words.
+    seg_cmd_word() { # segment -> command word (may be empty)
+      local s="$1" tok
+      while :; do
+        s="${s#"${s%%[![:space:]]*}"}"
+        [ -n "$s" ] || { printf ''; return 0; }
+        tok="${s%%[[:space:]]*}"
+        case "${tok##*/}" in
+          *=*|sudo|env|command|nohup|nice|time|exec|xargs|stdbuf|ionice) ;;
+          -*) ;;
+          *) printf '%s' "${tok##*/}"; return 0 ;;
+        esac
+        s="${s#"$tok"}"
       done
-    fi
+    }
+
+    seg_is_mutator() { # segment -> 0 if its command word writes files
+      case "$(seg_cmd_word "$1")" in
+        tee|truncate|chmod|chown|install|rm|mv) return 0 ;;
+        dd)  printf '%s' "$1" | grep -qE '(^|[[:space:]])of=' && return 0 ;;
+        sed) printf '%s' "$1" | grep -qE '(^|[[:space:]])-i' && return 0 ;;
+      esac
+      return 1
+    }
+
+    seg_redirect_targets() { # segment -> one redirection target per line
+      printf '%s' "$1" \
+        | grep -oE '>>?[[:space:]]*[^[:space:]<>|;&]+' \
+        | sed -e 's/^>>*//' -e 's/^[[:space:]]*//'
+    }
+
+    # Token list comes from the verdict lib so the Bash branch and the Write/Edit
+    # branch protect the SAME set — including any additive governance.conf
+    # entries. Computed once, outside the segment loop.
+    PROT_TOKENS="$(protected_tokens || true)"
+
+    while IFS= read -r SEG; do
+      [ -n "$SEG" ] || continue
+      SEG_MUTATES=0
+      seg_is_mutator "$SEG" && SEG_MUTATES=1
+      RTARGETS="$(seg_redirect_targets "$SEG" || true)"
+      [ "$SEG_MUTATES" = 0 ] && [ -z "$RTARGETS" ] && continue
+      while IFS= read -r prot; do
+        [ -n "$prot" ] || continue
+        if [ "$SEG_MUTATES" = 1 ] && printf '%s' "$SEG" | grep -qF "$prot"; then
+          gate_bash "$prot"
+        fi
+        if [ -n "$RTARGETS" ] && printf '%s' "$RTARGETS" | grep -qF "$prot"; then
+          gate_bash "$prot"
+        fi
+      done <<< "$PROT_TOKENS"
+    done <<< "$(printf '%s' "$CMD" | tr ';|&(){}`' '\n\n\n\n\n\n\n\n')"
     ;;
 esac
 

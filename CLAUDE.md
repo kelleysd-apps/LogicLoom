@@ -83,7 +83,7 @@ message. The hooks are the floor; the policies below are the standing intent.
 
 | Hook | Enforces |
 |---|---|
-| `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies ANY git command from a subagent (detected via `agent_id` in the hook payload). Git is main-agent + direct-user-request only. |
+| `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies MUTATING git from a subagent (detected via `agent_id` in the hook payload). A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, listings, `rev-parse`, `config --get`, …); everything else — write forms, `fetch`, code-executing globals (`-c`, `--git-dir`, `--work-tree`, `--exec-path`), command substitution — is denied. Mutating git stays main-agent + direct-user-request only. `gh` remains categorically denied for subagents. |
 | `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — main-agent git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
 | `protect-governance-files.sh` (PreToolUse · Write/Edit + Bash) | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent **deny** / main **ask**. The model can't silently soften its own rules. |
 | `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
@@ -221,7 +221,7 @@ For new work, prefer `/swarm explore` over individual specialist routing.
 
 **ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v3.2.0) contains **16 enforceable principles**. Enforcement is
+The constitution (v3.3.0) contains **16 enforceable principles**. Enforcement is
 hook-side (see the **Governance** section above); the list below is a quick map.
 
 - **3 Immutable** (I-III): Library-First, Test-First, Contract-First
@@ -239,6 +239,44 @@ hook-side (see the **Governance** section above); the list below is a quick map.
 
 (Git operations under Principle VI are detailed in the **Governance** section above.)
 
+### Project amendments (the fork extension point)
+
+A fork adds project-specific mandates in **`.logic-loom/memory/amendments.md`**
+(seeded from `.logic-loom/templates/amendments-template.md`) — never by editing
+`constitution.md`. Upstream never ships `amendments.md`, so a fork's mandates
+survive `/update-framework` and the constitution stays byte-identical to upstream
+instead of becoming a permanent `conflict-review` file.
+
+**Followed, not enforced — and nothing loads it.** No hook, preflight, or context
+module reads `amendments.md`; nothing validates a mandate; nothing fails closed. A
+fork that does not read the file gets no mandates and gets no warning. Mandates
+work only because this file and `AGENTS.md` tell agents to read them. Read
+`.logic-loom/memory/amendments.md` when it exists and treat its mandates as
+binding alongside the principles.
+
+The only normative unit is a **named mandate**: `### Mandate: <NAME>` with
+`Constrains:` / `Rule:` / `Rationale:`. There is no second surface — no in-line
+project markers in the constitution, no per-principle override blocks.
+
+Composition is a conjunction: **effective governance = constitution AND every
+mandate**. The constitutional floor stays normatively supreme; mandates are
+intended to add obligations only, and any relaxing effect is invalid. That
+invariant is **adjudicated, not structural**: the grammar has no `Overrides` /
+`Waives` field, but `Rule` is unrestricted natural language, so a mandate *can*
+weaken a principle semantically — by redefinition, by broadening what counts as
+approval, by constraining enforcement rather than behaviour, or by making
+compliance vacuous. The missing verb makes weakening conspicuous, not impossible.
+
+Adjudication defaults, all failing toward the floor: relaxing wording is **void in
+that respect**; an ambiguous mandate is read under its tightening interpretation
+(and is void if it has none); a formal "tightening" that makes a principle
+impossible to satisfy is void the same way; conflicting mandates compose to the
+stricter obligation, and genuinely contradicting ones are both void in that
+respect; validity is assessed per-effect, so a partly-valid mandate keeps only its
+valid part. `VISION.md` sets direction and never relaxes a mandate. Mandates are
+policy, not enforcement: they cannot touch a hook. Full statement including the
+precedence order: `.logic-loom/memory/constitution.md` § *Project Amendments*.
+
 ---
 
 ## LogicLoom Hooks
@@ -248,7 +286,7 @@ how each maps to a principle):
 
 | Hook | Purpose |
 |---|---|
-| `subagent-git-guard.sh` | Denies ANY git command from a subagent (Principle VI). Git is main-agent + direct-user-request only |
+| `subagent-git-guard.sh` | Denies MUTATING git from a subagent (Principle VI); allowlisted read-only git is permitted. Mutating git is main-agent + direct-user-request only. `gh` stays categorically denied for subagents |
 | `git-safety-gate.sh` | Forces an approval prompt on main-agent git mutations (Principle VI). No autonomous git |
 | `guard-dangerous-commands.sh` | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
 | `governance-preflight.sh` | Injects domain briefs + memory context on `UserPromptSubmit` (and, in strict mode, the pre-flight recitation) |
@@ -324,7 +362,8 @@ VISION.md                              # Foundational product north-star (living
 
 .logic-loom/
   memory/
-    constitution.md                    # 16 principles (v3.2.0)
+    constitution.md                    # 16 principles (v3.3.0) — upstream core, do not fork-edit
+    amendments.md                      # OPTIONAL, fork-owned: project named mandates (additive only)
     constitution_update_checklist.md
   scripts/bash/                        # Workflow automation + plugin bridge
   templates/                           # vision-template, prd-template, plan-template, ...
@@ -340,6 +379,19 @@ plugins/                               # See registry above
 
 features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
 specs/                                 # SDD pack: waterfall specs
+
+artifacts/                             # Standalone deliverables: who/what/why/where —
+                                       # vision, research, forensics, docs. NEVER a plan
+                                       # (sequencing belongs to plan.md / tasks.md).
+                                       # Create on first use; contents are project-owned
+                                       # and are stripped at template release.
+                                       # Mostly hand-authored + committed; a GENERATED
+                                       # deliverable belongs here too and is ALSO tracked
+                                       # (artifacts/backlog-dashboard.html) — licensed by
+                                       # the fail-closed freshness gate
+                                       # .logic-loom/scripts/bash/check-generated-freshness.sh.
+                                       # Its machine intermediate (.logic-loom/backlog-index.json)
+                                       # stays gitignored: track only what a human opens.
 
 web/  (or apps/<name>/)                # Product app (own package.json) — see Harness ↔ product boundary
 
@@ -534,9 +586,12 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 - `.docs/architecture/loom-architecture.md` — full architectural reference (LogicLoom shape)
 - `.docs/architecture/evaluator-protocol.md` — `/review-team` evaluator contract
 - `.docs/architecture/freeze-scope-protocol.md` — `/freeze` hook contract
-- `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.2.0)
+- `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.3.0)
+- `.logic-loom/templates/amendments-template.md` — seed for a fork's `amendments.md` (project named mandates)
 - `.logic-loom/config/models.conf` — documented role→tier convention + current flagship
 - `.logic-loom/config/governance.conf` — governance mode (lean/strict)
+- `.docs/policies/shell-idiom-policy.md` — five shell idioms for hooks/scripts, each traced to a real failure (style guide, deliberately unenforced)
+- `plugins/MANIFEST-SCHEMA.md` — `.claude-plugin/plugin.json` schema (Principle XVI)
 - `features/README.md` — per-feature folder convention
 - `plugins/*/skills/` — skill documentation (Plugin-First Architecture)
 - `AGENTS.md` — agent registry (tandem file — must update with CLAUDE.md)
@@ -573,7 +628,7 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 ---
 
 **Framework**: logic-loom v6.4.1 (brand: **LogicLoom**)
-**Constitution**: v3.2.0 (16 Principles)
+**Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
-**Last Updated**: 2026-06-30
+**Last Updated**: 2026-08-17

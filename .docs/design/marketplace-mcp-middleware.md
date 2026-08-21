@@ -16,9 +16,13 @@
 > document is retained verbatim **as historical record only** and does not
 > describe current behavior.
 
-**Status**: Phase A+B Complete — MCP Server + GitHub Registry Live
+> Everything below this line is the **2026-01-15 snapshot as written then**,
+> including its status/priority stamps. None of it is live. Do not implement,
+> cite, or link to it as current design.
+
+**Status (as of 2026-01-15; NO LONGER TRUE — removed)**: Phase A+B Complete — MCP Server + GitHub Registry Live
 **Spec**: 004-plugin-first-architecture (T4.6.1-T4.6.6)
-**Priority**: HIGH — User-requested for next milestone
+**Priority (historical)**: HIGH — User-requested for next milestone
 **Date**: 2026-01-15
 
 ## Architecture

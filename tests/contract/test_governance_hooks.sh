@@ -61,6 +61,21 @@ SUB_PUSH_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-pur
 SUB_PUSH_DECISION="$(printf '%s' "$SUB_PUSH_JSON" | bash "$GUARD" | decision)"
 assert "subagent git push -> deny (got '${SUB_PUSH_DECISION}')" "[ '${SUB_PUSH_DECISION}' = 'deny' ]"
 
+# §7.3: read-only git from a subagent -> ALLOW (explicit allowlist), while the
+# write forms and the code-execution globals stay denied.
+SUB_RO_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git status"}}'
+D="$(printf '%s' "$SUB_RO_JSON" | bash "$GUARD" | decision)"
+assert "subagent git status -> allow (read-only allowlist, got '$D')" "[ '$D' = 'allow' ]"
+SUB_RO2_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git log --oneline -20"}}'
+D="$(printf '%s' "$SUB_RO2_JSON" | bash "$GUARD" | decision)"
+assert "subagent git log -> allow (read-only allowlist, got '$D')" "[ '$D' = 'allow' ]"
+SUB_BR_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git branch newfeature"}}'
+D="$(printf '%s' "$SUB_BR_JSON" | bash "$GUARD" | decision)"
+assert "subagent git branch <name> -> deny (got '$D')" "[ '$D' = 'deny' ]"
+SUB_CFG_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"git -c core.fsmonitor=evil status"}}'
+D="$(printf '%s' "$SUB_CFG_JSON" | bash "$GUARD" | decision)"
+assert "subagent git -c core.fsmonitor=<cmd> -> deny (got '$D')" "[ '$D' = 'deny' ]"
+
 # Subagent running a NON-git command -> allow (not the guard's concern).
 SUB_NONGIT_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"ls -la"}}'
 SUB_NONGIT_DECISION="$(printf '%s' "$SUB_NONGIT_JSON" | bash "$GUARD" | decision)"
@@ -94,6 +109,39 @@ assert "main-agent non-git -> gate allows (got '${GATE_NONGIT_DECISION}')" "[ '$
 GATE_STATUS_JSON='{"tool_name":"Bash","tool_input":{"command":"git status"}}'
 GATE_STATUS_DECISION="$(printf '%s' "$GATE_STATUS_JSON" | bash "$GATE" | decision)"
 assert "main-agent git status -> gate allows (got '${GATE_STATUS_DECISION}')" "[ '${GATE_STATUS_DECISION}' = 'allow' ]"
+
+echo ""
+echo "--- gh gate (server-side repo mutation via the GitHub CLI) ---"
+
+# Subagent running ANY gh -> DENY (categorical, mirrors the git rule).
+SUB_GH_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"gh pr merge 12 --squash"}}'
+D="$(printf '%s' "$SUB_GH_JSON" | bash "$GUARD" | decision)"
+assert "subagent gh pr merge -> deny (got '$D')" "[ '$D' = 'deny' ]"
+SUB_GHR_JSON='{"tool_name":"Bash","agent_id":"a8e123","agent_type":"general-purpose","tool_input":{"command":"gh pr list"}}'
+D="$(printf '%s' "$SUB_GHR_JSON" | bash "$GUARD" | decision)"
+assert "subagent gh pr list -> deny (got '$D')" "[ '$D' = 'deny' ]"
+
+# Main agent: consequential gh -> ask; read-only gh -> allow.
+MAIN_GH_MERGE='{"tool_name":"Bash","tool_input":{"command":"gh pr merge 12 --squash"}}'
+D="$(printf '%s' "$MAIN_GH_MERGE" | bash "$GATE" | decision)"
+assert "main-agent gh pr merge -> gate asks (got '$D')" "[ '$D' = 'ask' ]"
+MAIN_GH_WF='{"tool_name":"Bash","tool_input":{"command":"gh workflow run promote-to-main.yml"}}'
+D="$(printf '%s' "$MAIN_GH_WF" | bash "$GATE" | decision)"
+assert "main-agent gh workflow run -> gate asks (got '$D')" "[ '$D' = 'ask' ]"
+MAIN_GH_API='{"tool_name":"Bash","tool_input":{"command":"gh api -X PUT repos/o/r/pulls/9/merge"}}'
+D="$(printf '%s' "$MAIN_GH_API" | bash "$GATE" | decision)"
+assert "main-agent gh api -X PUT (merge laundering) -> gate asks (got '$D')" "[ '$D' = 'ask' ]"
+MAIN_GH_LIST='{"tool_name":"Bash","tool_input":{"command":"gh pr list"}}'
+D="$(printf '%s' "$MAIN_GH_LIST" | bash "$GATE" | decision)"
+assert "main-agent gh pr list -> gate allows (got '$D')" "[ '$D' = 'allow' ]"
+
+# git worktree add/remove are mutations for the main agent; list is not.
+MAIN_WT_ADD='{"tool_name":"Bash","tool_input":{"command":"git worktree add ../wt br"}}'
+D="$(printf '%s' "$MAIN_WT_ADD" | bash "$GATE" | decision)"
+assert "main-agent git worktree add -> gate asks (got '$D')" "[ '$D' = 'ask' ]"
+MAIN_WT_LIST='{"tool_name":"Bash","tool_input":{"command":"git worktree list"}}'
+D="$(printf '%s' "$MAIN_WT_LIST" | bash "$GATE" | decision)"
+assert "main-agent git worktree list -> gate allows (got '$D')" "[ '$D' = 'allow' ]"
 
 # ── Context-injecting hooks must use the nested hookSpecificOutput schema ──
 # A flat {"hookEventName":...,"additionalContext":...} emit is silently dropped

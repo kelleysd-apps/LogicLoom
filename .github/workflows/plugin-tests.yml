@@ -59,6 +59,51 @@ jobs:
       - name: Run Spec 006 Integration Tests
         run: bash tests/contract/test_spec006_integration.sh
 
+      - name: Run Governance Verdicts Tests
+        run: bash tests/contract/test_governance_verdicts.sh
+
+      - name: Run Freeze Scope Tests
+        run: bash tests/contract/test_freeze_scope.sh
+
+      - name: Run Git Adapter Tests
+        run: bash tests/contract/test_git_adapter.sh
+
+      - name: Run Disposition Tandem Tests
+        run: bash tests/contract/test_disposition_tandem.sh
+
+      - name: Run Suite Registration Tests
+        run: bash tests/contract/test_suite_registration.sh
+
+      - name: Run Generated Artifacts Declared Tests
+        run: bash tests/contract/test_generated_artifacts_declared.sh
+
+      - name: Run Scrub Rules Match Tests
+        run: bash tests/contract/test_scrub_rules_match.sh
+
+      - name: Run gh Telemetry Notice Tests
+        run: bash tests/contract/test_gh_telemetry_notice.sh
+
+      - name: Run Environment Declaration Tests
+        run: bash tests/contract/test_environment_declaration.sh
+
+      - name: Run Project Identity Tests
+        run: bash tests/contract/test_project_identity.sh
+
+      - name: Run Backlog Index Tests
+        run: bash tests/contract/test_backlog_index.sh
+
+      - name: Run Backlog Dashboard Tests
+        run: bash tests/contract/test_backlog_dashboard.sh
+
+      # FAIL-CLOSED staleness gate for the repo's git-TRACKED generated
+      # artifacts (artifacts/backlog-dashboard.html, .logic-loom/graph/
+      # graph-bridge.jsonl). Regenerates each and fails if the committed copy
+      # differs. This is the licence for tracking a derived artifact at all —
+      # a warn-only lint is what let the manifest bug ship. Run it locally with
+      #   ./.logic-loom/scripts/bash/check-generated-freshness.sh
+      - name: Check Generated Artifact Freshness
+        run: bash .logic-loom/scripts/bash/check-generated-freshness.sh
+
       - name: Run Git Safety Tests
         run: bash .logic-loom/tests/test-git-safety.sh
 
@@ -68,30 +113,15 @@ jobs:
       - name: Run Structured Logging Tests
         run: bash .logic-loom/tests/test_logging.sh
 
+      - name: Run Plugin Manifest Schema Tests
+        run: bash tests/contract/test_plugin_manifest_schema.sh
+
+      # Same contract as before (valid JSON + name/version/dependencies present),
+      # lifted out of an inline heredoc so it can be run and tested locally, plus
+      # a shape check for the OPTIONAL `eval` block (absent = fine).
+      # Schema: plugins/MANIFEST-SCHEMA.md
       - name: Validate All Manifests
-        run: |
-          python3 -c "
-          import json, os, sys
-          errors = []
-          for name in sorted(os.listdir('plugins')):
-              manifest = os.path.join('plugins', name, '.claude-plugin', 'plugin.json')
-              if not os.path.exists(manifest):
-                  continue
-              try:
-                  with open(manifest) as f:
-                      d = json.load(f)
-                  for field in ['name', 'version', 'dependencies']:
-                      if field not in d:
-                          errors.append(f'{name}: missing {field}')
-              except json.JSONDecodeError as e:
-                  errors.append(f'{name}: invalid JSON - {e}')
-          if errors:
-              for e in errors:
-                  print(f'❌ {e}')
-              sys.exit(1)
-          else:
-              print(f'✅ All plugin manifests valid')
-          "
+        run: python3 .logic-loom/scripts/python/validate-plugin-manifests.py
 
       - name: Constitutional Compliance Check
         if: github.event_name == 'pull_request'

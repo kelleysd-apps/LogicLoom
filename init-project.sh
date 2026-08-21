@@ -46,6 +46,61 @@ echo ""
 echo -e "${BLUE}Initializing project: ${PROJECT_NAME}${NC}"
 echo ""
 
+# ====================================
+# Project identity — stamp .logic-loom/config/project.conf
+# ====================================
+# The template ships this file with `__UNSET__` placeholders on purpose: a cloner
+# must never inherit a plausible-looking slug. Stamp it here, once, with the name
+# the user just gave. IDEMPOTENT (Principle IV): an already-stamped file is left
+# alone — the slug is the machine key everything cross-project references, so
+# rewriting it silently would orphan that history.
+PROJECT_CONF=".logic-loom/config/project.conf"
+# Match ACTIVE key lines only. The file's own comments discuss `__UNSET__` by
+# name, so a bare `grep __UNSET__` would report an already-stamped file as
+# unstamped and re-prompt on every run.
+PROJECT_CONF_UNSET_RE='^[[:space:]]*(project_slug|project_name|id_prefix)[[:space:]]*=[[:space:]]*__UNSET__[[:space:]]*$'
+echo -e "${BLUE}Stamping project identity...${NC}"
+if [ ! -f "$PROJECT_CONF" ]; then
+    echo -e "${YELLOW}⚠${NC}  $PROJECT_CONF not found — skipping identity stamp"
+elif ! grep -qE "$PROJECT_CONF_UNSET_RE" "$PROJECT_CONF"; then
+    echo -e "${YELLOW}ℹ${NC}  Project identity already stamped — leaving it untouched"
+    echo -e "    $(grep -E '^[[:space:]]*project_slug[[:space:]]*=' "$PROJECT_CONF" | head -1)"
+else
+    # Default id_prefix: the slug's alphanumerics, uppercased, first 4 characters.
+    # `acme-widgets` -> `ACME`. Offered as a default, not imposed.
+    DEFAULT_PREFIX=$(printf '%s' "$PROJECT_NAME" | tr -cd '[:alnum:]' | tr '[:lower:]' '[:upper:]' | cut -c1-4)
+    [ -n "$DEFAULT_PREFIX" ] || DEFAULT_PREFIX="PROJ"
+
+    read -p "Display name for this project [$PROJECT_NAME]: " PROJECT_DISPLAY_NAME
+    PROJECT_DISPLAY_NAME="${PROJECT_DISPLAY_NAME:-$PROJECT_NAME}"
+
+    read -p "Task id prefix (uppercase, 2-6 chars) [$DEFAULT_PREFIX]: " PROJECT_ID_PREFIX
+    PROJECT_ID_PREFIX="${PROJECT_ID_PREFIX:-$DEFAULT_PREFIX}"
+    PROJECT_ID_PREFIX=$(printf '%s' "$PROJECT_ID_PREFIX" | tr '[:lower:]' '[:upper:]')
+    if ! [[ "$PROJECT_ID_PREFIX" =~ ^[A-Z][A-Z0-9]{1,5}$ ]]; then
+        echo -e "${YELLOW}⚠${NC}  '$PROJECT_ID_PREFIX' is not a valid id prefix — using $DEFAULT_PREFIX"
+        PROJECT_ID_PREFIX="$DEFAULT_PREFIX"
+    fi
+
+    # Replace only the three placeholder values; every comment in the file — which
+    # is where the schema is documented — survives verbatim.
+    PROJECT_CONF_BODY=$(cat "$PROJECT_CONF")
+    PROJECT_CONF_BODY=${PROJECT_CONF_BODY/project_slug = __UNSET__/project_slug = $PROJECT_NAME}
+    PROJECT_CONF_BODY=${PROJECT_CONF_BODY/project_name = __UNSET__/project_name = $PROJECT_DISPLAY_NAME}
+    PROJECT_CONF_BODY=${PROJECT_CONF_BODY/id_prefix    = __UNSET__/id_prefix    = $PROJECT_ID_PREFIX}
+    printf '%s\n' "$PROJECT_CONF_BODY" > "$PROJECT_CONF"
+
+    echo -e "${GREEN}✓${NC} Project identity stamped: slug=${PROJECT_NAME}, prefix=${PROJECT_ID_PREFIX}"
+    echo -e "    ${YELLOW}The slug is immutable once set${NC} — anything referencing this project across repos keys on it."
+fi
+
+# Read-only confirmation. `|| true` because an informational check must never fail
+# the bootstrap, and this script runs under `set -e`.
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/validate-project-identity.sh" ]; then
+    bash "$SCRIPT_DIR/.logic-loom/scripts/bash/validate-project-identity.sh" --quiet || true
+fi
+echo ""
+
 # Root package.json is FRAMEWORK-OWNED — do NOT rebrand it to the product.
 # The root package declares the framework's own jest/devDeps/version; bump-version.sh
 # stamps it by matching "version" (not "name"), and collectCoverageFrom targets
@@ -227,6 +282,19 @@ fi
 echo -e "${GREEN}✓${NC} Framework updates: run /update-framework (fetch-only; upstream in .logic-loom/config/framework-upstream.conf)"
 
 # ====================================
+# GitHub CLI telemetry — DETECT AND INFORM (never write)
+# ====================================
+# gh telemetry is opt-OUT and LogicLoom leans on gh heavily, so surface it once
+# here. This is READ-ONLY and INFORMATIONAL: the harness does not touch
+# ~/.config/gh/config.yml and does not touch any shell rc file. gh's config is
+# the user's layer (START_HERE.md § "Where do my personal preferences go?").
+# `|| true` because an informational check must never fail the bootstrap — and
+# init-project.sh runs under `set -e`.
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/check-gh-telemetry.sh" ]; then
+    bash "$SCRIPT_DIR/.logic-loom/scripts/bash/check-gh-telemetry.sh" || true
+fi
+
+# ====================================
 # Docker MCP Toolkit Installation
 # ====================================
 echo ""
@@ -366,7 +434,7 @@ echo ""
 # harness you are using.)
 echo ""
 echo -e "${BLUE}Removing maintainer-only template-release CI...${NC}"
-for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml; do
+for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml .github/workflows/branch-topology-guard.yml; do
     if [ -f "$wf" ]; then
         rm -f "$wf"
         echo -e "${GREEN}✓${NC} Removed $wf (LogicLoom template-release CI, not for your project)"

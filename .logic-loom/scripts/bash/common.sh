@@ -210,7 +210,17 @@ request_git_approval_enhanced() {
 # ==============================================================================
 # T008: Git Checkpoint System
 # Sprint 2: Git Safety Enhancements
+#
+# Records are stored as JSONL: one compact JSON object per line, matching the
+# repo's existing line-delimited convention (graph-bridge.jsonl, delegation
+# log). Readers below parse line-by-line, so records MUST stay one-line.
 # ==============================================================================
+
+# Resolve the checkpoint directory (override with LOOM_CHECKPOINT_DIR, e.g. in
+# tests, so the suite never writes into the working tree).
+checkpoint_dir_path() {
+    echo "${LOOM_CHECKPOINT_DIR:-$REPO_ROOT/.logic-loom/logs/git-checkpoints}"
+}
 
 # Create git checkpoint
 create_git_checkpoint() {
@@ -224,26 +234,29 @@ create_git_checkpoint() {
     local checkpoint_id=$(date +%s)
 
     # Checkpoint file
-    local checkpoint_dir="$REPO_ROOT/.logic-loom/logs/git-checkpoints"
+    local checkpoint_dir
+    checkpoint_dir="$(checkpoint_dir_path)"
     local checkpoint_file="$checkpoint_dir/$(date +%Y-%m-%d).json"
 
     # Ensure directory exists
     mkdir -p "$checkpoint_dir"
 
-    # Create checkpoint entry
-    local checkpoint_entry=$(cat <<EOF
-{
-  "checkpoint_id": "$checkpoint_id",
-  "timestamp": "$timestamp",
-  "operation": "$operation",
-  "details": "$details",
-  "commit_sha": "$commit_sha",
-  "branch": "$branch"
-}
-EOF
-)
+    # Create checkpoint entry as ONE compact JSON line (JSONL). jq does the
+    # string escaping so operation/details containing quotes stay valid JSON.
+    local checkpoint_entry
+    checkpoint_entry=$(jq -c -n \
+        --arg checkpoint_id "$checkpoint_id" \
+        --arg timestamp "$timestamp" \
+        --arg operation "$operation" \
+        --arg details "$details" \
+        --arg commit_sha "$commit_sha" \
+        --arg branch "$branch" \
+        '{checkpoint_id: $checkpoint_id, timestamp: $timestamp, operation: $operation, details: $details, commit_sha: $commit_sha, branch: $branch}') || {
+        echo "ERROR: failed to serialize checkpoint (is jq installed?)" >&2
+        return 1
+    }
 
-    # Append to daily checkpoint file (JSON lines format)
+    # Append to daily checkpoint file (JSON Lines format — one record per line)
     echo "$checkpoint_entry" >> "$checkpoint_file"
 
     # Log checkpoint creation
@@ -261,7 +274,8 @@ EOF
 list_git_checkpoints() {
     local days="${1:-7}"  # Show last 7 days by default
 
-    local checkpoint_dir="$REPO_ROOT/.logic-loom/logs/git-checkpoints"
+    local checkpoint_dir
+    checkpoint_dir="$(checkpoint_dir_path)"
 
     if [[ ! -d "$checkpoint_dir" ]]; then
         echo "No checkpoints found"
@@ -277,14 +291,28 @@ list_git_checkpoints() {
         echo "File: $(basename "$file")"
         echo "----------------------------------------"
 
-        # Parse and display each checkpoint entry
+        local skipped=0
+
+        # Parse and display each checkpoint entry (one JSON object per line)
         while IFS= read -r line; do
             if [[ -n "$line" ]]; then
-                local checkpoint_id=$(echo "$line" | jq -r '.checkpoint_id // "unknown"')
-                local timestamp=$(echo "$line" | jq -r '.timestamp // "unknown"')
-                local operation=$(echo "$line" | jq -r '.operation // "unknown"')
-                local commit=$(echo "$line" | jq -r '.commit_sha // "unknown"' | cut -c1-8)
-                local branch=$(echo "$line" | jq -r '.branch // "unknown"')
+                # Records written before the JSONL fix were pretty-printed
+                # across multiple lines; those lines are not parseable on their
+                # own. Skip them rather than printing "unknown" noise.
+                local fields
+                fields=$(echo "$line" | jq -r '
+                    [(.checkpoint_id // "unknown"),
+                     (.timestamp // "unknown"),
+                     (.operation // "unknown"),
+                     (.commit_sha // "unknown"),
+                     (.branch // "unknown")] | @tsv' 2>/dev/null) || {
+                    skipped=$((skipped + 1))
+                    continue
+                }
+
+                local checkpoint_id timestamp operation commit branch
+                IFS=$'\t' read -r checkpoint_id timestamp operation commit branch <<< "$fields"
+                commit=$(echo "$commit" | cut -c1-8)
 
                 echo "  [$checkpoint_id] $timestamp"
                 echo "    Operation: $operation"
@@ -293,6 +321,11 @@ list_git_checkpoints() {
                 echo ""
             fi
         done < "$file"
+
+        if [[ $skipped -gt 0 ]]; then
+            echo "  ($skipped unparseable line(s) skipped — legacy pretty-printed records)"
+            echo ""
+        fi
     done
 
     echo "========================================"
@@ -309,13 +342,15 @@ restore_git_checkpoint() {
     fi
 
     # Find checkpoint entry
-    local checkpoint_dir="$REPO_ROOT/.logic-loom/logs/git-checkpoints"
+    local checkpoint_dir
+    checkpoint_dir="$(checkpoint_dir_path)"
     local checkpoint_entry=""
 
-    # Search through checkpoint files
+    # Search through checkpoint files (JSONL — select the matching record)
     for file in "$checkpoint_dir"/*.json; do
         if [[ -f "$file" ]]; then
-            checkpoint_entry=$(grep -F "\"checkpoint_id\": \"$checkpoint_id\"" "$file" | head -1 || echo "")
+            checkpoint_entry=$(jq -c --arg id "$checkpoint_id" \
+                'select(.checkpoint_id == $id)' "$file" 2>/dev/null | head -1 || echo "")
             if [[ -n "$checkpoint_entry" ]]; then
                 break
             fi
@@ -369,7 +404,8 @@ restore_git_checkpoint() {
 cleanup_old_checkpoints() {
     local days="${1:-30}"
 
-    local checkpoint_dir="$REPO_ROOT/.logic-loom/logs/git-checkpoints"
+    local checkpoint_dir
+    checkpoint_dir="$(checkpoint_dir_path)"
 
     if [[ ! -d "$checkpoint_dir" ]]; then
         echo "No checkpoints to clean up"
@@ -417,15 +453,21 @@ parse_conventional_commit_type() {
         return 0
     fi
 
-    # Count different types of changes
-    local new_files=$(echo "$changes" | grep -c "^A" || echo 0)
-    local modified_files=$(echo "$changes" | grep -c "^M" || echo 0)
-    local deleted_files=$(echo "$changes" | grep -c "^D" || echo 0)
+    # Count different types of changes.
+    # NOTE: `grep -c` PRINTS "0" and EXITS 1 on no match, so `|| echo 0` appends
+    # a SECOND line and yields "0\n0" — every `-gt` test below then dies with
+    # "syntax error in expression". Use `|| true` (grep already printed the 0)
+    # and default the empty case. See .docs/policies/shell-idiom-policy.md §1.
+    local new_files modified_files deleted_files
+    new_files=$(echo "$changes" | grep -c "^A" 2>/dev/null || true);      new_files=${new_files:-0}
+    modified_files=$(echo "$changes" | grep -c "^M" 2>/dev/null || true); modified_files=${modified_files:-0}
+    deleted_files=$(echo "$changes" | grep -c "^D" 2>/dev/null || true);  deleted_files=${deleted_files:-0}
 
-    # Check file patterns
-    local has_tests=$(echo "$changes" | grep -c "test\|spec" || echo 0)
-    local has_docs=$(echo "$changes" | grep -c "\.md$\|README\|docs/" || echo 0)
-    local has_config=$(echo "$changes" | grep -c "package\.json\|\.config\|\.rc$" || echo 0)
+    # Check file patterns (same idiom)
+    local has_tests has_docs has_config
+    has_tests=$(echo "$changes" | grep -c "test\|spec" 2>/dev/null || true);                       has_tests=${has_tests:-0}
+    has_docs=$(echo "$changes" | grep -c "\.md$\|README\|docs/" 2>/dev/null || true);              has_docs=${has_docs:-0}
+    has_config=$(echo "$changes" | grep -c "package\.json\|\.config\|\.rc$" 2>/dev/null || true);  has_config=${has_config:-0}
 
     # Determine commit type based on patterns
     if [[ $has_tests -gt 0 && $new_files -gt 0 ]]; then

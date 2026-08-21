@@ -1,8 +1,8 @@
 # Todo Architecture Policy - Single Source of Truth (SSOT)
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.2.0 - Principles VIII (Documentation Sync), X (Agent Delegation)
+**Authority**: Constitution v3.3.0 - Principles VIII (Documentation Sync), X (Agent Delegation)
 **Review Cycle**: Quarterly
 
 ---
@@ -15,6 +15,8 @@ This policy supports both workflow packs that sit on the shared governance core:
 - **SDD waterfall pack**: project tasks live in `specs/###-feature/tasks.md`
 
 Where this document references `specs/###-feature/tasks.md`, treat it as equivalent to `features/<name>/plan.md` for features built with the vision/PRD/plan pack. Session-level (Task tools) and agent-level (`.docs/agents/*/decisions/tasks/`) layers are identical across both.
+
+Both of those paths are **per-feature**. Work that is not a feature — governance, hooks, tests, CI, release tooling, policy and docs — lives one level above them, in `.logic-loom/memory/backlog.md` (**Level 0**, below).
 
 ---
 
@@ -35,6 +37,17 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 │                    TODO ARCHITECTURE SSOT                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │           REPO-LEVEL BACKLOG  (Level 0)                  │   │
+│  │         (.logic-loom/memory/backlog.md)                  │   │
+│  │                                                          │   │
+│  │  • Cross-cutting work that is NOT a feature             │   │
+│  │  • Governance, hooks, tests, CI, release, policy, docs  │   │
+│  │  • Stable minted ids (LOOM-NNNN), parseable grammar     │   │
+│  │  • Persists across sessions AND across features         │   │
+│  │  • Source of truth for harness-maintenance work         │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                            ↓ (an item may spawn a feature)      │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │              PROJECT-LEVEL TASKS.MD                      │   │
 │  │         (specs/###-feature/tasks.md)                     │   │
@@ -73,6 +86,38 @@ This policy establishes the **Single Source of Truth (SSOT)** architecture for t
 ---
 
 ## Task Hierarchy
+
+### Level 0: Repo Backlog (`.logic-loom/memory/backlog.md`)
+
+**Purpose**: the authoritative list of **cross-cutting work that is not a feature** — governance, hooks, tests, CI, release tooling, policy and documentation. Work that spans the harness rather than living inside any one `features/<name>/` or `specs/###-name/`.
+
+**Why this level exists.** Levels 1–3 were the whole hierarchy until v1.1.0, and in practice **Level 1 was empty**: this repository contained zero populated `plan.md` or `tasks.md` files — every `features/*/` held only `exploration/` and a `vision.md`. The top of the SSOT was a shape with nothing in it, because the harness's own real work is not feature-shaped and had nowhere to go. It accumulated instead as prose in `.docs/reports/` and in `VISION.md` § Open Threads — the two least parseable places available, and respectively **stripped** and **stubbed** at release, so neither survives to a customer clone and neither can be read by a tool.
+
+Level 0 closes that gap. It is a first-class level, not an exception: an item may spawn a feature (and then Level 1 owns the execution), but it does not have to.
+
+**Characteristics**:
+- Persists in version control; survives across sessions **and** across features
+- Every item carries a **stable minted id** (`LOOM-NNNN`), immutable once assigned
+- Closed four-value status vocabulary: `open` / `in_progress` / `blocked` / `done`
+- Machine-parseable by design — a collector reads it; a cross-project aggregator consumes the collector's output
+- Ships as machinery, stubbed at release, so a cloner inherits the grammar and an empty list rather than upstream's maintenance items
+
+**Item grammar**: defined **in the backlog file itself**, in its header section, so the file is self-describing to a human and to an agent reading it cold. That header is normative; this policy does not restate it. It covers the item line and its regex, id allocation and immutability, the status vocabulary and why status is a tag rather than a checkbox glyph, `blocked_on:`, the implicit (collector-derived) source pointer, and the explicit list of fields that were **rejected** and must not be re-added — owner, estimate, percent-complete, priority, per-item timestamps.
+
+**Relationship to the other levels**:
+
+| | Level 0 backlog | Level 1 project tasks | Level 2 session tasks | Level 3 agent history |
+|---|---|---|---|---|
+| Scope | whole repo / harness | one feature | one session | one agent |
+| Lifetime | indefinite | life of the feature | ephemeral | append-only record |
+| Shape | not a feature | a feature | current focus | audit trail |
+| Identity | minted `LOOM-NNNN` | `T###` within the feature | tool-assigned | timestamped |
+
+Flow is downward: a Level 0 item may be picked up directly into Level 2 session tasks for small work, or promoted into a `features/<name>/` at Level 1 when it turns out to be feature-shaped. Completion flows back up — the Level 0 item is marked `done`, never deleted-and-forgotten, because its id is the stable handle other items' `blocked_on:` refer to.
+
+**Relationship to `VISION.md` § Open Threads**: these are **different classes and must not be merged**. VISION threads are **direction** — what the project should become, and why; they are argued, contested, and sometimes withdrawn. Backlog items are **work** — a specific change someone could start today. A thread may spawn one or more backlog items, and a backlog item may cite the thread it came from; but closing an item never closes a thread, and a thread is not a task list. `VISION.md` is also stubbed at release for the same reason the backlog is: its content is direction for *this* project, not for a cloner's.
+
+---
 
 ### Level 1: Project Tasks
 
@@ -440,6 +485,8 @@ notes: "Implemented per data-model.md specification"
 ### For Agents
 
 ```
+0. Read .logic-loom/memory/backlog.md for cross-cutting harness work
+   (its header defines the item grammar — read it before adding an item)
 1. Read specs/###-feature/tasks.md for project tasks
 2. Use TaskCreate/TaskUpdate for session tracking
 3. Mark tasks completed IMMEDIATELY
@@ -470,13 +517,25 @@ notes: "Implemented per data-model.md specification"
 
 ## References
 
-- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.3.0: `.logic-loom/memory/constitution.md`
+- **Repo backlog + item grammar (normative)**: `.logic-loom/memory/backlog.md`
+- Vision / Open Threads (direction, *not* work): `VISION.md`
 - Tasks Template: `.logic-loom/templates/tasks-template.md`
 - SDD Tasks Skill: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
 - Specification Command: `.claude/commands/specification.md`
+- Historical record that motivated Level 0: `.docs/reports/backlog-2026-08-13.md`
 
 ---
 
-**Policy Version**: 1.0.0
+## Version History
+
+| Version | Change |
+|---|---|
+| 1.1.0 | Added **Level 0**, the repo backlog (`.logic-loom/memory/backlog.md`), for cross-cutting work that is not a feature. Recorded that Level 1 was empty in practice — zero populated `plan.md` / `tasks.md` — and that harness work had been accumulating as prose in `.docs/reports/` and `VISION.md` § Open Threads, both unparseable and both removed at release. Documented the item grammar **by reference** to the backlog file's own header, and drew the direction-vs-work line against `VISION.md`. |
+| 1.0.0 | Initial policy: three levels (project tasks, session Task tools, agent task history). |
+
+---
+
+**Policy Version**: 1.1.0
 **Approved By**: Constitutional Authority
 **Next Review**: TBD

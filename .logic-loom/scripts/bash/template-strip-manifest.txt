@@ -28,8 +28,17 @@
 #
 # Grammar (one entry per line; `#` begins a comment):
 #   <path-or-glob>     -> REMOVED by stripper; asserted ABSENT by leak-guard
-#   stub: <path>       -> CONTENT-REPLACED with the project-vision template stub;
-#                         asserted to carry NO harness-dev markers (not absent)
+#   stub: <path> :: <template>
+#                      -> CONTENT-REPLACED with <template> (a repo-relative path,
+#                         conventionally under .logic-loom/templates/); asserted
+#                         to carry NO harness-dev markers (not absent).
+#                         The `:: <template>` field is REQUIRED and there is NO
+#                         default: the stripper ABORTS on a `stub:` entry with no
+#                         template, or whose template file is missing. Shipping
+#                         the WRONG stub is worse than failing the release, and a
+#                         default is exactly how the wrong stub gets shipped
+#                         silently (the stripper used to hardcode the VISION stub
+#                         for every `stub:` target).
 #   warn: <path-glob>  -> NOT stripped; leak-guard emits a WARNING (non-fatal).
 #                         Use for deferred decisions so nothing silently ships.
 # Globs are matched against `git ls-files` output (tracked paths only).
@@ -39,7 +48,15 @@
 #     roadmap (cites loom-migration / PR #56 / freeze residual). Ship the stub so
 #     the constitution / CLAUDE.md / AGENTS.md references resolve on a fresh
 #     clone; /initialize-project then fills it in place. ---
-stub: VISION.md
+stub: VISION.md :: .logic-loom/templates/project-vision-template.md
+
+# --- Harness maintenance backlog (SSOT Level 0): the FILE is machinery a cloner
+#     should inherit -- the todo-architecture policy points at this exact path,
+#     so a missing file breaks that reference on a fresh clone. The CONTENT is
+#     ours: dev commit SHAs, a private sibling repo, our release topology, and
+#     open governance decisions. Ship the stub (header + grammar + empty Items),
+#     never our items. Same shape and same reason as VISION.md above. ---
+stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-template.md
 
 # --- Release plumbing SCRIPTS: maintainer-only. These contain identity markers
 #     as detection patterns / origin provenance by design, so they must NEVER
@@ -59,7 +76,10 @@ stub: VISION.md
 #     ship — stripped at promote. The sanitized-tree bridge test scans
 #     .claude/commands files (the wrapper is gone, so it stays green); loom-
 #     maintenance plugin.json keeps a now-3rd entry, which no test validates
-#     against files. ---
+#     against files. NOTE: .claude/commands/.bridge-manifest.json SHIPS and is a
+#     DERIVED index of .claude/commands/*.md — removing the wrapper alone would
+#     leave it advertising /promote. strip-harness-dev.sh re-derives it (via
+#     sync-plugin-commands.sh prune) after this manifest is applied. ---
 .logic-loom/scripts/bash/bump-version.sh
 plugins/loom-maintenance/commands/promote.md
 .claude/commands/promote.md
@@ -84,6 +104,38 @@ plugins/loom-maintenance/commands/promote.md
 .logic-loom/plans       # our dev planning (docker-mcp-toolkit-integration.md)
 CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.)
 
+# --- Repo-root `artifacts/`: the CONVENTION ships (documented in CLAUDE.md's
+#     directory structure and .docs/policies/file-structure-policy.md), the
+#     CONTENTS are ours. Today that is two hand-authored LogicLoom pages —
+#     artifacts/harness-graph.html ("What the harness is actually made of") and
+#     artifacts/logicloom-vision.html ("Vision, Findings & Record", carrying our
+#     decisions, verified problems and open evidence gaps). Same class as
+#     .docs/reports and .docs/design above, which are already stripped wholesale
+#     — and until now `artifacts/` was in NO list at all, so both files were
+#     shipping to customers verbatim.
+#     WHOLESALE, not `artifacts/*.html`: a glob would silently ship the first
+#     non-HTML artifact we drop in there. Nothing is stubbed and no .gitkeep is
+#     shipped, so the directory simply does not exist in a customer clone —
+#     the same treatment as `web/`, which the policy documents without shipping.
+#     A customer creates it the first time they have an artifact to put in it.
+#
+#     NOTE on artifacts/backlog-dashboard.html — THIS ENTRY IS NOW LOAD-BEARING
+#     FOR IT. That page is GENERATED, and it used to be gitignored, so the old
+#     text here said the wholesale entry "never sees it" and the two mechanisms
+#     were independent. That is no longer true. The page is now TRACKED (it was
+#     invisible in every checkout that had not run the generator; dev state has
+#     to be consistent across the dev line), so it DOES enter a promotion
+#     checkout and this entry is the ONE thing that keeps it out of a customer's
+#     tree. Its content is ours end to end — our backlog ids, our item titles,
+#     our source paths — so it must never ship.
+#     This is exactly why the entry is WHOLESALE and not `artifacts/*.html` or
+#     any other glob: the wholesale form already covered a future tracked
+#     artifact before there was one, and it is what made this change safe to
+#     make. Do not narrow it. Its freshness is guarded separately, in-repo, by
+#     .logic-loom/scripts/bash/check-generated-freshness.sh (CI: plugin-tests.yml)
+#     — a different concern from shipping, and neither substitutes for the other.
+artifacts
+
 # --- GENERATED project-graph index (derived, repo-specific) ---
 #     .logic-loom/graph/graph-bridge.jsonl is a DERIVED index of THIS repo's
 #     markdown corpus, produced by build-graph-bridge.sh (/graph build, /finalize).
@@ -98,6 +150,11 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #     validates the seed only "if present". If a static graph VIEWER is ever
 #     shipped under .logic-loom/graph/, re-scope this entry to the .jsonl/.json
 #     artifacts instead of the directory.
+#     FRESHNESS (separate concern, in-repo): graph-bridge.jsonl is tracked and
+#     was carrying no staleness guard at all — it had drifted from the corpus.
+#     .logic-loom/scripts/bash/check-generated-freshness.sh now regenerates it
+#     and fails CI on a difference. That is about OUR repo staying honest; this
+#     entry is about it never reaching a customer. Neither replaces the other.
 .logic-loom/graph
 
 # --- LogicLoom-contribution scaffolding (about contributing TO the harness, not
@@ -135,6 +192,13 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #                                main — must be on main to run on main pushes
 #                                (ship; marker-free; stripped from a CUSTOMER
 #                                project at init, like promote-to-main.yml)
+#   .github/workflows/branch-topology-guard.yml : fails any PR into main whose
+#                                head branch is not release/vX.Y.Z. MUST ship —
+#                                a `pull_request` workflow is evaluated from the
+#                                BASE branch, so stripping it would delete the
+#                                only copy that can ever run (ship; marker-free;
+#                                stripped from a CUSTOMER project at init, like
+#                                promote-to-main.yml)
 #   .github/workflows/plugin-tests.yml: validates the shipped harness (ship)
 #   features/ , specs/         : empty customer workspaces (ship; .gitkeep only)
 #   .sdd-sync-ref              : /update-framework upstream pointer (ship)

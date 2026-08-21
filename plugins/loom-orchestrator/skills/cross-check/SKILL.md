@@ -123,6 +123,15 @@ default in the "Advisory cross-provider models" section of
 `gemini-3.1-pro-preview`**. Pick the provider whose lineage is *most decorrelated* from
 the generator — for Claude-authored code, Codex/GPT is the strong default.
 
+> **Grounding rule — fail closed.** The model names, endpoints, and request
+> shapes in the table above are fast-moving external facts that nothing here
+> validates. Verify them against **live provider documentation** rather than
+> recalling them; when you cannot verify, **fail closed — say you are unsure**
+> and name what you could not confirm, rather than asserting a stale detail.
+> This constrains what the *governed Claude agent* may assert about the
+> provider — it grants the external model nothing and builds no checker. Full
+> rule: the GROUNDING RULE block in `.logic-loom/config/models.conf`.
+
 ## Procedure
 
 1. **Parse arguments** (see Configuration). Resolve `target`, `--provider`,

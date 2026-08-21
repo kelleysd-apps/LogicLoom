@@ -6,7 +6,7 @@
 
 **The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v3.2.0) contains **16 enforceable principles**:
+The constitution (v3.3.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **7 Workflow & Delegation Principles** (X-XVI): Delegation & Context Isolation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
@@ -346,15 +346,20 @@ the current Opus flagship; see `.logic-loom/config/models.conf`)
 
 **Rule**: All framework capabilities must be organized as discrete installable plugins
 
-**Rationale**: Ensures modularity, extensibility, and marketplace-ready distribution
+**Rationale**: Ensures modularity and extensibility. LogicLoom's own plugins are
+**bundled in-repo** under `plugins/` — it does not run a plugin marketplace.
+Third-party discovery is delegated to Anthropic's Claude Code Plugin Marketplace
+and the Docker MCP Toolkit.
 
 **Requirements**:
 - All new features implemented as plugins at `plugins/`
 - Each plugin has `plugin.json` manifest, agents, skills, commands
+- Every plugin declares `loom-governance` as a dependency; `loom-governance` is
+  protected and cannot be disabled
 - Plugin command bridge syncs commands to `.claude/commands/`
-- Plugin governance validation via marketplace tools
 
-**Enforcement**: Plugin validation, marketplace governance checks
+**Enforcement**: In-repo plugin manifest validation (contract tests + CI); the
+governance-file protection hook guards the core plugin surface
 
 ---
 
@@ -559,7 +564,7 @@ Load governance context when needed:
 **Last Updated**: 2026-02-07
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `.logic-loom/memory/constitution.md` (v3.3.0)
 - `.logic-loom/memory/constitution_update_checklist.md`
 - `.logic-loom/config/governance.conf` (LOOM_GOVERNANCE_MODE)
 - CLAUDE.md "Constitutional Foundation" and "Git Operations" sections

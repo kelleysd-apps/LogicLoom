@@ -1,0 +1,104 @@
+name: Branch Topology Guard (PRs → main)
+
+# =============================================================================
+# Fails ANY pull request into `main` whose HEAD branch is not a machine-composed
+# release branch. Companion to leak-guard.yml: leak-guard gates PR *content*,
+# this gates PR *provenance*.
+#
+# WHY: in the SINGLE-PUBLIC-REPO model, `main` is the sanitized customer-template
+# line. The ONLY legitimate way content reaches it is the promotion build
+# (`promote-to-main.yml`): strip → scrub → audit (Checks 1-7) → single-parent
+# compose → advance `.sdd-sync-ref` → push `release/vX.Y.Z`. A hand-cut PR from a
+# feature branch into `main` skips every one of those steps AND breaks the
+# load-bearing single-parent invariant (a non-release parent makes dev history
+# reachable from `main`, so "stripped" files are recoverable via `git show`).
+# `promote-to-main.yml` is `workflow_dispatch`-only, so nothing else was stopping
+# that PR from being opened and merged.
+#
+# WHY IT LIVES ON `main` AND IS NOT STRIP-MANIFESTED: for `pull_request` events
+# GitHub evaluates the workflow from the BASE branch. A gate on PRs into `main`
+# must therefore EXIST on `main` — stripping it at promote time would delete the
+# very copy that has to run, and the gate would never fire. It is maintainer-only
+# in intent, so it is removed from a CUSTOMER project at /initialize-project,
+# exactly like promote-to-main.yml / release-tag.yml / leak-guard.yml. A
+# customer's `main` is a normal production branch that receives feature branches;
+# this topology is ours, not theirs.
+#
+# Tamper-proof for the same reason as leak-guard.yml: a PR cannot modify the
+# base-branch copy of this file that is used to evaluate it.
+#
+# DOES THIS BREAK THE PROMOTE FLOW? No. As of v6.4.x `promote-to-main.yml`
+# deliberately never opens the PR (it has no `pull-requests: write`); the
+# maintainer `/promote` driver opens it with a USER token from head
+# `release/$TAG` — which both fires `pull_request` events and matches the
+# allowed pattern below. See plugins/loom-maintenance/commands/promote.md step 5.
+#
+# FORKING THIS: change ALLOWED_HEAD_REGEX (one line, below) to your own topology,
+# or delete this file if your `main` takes feature branches normally.
+#
+# EXEMPTIONS: none. There is deliberately no label, actor, or "skip" escape
+# hatch — every such hatch is a way to land unsanitized content on the template
+# line, which is the exact failure this exists to prevent. A genuine emergency
+# uses `promote-to-main.yml` with `publish_mode: direct-push` (which still runs
+# the binding audit) rather than a hand-cut PR.
+# =============================================================================
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-topology:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert PR head is a machine-composed release branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          # Machine-composed release branches only: promote-to-main.yml pushes
+          # `release/${{ inputs.version }}` where version is a `vX.Y.Z` tag.
+          # Optional pre-release suffix (e.g. release/v6.5.0-rc1) is allowed.
+          ALLOWED_HEAD_REGEX: '^release/v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$'
+        run: |
+          set -euo pipefail
+          if [ -z "${HEAD_REF:-}" ]; then
+            echo "::error::Could not determine the PR head branch (github.head_ref is empty) — failing closed."
+            exit 1
+          fi
+          if printf '%s' "$HEAD_REF" | grep -qE "$ALLOWED_HEAD_REGEX"; then
+            echo "branch-topology: head '$HEAD_REF' is an allowed release branch"
+            exit 0
+          fi
+          echo "::error::PR head branch '$HEAD_REF' may not target 'main'."
+          cat <<EOF
+          ------------------------------------------------------------------
+          CAUSE
+            'main' is the sanitized customer-template line. It accepts ONLY a
+            machine-composed release branch matching:
+                $ALLOWED_HEAD_REGEX
+            '$HEAD_REF' does not match, so this PR would bypass the entire
+            sanitization build — strip, scrub, audit (Checks 1-7), single-parent
+            compose, and the .sdd-sync-ref advance — and would break the
+            single-parent invariant that keeps dev history unreachable from main.
+
+          REMEDY
+            Do NOT hand-cut a PR into main. Land your work on 'dev-main' first,
+            then cut a release:
+
+              1. Open your PR against 'dev-main' instead of 'main'.
+              2. Once merged, run /promote (maintainer) — it bumps the version,
+                 dispatches .github/workflows/promote-to-main.yml, and that build
+                 pushes the sanitized 'release/vX.Y.Z' branch.
+              3. /promote then opens the main PR from that release branch with a
+                 user token, and verifies the checks actually reported.
+
+            There is no exemption for this gate. If you are a downstream cloner
+            whose 'main' legitimately takes feature branches, delete
+            .github/workflows/branch-topology-guard.yml (or /initialize-project
+            removes it for you along with the other maintainer-only CI).
+          ------------------------------------------------------------------
+          EOF
+          exit 1
