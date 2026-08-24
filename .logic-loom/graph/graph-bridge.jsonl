@@ -69,7 +69,6 @@
 {"type":"entity","name":"plugins/loom-governance/agents/constitutional-governance-agent.md","entityType":"code-path","observations":["constitutional-governance-agent.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/security.md","entityType":"code-path","observations":["security.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/testing.md","entityType":"code-path","observations":["testing.md"]}
-{"type":"entity","name":"plugins/loom-governance/hooks/hooks.json","entityType":"code-path","observations":["hooks.json"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","entityType":"code-path","observations":["git-safety-gate.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/scaffold-environments.md","entityType":"code-path","observations":["scaffold-environments.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
@@ -81,7 +80,6 @@
 {"type":"entity","name":"plugins/loom-orchestrator-hook/config/domains.conf","entityType":"code-path","observations":["domains.conf"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/graph.md","entityType":"code-path","observations":["graph.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/research.md","entityType":"code-path","observations":["research.md"]}
-{"type":"entity","name":"plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh","entityType":"code-path","observations":["agent-stop-notification.sh"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/retro/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -146,14 +144,12 @@
 {"type":"relation","from":"README.md","to":"features/README.md","relationType":"links-to"}
 {"type":"relation","from":"VISION.md","to":"features/code-knowledge-graph/exploration/graph-stack-decision.md","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
-{"type":"relation","from":"VISION.md","to":"plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"wikilink.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","to":"features/harness-product-boundary/exploration/harness-product-boundary.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/harness-product-boundary.md","to":".docs/reviews/LOGICLOOM_ISSUE_harness-product-boundary.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/harness-product-boundary.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-git/commands/finalize.md","relationType":"mentions"}
-{"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-governance/hooks/hooks.json","relationType":"mentions"}
 {"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","relationType":"mentions"}
 {"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-orchestrator/commands/graph.md","relationType":"mentions"}
 {"type":"relation","from":"features/modular-harness/exploration/modular-harness-design.md","to":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","relationType":"mentions"}

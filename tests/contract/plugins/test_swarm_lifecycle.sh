@@ -41,12 +41,23 @@ for team in build-team review-team fullstack-team; do
 done
 
 echo ""
-echo "T4.3: Hooks for agent coordination"
-assert "hooks.json exists" "[ -f plugins/loom-orchestrator/hooks/hooks.json ]"
-assert "hooks.json is valid JSON" "python3 -c 'import json; json.load(open(\"plugins/loom-orchestrator/hooks/hooks.json\"))'"
-assert "hooks.json has Stop event" "python3 -c 'import json; d=json.load(open(\"plugins/loom-orchestrator/hooks/hooks.json\")); assert any(h[\"event\"]==\"Stop\" for h in d[\"hooks\"])'"
-assert "hooks.json has SubagentStop event" "python3 -c 'import json; d=json.load(open(\"plugins/loom-orchestrator/hooks/hooks.json\")); assert any(h[\"event\"]==\"SubagentStop\" for h in d[\"hooks\"])'"
-assert "agent-stop-notification.sh exists" "[ -f plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh ]"
+echo "T4.3: No dead hook wiring (LOOM-0032)"
+# Empirically settled 2026-08-24: a per-plugin hooks/hooks.json is NEVER loaded in
+# this repo. Claude Code reads plugin hooks from ~/.claude/plugins/*/hooks/hooks.json
+# for INSTALLED plugins only; LogicLoom's plugins/ tree is not a plugin installation
+# (no marketplace.json, absent from installed_plugins.json + enabledPlugins) and is
+# consumed solely by sync-plugin-commands.sh, which bridges commands and not hooks.
+# The orchestrator's Stop/SubagentStop wiring therefore never fired once: ~98 subagent
+# completions between 2026-06-14 and 2026-08-24 left subagent-activity.log untouched.
+# It was deleted rather than repaired -- nothing consumed the log, and a live Stop hook
+# would append an "agent=unknown" line on every main-agent turn forever.
+# These assertions pin the deletion so the dead wiring cannot silently return.
+assert "no dead plugin hooks wiring" "[ ! -e plugins/loom-orchestrator/hooks ]"
+assert "no orphaned agent-stop-notification.sh" "[ ! -f plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh ]"
+assert "no stale subagent-activity log" "[ ! -f .logic-loom/logs/subagent-activity.log ]"
+# The real subagent-completion signal: the main agent collects each worker's result
+# directly from the native Task tool -- no hook, no coordinator, no state file.
+assert "subagent results come from the native Task tool" "grep -q 'Task tool' plugins/loom-orchestrator/skills/team-orchestration/SKILL.md"
 
 echo ""
 echo "T4.4: Orchestrator skills"

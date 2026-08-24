@@ -25,7 +25,18 @@ assert "plugin.json has version field" "python3 -c 'import json; d=json.load(ope
 
 echo ""
 echo "T1.1.2: Plugin has required components"
-assert "Has hooks/hooks.json" "[ -f plugins/loom-governance/hooks/hooks.json ]"
+# LOOM-0032: the old assertion here was "hooks/hooks.json exists" -- a true statement
+# about a file that does nothing. A per-plugin hooks/hooks.json is never loaded in this
+# repo (LogicLoom's plugins/ tree is not a Claude Code plugin installation), so that
+# check manufactured confidence in wiring that has never fired. What actually carries
+# the governance floor is the ROOT wiring in .claude/settings.json invoking each guard
+# script by path -- so that is what we assert. This also catches the failure the threat
+# model calls out: root wiring left pointing at a missing script, which would make the
+# hook error non-blocking and silently thin the floor.
+for gscript in protect-governance-files.sh subagent-git-guard.sh git-safety-gate.sh; do
+  assert "floor: ${gscript} exists" "[ -f plugins/loom-governance/hooks/scripts/${gscript} ]"
+  assert "floor: ${gscript} wired from root settings.json" "grep -q '${gscript}' .claude/settings.json"
+done
 assert "Has at least 1 skill" "[ \$(find plugins/loom-governance/skills -name 'SKILL.md' | wc -l) -gt 0 ]"
 assert "Has at least 1 agent" "[ \$(ls plugins/loom-governance/agents/*.md 2>/dev/null | wc -l) -gt 0 ]"
 

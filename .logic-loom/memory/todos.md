@@ -385,7 +385,7 @@ and completed. Its id did not change on the way across.
       harden. Surfaced by the VISION #9-#18 audit (LOOM-0016), which found the
       thread understated its own gap.
 
-- [ ] LOOM-0031 — Reconcile threat-model residual #4 with the host's native sandbox `status:open`
+- [x] LOOM-0031 — Reconcile threat-model residual #4 with the host's native sandbox `status:done`
       `.docs/architecture/governance-threat-model.md` asserts "No execution
       sandbox" as a LogicLoom fact. The runtime now sandboxes Bash by default —
       `dangerouslyDisableSandbox` is the opt-out, which means sandboxing is the
@@ -395,7 +395,7 @@ and completed. Its id did not change on the way across.
       what the native boundary does and does not cover rather than replacing one
       overstatement with another.
 
-- [ ] LOOM-0032 — Determine empirically whether plugin `hooks/hooks.json` files fire at all `status:open`
+- [x] LOOM-0032 — Determine empirically whether plugin `hooks/hooks.json` files fire at all `status:done`
       `governance-threat-model.md` (~line 248) records the flat-array shape used
       by `plugins/*/hooks/hooks.json` as "almost certainly inert", which would
       mean `loom-orchestrator`'s Stop/SubagentStop hooks have never run. The

@@ -184,7 +184,9 @@ Memory: `architecture-v7-provider-portable-pivot`,
   Claude-Code-reference. We state which is which rather than overclaim (Pillar 6).
 - **Not a single methodology.** SDD is one pack among peers, not the product.
 - **Not a sandbox.** The hook floor is deterministic defense-in-depth, not an
-  execution jail. (An opt-in sandbox is an Open Thread, not a current claim.)
+  execution jail. (The host ships an opt-in Bash sandbox, off by default and
+  Bash-only; LogicLoom neither enables nor requires it. Surfacing that boundary
+  is Open Thread #15; building one is not a current claim.)
 - **Not ceremony.** Governance is enforced by hooks, not by making the model
   recite a checklist every message.
 - **Not a GraphRAG / LLM-extraction system.** The graph is deterministic text.
@@ -361,14 +363,18 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
     Build a real, low-overhead stream (subagent lifecycle, hook decisions, cost)
     — Principle VII made tangible.
 
-    **Re-verified 2026-08-24 — still open, and understated.** The hook is
-    `plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh`: it
-    appends one `subagent_stop agent=<name>` line, and only when
-    `.logic-loom/logs/` already exists. Worse, it is wired only through that
-    plugin's own `hooks/hooks.json`, whose flat-array shape the threat model
-    records as "almost certainly inert" — so the stub may not fire at all
-    (`subagent-activity.log` holds a single line, last written 2026-06-14). No
-    hook-decision or cost stream exists anywhere.
+    **Re-verified 2026-08-24 — the stub is gone; the gap is now honest.**
+    Investigation (LOOM-0032) established that the hook never fired: a per-plugin
+    `hooks/hooks.json` is never loaded in this repo, because LogicLoom's
+    `plugins/` tree is not a Claude Code plugin installation — Claude Code reads
+    plugin hooks from `~/.claude/plugins/*/hooks/hooks.json`, and our tree is
+    consumed only by the command bridge, which does not bridge hooks. Across ~98
+    subagent completions between 2026-06-14 and 2026-08-24,
+    `subagent-activity.log` never grew past its single line. The dead wiring, the
+    stub script, and the stale log were deleted rather than repaired. So there is
+    now **no** subagent-lifecycle, hook-decision, or cost stream anywhere — which
+    is what was true before, minus a file that implied otherwise. Building one
+    remains open.
 
 12. **Cost discipline / preview.** Token and cost budgets plus a pre-flight
     estimate for swarm/workflow fan-outs.
@@ -405,13 +411,20 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
     offered opt-in — keeps "floor, not sandbox" honest while giving those who
     want a jail a path to one.
 
-    **Re-scoped 2026-08-24 — still open, but the "build it" half is now
-    suspect.** The host itself sandboxes tool execution (the Bash tool exposes a
-    `dangerouslyDisableSandbox` escape hatch — i.e. isolation is the runtime's
-    default posture, not a missing LogicLoom layer). Under Pillar 2 the honest
-    thread is now *evaluate and surface the native boundary*, not build one.
-    Threat-model residual #4 still asserts "no execution sandbox" as a LogicLoom
-    fact and needs the same reconciliation.
+    **Re-scoped 2026-08-24 — still open; the "build it" half is suspect, but the
+    first re-scope overcorrected and is itself corrected here (LOOM-0031).** The
+    host *has* an isolation layer — Claude Code's built-in Bash sandbox (macOS
+    Seatbelt; Linux/WSL2 bubblewrap) — so building one would be reimplementation
+    under Pillar 2. But it is **not** the runtime's default posture: it is keyed
+    on `sandbox.enabled`, which defaults off, and the Bash tool's
+    `dangerouslyDisableSandbox` parameter is a static schema field, not proof
+    that isolation is on. It also covers **Bash subprocesses only** (Read/Edit/
+    Write use the permission system), leaves reads machine-wide by default, and
+    fails open when it cannot start. The honest thread is therefore *evaluate and
+    surface the native boundary* — decide whether this repo should ship an opt-in
+    `sandbox.enabled` posture and document its limits — not build one, and not
+    claim we already have one. Threat-model residual #4 has been rewritten to
+    match; see `.docs/architecture/governance-threat-model.md`.
 
 16. **Evaluator-protocol maturation.** Harden `/review-team`'s behavioral
     evaluator contract (chrome-devtools MCP) and its hard-gate semantics.

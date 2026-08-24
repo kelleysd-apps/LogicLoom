@@ -16,7 +16,9 @@ Governance is one layer among several; rely on the stack, not any single gate:
 1. **Permissions** (allow/deny/ask in settings) — coarse daily policy.
 2. **PreToolUse hooks** (this layer) — deterministic, model-independent policy at the tool boundary.
 3. **MCP allowlists** — tool-surface governance.
-4. **Sandboxing** (NOT yet a LogicLoom layer — see Residual #4) — blast-radius limit.
+4. **Sandboxing** — blast-radius limit. A **host** capability (Claude Code's
+   built-in Bash sandbox), opt-in and off by default; LogicLoom neither ships nor
+   enables one. See Residual #4 for what it covers and what it does not.
 5. **Audit/observability** — evidence (`governance-preflight` audit log).
 6. **PR / CI review** — the human release boundary.
 
@@ -133,11 +135,76 @@ hidden; close them with the defense-in-depth stack above, not by trusting hooks.
 3. **Silent hook failure.** A non-zero hook exit does not always block a tool
    call (esp. batched calls). Hooks here fail *open* on infra gaps deliberately
    (never block on a broken policy lib); that is a safety/availability trade.
-4. **No execution sandbox.** `worktree-port-namespace` is *collision avoidance*,
-   not isolation. For untrusted / auto-approved execution, add an opt-in
-   container/VM boundary (e.g. the OpenHands swap-the-workspace pattern). This is
-   a deliberate non-goal for the Claude-Code-native, human-approved default
-   posture; revisit if auto-approval is enabled.
+4. **Execution isolation is the host's, it is opt-in, and LogicLoom ships none
+   of its own.** The earlier wording here — "no execution sandbox" — was wrong in
+   the same way an overclaim is wrong, just pointing the other direction: it
+   asserted an absence that is not real. Corrected 2026-08-24 (LOOM-0031).
+
+   **What exists (official docs + verified in use).** Claude Code ships a
+   built-in Bash sandbox: macOS Seatbelt (`/usr/bin/sandbox-exec`), Linux/WSL2
+   bubblewrap + socat with an optional seccomp filter. When on, it restricts
+   *writes* to the working directory plus the session `$TMPDIR`, restricts
+   *network egress* to an allowlist enforced by a local proxy, and can unset or
+   mask credential env vars and deny reads of credential files. Subagents inherit
+   the parent session's sandbox configuration.
+
+   **What it is NOT (this is the part that keeps the residual real).**
+   - **Opt-in, not the standing posture.** It is keyed on `sandbox.enabled`,
+     which defaults off. *Verified in use:* neither `~/.claude/settings.json` nor
+     this repo's `.claude/settings.json` sets a `sandbox` key, and a probe from
+     inside a session wrote to `$HOME` and `/tmp`, saw an unmodified `$TMPDIR`,
+     and reached an unallowlisted host — i.e. no sandbox was in force. The
+     presence of the Bash tool's `dangerouslyDisableSandbox` parameter is **not**
+     evidence that isolation is on; the parameter sits in the static tool schema
+     regardless, and is inert when the sandbox is disabled or when
+     `allowUnsandboxedCommands: false`.
+   - **Bash-only.** Official docs, § *Scope*: "The sandbox isolates Bash
+     subprocesses." `Read`, `Edit`, and `Write` go through the permission system
+     instead — so an agent writing to an allowed path, or to *any* path via the
+     file tools, is not a sandbox question at all. That is exactly the gap
+     `freeze-write-scope` covers, and exactly why residual #2 (Bash write-path
+     escape of the freeze DAG) is not closed by turning the sandbox on.
+   - **Reads are wide open by default.** The default read policy allows the whole
+     machine minus a denied set; `~/.ssh` and `~/.aws/credentials` are readable
+     unless `sandbox.credentials` or `denyRead` is configured.
+   - **Fails open.** If the sandbox cannot start (missing dependency,
+     unsupported platform — native Windows is unsupported), the default is a
+     warning and unsandboxed execution, unless `sandbox.failIfUnavailable` is
+     set. Same trade as residual #3, one layer down.
+   - **The model can leave it.** On a sandbox-caused failure Claude may retry
+     with `dangerouslyDisableSandbox: true`; the retry drops to the normal
+     permission flow rather than to nothing, but the boundary is per-call and
+     model-initiated unless `allowUnsandboxedCommands` is `false`.
+   - **Anthropic grades it porous itself.** Documented limitations include
+     domain-fronting past a proxy that allowlists on the client-supplied
+     hostname without TLS inspection, Unix-socket escalation (`docker.sock`),
+     `allowWrite` paths on `$PATH` or over shell rc files, `allowAppleEvents`
+     removing code-execution isolation on macOS, and env vars inherited into
+     sandboxed commands including credentials.
+
+   **Where the two boundaries meet.** They are orthogonal, not stacked. The host
+   sandbox bounds *what a Bash subprocess can touch* and is blind to intent;
+   LogicLoom's hooks bound *which operations an agent may request* (git
+   mutations, the governance surface, DAG-owned paths) and are blind to what a
+   subprocess actually does once launched — residual #1. Each covers the other's
+   blind spot only partially: the sandbox would catch a `python -c` git write
+   *outside the allowed tree*, but not one inside the working directory, which is
+   where every interesting repo mutation lives. Turning the sandbox on therefore
+   narrows residuals #1 and #2 at the edges and closes neither.
+
+   **What genuinely remains.** LogicLoom does not enable, require, configure, or
+   verify the host sandbox; nothing in `.claude/settings.json`, no hook, and no
+   preflight reads `sandbox.*`. So the harness's shipped posture is unsandboxed
+   by default, and the honest floor statement is unchanged: hooks are a porous
+   floor, and the isolation layer beneath them is a host feature the operator has
+   to switch on. `worktree-port-namespace` remains *collision avoidance*, not
+   isolation, and contributes nothing here. Under Pillar 2 the open work is to
+   **evaluate and surface** the native boundary — a documented, opt-in
+   `sandbox.enabled` posture for this repo, with the Bash-only and fail-open
+   caveats stated — not to build a container/VM layer of our own. Revisit the
+   priority if auto-approval is ever enabled: `autoAllowBashIfSandboxed` defaults
+   to `true`, so enabling the sandbox and enabling auto-approval are the same
+   decision unless it is explicitly set to `false`.
 5. **Cross-check CLI mode trusts the provider sandbox, not our hooks.** The
    `cross-check` skill's opt-in Mode B (`--deep`) shells an external provider CLI
    (`codex exec --sandbox read-only --ask-for-approval never …`) so a non-Claude
@@ -243,15 +310,37 @@ the same verdict functions**.
 >   (deferred). A per-plugin `hooks/hooks.json` must **never** be a second wiring
 >   source. `loom-governance` ships one anyway, in an **undocumented flat-array
 >   shape** (`{hooks:[{event,matcher,command}]}`) that Claude Code's canonical
->   schema (object keyed by event, `hooks:[{type,command}]`) does not define — so
->   it is almost certainly **inert**, and the floor holds only because root wires
->   the same three scripts. It is **retained** (the contract test
->   `test_plugin_lifecycle.sh` asserts its existence) and recorded here as
->   **non-authoritative**. Reconciling the shape across both plugin hooks files
->   (`loom-governance`, `loom-orchestrator` — which uses the same shape for its
->   `Stop`/`SubagentStop` hooks and may therefore be silently non-firing) and
->   their tests, after empirically confirming whether Claude Code loads either,
->   is a tracked follow-up — not a floor dependency.
+>   schema (object keyed by event, `hooks:[{type,command}]`) does not define.
+>
+>   **Settled empirically 2026-08-24 (LOOM-0032) — confirmed inert, and for a
+>   blunter reason than the shape.** A per-plugin `hooks/hooks.json` is never read
+>   in this repo *at all*. Claude Code loads plugin hooks from
+>   `~/.claude/plugins/*/hooks/hooks.json` — i.e. from **installed** plugins — and
+>   LogicLoom's `plugins/` tree is not a plugin installation: the repo ships no
+>   `.claude-plugin/marketplace.json`, and no `loom-*` plugin appears in
+>   `~/.claude/plugins/installed_plugins.json` or in `enabledPlugins`. The tree is
+>   consumed only by `sync-plugin-commands.sh`, which bridges **commands** into
+>   `.claude/commands/` and has no equivalent path for hooks. The shape mismatch is
+>   real but secondary — the file is never opened, so it could not fire even in the
+>   canonical shape.
+>
+>   Observational confirmation on the `loom-orchestrator` twin: its
+>   `Stop`/`SubagentStop` wiring left `.logic-loom/logs/subagent-activity.log` at a
+>   single line dated 2026-06-14 across ~98 subagent completions logged in the
+>   session transcripts through 2026-08-24, while the hook script itself writes
+>   correctly when invoked directly. Registration, not the script, was the failure.
+>
+>   **Disposition.** `loom-orchestrator/hooks/` was **deleted** (nothing consumed
+>   the log; a live `Stop` hook would append an `agent=unknown` line every
+>   main-agent turn forever), along with its contract assertions. The floor is
+>   unaffected: it holds because **root** wires the three guard scripts by path.
+>   `loom-governance/hooks/hooks.json` is dead weight for the same reason and
+>   should be removed too — it survives only because it sits on the protected
+>   surface and needs a main-agent, user-approved edit. Its contract test no longer
+>   asserts the file's existence; `test_plugin_lifecycle.sh` now asserts the thing
+>   that is actually load-bearing — that each guard script exists **and** is wired
+>   from `.claude/settings.json` — which is also the check that catches root wiring
+>   left pointing at a missing script.
 > - **`guard-dangerous-commands.sh` — bash<4 fail-open is CLOSED.** Previously the
 >   policy lib needed bash 4+ (associative arrays, `declare -g`) while macOS ships
 >   3.2, so the dangerous-command policy was silently **unenforced** on stock
