@@ -29,9 +29,16 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # SOURCES, in order of authority
 # ─────────────────────────────────────────────────────────────────────────────
-#   1. .logic-loom/memory/backlog.md   cross-cutting harness work   level "backlog"
-#   2. features/*/plan.md              feature task DAGs            level "feature"
-#   3. specs/*/tasks.md                SDD waterfall checkboxes     level "spec"
+#   1. .logic-loom/memory/todos.md     cross-cutting work, ACTIVE   level "todo"
+#   2. .logic-loom/memory/backlog.md   cross-cutting work, DEFERRED level "backlog"
+#   3. features/*/plan.md              feature task DAGs            level "feature"
+#   4. specs/*/tasks.md                SDD waterfall checkboxes     level "spec"
+#
+# Sources 1 and 2 are TWO STREAMS OF ONE THING. They share a grammar (specified
+# once, in backlog.md), a parser (parse_item_file below), a linter, and — the
+# load-bearing part — ONE ID SPACE: a `blocked_on:` reference crosses freely
+# between them, so a duplicate id across the two files is exactly as fatal as a
+# duplicate within one. They differ only in scope and in the `level` they carry.
 #
 # Every source is OPTIONAL. Zero sources is a normal state (a fresh clone has no
 # features and no specs) and produces a valid index with an empty `items` array,
@@ -43,7 +50,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # ADDING A SOURCE — the one extension point
 # ─────────────────────────────────────────────────────────────────────────────
-# Adding a fourth item class is a DECLARED change: one row in `SOURCE_TABLE`
+# Adding another item class is a DECLARED change: one row in `SOURCE_TABLE`
 # plus one parser function. Nothing else in this script changes — the collection
 # loop, the fatal gate, the digest and the emit step are all class-agnostic.
 #
@@ -221,7 +228,7 @@
 #
 #   PRODUCER (this script, at schema_version 1) emits `status` only from
 #   { open, in_progress, blocked, done } and `level` only from
-#   { backlog, feature, spec }. A source value outside those is a FATAL defect —
+#   { todo, backlog, feature, spec }. A source value outside those is a FATAL defect —
 #   the collector refuses to publish rather than inventing a mapping.
 #
 #   CONSUMER of an index MUST tolerate a `status` or `level` it does not
@@ -266,9 +273,9 @@
 #      the consumer's primary key. Two rows sharing one is not a merge — it is an
 #      index where "the item with id X" has no answer, and which row a consumer
 #      picks depends on its own iteration order.
-#   2. A LINE BELOW `## Items` IN backlog.md THAT LOOKS LIKE AN ITEM AND DOES NOT
-#      PARSE — missing ` — ` separator, malformed id, missing `status:` tag, or a
-#      `status:` value outside the closed vocabulary. By that file's grammar the
+#   2. A LINE BELOW `## Items` IN todos.md OR backlog.md THAT LOOKS LIKE AN ITEM
+#      AND DOES NOT PARSE — missing ` — ` separator, malformed id, missing `status:` tag, or a
+#      `status:` value outside the closed vocabulary. By the shared grammar the
 #      `## Items` section contains items and nothing else, so a `- [ ]` line there
 #      IS a claim of work; dropping it makes real work invisible to every
 #      consumer while it still looks tracked to the human who wrote it.
@@ -372,6 +379,7 @@ collect() { # reads a parser's stdout on stdin
 # error. To add a class, add a row here and a parser below. See ADDING A SOURCE
 # in the header.
 SOURCE_TABLE='
+.logic-loom/memory/todos.md|todo|parse_todos
 .logic-loom/memory/backlog.md|backlog|parse_backlog
 features/*/plan.md|feature|parse_plan
 specs/*/tasks.md|spec|parse_tasks
@@ -395,7 +403,7 @@ if [ -r "$CONF" ]; then
   done < "$CONF"
 fi
 
-# ── PARSER: backlog.md  (level "backlog") ────────────────────────────────────────────────────────────
+# ── PARSER: todos.md / backlog.md  (levels "todo" / "backlog") ────────────────────────────────────────────────────────────
 # Items live ONLY below `## Items`, to the next `## ` or EOF. Fenced blocks are
 # skipped everywhere — without that rule the grammar's own worked examples become
 # real items. Emits: level id status blocked_on file heading title
@@ -408,8 +416,16 @@ fi
 # whitespace is preserved, because an `external:` entry carries a free-text
 # reason. (The pre-external parser stripped all whitespace, which was harmless
 # only while every entry was an id.)
-parse_backlog() { # $1 = absolute file  $2 = repo-relative path
-  awk -v FILE="$2" '
+#
+# ONE PARSER, TWO STREAMS. todos.md and backlog.md share a grammar by design —
+# it is specified once, in backlog.md, and `todos.md` points at it rather than
+# restating it. Forking the parser would be implementing a second grammar that
+# no document specifies, so the only per-stream difference is the `level`
+# stamped on each row. `parse_todos` and `parse_backlog` are one-line wrappers
+# so the SOURCE_TABLE contract stays exactly three columns and every parser is
+# still called with the documented three arguments.
+parse_item_file() { # $1 = absolute file  $2 = repo-relative path  $3 = level
+  awk -v FILE="$2" -v LEVEL="$3" '
     function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
     function err(msg) { printf("!ERR\t%s: %s\n", FILE, msg) }
     BEGIN { ins = 0; fence = 0; heading = "" }
@@ -452,10 +468,13 @@ parse_backlog() { # $1 = absolute file  $2 = repo-relative path
         }
       }
       gsub(/\t/, " ", title)
-      printf("backlog\t%s\t%s\t%s\t%s\t%s\t%s\n", id, status, bo, FILE, heading, title)
+      printf("%s\t%s\t%s\t%s\t%s\t%s\t%s\n", LEVEL, id, status, bo, FILE, heading, title)
     }
   ' "$1"
 }
+
+parse_todos()   { parse_item_file "$1" "$2" todo; }
+parse_backlog() { parse_item_file "$1" "$2" backlog; }
 
 # ── PARSER: features/*/plan.md  (level "feature") ────────────────────────────────────────────────────
 # The plan DAG lives in leading YAML frontmatter. Task ids are PROJECT-LOCAL and

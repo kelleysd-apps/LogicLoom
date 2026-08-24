@@ -34,6 +34,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 POLICY_LIB="$ROOT_DIR/.logic-loom/lib/policy.sh"
 
+# Operations-log isolation: policy.sh logs every blocked/approval command via
+# logging.sh, which defaults to the shared .logic-loom/logs/operations/ file.
+# Point it at a temp dir (same idiom as LOOM_CHECKPOINT_DIR in
+# .logic-loom/tests/test-git-safety.sh) so the suite is not stateful across runs
+# and does not pollute the working tree.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+cleanup_test_logs() {
+  if [ -n "${LOOM_LOG_DIR:-}" ] && [ -d "$LOOM_LOG_DIR" ]; then
+    case "$LOOM_LOG_DIR" in
+      */loom-logs.*) rm -rf "$LOOM_LOG_DIR" ;;
+    esac
+  fi
+}
+trap cleanup_test_logs EXIT
+
 PASS=0; FAIL=0; TOTAL=0
 
 echo "=== Policy Pattern-Matching Contract Tests ==="

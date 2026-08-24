@@ -185,10 +185,19 @@ echo ""
 # This is the whole reason class is a dimension. An absent section is ambiguous:
 # a reader cannot tell "there is no spec work" from "the collector never looked
 # at specs/". An empty section that names its source path is unambiguous.
+#
+# THE TODO STREAM IS ONE OF THE EMPTY CLASSES HERE, ON PURPOSE. todos.md and
+# backlog.md are two halves of one stream, and a project can legitimately have
+# nothing active — an all-deferred state has to read as "nothing here", never as
+# "the todos file was not looked at".
 echo "3b. An empty class renders as empty-with-its-source-path"
 assert "the empty 'spec' class still has a section" "grep -q 'id=\"cls-spec\"' '$PAGE'"
-assert "the empty class shows a count of 0" \
-  "[ \"\$(grep -c '<span class=\"count cls-count\">0<' '$PAGE')\" = '1' ]"
+assert "the empty 'todo' STREAM still has a section (all-deferred is a real state)" \
+  "grep -q 'id=\"cls-todo\"' '$PAGE'"
+assert "the empty todo stream names todos.md, so 'nothing here' != 'never looked'" \
+  "grep -q '.logic-loom/memory/todos.md' '$PAGE'"
+assert "both empty classes show a count of 0" \
+  "[ \"\$(grep -c '<span class=\"count cls-count\">0<' '$PAGE')\" = '2' ]"
 assert "the empty class names the path it would have read" \
   "grep -q 'specs/\*/tasks.md' '$PAGE'"
 assert "the empty class says so in words, not by absence" \
@@ -507,13 +516,18 @@ assert "known classes are still declared even with an Other section present" \
   "grep -q 'id=\"cls-feature\"' '$LP'"
 echo ""
 
-# ── 15. THREE-CLASS proof, end to end through the real collector ─────────────
-# The real repo has backlog items only, so the feature and spec paths are
-# untested in practice. This builds a repo-shaped fixture with all three source
+# ── 15. FOUR-CLASS proof, end to end through the real collector ──────────────
+# The real repo has todo + backlog items only, so the feature and spec paths are
+# untested in practice. This builds a repo-shaped fixture with all four source
 # documents populated, runs the ACTUAL collector over it, and renders. It proves
 # the collector's SOURCE TABLE and the dashboard's CLASS TABLE agree in fact,
 # not just on paper.
-echo "15. Three-class fixture: backlog + feature plan + spec tasks all render"
+#
+# It also proves the todo/backlog pair behaves as ONE stream in TWO files: a
+# cross-stream `blocked_on:` (a deferred item blocked on an active one) has to
+# resolve to an on-page link, which it can only do if both files land in one
+# index with one id space.
+echo "15. Four-class fixture: todos + backlog + feature plan + spec tasks all render"
 if [ -f "$COLLECTOR" ]; then
   T3="$TMP/three"
   mkdir -p "$T3/.logic-loom/memory" "$T3/.logic-loom/config" \
@@ -524,11 +538,19 @@ project_name=Tri Class
 id_prefix=TRI
 CONF_EOF
   {
-    printf '# Backlog\n\n## Items\n\n'
+    printf '# Todos\n\n## Items\n\n'
     printf '### Governance\n\n'
-    printf -- '- [ ] TRI-0001 — A cross-cutting open item `status:open`\n'
-    printf -- '- [ ] TRI-0002 — A cross-cutting blocked item `status:blocked` `blocked_on:TRI-0001`\n'
-    printf -- '- [x] TRI-0003 — A cross-cutting done item `status:done`\n'
+    printf -- '- [ ] TRI-0001 — An active open item `status:open`\n'
+    printf -- '- [ ] TRI-0002 — An active blocked item `status:blocked` `blocked_on:TRI-0001`\n'
+    printf -- '- [x] TRI-0003 — An active done item `status:done`\n'
+  } > "$T3/.logic-loom/memory/todos.md"
+  {
+    printf '# Backlog\n\n## Items\n\n'
+    printf '### Deferred\n\n'
+    printf -- '- [ ] TRI-0004 — A deferred item `status:open`\n'
+    # CROSS-STREAM blocker: deferred item, blocked on an ACTIVE todo in the
+    # OTHER file. One id space is the only thing that makes this resolve.
+    printf -- '- [ ] TRI-0005 — A deferred item blocked on an active one `status:blocked` `blocked_on:TRI-0001`\n'
   } > "$T3/.logic-loom/memory/backlog.md"
   cat > "$T3/features/alpha/plan.md" <<'PLAN_EOF'
 ---
@@ -563,20 +585,26 @@ TASK_EOF
   T3P="$TMP/three.html"
   N3="$(jq -r '.items | length' "$TMP/three.json" 2>/dev/null || echo 0)"
   echo "     (collector exit $RC3; index: $N3 item(s); levels: $(jq -rc '[.items[].level]|unique' "$TMP/three.json" 2>/dev/null))"
-  assert "the collector accepted the three-source fixture" "[ $RC3 -eq 0 ]"
-  assert "it collected all 8 items (3 backlog + 3 feature + 2 spec)" "[ \"\$N3\" = '8' ]"
-  assert "the index carries all three levels" \
-    "[ \"\$(jq -rc '[.items[].level]|unique|join(\",\")' '$TMP/three.json')\" = 'backlog,feature,spec' ]"
+  assert "the collector accepted the four-source fixture" "[ $RC3 -eq 0 ]"
+  assert "it collected all 10 items (3 todo + 2 backlog + 3 feature + 2 spec)" "[ \"\$N3\" = '10' ]"
+  assert "the index carries all four levels" \
+    "[ \"\$(jq -rc '[.items[].level]|unique|join(\",\")' '$TMP/three.json')\" = 'backlog,feature,spec,todo' ]"
+  assert "todo and backlog items are distinguished by level, not by id shape" \
+    "[ \"\$(jq -r '.items[]|select(.id==\"TRI-0001\")|.level' '$TMP/three.json')\" = 'todo' ] && [ \"\$(jq -r '.items[]|select(.id==\"TRI-0004\")|.level' '$TMP/three.json')\" = 'backlog' ]"
   assert "every item reached the page" \
     "[ \"\$(grep -c 'class=\"item\"' '$T3P')\" = \"\$N3\" ]"
-  assert "all three class sections rendered" \
-    "grep -q 'id=\"cls-backlog\"' '$T3P' && grep -q 'id=\"cls-feature\"' '$T3P' && grep -q 'id=\"cls-spec\"' '$T3P'"
+  assert "all four class sections rendered" \
+    "grep -q 'id=\"cls-todo\"' '$T3P' && grep -q 'id=\"cls-backlog\"' '$T3P' && grep -q 'id=\"cls-feature\"' '$T3P' && grep -q 'id=\"cls-spec\"' '$T3P'"
+  assert "TODOS render BEFORE backlog on the page" \
+    "[ \"\$(grep -n 'id=\"cls-todo\"' '$T3P' | head -1 | cut -d: -f1)\" -lt \"\$(grep -n 'id=\"cls-backlog\"' '$T3P' | head -1 | cut -d: -f1)\" ]"
   assert "no class is empty in this fixture (no empty-section text)" \
     "! grep -q 'No items of this class' '$T3P'"
-  assert "per-class counts are 3 / 3 / 2 in table order" \
-    "[ \"\$(grep -oE '<span class=\"count cls-count\">[0-9]+' '$T3P' | grep -oE '[0-9]+\$' | tr '\\n' ' ')\" = '3 3 2 ' ]"
+  assert "per-class counts are 3 / 2 / 3 / 2 in table order" \
+    "[ \"\$(grep -oE '<span class=\"count cls-count\">[0-9]+' '$T3P' | grep -oE '[0-9]+\$' | tr '\\n' ' ')\" = '3 2 3 2 ' ]"
   assert "each class shows the source document it came from" \
-    "grep -q '.logic-loom/memory/backlog.md' '$T3P' && grep -q 'features/\*/plan.md' '$T3P' && grep -q 'specs/\*/tasks.md' '$T3P'"
+    "grep -q '.logic-loom/memory/todos.md' '$T3P' && grep -q '.logic-loom/memory/backlog.md' '$T3P' && grep -q 'features/\*/plan.md' '$T3P' && grep -q 'specs/\*/tasks.md' '$T3P'"
+  assert "a CROSS-STREAM blocker resolves: deferred TRI-0005 links to active TRI-0001" \
+    "grep -A6 'id=\"item-TRI-0005\"' '$T3P' | grep -q 'href=\"#item-TRI-0001\"'"
   assert "feature ids are namespaced by their feature directory" \
     "grep -q 'id=\"item-alpha:t2\"' '$T3P'"
   assert "spec ids are namespaced by their spec directory" \

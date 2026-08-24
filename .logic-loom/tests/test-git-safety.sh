@@ -8,6 +8,14 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Operations-log isolation. MUST be set BEFORE common.sh is sourced: logging.sh
+# resolves LOG_FILE from LOOM_LOG_DIR once, at source time, so exporting it later
+# would be too late and the suite would keep appending to the shared
+# .logic-loom/logs/operations/ file. (LOOM_CHECKPOINT_DIR below has no such
+# ordering constraint — checkpoint_dir_path reads it at call time.)
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+
 # Source the library under test. common.sh pulls in logging.sh/policy.sh which
 # require bash 4+ (associative arrays). Under bash 3.2 those `declare -A` lines
 # trip `set -u` and would terminate the sourcing shell (can't be `||`-caught
@@ -30,10 +38,17 @@ fi
 # common.sh honours LOOM_CHECKPOINT_DIR (see checkpoint_dir_path).
 LOOM_CHECKPOINT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-checkpoints.XXXXXX")"
 export LOOM_CHECKPOINT_DIR
+# Both temp dirs are cleaned up by the SAME trap — a second `trap ... EXIT`
+# would REPLACE this one rather than add to it.
 cleanup_test_checkpoints() {
     if [ -n "${LOOM_CHECKPOINT_DIR:-}" ] && [ -d "$LOOM_CHECKPOINT_DIR" ]; then
         case "$LOOM_CHECKPOINT_DIR" in
             */loom-checkpoints.*) rm -rf "$LOOM_CHECKPOINT_DIR" ;;
+        esac
+    fi
+    if [ -n "${LOOM_LOG_DIR:-}" ] && [ -d "$LOOM_LOG_DIR" ]; then
+        case "$LOOM_LOG_DIR" in
+            */loom-logs.*) rm -rf "$LOOM_LOG_DIR" ;;
         esac
     fi
 }

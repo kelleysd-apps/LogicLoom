@@ -4,6 +4,16 @@
 # Feature: 005-agent-architecture-refactor
 set -euo pipefail
 
+# Operations-log isolation: the scripts this suite drives source common.sh /
+# logging.sh, which otherwise append to the shared
+# .logic-loom/logs/operations/ file. LOOM_LOG_DIR redirects that (same idiom as
+# LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh), exported so
+# subprocesses inherit it, and set before anything is sourced because logging.sh
+# resolves LOG_FILE once at source time.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+trap 'rm -rf "$LOOM_LOG_DIR"' EXIT
+
 PASS=0; FAIL=0; TOTAL=0
 
 assert() {

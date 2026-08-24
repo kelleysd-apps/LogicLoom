@@ -36,6 +36,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
 fi
 cd "$ROOT"
 
+# Operations-log isolation: the scripts this suite drives source common.sh /
+# logging.sh, which otherwise append to the shared
+# .logic-loom/logs/operations/ file. LOOM_LOG_DIR redirects that (same idiom as
+# LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh), exported so
+# subprocesses inherit it.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+trap 'rm -rf "$LOOM_LOG_DIR"' EXIT
+
 # Tier keywords that a `model:` field is allowed to hold.
 TIER_RE='^(opus|sonnet|haiku|inherit)$'
 # A concrete pinned Claude id (what we forbid in frontmatter / scaffolder default).

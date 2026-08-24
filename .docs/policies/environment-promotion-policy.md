@@ -881,7 +881,7 @@ asserts they are **not** stripped.
 - Governance threat model (enforced vs. followed): `.docs/architecture/governance-threat-model.md`
 - Reference implementation, § 3: `.github/workflows/branch-topology-guard.yml`
 - Reference implementation, § 4.2: `.logic-loom/scripts/bash/check-generated-freshness.sh`
-- Backlog: `.logic-loom/memory/backlog.md` (LOOM-0024 … LOOM-0027)
+- Level 0 work items (LOOM-0024 … LOOM-0027): `.logic-loom/memory/todos.md` (LOOM-0024, LOOM-0025, LOOM-0026) and `.logic-loom/memory/backlog.md` (LOOM-0027)
 
 ---
 

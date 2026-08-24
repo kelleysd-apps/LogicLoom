@@ -3,8 +3,9 @@
 #
 # Two artifacts under test:
 #   .logic-loom/scripts/bash/build-backlog-index.sh  — collects the task SOURCES
-#     (.logic-loom/memory/backlog.md, features/*/plan.md, specs/*/tasks.md) into
-#     one small JSON index at .logic-loom/backlog-index.json.
+#     (.logic-loom/memory/todos.md, .logic-loom/memory/backlog.md,
+#     features/*/plan.md, specs/*/tasks.md) into one small JSON index at
+#     .logic-loom/backlog-index.json.
 #   .logic-loom/scripts/bash/lint-backlog.sh         — lints those same SOURCES.
 #
 # What this suite guards, and why each one is here:
@@ -31,6 +32,11 @@
 #     by that class three times). Untracked makes staleness structurally
 #     impossible instead of merely detectable, so it is asserted, not assumed.
 #   * THE LINTER FIRES on every defect class it claims — one fixture per class.
+#   * TWO STREAMS, ONE ID SPACE — todos.md and backlog.md are separate files with
+#     separate `level` values but ONE id space, because `blocked_on:` references
+#     cross between them. Three things are asserted rather than assumed: a
+#     cross-stream reference RESOLVES, a colliding id minted in BOTH files is
+#     FATAL to the collector, and the linter reports it naming both files.
 #
 # MODES: the per-defect fixtures run the linter with --strict, because an exit
 # code is the only unambiguous proof that a finding fired. The REAL backlog is
@@ -126,6 +132,22 @@ cat > "$FX/.logic-loom/memory/backlog.md" <<'BL_EOF'
 - [ ] LOOM-8888 — below a later heading, must NOT be collected `status:open`
 BL_EOF
 
+# The ACTIVE half of Level 0. Separate file, separate level, SAME id space —
+# LOOM-0007 below is blocked on LOOM-0001, which lives in backlog.md.
+cat > "$FX/.logic-loom/memory/todos.md" <<'TD_EOF'
+# Fixture todos
+
+## Items
+
+### Being worked
+
+- [ ] LOOM-0007 — Active, blocked on a DEFERRED item in the other file `status:in_progress` `blocked_on:LOOM-0001`
+
+## Provenance
+
+- [ ] LOOM-6666 — below a later heading, must NOT be collected `status:open`
+TD_EOF
+
 cat > "$FX/features/alpha/plan.md" <<'PLAN_EOF'
 ---
 feature: alpha
@@ -200,6 +222,10 @@ echo ""
 echo "3. Collection scope (below ## Items, fences skipped)"
 assert "collects 6 backlog items" \
   "[ \"\$(jq -r '[.items[] | select(.level==\"backlog\")] | length' '$IDX')\" = '6' ]"
+assert "collects 1 todo item" \
+  "[ \"\$(jq -r '[.items[] | select(.level==\"todo\")] | length' '$IDX')\" = '1' ]"
+assert "a todo item below a LATER ## heading is not collected either" \
+  "! jq -e '.items[] | select(.id==\"LOOM-6666\")' '$IDX' >/dev/null 2>&1"
 assert "item ABOVE ## Items is not collected" \
   "! jq -e '.items[] | select(.id==\"LOOM-7777\")' '$IDX' >/dev/null 2>&1"
 assert "item inside a fenced block is not collected" \
@@ -250,6 +276,26 @@ assert "no blocker_type / blocker_kind field was invented" \
   "! jq -e '[.items[] | keys[]] | index(\"blocker_type\") or index(\"blocker_kind\")' '$IDX' >/dev/null 2>&1"
 assert "every non-external blocker resolves to an id in the index" \
   "[ \"\$(jq -r '[.items[].id] as \$ids | [.items[] | .blocked_on[] | select(startswith(\"external:\") | not) | select(\$ids | index(.) == null)] | length' '$IDX')\" = '0' ]"
+echo ""
+
+# ── 5c. TWO STREAMS, ONE ID SPACE ────────────────────────────────────────────
+# todos.md (active) and backlog.md (deferred) are two files holding two halves of
+# one stream. They carry different `level` values and share ONE id space, because
+# an item moves between them by cut-and-paste KEEPING ITS ID, and `blocked_on:`
+# references cross freely — a deferred item blocked on an active decision, an
+# active item blocked on something parked. If the ids were per-file, a reference
+# would have two answers.
+echo "5c. todos.md and backlog.md are two levels over ONE id space"
+assert "the todo stream carries level 'todo'" \
+  "[ \"\$(jq -r '.items[] | select(.id==\"LOOM-0007\") | .level' '$IDX')\" = 'todo' ]"
+assert "the todo item's source.file is todos.md, derived from the path" \
+  "[ \"\$(jq -r '.items[] | select(.id==\"LOOM-0007\") | .source.file' '$IDX')\" = '.logic-loom/memory/todos.md' ]"
+assert "a CROSS-STREAM blocked_on resolves: todo LOOM-0007 -> backlog LOOM-0001" \
+  "[ \"\$(jq -r '.items[] | select(.id==\"LOOM-0007\") | .blocked_on | join(\",\")' '$IDX')\" = 'LOOM-0001' ] && [ \"\$(jq -r '[.items[] | select(.id==\"LOOM-0001\")] | length' '$IDX')\" = '1' ]"
+assert "the blocker's target is in the OTHER file (this is genuinely cross-stream)" \
+  "[ \"\$(jq -r '.items[] | select(.id==\"LOOM-0001\") | .level' '$IDX')\" = 'backlog' ]"
+assert "both streams land in ONE flat items array (no per-file nesting)" \
+  "[ \"\$(jq -rc '[.items[].level] | unique | join(\",\")' '$IDX')\" = 'backlog,feature,spec,todo' ]"
 echo ""
 
 # ── 6. source is DERIVED correctly ───────────────────────────────────────────
@@ -541,6 +587,74 @@ assert "a CLEAN run exits 0 and does replace the previous index" \
   "[ \"\$(fatal_rc cleanrun)\" = '0' ] && ! prev_intact cleanrun"
 echo ""
 
+# ── 14d. A COLLIDING ID ACROSS THE TWO STREAMS ───────────────────────────────
+# The one failure mode the split introduces. Each file alone is clean — the same
+# id minted once in todos.md and once in backlog.md is only wrong when you look
+# at both, which is exactly why the linter and the collector both look at both.
+#
+# Proved on the real machinery in a throwaway tree, from both ends:
+#   * the LINTER reports duplicate-id and names BOTH files (author-facing);
+#   * the COLLECTOR treats it as fatal — exit 3, nothing written (consumer-facing).
+echo "14d. A colliding id minted in BOTH todos.md and backlog.md is caught"
+COL="$TMP/collide"
+mkdir -p "$COL/.logic-loom/memory"
+{ echo "# todos"; echo; echo "## Items"; echo
+  printf -- '- [ ] LOOM-0030 — Minted in todos.md `status:open`\n'; } \
+  > "$COL/.logic-loom/memory/todos.md"
+{ echo "# backlog"; echo; echo "## Items"; echo
+  printf -- '- [ ] LOOM-0030 — Minted AGAIN in backlog.md `status:open`\n'; } \
+  > "$COL/.logic-loom/memory/backlog.md"
+# A previous, good index that must survive the refusal untouched.
+printf '{"schema_version":1,"items":["PREVIOUS"]}' > "$COL/.logic-loom/backlog-index.json"
+
+COL_LINT="$(bash "$LINTER" "$COL" --strict --quiet 2>&1 || true)"
+COL_LINT_RC=0; bash "$LINTER" "$COL" --strict --quiet >/dev/null 2>&1 || COL_LINT_RC=$?
+assert "linter: --strict exits 1 on the cross-file collision" "[ \"\$COL_LINT_RC\" = '1' ]"
+assert "linter: reports it as duplicate-id and names the id" \
+  "printf '%s' \"\$COL_LINT\" | grep -q '^duplicate-id:.*LOOM-0030'"
+assert "linter: names BOTH files, so the author knows where to look" \
+  "printf '%s' \"\$COL_LINT\" | grep -q 'todos.md' && printf '%s' \"\$COL_LINT\" | grep -q 'backlog.md'"
+
+COL_RC=0; SOURCE_DATE_EPOCH=1700000000 bash "$COLLECTOR" "$COL" >/dev/null 2>&1 || COL_RC=$?
+COL_ERR="$(SOURCE_DATE_EPOCH=1700000000 bash "$COLLECTOR" "$COL" 2>&1 >/dev/null || true)"
+assert "collector: the collision is FATAL (documented exit 3)" "[ \"\$COL_RC\" = '3' ]"
+assert "collector: the error names the duplicated id" \
+  "printf '%s' \"\$COL_ERR\" | grep -q \"duplicate id 'LOOM-0030'\""
+assert "collector: the error points at BOTH source files" \
+  "printf '%s' \"\$COL_ERR\" | grep -q 'todos.md' && printf '%s' \"\$COL_ERR\" | grep -q 'backlog.md'"
+assert "collector: nothing was written — the previous index is UNTOUCHED" \
+  "grep -q 'PREVIOUS' '$COL/.logic-loom/backlog-index.json'"
+
+# The control: the SAME two files with distinct ids are clean end to end. Without
+# this, the assertions above would also pass if the split had simply broken
+# collection of one of the files.
+sed -i.bak 's/LOOM-0030 — Minted AGAIN/LOOM-0031 — Minted once/' "$COL/.logic-loom/memory/backlog.md"
+rm -f "$COL/.logic-loom/memory/backlog.md.bak"
+OK_RC=0; SOURCE_DATE_EPOCH=1700000000 bash "$COLLECTOR" "$COL" >/dev/null 2>&1 || OK_RC=$?
+assert "control: distinct ids across the two files collect cleanly (exit 0)" "[ \"\$OK_RC\" = '0' ]"
+assert "control: both items are in the index, one per level" \
+  "[ \"\$(jq -rc '[.items[] | {(.level): .id}] | add | [.todo, .backlog] | join(\",\")' '$COL/.logic-loom/backlog-index.json')\" = 'LOOM-0030,LOOM-0031' ]"
+assert "control: the linter is silent on it (--strict exits 0)" \
+  "bash '$LINTER' '$COL' --strict --quiet >/dev/null 2>&1"
+echo ""
+
+# ── 14e. --next-id derives the counter from BOTH files ───────────────────────
+# The counter is DERIVED, not stored. A stored "next id" would live in one of the
+# two files and be silently wrong the moment an item was appended to the other,
+# which is the exact drift the split would otherwise have introduced.
+echo "14e. --next-id is derived across both streams, never stored"
+assert "next id is (highest across BOTH files) + 1" \
+  "[ \"\$(bash '$LINTER' '$COL' --next-id 2>/dev/null)\" = 'LOOM-0032' ]"
+printf -- '- [ ] LOOM-0099 — A much later id, in the TODOS half `status:open`\n' \
+  >> "$COL/.logic-loom/memory/todos.md"
+assert "it follows the highest id wherever it lives (todos this time)" \
+  "[ \"\$(bash '$LINTER' '$COL' --next-id 2>/dev/null)\" = 'LOOM-0100' ]"
+assert "no file in the repo stores a literal 'Next id to mint: LOOM-NNNN'" \
+  "! grep -rEq 'Next id to mint: [A-Z]+-[0-9]{4}' '$ROOT/.logic-loom/memory/' 2>/dev/null"
+assert "--next-id writes nothing (the two source files are unchanged)" \
+  "[ \"\$(bash '$LINTER' '$COL' --next-id 2>/dev/null)\" = 'LOOM-0100' ]"
+echo ""
+
 # ── 15. Live check against the REAL repo ─────────────────────────────────────
 # Guards a vacuous pass: if the parser broke, the real backlog would collect zero
 # items and every fixture assertion above could still be green.
@@ -552,6 +666,13 @@ assert "real repo produces valid JSON" "jq -e . '$TMP/real.json' >/dev/null 2>&1
 REAL_N="$(jq -r '.items | length' "$TMP/real.json" 2>/dev/null || echo 0)"
 echo "     (collected $REAL_N item(s) from the real repo)"
 assert "real backlog collects at least one item" "[ \"$REAL_N\" -ge 1 ]"
+# Both halves of Level 0 must actually be reached in THIS repo. A parser that
+# silently stopped reading one of the two files would leave every fixture above
+# green while half the real work vanished from every consumer.
+assert "the real repo collects items from BOTH Level 0 streams" \
+  "[ \"\$(jq -r '[.items[] | select(.level==\"todo\")] | length' '$TMP/real.json')\" -ge 1 ] && [ \"\$(jq -r '[.items[] | select(.level==\"backlog\")] | length' '$TMP/real.json')\" -ge 1 ]"
+assert "every real cross-stream blocker resolves inside the index" \
+  "[ \"\$(jq -r '[.items[].id] as \$ids | [.items[] | .blocked_on[] | select(startswith(\"external:\") | not) | select(\$ids | index(.) == null)] | length' '$TMP/real.json')\" = '0' ]"
 assert "collector emitted no parse warnings on real sources" \
   "! grep -q '^WARN:' '$TMP/real.err'"
 bash "$LINTER" "$ROOT" > "$TMP/lint-real.out" 2>&1; REAL_LINT_RC=$?

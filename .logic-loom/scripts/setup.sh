@@ -200,21 +200,12 @@ else
     echo -e "${GREEN}[OK]${NC} Dependencies already installed"
 fi
 
-# Install MCP server dependencies
-echo ""
-echo -e "${BLUE}Setting up MCP servers...${NC}"
-for mcp_dir in mcp-servers/*/; do
-    if [ -f "${mcp_dir}package.json" ]; then
-        mcp_name=$(basename "$mcp_dir")
-        if [ ! -d "${mcp_dir}node_modules" ]; then
-            echo -e "${BLUE}Installing ${mcp_name} dependencies...${NC}"
-            (cd "$mcp_dir" && npm install --production 2>/dev/null)
-            echo -e "${GREEN}[OK]${NC} ${mcp_name} dependencies installed"
-        else
-            echo -e "${GREEN}[OK]${NC} ${mcp_name} dependencies already installed"
-        fi
-    fi
-done
+# NOTE: an in-house `mcp-servers/*/` npm-install loop used to run here. The
+# directory went away with the sdd-marketplace MCP (see CHANGELOG v6.x); the
+# loop matched nothing and only printed a "Setting up MCP servers..." heading
+# over an empty section. LogicLoom now defers MCP discovery to the Anthropic
+# Plugin Marketplace and the Docker MCP Toolkit, so there is nothing for setup
+# to install.
 
 # Create .env file from template if it doesn't exist
 if [ ! -f ".env" ]; then

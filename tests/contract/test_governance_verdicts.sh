@@ -7,6 +7,14 @@
 # POSIX-ish shell with bash can run it.
 set -uo pipefail
 
+# Operations-log isolation. MUST be set BEFORE the lib is sourced: logging.sh
+# resolves LOG_FILE from LOOM_LOG_DIR once, at source time, so the suite would
+# otherwise keep appending to the shared .logic-loom/logs/operations/ file.
+# Same idiom as LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh;
+# exported so subshells/subprocesses inherit it. Removed by the EXIT trap below.
+LOOM_LOG_DIR="$(mktemp -d)"
+export LOOM_LOG_DIR
+
 LIB=".logic-loom/lib/governance-verdicts.sh"
 PASS=0; FAIL=0; TOTAL=0
 
@@ -230,7 +238,11 @@ echo "protected-path FLOOR vs ADDITIVE config (§3.1 — security-critical invar
 # Each case re-sources the lib in a SUBSHELL with LOOM_GOVERNANCE_CONF pointed at
 # a fixture, so no state leaks between cases and the outer suite is unaffected.
 PROT_TMP="$(mktemp -d)"
-trap 'rm -rf "$PROT_TMP"' EXIT
+# LOOM_LOG_DIR is set at the top of this file (logging.sh bakes LOG_FILE at
+# source time, so it has to be exported before anything sources the libs); it is
+# cleaned up by the SAME trap here, because a second `trap ... EXIT` would
+# replace this one rather than add to it.
+trap 'rm -rf "$PROT_TMP" "$LOOM_LOG_DIR"' EXIT
 
 protq() { # conf_path rel_path -> protected|not
   ( export LOOM_GOVERNANCE_CONF="$1"

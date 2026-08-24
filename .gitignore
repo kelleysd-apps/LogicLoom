@@ -44,9 +44,29 @@ secrets/
 coverage/
 .nyc_output/
 
-# Local development
+# Local development — per-user overrides that must never be committed.
+#
+# `.local/` and `*.local` alone did NOT cover the two files this section exists
+# for: gitignore patterns match the WHOLE basename, and `settings.local.json` /
+# `CLAUDE.local.md` end in `.json` / `.md`, not `.local`. They were ignored on
+# the maintainer's machine only by a personal ~/.config/git/ignore, so a cloner
+# got no protection at all. The real filenames are listed explicitly below.
+# (Comments get their own line: gitignore has no trailing-comment syntax — a `#`
+# after a pattern is part of the pattern.)
+
+# a directory a tool parks local state in
 .local/
+# files whose basename really does end in `.local` (e.g. `.env.local`)
 *.local
+
+# Claude Code per-user override files: the Local settings layer and personal
+# memory. `**/` so nested workspaces (apps/<name>/.claude/, a product subdir)
+# are covered too, not just the repo root.
+#
+# Local settings layer: personal permissions/env, never shared
+**/.claude/settings.local.json
+# personal memory, concatenated AFTER CLAUDE.md so it wins without editing core
+**/CLAUDE.local.md
 
 # Structured Logging (ignore log files, keep structure)
 .logic-loom/logs/operations/*.log

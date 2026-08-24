@@ -222,7 +222,13 @@ TITLE="$P_NAME"
 #              the page — and shown ESPECIALLY when the class is EMPTY, so a
 #              reader can tell "no work of this kind" from "nothing looked".
 #
-# Row order is section order on the page. This table MIRRORS the SOURCE TABLE in
+# ROW ORDER IS SECTION ORDER ON THE PAGE, and the first two rows are ordered on
+# purpose: TODOS FIRST, then BACKLOG. They are the two halves of one stream —
+# active work and deferred work, sharing a grammar and an id space — and a page
+# that opened with the deferred half would bury the only section a reader opens
+# it to act on. Everything else follows in collector authority order.
+#
+# This table MIRRORS the SOURCE TABLE in
 # build-backlog-index.sh — level and path must agree, and
 # tests/contract/test_backlog_dashboard.sh asserts that the two files declare the
 # same (level, path) pairs so the mirror cannot drift silently.
@@ -230,7 +236,8 @@ TITLE="$P_NAME"
 # A level NOT in this table is not an error and is never dropped: it renders in
 # the "Other" catch-all section below, per the index's consumer-liberal rule.
 CLASS_TABLE='
-backlog|Cross-cutting backlog|.logic-loom/memory/backlog.md
+todo|Todos — active work|.logic-loom/memory/todos.md
+backlog|Backlog — deferred work|.logic-loom/memory/backlog.md
 feature|Feature plans|features/*/plan.md
 spec|Spec tasks|specs/*/tasks.md
 '

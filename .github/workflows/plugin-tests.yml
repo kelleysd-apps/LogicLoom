@@ -68,6 +68,9 @@ jobs:
       - name: Run Environment Scaffolding Tests
         run: bash tests/contract/test_environment_scaffolding.sh
 
+      - name: Run Dev Branch Base Guard Tests
+        run: bash tests/contract/test_dev_branch_base_guard.sh
+
       - name: Run Freeze Scope Tests
         run: bash tests/contract/test_freeze_scope.sh
 

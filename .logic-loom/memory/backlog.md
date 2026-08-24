@@ -1,15 +1,28 @@
-# LogicLoom Backlog — cross-cutting / harness-maintenance work
+# LogicLoom Backlog — cross-cutting work to bring up LATER
 
-**Level 0 of the Todo Architecture SSOT.** Authoritative list for work that is
-**not a feature**: governance, hooks, tests, CI, release tooling, policy and
-documentation — anything that spans the harness rather than living inside one
-`features/<name>/` or `specs/###-name/`.
+**Level 0 of the Todo Architecture SSOT, deferred half.** Authoritative list for
+work that is **not a feature** — governance, hooks, tests, CI, release tooling,
+policy and documentation — and that has been **explicitly deferred**: a "decide
+later", a recorded analysis with no consumer yet, an improvement that is real
+but not needed today.
 
-Feature work does **not** belong here. It belongs in `features/<name>/plan.md`
-(swarm pack) or `specs/###-name/tasks.md` (SDD pack). Strategic direction does
-not belong here either — that is `VISION.md` § Open Threads. **VISION threads are
-*direction*; backlog items are *work*.** A thread may spawn one or more items;
-an item never supersedes a thread.
+Its active half is `.logic-loom/memory/todos.md`: same grammar, same id space,
+different question. **Backlog answers "what should I bring up later"; todos
+answer "what am I doing".** An item that is being worked, is next up, or is
+waiting only on an answer already asked for belongs *there*, not here — see
+§ *Promotion* in that file for how an item moves, and for the rule that its id
+never changes when it does.
+
+**Nothing here is rejected.** A rejected idea gets written down as rejected (the
+grammar's *Deliberately excluded* section is where that happens) and then
+deleted. Everything in this file is work someone may pick up; it is filed here so
+the reasoning survives and the next person hits it instead of re-deriving it.
+
+Feature work does **not** belong in either file. It belongs in
+`features/<name>/plan.md` (swarm pack) or `specs/###-name/tasks.md` (SDD pack).
+Strategic direction does not belong here either — that is `VISION.md` § Open
+Threads. **VISION threads are *direction*; backlog items are *work*.** A thread
+may spawn one or more items; an item never supersedes a thread.
 
 Full rationale and the SSOT hierarchy: `.docs/policies/todo-architecture-policy.md`.
 
@@ -262,84 +275,48 @@ stale, the parser grows special cases, and authors stop adding items because the
 ceremony costs more than the item is worth. Add a field only when a consumer
 exists that cannot work without it.
 
+### The grammar above is normative for BOTH streams
+
+This section is the specification for `.logic-loom/memory/todos.md` as well as
+for this file. There is **one** item grammar, one parser
+(`build-backlog-index.sh`), one linter, and one id space; the two files differ
+only in **scope** (deferred vs active) and in the `level` the collector derives
+from the path — `backlog` here, `todo` there.
+
+`todos.md` deliberately does not restate any of it. Two copies of a normative
+grammar disagree the first time one is edited, and the tools implement exactly
+one of them.
+
+Ids are unique **across both files**, because `blocked_on:` references cross the
+streams. The counter is **derived, never stored**: next id = (highest id present
+in either file) + 1 — `lint-backlog.sh --next-id` computes it. A stored counter
+would live in one file and be silently wrong the moment an item was appended to
+the other. A colliding mint is caught mechanically: the linter reports it as
+`duplicate-id` naming both files, and the collector treats a duplicate anywhere
+across all sources as fatal — non-zero exit, no index written.
+
 ### Ship / strip
 
-This file **ships** as machinery — a cloner should inherit the grammar and an
-empty item list, not this repo's maintenance items. Its **content is
-harness-dev-specific**, so it needs a `stub:` entry in
+Both files **ship** as machinery — a cloner should inherit the grammar, the
+two-stream shape and an empty item list, not this repo's maintenance items.
+Their **content is harness-dev-specific**, so each has its own `stub:` entry in
 `.logic-loom/scripts/bash/template-strip-manifest.txt`, exactly as `VISION.md`
-has. That wiring is itself tracked below as LOOM-0017.
+has:
+
+```
+stub: .logic-loom/memory/todos.md   :: .logic-loom/templates/project-todos-template.md
+stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-template.md
+```
+
+Without an entry a file ships verbatim: `leak-guard.sh` only asserts that
+*listed* paths are absent, so an unlisted new file is silently shippable. That
+wiring is tracked as LOOM-0017 in `todos.md`.
 
 ---
 
 ## Items
 
 ### Governance and constitution
-
-- [x] LOOM-0001 — Maintainer sign-off on constitution v3.3.0 + the amendments extension point `status:done`
-      Signed off 2026-08-24, followed-not-enforced by deliberate choice.
-      LOOM-0002 stays OPEN and the honesty is the point: nothing loads
-      `amendments.md`. It works because `CLAUDE.md` and `AGENTS.md` instruct
-      agents to read it, which the threat model states plainly. Wiring it into
-      `governance-preflight.sh` is a protected-hook edit and deserves its own
-      change rather than riding along with a sign-off.
-      Constitution **v3.3.0** and the amendments extension point are implemented
-      but sit **uncommitted** in the working tree, awaiting maintainer sign-off on
-      the ratified text. This is the only uncommitted work from the 2026-08-13
-      pass (backlog §3.2).
-      Shape as implemented: a fork adds mandates in `.logic-loom/memory/amendments.md`
-      (seeded from `.logic-loom/templates/amendments-template.md`), never by
-      editing `constitution.md`. Upstream ships no `amendments.md`, so a fork's
-      mandates survive `/update-framework` and the constitution stays
-      byte-identical to upstream. The only normative unit is a named mandate
-      (`### Mandate: <NAME>` with `Constrains:` / `Rule:` / `Rationale:`) — no
-      second surface, no per-principle override blocks. Effective governance is a
-      conjunction: constitution AND every mandate. There is deliberately **no
-      `Overrides` / `Waives` verb**, which makes a weakening mandate conspicuous
-      rather than impossible; the adjudication defaults all fail toward the
-      constitutional floor. Immutable principles I–III remain un-overridable.
-      Tandem `CLAUDE.md` / `AGENTS.md` sync is included in the uncommitted change,
-      as are corrections from adversarial review of the draft.
-      **Version recommendation: keep it MINOR (3.2.0 → 3.3.0), not MAJOR.** For
-      every existing project effective governance is **byte-identical** — upstream
-      ships no `amendments.md`, nothing loads it, and no principle body moved.
-      Repo precedent supports MINOR **2:1**, with the 3.0.0 bump the outlier.
-      *(protected)* *(constitutional)*
-
-- [ ] LOOM-0002 — Inject `amendments.md` into the governance preflight `status:blocked` `blocked_on:LOOM-0001`
-      The amendments mechanism is **declared but not wired**. No hook, no
-      preflight, no context module reads `.logic-loom/memory/amendments.md`;
-      nothing validates a mandate; nothing fails closed. A fork that does not read
-      the file gets no mandates **and no warning**. It works today only because
-      `CLAUDE.md` and `AGENTS.md` instruct agents to read it — followed, not
-      enforced.
-      Wiring it into `governance-preflight.sh` is a **protected-hook edit** and
-      therefore needs its own approved item rather than riding along with
-      LOOM-0001. **VISION Thread #7 was deliberately left OPEN** for this reason
-      rather than being closed alongside the amendments work.
-      *(protected)*
-
-- [ ] LOOM-0003 — Answer the hook noise-reduction proposal `status:blocked` `blocked_on:external:maintainer answer on the proposal below`
-      A proposal was put to the maintainer and has **no answer yet**. As proposed:
-      **Keep asking** — branch and worktree create/delete; push; pull; merge;
-      rebase; `reset --hard`; `clean`; `restore`; `git rm` / `git mv`; remote
-      write; history rewriting; PR, release, repo, secret, auth and alias
-      mutations; protected-file writes; dangerous shell.
-      **Drop to silent** — commit; add; stash push/list/show; local tag;
-      checkout/switch between existing branches; cherry-pick; revert; am/apply;
-      fetch; issue create/close/edit/pin; run rerun/cancel.
-      **Deviation recorded:** `reset --hard`, `clean` and `restore` are **kept in
-      the ask set despite not appearing on the maintainer's list**, because they
-      destroy uncommitted work. That is a deliberate departure and should be
-      confirmed or overruled explicitly. Blocked on a maintainer decision, not on
-      another item.
-
-- [ ] LOOM-0011 — Fix the `grep -c … || echo 0` two-line-value bug at `governance-preflight.sh:160` `status:open`
-      The exact idiom the new `.docs/policies/shell-idiom-policy.md` warns
-      against, still live in a shipped hook. **Deliberately not fixed during the
-      2026-08-13 pass**: it is protected governance surface and needs its own
-      approved change with its own approval gate.
-      *(protected)*
 
 - [ ] LOOM-0013 — Decide whether Principles I and III should report SKIP for a harness-shaped repo `status:open`
       `constitutional-check.sh` still reports findings for Principles **I
@@ -351,13 +328,6 @@ has. That wiring is itself tracked below as LOOM-0017.
       outcome — but it should be decided, not left ambient.
 
 ### Release, distribution and externalization
-
-- [ ] LOOM-0004 — Archive `kelleysd-apps/sdd-plugins-marketplace` `status:blocked` `blocked_on:external:maintainer archiving that repository (outside this repo)`
-      Separate repository, **maintainer action** — not something this branch or
-      any in-repo change can do. Private, not archived, last pushed 2026-02-06,
-      containing the pre-rename `sdd-*` generation including plugins deleted
-      months ago. **Zero in-repo references remain** (cleared in `d8716d1`), so
-      archiving is now zero-risk. Blocked on maintainer action outside the repo.
 
 - [ ] LOOM-0005 — Decide the plugin-externalization direction `status:blocked` `blocked_on:LOOM-0010`
       A **decision, not an implementation** (backlog §8.1). The in-repo residue is
@@ -395,92 +365,24 @@ has. That wiring is itself tracked below as LOOM-0017.
       reconciles them, so they will drift again. Decide: drop the counts, or
       generate them.
 
-- [ ] LOOM-0017 — Add a `stub:` entry for this backlog file to the strip manifest `status:open`
-      `.logic-loom/memory/backlog.md` ships as machinery but its **content is
-      harness-dev-specific** — it names internal commits, a private sibling
-      repository, and this repo's release topology. It needs a
-      `stub: .logic-loom/memory/backlog.md` entry in
-      `.logic-loom/scripts/bash/template-strip-manifest.txt` so a customer clone
-      inherits the grammar header and an **empty** item list, exactly as
-      `VISION.md` does today.
-      Without this entry the file ships verbatim: `leak-guard.sh` only asserts
-      that *listed* paths are absent, so an unlisted new file is silently
-      shippable. The stub content should be the grammar sections above with the
-      `## Items` section emptied.
-      Not done in the same change that created this file because the manifest and
-      the stripper were owned by concurrent work.
-
 ### VISION threads awaiting work
 
 Direction lives in `VISION.md`; these are the *work* those threads imply.
-
-- [ ] LOOM-0007 — Make `.gitignore` patterns actually match the local-override filenames (VISION #2) `status:open`
-      `.local/` and `*.local` still do **not** match `settings.local.json` or
-      `CLAUDE.local.md` — the two files the patterns were added to cover. A user's
-      local overrides are therefore tracked unless they notice.
 
 - [ ] LOOM-0008 — Settle graph-layer placement (VISION #4) `status:open`
       Now a **relocation** job rather than greenfield: the graph layer exists
       (`.logic-loom/graph/`, `/graph`), so the thread is about where it should
       live and what it belongs to, not whether to build it.
 
-- [x] LOOM-0009 — Document `artifacts/` (VISION #5) `status:done`
-      `artifacts/` is absent from the `CLAUDE.md` directory structure **and** from
-      `.docs/policies/file-structure-policy.md`. It is a real repo-root convention
-      (vision / research / forensics / docs) that no shipped document describes,
-      so a cloner has no way to learn it exists.
-      **Done.** Documented in both places — `CLAUDE.md` § *Directory structure*
-      and a new `### artifacts/` section in the file-structure policy (plus its
-      Root Structure block and Quick Reference table).
-      A **shipping defect** was found and fixed alongside it, which the original
-      item mis-stated: VISION #5 called `artifacts/` *untracked*, but
-      `artifacts/harness-graph.html` and `artifacts/logicloom-vision.html` are
-      **git-tracked** and were in **no** strip list — so two hand-authored
-      LogicLoom-internal pages (our harness breakdown and our vision/findings
-      record) were shipping to customers verbatim. Fixed by adding a **wholesale**
-      `artifacts` entry to `.logic-loom/scripts/bash/template-strip-manifest.txt`:
-      the *convention* ships (documented), the *contents* do not — same class as
-      `.docs/reports` and `.docs/design`. Wholesale rather than `artifacts/*.html`
-      so the first non-HTML artifact dropped in there cannot leak, and no
-      `.gitkeep` is shipped, so the directory is created on first use exactly like
-      `web/`. Guarded by `tests/contract/test_backlog_dashboard.sh`.
-
-- [ ] LOOM-0010 — Withdraw one side of the contested marketplace direction (VISION #8) `status:open`
-      Thread #8 remains **CONTESTED**: it proposes making this repo its own
-      marketplace via `marketplace.json`, which points the opposite way from the
-      externalization direction in LOOM-0005. Neither can be designed until one is
-      withdrawn. This item is the withdrawal decision itself; LOOM-0005 is blocked
-      on it.
-
-- [ ] LOOM-0016 — Audit VISION threads #9–#18 `status:open`
-      Threads #1–#8 were audited or resolved during the 2026-08-13 pass (#1 closed,
-      #8 annotated, #2–#6 audited, #7 left open for LOOM-0002). **#9–#18 are
-      untouched** — never read against current state, so their claims are of
-      unknown accuracy. Audit each: still true, already fixed, or superseded.
-
-### Dead code and test hygiene
-
-- [ ] LOOM-0014 — Remove the dead `mcp-servers/` loop at `setup.sh:206` `status:open`
-      Loops over a nonexistent `mcp-servers/` directory — dead since the
-      marketplace MCP removal. **Left in place deliberately** during the
-      2026-08-13 governance pass rather than touched mid-pass; it needs its own
-      change.
-
-- [ ] LOOM-0015 — Give `logging.sh` an override for `LOG_DIR` `status:open`
-      `logging.sh` hardcodes `LOG_DIR` with no override, so **every test suite
-      appends to the operations log**. A test-isolation gap, not a correctness
-      bug — but it means the operations log is polluted by test runs and cannot be
-      read as a record of real operations.
-
 ### Backlog schema — deferred, not rejected
 
-Four schema extensions raised by a cross-provider design review of the published
-index contract. Each is a **real** improvement and none is needed today: there is
-no monorepo, no cross-project rollup consumer, and no second index generation.
-Principle V (Progressive Enhancement) applies — build a field when a consumer
-exists that cannot work without it, not when one can be imagined. They are minted
-here so the analysis is recorded rather than lost, and so the next person hits the
-reasoning instead of re-deriving it.
+Schema extensions raised by a cross-provider design review of the published
+index contract, plus one identity-stamping item. Each is a **real** improvement
+and none is needed today: there is no monorepo, no cross-project rollup consumer,
+and no second index generation. Principle V (Progressive Enhancement) applies —
+build a field when a consumer exists that cannot work without it, not when one
+can be imagined. They are minted here so the analysis is recorded rather than
+lost, and so the next person hits the reasoning instead of re-deriving it.
 
 - [ ] LOOM-0018 — Add a monorepo-scoped `project.id` to the backlog index `status:open`
       `project.slug` identifies a **repository's** project. In a monorepo with
@@ -538,32 +440,6 @@ reasoning instead of re-deriving it.
       that needs it. Additive when it happens: a new optional field, no
       `schema_version` bump (see *Schema compatibility* in the grammar above).
 
-- [x] LOOM-0022 — Make the dashboard honour the consumer-liberal compatibility rule `status:done`
-      The grammar's *Schema compatibility* section states the contract as
-      **producer strict, consumer liberal**: a consumer must carry an
-      unrecognised `status` or `level` through verbatim, never drop the item,
-      bucket it under a catch-all, and never fail. `build-backlog-dashboard.sh`
-      did not honour that rule — it grouped by a fixed list of the four known
-      statuses, so an item carrying a future value was **silently omitted from
-      the page**. Not reachable from today's collector, which rejects an
-      out-of-vocabulary status at the fatal gate, so it was latent rather than
-      live. It becomes real the moment a second producer writes an index, which
-      is the whole point of publishing a schema.
-      **Done**, on BOTH fields rather than the one recorded here. The rework that
-      made item CLASS the page's outer dimension had to derive its groups from
-      the data anyway, so the fix landed properly instead of half-way:
-      * `status` — the group list is now `known vocabulary, in order` **+**
-        `every other status actually present, unique-sorted`. An unknown status
-        gets its own labelled group ("<value> (unrecognised status)"), and is
-        counted in the page-level tally.
-      * `level` — a level outside the viewer's class table lands in an explicit
-        **Other** section naming the levels it saw, rather than falling out of
-        every class section. This is the same defect one field over, and it
-        became reachable the moment `level` was made a visible dimension.
-      Asserted in `tests/contract/test_backlog_dashboard.sh` § 14 with a fixture
-      carrying an unknown status **and** an unknown level: both items render,
-      both values appear verbatim, neither is coerced, and the generator exits 0.
-
 - [ ] LOOM-0023 — Stamp this repo's own project identity without shipping it `status:open`
       `.logic-loom/config/project.conf` must ship as `__UNSET__` so a cloner
       never inherits our slug — `tests/contract/test_project_identity.sh`
@@ -585,90 +461,6 @@ reasoning instead of re-deriving it.
       assertion deserves its own change, not a drive-by during a merge.
 
 ### Environment promotion
-
-- [ ] LOOM-0024 — Base development worktrees on `dev-main` explicitly, never on the default branch `status:open`
-      VERIFIED cost, this session: `EnterWorktree` bases a new worktree on
-      `origin/<default-branch>`. In this repository the default branch is `main`
-      — the sanitized template line — so a worktree came up on the v6.4.1
-      release merge instead of `dev-main`, and a review agent then analyzed the
-      SANITIZED tree and produced findings that were artifacts of it (stripped
-      files reading as missing, stubbed files as incomplete).
-      The usual fix does NOT apply. `git remote set-head origin --auto` repairs a
-      STALE `origin/HEAD`; ours is not stale — `main` genuinely IS the production
-      line, and it must stay the default so "Use this template" clones the
-      sanitized tree rather than the dev tree. So the guard has to run the other
-      way: any tooling that creates a branch or worktree for development work
-      must name the integration branch EXPLICITLY and must never resolve its base
-      from the default branch, from `origin/HEAD`, or from an unqualified "main".
-      Shape is undecided and worth deciding before building: a documented rule
-      only (cheapest, followed-not-enforced), a `PreToolUse` guard on the
-      worktree-creating tool, or a startup assertion that reports when the
-      current tree is `main`. A customer project has no such constraint and
-      should follow the ordinary advice instead — see
-      `.docs/policies/environment-promotion-policy.md` § 2.
-
-- [x] LOOM-0025 — Ship opt-in environment-promotion scaffolding, adoptable into an EXISTING project `status:done`
-      DONE. `/scaffold-environments` (plugin `loom-maintenance`) stands the
-      methodology up in a user's own project. Both constraints were honoured and
-      are contract-tested, not merely claimed.
-      (1) OPT-IN: `--plan` is the default and writes nothing; `--apply` REQUIRES
-      `--only=<targets>`, so there is no apply-everything-by-omission; there is
-      no `--force`, and an existing file is left byte-identical and reported as a
-      conflict. Declining leaves the tree byte-identical.
-      (2) EXISTING PROJECT: `detect-environment-topology.sh` reads branches,
-      roles, default branch, CI provider, environment-ish workflows, and any
-      existing declaration; the scaffolder then proposes a DELTA. No branch is
-      ever created — a role with no matching branch yields no environment, so
-      greenfield gets ONE environment (Principle V) and a project that already
-      has `develop`/`staging` gets a declaration in ITS names. Detection reads
-      `.git` refs off the FILESYSTEM and shells out to git nowhere, so it is
-      provably non-mutating, works under `subagent-git-guard.sh`, and its
-      fixtures need no repository.
-      Writes, all opt-in and all named before writing: a filled-in
-      `environments.conf`; a branch-boundary CI check generalized from
-      `branch-topology-guard.yml` and parameterized by their branches; a
-      promotion checklist carrying the portable patterns; a commented deploy-seam
-      placeholder per environment that exits NON-ZERO (a placeholder exiting 0
-      would report a deploy that did not happen).
-      Also generalizes the § 2 default-branch trap WITHOUT exporting LogicLoom's
-      inversion: the generated guard is mode-selected
-      (`expect-default-is-integration` vs `expect-explicit-base`), and is not
-      generated at all when there is no integration branch or the default branch
-      is unknown (fail closed).
-      Does NOT write, and the contract suite asserts it: cloud/CI deploy logic,
-      secret values, migration runners, seed or teardown scripts, rollback.
-      Landed: `plugins/loom-maintenance/commands/scaffold-environments.md`,
-      `plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md`,
-      `.logic-loom/scripts/bash/{detect-environment-topology,scaffold-environments}.sh`,
-      `.logic-loom/templates/environment-promotion/` (5 templates),
-      `tests/contract/test_environment_scaffolding.sh` (90 assertions),
-      `.docs/policies/environment-promotion-policy.md` § 11 (amends § 10).
-      The name deliberately avoids BOTH `/promote` and `/deploy-promote` —
-      LOOM-0006 stays open: this command promotes nothing, so it must not consume
-      the name the actual promotion command should have.
-      Deferred out of scope, minted below: LOOM-0028, LOOM-0029.
-- [x] LOOM-0026 — Give `/promote` a typed-exact-phrase confirmation at the release step `status:done`
-      **SUPERSEDED, not implemented as written.** The maintainer's decision on
-      2026-08-24: the maintainer `/promote` stays exactly as it is — the
-      template-release driver, stripped by exact path, untouched. The
-      escalating-confirm ladder ships instead as a customer-facing lifecycle:
-      `/promote-dev` and `/promote-staging` prompt (skippable), `/promote-prod`
-      demands a typed exact phrase that no flag bypasses. Confirmation strength
-      resolves from the target environment's declared `confirm` value first, so
-      the ladder is configurable rather than hardcoded. This also consumes the
-      customer-facing promotion command LOOM-0006 anticipated, so that item's
-      `/deploy-promote` naming suggestion is moot — `/scaffold-environments`
-      correctly declined the name and these are the promotion commands.
-      `.docs/policies/environment-promotion-policy.md` § 4.3 adopts escalating
-      confirmation strength by blast radius, with a typed exact phrase and no
-      skip flag at production scale. `/promote` implements the ladder's shape —
-      per-mutation Principle VI approval, no skip flag anywhere, a hard stop on a
-      failed sanitization audit — but has no typed-phrase step. Its
-      highest-consequence action (publishing a sanitized template line the world
-      clones) is confirmed by the same prompt as every other git mutation.
-      Small change, and the policy currently has to state the gap rather than
-      cite the implementation. Decide whether the phrase belongs at the dispatch
-      step, at the PR-open step, or both.
 
 - [ ] LOOM-0027 — Decide whether LogicLoom's own promotion line is declarable in `environments.conf` `status:open`
       This repository has a real promotion path — `dev-main` (integration) to
@@ -717,9 +509,37 @@ reasoning instead of re-deriving it.
       topology fingerprint compared on each `--plan` (cheap, advisory, and only
       seen by someone already running the command).
 
+- [ ] LOOM-0033 — Teach the backlog tooling to see VISION threads `status:open`
+      Neither `lint-backlog.sh` nor `build-backlog-index.sh` reads `VISION.md`,
+      so nothing links a thread to the items it spawned and nothing flags a
+      thread that has never been audited. The VISION #9-#18 audit (LOOM-0016)
+      had to be run by hand, and three threads turned out to be worse than
+      recorded precisely because nobody was checking.
+      A `vision:#N` tag on the item line plus a lint warning for an unaudited
+      thread would close the remaining half of VISION thread #18. Deferred, not
+      rejected: it adds a source the collector must parse for a benefit only one
+      reader has so far, and `backlog.md` already draws the line that threads are
+      DIRECTION and items are WORK — a tag must not blur it.
+
+- [ ] LOOM-0034 — Retire VISION thread #17 at the next Open Threads rewrite `status:open`
+      Thread #17 (separate tool registration from exposure) is marked STALE as of
+      2026-08-24: the runtime now ships deferred tools plus `ToolSearch`, which is
+      registration without exposure, in the host. Building our own would be
+      reimplementing what the harness deliberately rides on.
+      What survives is small — whether swarm and team worker briefs should mention
+      tool loading at all — and belongs in the domain-brief registry rather than
+      carried as a strategic thread. Deferred because retiring a thread is a
+      VISION edit and should happen when that section is next revised, not as a
+      drive-by.
+
 ---
 
 ## Provenance
+
+**Minting history for BOTH streams lives here.** The 2026-08-24 split moved 16
+items to `.logic-loom/memory/todos.md` and kept 13 here; every id, title and body
+crossed verbatim and no id changed. The mapping below therefore names ids that
+now live in either file — which is the point of one shared id space.
 
 Items LOOM-0001 … LOOM-0016 were migrated on 2026-08-20 from
 `.docs/reports/backlog-2026-08-13.md` § "Open after this pass" (items A–K), which
@@ -731,23 +551,24 @@ recommendations that were **deliberately not built** — see § *Backlog schema 
 deferred, not rejected* for why each was held. The review's other findings were
 implemented in the same pass (fatal duplicate/malformed handling in the
 collector, the `external:` blocker form, the completed grammar, the schema
-compatibility rules, and the `id_prefix` immutability statement).
+compatibility rules, and the `id_prefix` immutability statement). LOOM-0022 came
+from the same review, was promoted into active work, and is `done` in `todos.md`.
 
 Mapping from the original letters, for anyone reading the old report:
 
-| Report item | Backlog ids |
-|---|---|
-| A — §3.2 sign-off | LOOM-0001 |
-| B — amendments not injected | LOOM-0002 |
-| C — hook noise reduction | LOOM-0003 |
-| D — archive marketplace repo | LOOM-0004 |
-| E — plugin externalization | LOOM-0005 |
-| F — `/promote` collision | LOOM-0006 |
-| G — VISION threads still open | LOOM-0007, LOOM-0008, LOOM-0009, LOOM-0010, LOOM-0016 |
-| H — preflight anti-pattern | LOOM-0011 |
-| I — manifest drift | LOOM-0012 |
-| J — constitutional-check residual | LOOM-0013 |
-| K — dead code left deliberately | LOOM-0014, LOOM-0015 |
+| Report item | Backlog ids | Now in |
+|---|---|---|
+| A — §3.2 sign-off | LOOM-0001 | todos |
+| B — amendments not injected | LOOM-0002 | todos |
+| C — hook noise reduction | LOOM-0003 | todos |
+| D — archive marketplace repo | LOOM-0004 | todos |
+| E — plugin externalization | LOOM-0005 | backlog |
+| F — `/promote` collision | LOOM-0006 | backlog |
+| G — VISION threads still open | LOOM-0007, LOOM-0008, LOOM-0009, LOOM-0010, LOOM-0016 | todos, except LOOM-0008 (backlog) |
+| H — preflight anti-pattern | LOOM-0011 | todos |
+| I — manifest drift | LOOM-0012 | backlog |
+| J — constitutional-check residual | LOOM-0013 | backlog |
+| K — dead code left deliberately | LOOM-0014, LOOM-0015 | todos |
 
 LOOM-0028 and LOOM-0029 were minted on 2026-08-24 while building
 `/scaffold-environments` for LOOM-0025 — the two things that work deliberately
@@ -761,4 +582,14 @@ scaffolding a customer would adopt, the missing typed-phrase confirmation in
 `/promote`, and whether this repository's own release line belongs in
 `environments.conf`.
 
-**Next id to mint: LOOM-0030.**
+**Next id to mint: derived, not stored.** It is (highest id present in
+`todos.md` or `backlog.md`) + 1 — today `LOOM-0030`, but do not trust that
+sentence over the files. Compute it:
+
+```
+./.logic-loom/scripts/bash/lint-backlog.sh --next-id
+```
+
+A written-down counter in a two-file stream is wrong the first time someone
+appends to the other file, and nothing tells them. The derivation cannot drift
+because there is nothing to drift from.

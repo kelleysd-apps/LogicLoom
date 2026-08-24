@@ -115,6 +115,63 @@ snapshot, re-audits 1-7, stamps the upstream config, composes the single-parent
 commit, advances `.sdd-sync-ref`, opens a PR to `main` → a human merges with a
 **merge commit** → tag the merge commit.
 
+## Worktrees — ALWAYS base dev work on `dev-main`, named explicitly
+
+**This is the one place the two-branch model bites daily.** LogicLoom's default
+branch is `main`, and it must stay that way — `main` is what "Use this template"
+clones. Every tool that creates a branch or worktree "off the default branch"
+therefore resolves that to the **sanitized template line**. `EnterWorktree` does
+exactly this.
+
+Nothing errors. The worktree comes up on the latest sanitized release merge, and
+everything downstream is quietly about the wrong tree: harness-dev files that are
+**stripped** at promote read as *missing*, and files shipped as **stubs** read as
+*incomplete*. This has already happened — a review agent analysed the template
+and returned four findings that were artifacts of the wrong base. It was caught
+only because one claim looked implausible.
+
+> **Rule.** Any worktree or branch for harness-dev work must be based on
+> `dev-main`, named explicitly. Never `origin/HEAD`, never the default branch,
+> never an unqualified "main". A dev worktree that comes up on `main` is a bug.
+
+Create one correctly:
+
+```bash
+git fetch origin dev-main
+git worktree add ../LogicLoom-wt-<topic> -b <branch> origin/dev-main
+```
+
+Fix one that came up wrong (no commits of its own yet):
+
+```bash
+git fetch origin dev-main && git reset --hard origin/dev-main
+```
+
+Then **re-do** any exploration or review already run in that checkout.
+
+**The guard.** `.logic-loom/scripts/bash/check-dev-branch-base.sh` detects this
+and says so, on `SessionStart` and once per new checkout on `UserPromptSubmit`
+(both registered in `.claude/settings.json`). It is **detection only** — it runs
+no git and mutates nothing. Run it by hand any time:
+
+```bash
+bash .logic-loom/scripts/bash/check-dev-branch-base.sh --format text
+# silence means the base is fine
+```
+
+Two limits, stated rather than papered over:
+
+- It fires on a **tip match** — HEAD sitting exactly on a `main`-line tip and on
+  no `dev-main` tip. That is precise the moment a worktree is created and before
+  any work is done on it. Once commits land on top, the signal is gone; proving
+  the wrong base then needs ancestry, which needs git.
+- It is keyed on the repo having **both** a `main` and a `dev-main` line, so it
+  is structurally silent in a customer clone, where basing off `main` is normal
+  and correct. Do not re-key it on the branch name.
+
+Background and the reasoning behind LogicLoom's inversion:
+`.docs/policies/environment-promotion-policy.md` § 2.2 (LOOM-0024).
+
 ## Residual risks (known, accepted or watched)
 
 - **`dev-main` is public.** By choosing a single public repo, the dev branch's

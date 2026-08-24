@@ -65,6 +65,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
 fi
 cd "$ROOT"
 
+# Operations-log isolation: scripts this suite drives source logging.sh, which
+# otherwise appends to the shared .logic-loom/logs/operations/ file and makes
+# the suite stateful across runs. LOOM_LOG_DIR redirects it; exported so
+# subprocesses inherit. Same idiom as test_gate_policy.sh. Note logging.sh bakes
+# LOG_FILE at SOURCE time, so this must be set before anything sources it.
+LOOM_LOG_DIR="$(mktemp -d)"
+export LOOM_LOG_DIR
+trap 'rm -rf "$LOOM_LOG_DIR"' EXIT
+
 MANIFEST="${LOOM_STRIP_MANIFEST:-$ROOT/.logic-loom/scripts/bash/template-strip-manifest.txt}"
 
 # ── Generated-artifact paths with no in-band banner ──────────────────────────
@@ -281,12 +290,19 @@ EOF4
 [ -n "$STUB_BAD" ] && { echo "     UNRESOLVABLE stub: entries:"; printf '%s' "$STUB_BAD" | sed 's/^/       - /'; }
 assert "every stub: entry resolves to an existing template" "[ -z \"\$STUB_BAD\" ]"
 
-# The two shipped stubs, named explicitly: a rename of either template must fail
-# here rather than at release time.
+# The shipped stubs, named explicitly: a rename of any template must fail here
+# rather than at release time. Level 0 is TWO files — todos.md (active) and
+# backlog.md (deferred) — and each needs its own entry and its own template: an
+# unlisted memory file ships VERBATIM, because leak-guard.sh only asserts that
+# LISTED paths are absent or stubbed.
 assert "VISION.md stubs from the project-vision template" \
   "printf '%s' \"\$STUB_LINES\" | grep -qF 'stub: VISION.md :: .logic-loom/templates/project-vision-template.md'"
 assert "backlog.md stubs from the project-backlog template" \
   "printf '%s' \"\$STUB_LINES\" | grep -qF 'stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-template.md'"
+assert "todos.md stubs from the project-todos template" \
+  "printf '%s' \"\$STUB_LINES\" | grep -qF 'stub: .logic-loom/memory/todos.md :: .logic-loom/templates/project-todos-template.md'"
+assert "the two Level 0 stubs use DIFFERENT templates (each states its own scope)" \
+  "[ \"\$(printf '%s' \"\$STUB_LINES\" | grep -F '.logic-loom/memory/' | sed 's/.*:: //' | LC_ALL=C sort -u | wc -l | tr -d ' ')\" = '2' ]"
 
 # ── 5. The stripper ABORTS on an unresolvable stub: entry ────────────────────
 # Assertion 4 checks the declaration; this checks the ENFORCEMENT. Run the real

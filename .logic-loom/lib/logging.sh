@@ -17,8 +17,11 @@
 # Default log level (can be overridden by CLAUDE_LOG_LEVEL environment variable)
 : "${CLAUDE_LOG_LEVEL:=INFO}"
 
-# Log directory
-LOG_DIR=".logic-loom/logs"
+# Log directory. Override with LOOM_LOG_DIR (same convention as
+# LOOM_CHECKPOINT_DIR in common.sh) so a test suite can point the operations log
+# at a temp dir instead of appending to the shared one in the working tree.
+# Defaults to the previous hardcoded value, so existing callers are unaffected.
+LOG_DIR="${LOOM_LOG_DIR:-.logic-loom/logs}"
 LOG_FILE="${LOG_DIR}/operations/$(date +%Y-%m-%d).log"
 
 # Color codes for console output

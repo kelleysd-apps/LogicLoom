@@ -50,12 +50,27 @@
 #     clone; /initialize-project then fills it in place. ---
 stub: VISION.md :: .logic-loom/templates/project-vision-template.md
 
-# --- Harness maintenance backlog (SSOT Level 0): the FILE is machinery a cloner
-#     should inherit -- the todo-architecture policy points at this exact path,
-#     so a missing file breaks that reference on a fresh clone. The CONTENT is
-#     ours: dev commit SHAs, a private sibling repo, our release topology, and
-#     open governance decisions. Ship the stub (header + grammar + empty Items),
-#     never our items. Same shape and same reason as VISION.md above. ---
+# --- Harness maintenance work (SSOT Level 0), BOTH STREAMS: the FILES are
+#     machinery a cloner should inherit -- the todo-architecture policy points at
+#     these exact paths, so a missing file breaks that reference on a fresh
+#     clone. The CONTENT is ours: dev commit SHAs, a private sibling repo, our
+#     release topology, and open governance decisions. Ship the stubs (header +
+#     grammar + empty Items), never our items. Same shape and same reason as
+#     VISION.md above.
+#
+#     TWO ENTRIES, NOT ONE, AND TWO TEMPLATES. todos.md and backlog.md share a
+#     grammar and an id space but not a header: each stub has to state its own
+#     scope and the promotion rule that moves an item between them. One template
+#     serving both paths would ship two files claiming to be the same half of the
+#     stream, which is worse than the duplication it saves. The grammar itself is
+#     NOT duplicated -- it is normative in the backlog stub and the todos stub
+#     points at it.
+#
+#     A MISSING ENTRY SHIPS THE FILE VERBATIM. leak-guard.sh only asserts that
+#     LISTED paths are absent or stubbed, so an unlisted new memory file is
+#     silently shippable. If a third stream is ever added, it needs a line here
+#     on the same day. ---
+stub: .logic-loom/memory/todos.md :: .logic-loom/templates/project-todos-template.md
 stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-template.md
 
 # --- Release plumbing SCRIPTS: maintainer-only. These contain identity markers

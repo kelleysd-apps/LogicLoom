@@ -81,6 +81,7 @@
 {"type":"entity","name":"plugins/loom-orchestrator-hook/config/domains.conf","entityType":"code-path","observations":["domains.conf"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/graph.md","entityType":"code-path","observations":["graph.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/research.md","entityType":"code-path","observations":["research.md"]}
+{"type":"entity","name":"plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh","entityType":"code-path","observations":["agent-stop-notification.sh"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/retro/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -145,6 +146,7 @@
 {"type":"relation","from":"README.md","to":"features/README.md","relationType":"links-to"}
 {"type":"relation","from":"VISION.md","to":"features/code-knowledge-graph/exploration/graph-stack-decision.md","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
+{"type":"relation","from":"VISION.md","to":"plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"wikilink.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","to":"features/harness-product-boundary/exploration/harness-product-boundary.md","relationType":"links-to"}
 {"type":"relation","from":"features/harness-product-boundary/exploration/cosmos-cross-reference.md","to":"tests/run_all_tests.sh","relationType":"mentions"}

@@ -182,8 +182,9 @@ if [ "$ONLY" = "" ] || [ "$ONLY" = "dashboard" ]; then
           echo "✅ fresh: $DASH_REL"
         else
           fail_header "$DASH_REL differs from what its sources produce"
-          echo "  The committed page no longer matches .logic-loom/memory/backlog.md,"
-          echo "  features/*/plan.md and specs/*/tasks.md. Regenerate and commit it:"
+          echo "  The committed page no longer matches .logic-loom/memory/todos.md /"
+          echo "  .logic-loom/memory/backlog.md, features/*/plan.md or specs/*/tasks.md."
+          echo "  Regenerate and commit it:"
           echo ""
           echo "    ./.logic-loom/scripts/bash/build-backlog-index.sh"
           echo "    ./.logic-loom/scripts/bash/build-backlog-dashboard.sh"

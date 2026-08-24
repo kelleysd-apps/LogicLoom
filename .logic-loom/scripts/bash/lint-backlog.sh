@@ -3,8 +3,30 @@
 #
 # Lints what a HUMAN wrote, not what the collector produced. The index
 # (.logic-loom/backlog-index.json) is derived and untracked; linting it would be
-# linting a mirror. Everything below reads .logic-loom/memory/backlog.md and, for
-# the status vocabulary only, features/*/plan.md.
+# linting a mirror. Everything below reads BOTH cross-cutting streams —
+# .logic-loom/memory/todos.md (active) and .logic-loom/memory/backlog.md
+# (deferred) — and, for the status vocabulary only, features/*/plan.md.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# TWO FILES, ONE ID SPACE — WHY THIS LINTER SPANS BOTH
+# ─────────────────────────────────────────────────────────────────────────────
+# todos.md and backlog.md are two streams of one thing: same grammar (specified
+# once, in backlog.md), same parser, same ids. An item moves between them by
+# cut-and-paste and KEEPS ITS ID, and `blocked_on:` references cross freely — a
+# deferred item is routinely blocked on an active decision.
+#
+# That makes uniqueness a CROSS-FILE property. A linter that checked each file
+# alone would pass two files that both minted LOOM-0030, and the author would
+# only find out when the collector refused to publish. So the id set, the
+# duplicate check and the blocker resolution here are all computed over the
+# UNION of both files, and a duplicate finding names the file each occurrence
+# came from.
+#
+# The same reasoning gives this script `--next-id`: the id counter is DERIVED
+# (highest id present in either file, plus one) rather than stored in a footer,
+# because a stored counter lives in one file and goes silently wrong the moment
+# an item is appended to the other. This is the one implementation of that
+# derivation.
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # THIS SCRIPT ADVISES THE AUTHOR; THE COLLECTOR REFUSES TO PUBLISH
@@ -47,8 +69,10 @@
 #                       is unstamped (`__UNSET__`) or the config is absent —
 #                       there is nothing to check against, and a fresh clone must
 #                       not be told its backlog is wrong.
-#   4. unknown-blocker  `blocked_on:` naming an id that exists nowhere in the
-#                       file. A dangling blocker never clears.
+#   4. unknown-blocker  `blocked_on:` naming an id that exists in NEITHER stream
+#                       (todos.md nor backlog.md). A dangling blocker never
+#                       clears. A reference that crosses from one file to the
+#                       other is NORMAL and resolves — the id space is shared.
 #                       AWARE OF EXTERNAL BLOCKERS: an entry beginning with the
 #                       literal `external:` is a free-text reason for a blocker
 #                       OUTSIDE the index (a maintainer decision, an action in
@@ -85,6 +109,7 @@
 # repo content must never gate the test suite.
 #
 # Usage: lint-backlog.sh [ROOT] [--strict] [--quiet]
+#        lint-backlog.sh [ROOT] --next-id      # print the next id to mint, exit 0
 # Exit: 0 = no findings, or findings in default mode
 #       1 = findings in --strict mode
 #       2 = usage error
@@ -92,10 +117,11 @@
 # bash 3.2 safe. Runs no git. Writes nothing.
 set -uo pipefail
 
-ROOT=""; STRICT=0; QUIET=0
+ROOT=""; STRICT=0; QUIET=0; NEXT_ID=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --strict) STRICT=1; shift ;;
+    --next-id) NEXT_ID=1; shift ;;
     --quiet|-q) QUIET=1; shift ;;
     -h|--help) sed -n '2,60p' "$0"; exit 0 ;;
     -*) echo "ERROR: unknown option '$1'" >&2; exit 2 ;;
@@ -111,11 +137,20 @@ FINDINGS=0
 say()    { [ "$QUIET" -eq 1 ] || printf '%s\n' "$*"; }
 finding(){ FINDINGS=$((FINDINGS + 1)); printf '%s: %s\n' "${1}" "${2}" >&2; }
 
+TODOS="${LOOM_TODOS_FILE:-$ROOT/.logic-loom/memory/todos.md}"
 BACKLOG="${LOOM_BACKLOG_FILE:-$ROOT/.logic-loom/memory/backlog.md}"
 CONF="${LOOM_PROJECT_CONF:-$ROOT/.logic-loom/config/project.conf}"
 
-if [ ! -f "$BACKLOG" ]; then
-  say "backlog lint: no backlog at '$BACKLOG' — nothing to lint (this is normal)."
+# Both streams are OPTIONAL and either may be absent (a fresh clone that has not
+# adopted the split, or a project that only ever files deferred work). Absent is
+# not a finding; absent BOTH is nothing to lint.
+SOURCES=""
+[ -f "$TODOS" ]   && SOURCES="$SOURCES$TODOS
+"
+[ -f "$BACKLOG" ] && SOURCES="$SOURCES$BACKLOG
+"
+if [ -z "$SOURCES" ]; then
+  say "backlog lint: no todos.md and no backlog.md under '$ROOT' — nothing to lint (this is normal)."
   exit 0
 fi
 
@@ -131,13 +166,17 @@ fi
 TMPD="$(mktemp -d 2>/dev/null || mktemp -d -t loomlint)" || exit 1
 trap 'rm -rf "$TMPD"' EXIT
 
-# ── pass 1: line-level classification ────────────────────────────────────────
-# Emits, tab-separated:
-#   BAD    <lineno> <reason> <line>
-#   STATUS <lineno> <id> <badvalue>
-#   BOX    <lineno> <id> <box> <status>
-#   ITEM   <lineno> <id> <status> <blocked_on>
-awk '
+# ── pass 1: line-level classification, over BOTH streams ────────────────────
+# Emits, tab-separated, with the repo-relative FILE in field 2 so every finding
+# below can name where it came from — and so a duplicate id can name BOTH files:
+#   BAD    <file> <lineno> <reason> <line>
+#   STATUS <file> <lineno> <id> <badvalue>
+#   BOX    <file> <lineno> <id> <box> <status>
+#   ITEM   <file> <lineno> <id> <status> <blocked_on>
+: > "$TMPD/rec.tsv"
+while IFS= read -r srcfile; do
+  [ -n "$srcfile" ] || continue
+  awk -v SRC="${srcfile#$ROOT/}" '
   function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
   BEGIN { ins = 0; fence = 0 }
   {
@@ -151,19 +190,19 @@ awk '
     box  = substr(line, 4, 1)
     rest = substr(line, 7)
     p = index(rest, " \342\200\224 ")
-    if (p == 0) { printf("BAD\t%d\tno \342\200\224 separator between id and title\t%s\n", NR, line); next }
+    if (p == 0) { printf("BAD\t%s\t%d\tno \342\200\224 separator between id and title\t%s\n", SRC, NR, line); next }
     id    = trim(substr(rest, 1, p - 1))
     after = substr(rest, p + 5)
 
     if (id !~ /^[A-Z][A-Z0-9]*-[0-9][0-9][0-9][0-9][0-9]*$/) {
-      printf("BAD\t%d\tmalformed id \x27%s\x27 (want PREFIX-NNNN, 4+ digits)\t%s\n", NR, id, line); next
+      printf("BAD\t%s\t%d\tmalformed id \x27%s\x27 (want PREFIX-NNNN, 4+ digits)\t%s\n", SRC, NR, id, line); next
     }
     if (match(after, /`status:[A-Za-z_]*`/) == 0) {
-      printf("BAD\t%d\tno `status:` tag\t%s\n", NR, line); next
+      printf("BAD\t%s\t%d\tno `status:` tag\t%s\n", SRC, NR, line); next
     }
     status = substr(after, RSTART + 8, RLENGTH - 9)
     if (status != "open" && status != "in_progress" && status != "blocked" && status != "done") {
-      printf("STATUS\t%d\t%s\t%s\n", NR, id, status); next
+      printf("STATUS\t%s\t%d\t%s\t%s\n", SRC, NR, id, status); next
     }
     bo = ""
     if (match(after, /`blocked_on:[^`]*`/) > 0) {
@@ -176,54 +215,92 @@ awk '
         if (v != "") bo = (bo == "" ? v : bo "," v)
       }
     }
-    printf("BOX\t%d\t%s\t%s\t%s\n", NR, id, box, status)
-    printf("ITEM\t%d\t%s\t%s\t%s\n", NR, id, status, bo)
+    printf("BOX\t%s\t%d\t%s\t%s\t%s\n", SRC, NR, id, box, status)
+    printf("ITEM\t%s\t%d\t%s\t%s\t%s\n", SRC, NR, id, status, bo)
   }
-' "$BACKLOG" > "$TMPD/rec.tsv"
+' "$srcfile" >> "$TMPD/rec.tsv"
+done <<SRC_EOF
+$SOURCES
+SRC_EOF
 
-REL="${BACKLOG#$ROOT/}"
-say "backlog lint: $REL"
+# ── the id set, over BOTH files ──────────────────────────────────────────────
+# `ids.txt` is bare ids (blocker resolution); `id-file.tsv` keeps the file each
+# came from so a duplicate finding can name both occurrences.
+grep "^ITEM	" "$TMPD/rec.tsv" 2>/dev/null | awk -F'\t' '{ print $4 "\t" $2 }' > "$TMPD/id-file.tsv" || : > "$TMPD/id-file.tsv"
+cut -f1 "$TMPD/id-file.tsv" > "$TMPD/ids.txt" 2>/dev/null || : > "$TMPD/ids.txt"
+
+# ── --next-id: the DERIVED counter, computed once, here ──────────────────────
+# next id = (highest id present in EITHER file) + 1. Compared NUMERICALLY on the
+# digits, never lexically, and re-padded to the width it was found at (minimum
+# four), so LOOM-0999 -> LOOM-1000 and LOOM-9999 -> LOOM-10000 both come out
+# right. The prefix is the declared id_prefix when there is one, else the prefix
+# already in use.
+#
+# THE COUNTER IS NOT STORED ANYWHERE. With two files sharing one id space, a
+# written-down "next id" lives in one of them and is silently wrong the moment
+# an item is appended to the other. Deriving it removes the thing that could
+# drift.
+if [ "$NEXT_ID" -eq 1 ]; then
+  awk -F'\t' -v DECL="$PREFIX" '
+    { id = $1
+      pfx = id; sub(/-[0-9]+$/, "", pfx)
+      num = id; sub(/^.*-/, "", num)
+      w = length(num) + 0
+      if (num + 0 > best + 0) { best = num + 0; bestpfx = pfx }
+      if (w > width) width = w
+    }
+    END {
+      if (width < 4) width = 4
+      p = (DECL != "" ? DECL : (bestpfx != "" ? bestpfx : "ITEM"))
+      printf("%s-%0*d\n", p, width, best + 1)
+    }' "$TMPD/id-file.tsv"
+  exit 0
+fi
+
+say "backlog lint: $(printf '%s' "$SOURCES" | sed "s#^$ROOT/##" | tr '\n' ' ')"
 
 # 1. unparseable
-while IFS="$(printf '\t')" read -r kind lineno reason rest; do
+while IFS="$(printf '\t')" read -r kind rel lineno reason rest; do
   [ "$kind" = "BAD" ] || continue
-  finding "unparseable" "$REL:$lineno — $reason"
+  finding "unparseable" "$rel:$lineno — $reason"
 done < "$TMPD/rec.tsv"
 
-# 5a. bad status value (backlog)
-while IFS="$(printf '\t')" read -r kind lineno id bad; do
+# 5a. bad status value (todos / backlog)
+while IFS="$(printf '\t')" read -r kind rel lineno id bad; do
   [ "$kind" = "STATUS" ] || continue
-  finding "bad-status" "$REL:$lineno — $id has status '$bad'; vocabulary is open|in_progress|blocked|done"
+  finding "bad-status" "$rel:$lineno — $id has status '$bad'; vocabulary is open|in_progress|blocked|done"
 done < "$TMPD/rec.tsv"
 
 # 6. checkbox/status mismatch
-while IFS="$(printf '\t')" read -r kind lineno id box status; do
+while IFS="$(printf '\t')" read -r kind rel lineno id box status; do
   [ "$kind" = "BOX" ] || continue
   if [ "$status" = "done" ] && [ "$box" != "x" ]; then
-    finding "checkbox-mismatch" "$REL:$lineno — $id is status:done but the box is '[ ]' (want '[x]')"
+    finding "checkbox-mismatch" "$rel:$lineno — $id is status:done but the box is '[ ]' (want '[x]')"
   elif [ "$status" != "done" ] && [ "$box" = "x" ]; then
-    finding "checkbox-mismatch" "$REL:$lineno — $id is '[x]' but status is '$status' (the box is '[x]' if and only if status:done)"
+    finding "checkbox-mismatch" "$rel:$lineno — $id is '[x]' but status is '$status' (the box is '[x]' if and only if status:done)"
   fi
 done < "$TMPD/rec.tsv"
 
-# collect the id set
-grep "^ITEM	" "$TMPD/rec.tsv" 2>/dev/null | cut -f3 > "$TMPD/ids.txt" || : > "$TMPD/ids.txt"
-
-# 2. duplicate ids
+# 2. duplicate ids — ACROSS BOTH STREAMS, not within one file.
+# The id space is shared because blocked_on references cross the two files, so
+# the same id minted once in todos.md and once in backlog.md is exactly the
+# collision this check exists to catch. The finding names every file it was seen
+# in; the collector treats the same defect as fatal and refuses to publish.
 while IFS= read -r dup; do
   [ -n "$dup" ] || continue
-  finding "duplicate-id" "$REL — '$dup' is minted more than once; ids are immutable and never reused"
-done <<EOF
+  _in="$(grep "^$dup	" "$TMPD/id-file.tsv" 2>/dev/null | cut -f2 | LC_ALL=C sort -u | tr '\n' ' ')"
+  finding "duplicate-id" "'$dup' is minted more than once (in: ${_in% }) — ids are immutable, never reused, and unique across todos.md and backlog.md"
+done <<DUP_EOF
 $(LC_ALL=C sort "$TMPD/ids.txt" | uniq -d)
-EOF
+DUP_EOF
 
 # 3. prefix mismatch
 if [ -n "$PREFIX" ]; then
-  while IFS="$(printf '\t')" read -r kind lineno id status bo; do
+  while IFS="$(printf '\t')" read -r kind rel lineno id status bo; do
     [ "$kind" = "ITEM" ] || continue
     case "$id" in
       "$PREFIX"-*) ;;
-      *) finding "prefix-mismatch" "$REL:$lineno — '$id' does not use the declared id_prefix '$PREFIX'" ;;
+      *) finding "prefix-mismatch" "$rel:$lineno — '$id' does not use the declared id_prefix '$PREFIX'" ;;
     esac
   done < "$TMPD/rec.tsv"
 else
@@ -237,7 +314,7 @@ fi
 # free-text reason for something outside the index. Checking an external entry
 # against the id set would guarantee a false positive on every correctly authored
 # one, so the prefix is tested first and short-circuits.
-while IFS="$(printf '\t')" read -r kind lineno id status bo; do
+while IFS="$(printf '\t')" read -r kind rel lineno id status bo; do
   [ "$kind" = "ITEM" ] || continue
   [ -n "$bo" ] || continue
   oldifs="$IFS"; IFS=,
@@ -249,11 +326,11 @@ while IFS="$(printf '\t')" read -r kind lineno id status bo; do
         reason="${ref#external:}"
         reason="$(printf '%s' "$reason" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
         [ -n "$reason" ] || finding "unknown-blocker" \
-          "$REL:$lineno — $id has a bare 'external:' blocker with no reason; state what it is blocked on outside this index"
+          "$rel:$lineno — $id has a bare 'external:' blocker with no reason; state what it is blocked on outside this index"
         ;;
       *)
         grep -qxF "$ref" "$TMPD/ids.txt" || \
-          finding "unknown-blocker" "$REL:$lineno — $id is blocked_on '$ref', which is not an id in this file (an out-of-index blocker is written 'external:<reason>')"
+          finding "unknown-blocker" "$rel:$lineno — $id is blocked_on '$ref', which is not an id in todos.md or backlog.md (an out-of-index blocker is written 'external:<reason>')"
         ;;
     esac
     IFS=,

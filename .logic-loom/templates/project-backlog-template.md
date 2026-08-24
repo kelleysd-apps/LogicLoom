@@ -1,15 +1,27 @@
-# Backlog — cross-cutting / harness-maintenance work
+# Backlog — work to bring up LATER
 
-**Level 0 of the Todo Architecture SSOT.** Authoritative list for work that is
-**not a feature**: governance, hooks, tests, CI, release tooling, policy and
-documentation — anything that spans the project rather than living inside one
-`features/<name>/` or `specs/###-name/`.
+**Level 0 of the Todo Architecture SSOT, deferred half.** Authoritative list for
+work that is **not a feature** — governance, hooks, tests, CI, release tooling,
+policy and documentation — and that has been **explicitly deferred**: a "decide
+later", a recorded analysis with no consumer yet, an improvement that is real
+but not needed today.
 
-Feature work does **not** belong here. It belongs in `features/<name>/plan.md`
-(swarm pack) or `specs/###-name/tasks.md` (SDD pack). Strategic direction does
-not belong here either — that is `VISION.md` § Open Threads. **VISION threads are
-*direction*; backlog items are *work*.** A thread may spawn one or more items;
-an item never supersedes a thread.
+Its active half is `.logic-loom/memory/todos.md`: same grammar, same id space,
+different question. **Backlog answers "what should I bring up later"; todos
+answer "what am I doing".** An item that is being worked, is next up, or is
+waiting only on an answer already asked for belongs *there*, not here — see
+§ *Promotion* in that file for how an item moves, and for the rule that its id
+never changes when it does.
+
+**Nothing here is rejected.** A rejected idea gets written down as rejected (the
+*Deliberately excluded* section below is where that happens) and then deleted.
+Everything in this file is work someone may pick up.
+
+Feature work does **not** belong in either file. It belongs in
+`features/<name>/plan.md` (swarm pack) or `specs/###-name/tasks.md` (SDD pack).
+Strategic direction does not belong here either — that is `VISION.md` § Open
+Threads. **VISION threads are *direction*; backlog items are *work*.** A thread
+may spawn one or more items; an item never supersedes a thread.
 
 Full rationale and the SSOT hierarchy: `.docs/policies/todo-architecture-policy.md`.
 
@@ -267,6 +279,26 @@ A richer schema on day one is the classic failure of this design: the fields go
 stale, the parser grows special cases, and authors stop adding items because the
 ceremony costs more than the item is worth. Add a field only when a consumer
 exists that cannot work without it.
+
+### The grammar above is normative for BOTH streams
+
+This section is the specification for `.logic-loom/memory/todos.md` as well as
+for this file. There is **one** item grammar, one parser
+(`build-backlog-index.sh`), one linter, and one id space; the two files differ
+only in **scope** (deferred vs active) and in the `level` the collector derives
+from the path — `backlog` here, `todo` there.
+
+`todos.md` deliberately does not restate any of it. Two copies of a normative
+grammar disagree the first time one is edited, and the tools implement exactly
+one of them.
+
+Ids are unique **across both files**, because `blocked_on:` references cross the
+streams. The counter is **derived, never stored**: next id = (highest id present
+in either file) + 1 — `lint-backlog.sh --next-id` computes it. A stored counter
+would live in one file and be silently wrong the moment an item was appended to
+the other. A colliding mint is caught mechanically: the linter reports it as
+`duplicate-id` naming both files, and the collector treats a duplicate anywhere
+across all sources as fatal — non-zero exit, no index written.
 
 ---
 

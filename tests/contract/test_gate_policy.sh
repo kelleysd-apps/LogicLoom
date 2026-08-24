@@ -39,7 +39,15 @@ cd "$ROOT"
 LIB="$ROOT/.logic-loom/lib/governance-verdicts.sh"
 SHIPPED_CONF="$ROOT/.logic-loom/config/gate-policy.conf"
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# Operations-log isolation: the scripts this suite drives source policy.sh /
+# logging.sh, which otherwise append to the shared
+# .logic-loom/logs/operations/ file. LOOM_LOG_DIR redirects that (same idiom as
+# LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh); exported so
+# subprocesses inherit it. Cleaned up by the SAME trap — a second `trap ... EXIT`
+# would replace this one rather than add to it.
+LOOM_LOG_DIR="$(mktemp -d)"
+export LOOM_LOG_DIR
+trap 'rm -rf "$TMP" "$LOOM_LOG_DIR"' EXIT
 
 # ── The operation table ──────────────────────────────────────────────────────
 # op | representative command | DEFAULT verdict (shipped `balanced` posture) | F

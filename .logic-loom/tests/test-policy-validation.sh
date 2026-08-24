@@ -8,6 +8,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Operations-log isolation: policy.sh logs every blocked/approval command via
+# logging.sh, which defaults to the shared .logic-loom/logs/operations/ file.
+# Point it at a temp dir (same idiom as LOOM_CHECKPOINT_DIR in
+# test-git-safety.sh) so the suite is not stateful across runs and does not
+# pollute the working tree.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+cleanup_test_logs() {
+    if [ -n "${LOOM_LOG_DIR:-}" ] && [ -d "$LOOM_LOG_DIR" ]; then
+        case "$LOOM_LOG_DIR" in
+            */loom-logs.*) rm -rf "$LOOM_LOG_DIR" ;;
+        esac
+    fi
+}
+trap cleanup_test_logs EXIT
+
 # Test utilities
 TESTS_RUN=0
 TESTS_PASSED=0

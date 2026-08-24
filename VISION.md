@@ -15,7 +15,7 @@ short. Acceptance criteria and schemas belong in a PRD/plan, not here.
 
 **Product**: `logic-loom` (brand: **LogicLoom**)
 **Document**: product north-star (living)
-**Version**: 2.1 · **Last updated**: 2026-08-15 · **Owner**: brian@kelleysd.com
+**Version**: 2.2 · **Last updated**: 2026-08-24 · **Owner**: brian@kelleysd.com
 **Framework state**: v6.4.1 · constitution v3.3.0 · dev line `dev-main` · template line `main` (v6.4.1, 2026-08-13)
 
 ---
@@ -334,11 +334,26 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
    This is what makes Pillar 4's "degrade visibly" real, and it is the honest
    answer to the Windows-without-Git-Bash silent-absence case.
 
+   **Partially landed (verified 2026-08-24) — thread stays OPEN.** The *matrix*
+   half now exists on paper:
+   `.docs/architecture/orchestration-hook-enforcement.md` § *Surface portability*
+   tabulates five surfaces, and the threat model adds the L1/L2/L3 layering plus
+   the adapter-conformance contract. The *self-check* half does not exist:
+   `/governance-health` appears nowhere in the repo except this thread, the
+   threat model's own wishlist ("a `/governance-health` self-test is still the
+   intended loud signal"), and the modular-harness exploration. No command,
+   script, or test fires a floor hook and reports what actually fired.
+
 10. **Empirically confirm the cloud floor.** Docs say repo-committed hooks clone
     and fire in cloud sessions; run one trivial PreToolUse `deny` hook in a cloud
     session to *prove* it before advertising uniform enforcement — and check
     whether managed-settings `allowManagedHooksOnly` silently de-authorizes a
     cloned repo's hooks under an org policy.
+
+    **Re-verified 2026-08-24 — still open, still unproven.** The surface table
+    exists, but its Confidence column reads "official docs" for the cloud row —
+    documentation, not a run. `allowManagedHooksOnly` appears nowhere in the tree
+    except this thread and the exploration doc that spawned it.
 
 ### Later — durable-value expansion
 
@@ -346,12 +361,33 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
     Build a real, low-overhead stream (subagent lifecycle, hook decisions, cost)
     — Principle VII made tangible.
 
+    **Re-verified 2026-08-24 — still open, and understated.** The hook is
+    `plugins/loom-orchestrator/hooks/scripts/agent-stop-notification.sh`: it
+    appends one `subagent_stop agent=<name>` line, and only when
+    `.logic-loom/logs/` already exists. Worse, it is wired only through that
+    plugin's own `hooks/hooks.json`, whose flat-array shape the threat model
+    records as "almost certainly inert" — so the stub may not fire at all
+    (`subagent-activity.log` holds a single line, last written 2026-06-14). No
+    hook-decision or cost stream exists anywhere.
+
 12. **Cost discipline / preview.** Token and cost budgets plus a pre-flight
     estimate for swarm/workflow fan-outs.
+
+    **Re-verified 2026-08-24 — still open, nothing built.** The only "budget" in
+    the tree is prose in the `/swarm` and `/research` command docs and
+    token-truncation inside memory search. Consequence: the *What success looks
+    like* metric "token/latency overhead of the governance layer kept negligible
+    in `lean` mode" has no instrument behind it.
 
 13. **Contain the documented freeze residual.** The Bash-redirect escape of
     freeze file-ownership is known and documented; decide between extending
     freeze to the Bash write-path and accept-and-monitor.
+
+    **Re-verified 2026-08-24 — still open, decision still not taken.**
+    `.claude/settings.json` wires `freeze-write-scope.sh` to
+    `Write|Edit|MultiEdit|NotebookEdit` only; the `Bash` matcher carries the
+    three git/protection guards and nothing scoped to the freeze DAG. Recorded
+    unchanged as residual #2 in the threat model.
 
 14. **Memory as a graph, not a keyword index.** Harvest the temporal edge
     vocabulary (`SUPERSEDES`/`CORRECTS`/`RETAINED`/`REMOVED`) the bridge
@@ -359,19 +395,58 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
     `keyword-backend.sh` so author-written edges stop being dead metadata.
     Subsumes the older "lineage-based memory compression" thread.
 
+    **Re-verified 2026-08-24 — still open and accurate verbatim.**
+    `.logic-loom/graph/graph-bridge.jsonl` holds 101 entities and 61 relations,
+    every one of them `mentions` (44) or `links-to` (17). `build-graph-bridge.sh`
+    knows only `links-to|mentions|covers|decided-by`; no temporal verb appears in
+    it, in `lint-graph.sh`, or anywhere in `plugins/loom-memory/`.
+
 15. **Opt-in execution sandbox.** A real isolation layer for untrusted execution,
     offered opt-in — keeps "floor, not sandbox" honest while giving those who
     want a jail a path to one.
 
+    **Re-scoped 2026-08-24 — still open, but the "build it" half is now
+    suspect.** The host itself sandboxes tool execution (the Bash tool exposes a
+    `dangerouslyDisableSandbox` escape hatch — i.e. isolation is the runtime's
+    default posture, not a missing LogicLoom layer). Under Pillar 2 the honest
+    thread is now *evaluate and surface the native boundary*, not build one.
+    Threat-model residual #4 still asserts "no execution sandbox" as a LogicLoom
+    fact and needs the same reconciliation.
+
 16. **Evaluator-protocol maturation.** Harden `/review-team`'s behavioral
     evaluator contract (chrome-devtools MCP) and its hard-gate semantics.
 
-17. **Tool registration-vs-exposure separation.** Register many tools, expose few
-    per-agent. Assess fit for swarm workers.
+    **Re-verified 2026-08-24 — still open, and understated.**
+    `.docs/architecture/evaluator-protocol.md` is still stamped **v0.1 (Loom
+    migration, Stage 8)** and defines no gate semantics at all: the word "gate"
+    appears twice, both times to say gating is `/plan-review`'s job. There is no
+    hard-gate contract to harden yet — one has to be written.
+
+17. ⚠️ **STALE (assessed 2026-08-24) — the runtime now does this natively.**
+    *Original thread:* **Tool registration-vs-exposure separation.** Register many
+    tools, expose few per-agent. Assess fit for swarm workers.
+
+    **What changed:** Claude Code ships deferred tools plus a `ToolSearch` tool —
+    tools are registered but their schemas are not exposed until a search loads
+    them. That *is* this separation, in the runtime. `AGENTS.md` already lists
+    `ToolSearch` in the main-agent tool set and `.claude/statusline.sh` renders
+    it. Building our own would be reimplementation under Pillar 2. What survives
+    is a much smaller question — whether swarm/team worker briefs should say
+    anything about which tools a worker loads. Kept as the record; not work.
 
 18. **Cross-session vision↔task sync loop.** A lightweight ritual (or `/loop`)
     reconciling these Open Threads with active tasks and memory each session —
     the mechanism that would have caught this document going 6 weeks stale.
+
+    **Partially landed (2026-08-20/21) — thread stays OPEN.** The *task* half
+    shipped: `.logic-loom/memory/todos.md` + `backlog.md` as the Level-0 SSOT,
+    `lint-backlog.sh`, `build-backlog-index.sh`, and the published dashboard
+    under its freshness gate. `backlog.md` even states the relationship —
+    "VISION threads are *direction*; backlog items are *work*." **Still open:**
+    nothing reconciles the two. Neither `lint-backlog.sh` nor
+    `build-backlog-index.sh` reads `VISION.md`, no thread records the item ids it
+    spawned, and this audit — threads #9–#18, unchecked since they were written —
+    had to be run by hand.
 
 ## Keeping this document alive
 
