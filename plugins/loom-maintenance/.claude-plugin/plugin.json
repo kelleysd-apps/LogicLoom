@@ -10,7 +10,10 @@
     "update",
     "framework",
     "initialization",
-    "mcp"
+    "mcp",
+    "environments",
+    "promotion",
+    "deployment"
   ],
   "dependencies": [
     "loom-governance"
@@ -22,18 +25,20 @@
     ]
   },
   "skills": {
-    "count": 3,
+    "count": 4,
     "list": [
+      "environment-scaffolding",
       "framework-updater",
       "mcp-server-setup",
       "project-initialization"
     ]
   },
   "commands": {
-    "count": 3,
+    "count": 4,
     "list": [
       "initialize-project",
       "promote",
+      "scaffold-environments",
       "update-framework"
     ]
   }

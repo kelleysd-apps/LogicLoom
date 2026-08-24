@@ -101,6 +101,78 @@ if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/validate-project-identity.sh" ]; t
 fi
 echo ""
 
+# ====================================
+# Approval posture — stamp .logic-loom/config/gate-policy.conf
+# ====================================
+# Which repository-mutating operations INTERRUPT you is a preference, not a
+# constant. Asked ONCE, here, as three named postures rather than ~38 individual
+# questions. IDEMPOTENT (Principle IV): an existing gate-policy.conf that has
+# already been chosen is left alone.
+#
+# Every posture respects the FLOOR — git.push, git history rewriting, gh repo
+# administration, gh secret writes, and gh auth always ask, and the subagent
+# rules (read-only git only, no gh at all) are untouched by any of them.
+GATE_CONF=".logic-loom/config/gate-policy.conf"
+GATE_LIB="$SCRIPT_DIR/.logic-loom/lib/governance-verdicts.sh"
+echo ""
+echo -e "${BLUE}Approval posture${NC}"
+if [ ! -f "$GATE_LIB" ]; then
+    echo -e "${YELLOW}⚠${NC}  governance verdict library not found — leaving the gate policy at its shipped defaults"
+elif [ -f "$GATE_CONF" ] && grep -q '^[[:space:]]*# posture:' "$GATE_CONF"; then
+    echo -e "${YELLOW}ℹ${NC}  Approval posture already chosen — leaving it untouched"
+    echo -e "    $(grep -m1 '^[[:space:]]*# posture:' "$GATE_CONF")"
+else
+    echo "  How often should LogicLoom stop and ask before a git/gh operation?"
+    echo ""
+    echo -e "    ${GREEN}1) strict${NC}    — ask before every repository change. Nothing runs silently."
+    echo -e "    ${GREEN}2) balanced${NC}  — ask before anything consequential or destructive; let routine"
+    echo -e "                   local work (commit, add, stash, tag, checkout, fetch) run.  ${YELLOW}[recommended]${NC}"
+    echo -e "    ${GREEN}3) minimal${NC}   — only the five un-turn-off-able operations ask; everything else runs."
+    echo ""
+    echo "  You can change any single operation later by editing $GATE_CONF."
+    read -p "  Choose a posture [2]: " GATE_CHOICE
+    case "${GATE_CHOICE:-2}" in
+        1|strict)   GATE_POSTURE=strict ;;
+        3|minimal)  GATE_POSTURE=minimal ;;
+        *)          GATE_POSTURE=balanced ;;
+    esac
+
+    # The posture BODY comes from the verdict library, so there is exactly one
+    # definition of what each posture means — shared by this script, the
+    # /initialize-project command, and tests/contract/test_gate_policy.sh.
+    # shellcheck disable=SC1090
+    GATE_BODY="$( . "$GATE_LIB"; loom_gate_posture_body "$GATE_POSTURE" )"
+    if [ -z "$GATE_BODY" ]; then
+        echo -e "${YELLOW}⚠${NC}  could not render posture '$GATE_POSTURE' — leaving the gate policy at its shipped defaults"
+    else
+        # Preserve the shipped commentary (it is where the policy is EXPLAINED)
+        # and replace only the active `<op> = <verdict>` lines.
+        GATE_TMP="$(mktemp)"
+        if [ -f "$GATE_CONF" ]; then
+            # NOTE the `-` and digits in the character class: operation ids contain
+            # hyphens (git.cherry-pick, git.history-rewrite). Without them those two
+            # lines survived the strip and, because FIRST occurrence wins, silently
+            # overrode the posture that had just been chosen.
+            grep -vE '^[[:space:]]*(git|gh)\.[a-z0-9.-]+[[:space:]]*=' "$GATE_CONF" > "$GATE_TMP"
+        fi
+        {
+            printf '\n# posture: %s (chosen at project initialization on %s)\n' \
+                "$GATE_POSTURE" "$(date '+%Y-%m-%d')"
+            printf '# Edit any single line below to override the posture for one operation.\n\n'
+            printf '%s\n' "$GATE_BODY"
+        } >> "$GATE_TMP"
+        mv "$GATE_TMP" "$GATE_CONF"
+        echo -e "${GREEN}✓${NC} Approval posture set: ${GATE_POSTURE} → $GATE_CONF"
+        # Surface any line the floor refused, with its typed reason. Never fatal.
+        GATE_REFUSALS="$( export LOOM_GATE_POLICY_CONF="$GATE_CONF"; . "$GATE_LIB"; loom_gate_policy_refusals )"
+        if [ -n "$GATE_REFUSALS" ]; then
+            echo -e "${YELLOW}⚠${NC}  the following lines were refused (the floor is not tunable):"
+            printf '    %s\n' "$GATE_REFUSALS"
+        fi
+    fi
+fi
+echo ""
+
 # Root package.json is FRAMEWORK-OWNED — do NOT rebrand it to the product.
 # The root package declares the framework's own jest/devDeps/version; bump-version.sh
 # stamps it by matching "version" (not "name"), and collectCoverageFrom targets

@@ -89,6 +89,47 @@ project.
 Nothing enforces this file. No hook reads it. A project that never stamps it
 works exactly as before — the validator says so and exits 0.
 
+### Step 1c: Choose the Approval Posture
+
+Write the user's answer to `.logic-loom/config/gate-policy.conf`. Which git/gh
+operations INTERRUPT the user is a preference; which ones can never be silenced
+is not.
+
+**Ask once, with three named postures — never a per-operation questionnaire.**
+
+| Posture | One line |
+|---|---|
+| `strict` | Ask before every repository change. Nothing runs silently. |
+| `balanced` | Ask before anything consequential or destructive; routine local work runs. **Recommended; shipped default.** |
+| `minimal` | Only the five floor operations ask; everything else runs. |
+
+```bash
+# Idempotency (Principle IV): a chosen posture is already recorded.
+grep -m1 '^[[:space:]]*# posture:' .logic-loom/config/gate-policy.conf   # present -> skip
+
+# One definition of a posture, shared with init-project.sh and the contract test.
+. .logic-loom/lib/governance-verdicts.sh && loom_gate_posture_body balanced
+
+# Rewrite: strip ONLY the active operation lines, keep every comment, append.
+grep -vE '^[[:space:]]*(git|gh)\.[a-z0-9.-]+[[:space:]]*=' gate-policy.conf > tmp
+# (the hyphen and digits in that class are load-bearing: git.cherry-pick and
+#  git.history-rewrite contain a hyphen, and a surviving duplicate WINS)
+
+# Report anything the floor refused, verbatim.
+. .logic-loom/lib/governance-verdicts.sh && loom_gate_policy_refusals
+```
+
+**Floor, in every posture** — `git.push`, `git.history-rewrite`,
+`gh.repo.admin`, `gh.secret.write`, `gh.auth` always ask; a `silent` line for any
+of them is refused with a typed reason, not ignored. Not in this file at all, and
+equally non-negotiable: governance-file writes (subagent DENY / main ASK) and the
+subagent rule (allowlisted read-only git only; all `gh` denied). Never offer to
+relax any of these.
+
+`gate-policy.conf` is itself on the protected-file floor, so a subagent cannot
+rewrite the approval policy and then act under it — and a human edit to it
+prompts once. Say so; it is the reassurance that makes the knob safe to use.
+
 ### Step 2: Customize Constitution
 
 File: `.logic-loom/memory/constitution.md`
@@ -189,6 +230,7 @@ Project: [name]
 Constitution: [old] → [new version]
 Principles customized: [count]
 Agents created: [count]
+Approval posture: [strict|balanced|minimal]  (refused lines: [none|list])
 Files modified: [list]
 Validation: PASS/FAIL
 
@@ -202,7 +244,11 @@ Next Steps:
 
 ## Critical Rules
 
-1. **Principle VI**: NO automatic git operations — all changes need user approval before commit
+1. **Principle VI**: NO automatic git operations. Which operations prompt is the
+   user's `gate-policy.conf` choice; the five FLOOR operations (`git.push`,
+   `git.history-rewrite`, `gh.repo.admin`, `gh.secret.write`, `gh.auth`), the
+   governance-file guard, and the subagent git/gh rules are NOT tunable and must
+   never be offered as tunable
 2. **Principle VIII**: Every document update must keep CLAUDE.md and AGENTS.md synchronized
 3. **Principle XV**: All files created in correct directories per convention
 
@@ -211,3 +257,4 @@ Next Steps:
 - **Customization patterns**: `references/constitution-customization.md` — templates for each principle
 - **MCP setup**: `plugins/loom-maintenance/skills/mcp-server-setup/SKILL.md`
 - **Constitution**: `.logic-loom/memory/constitution.md`
+- **Gate policy**: `.logic-loom/config/gate-policy.conf` — the ask/silent split, its floor, and the permission-mode keying

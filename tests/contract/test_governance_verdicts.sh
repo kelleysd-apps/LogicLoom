@@ -127,7 +127,13 @@ check "subagent + git config --get → allow (regression)" allow "$(loom_verdict
 # ── Main-agent verdicts are UNCHANGED by the subagent hardening.
 check "main + GIT_DIR=/x git status → allow (unchanged)" allow "$(loom_verdict_git_mutation 'GIT_DIR=/x git status')"
 check "main + git status → allow (unchanged)"    allow "$(loom_verdict_git_mutation 'git status')"
-check "main + git commit -m x → ask (unchanged)" ask   "$(loom_verdict_git_mutation 'git commit -m x')"
+# GATE POLICY (2026-08): `git commit` moved ask -> silent. It is local, fully
+# revertible, and the most frequent operation there is; prompting for it is what
+# taught people to click through prompts. Configurable per
+# .logic-loom/config/gate-policy.conf; see tests/contract/test_gate_policy.sh for
+# the full ~38-operation table under default / silenced / floor-attack / missing /
+# corrupt config.
+check "main + git commit -m x → allow (gate: silent)" allow "$(loom_verdict_git_mutation 'git commit -m x')"
 check "main + git push → ask (unchanged)"        ask   "$(loom_verdict_git_mutation 'git push')"
 check "main + gh pr merge 1 → ask (unchanged)"   ask   "$(loom_verdict_gh_mutation 'gh pr merge 1')"
 check "main + gh pr list → allow (unchanged)"    allow "$(loom_verdict_gh_mutation 'gh pr list')"
@@ -135,7 +141,7 @@ check "main + gh pr list → allow (unchanged)"    allow "$(loom_verdict_gh_muta
 echo ""
 echo "git-mutation gate (main-agent mutating git → ask)"
 check "git push → ask"            ask   "$(loom_verdict_git_mutation 'git push origin main')"
-check "git commit → ask"          ask   "$(loom_verdict_git_mutation 'git commit -m x')"
+check "git commit → allow (gate: silent)" allow "$(loom_verdict_git_mutation 'git commit -m x')"
 check "git -C /r push → ask"      ask   "$(loom_verdict_git_mutation 'git -C /r push')"
 check "git branch -d x → ask"     ask   "$(loom_verdict_git_mutation 'git branch -d feature')"
 check "git remote add → ask"      ask   "$(loom_verdict_git_mutation 'git remote add o url')"
@@ -163,10 +169,13 @@ check "gh pr create → ask"     ask   "$(loom_verdict_gh_mutation 'gh pr create
 check "gh pr merge → ask"      ask   "$(loom_verdict_gh_mutation 'gh pr merge 12 --squash')"
 check "gh pr review → ask"     ask   "$(loom_verdict_gh_mutation 'gh pr review 12 --approve')"
 check "gh workflow run → ask"  ask   "$(loom_verdict_gh_mutation 'gh workflow run promote-to-main.yml')"
-check "gh run cancel → ask"    ask   "$(loom_verdict_gh_mutation 'gh run cancel 55')"
+# GATE POLICY: rerun/cancel act on a run that already exists; dispatching is
+# gh.workflow.write, which still asks.
+check "gh run cancel → allow (gate: silent)" allow "$(loom_verdict_gh_mutation 'gh run cancel 55')"
 check "gh release create → ask" ask  "$(loom_verdict_gh_mutation 'gh release create v1.0.0')"
 check "gh repo delete → ask"   ask   "$(loom_verdict_gh_mutation 'gh repo delete o/r --yes')"
-check "gh issue create → ask"  ask   "$(loom_verdict_gh_mutation 'gh issue create --title t')"
+# GATE POLICY: issue traffic is cheap, visible and reversible -> silent.
+check "gh issue create → allow (gate: silent)" allow "$(loom_verdict_gh_mutation 'gh issue create --title t')"
 check "gh alias set → ask"     ask   "$(loom_verdict_gh_mutation 'gh alias set pm "pr merge"')"
 check "gh secret set → ask"    ask   "$(loom_verdict_gh_mutation 'gh secret set TOKEN --body v')"
 check "gh auth login → ask"    ask   "$(loom_verdict_gh_mutation 'gh auth login')"
@@ -260,6 +269,7 @@ for _cf in "$PROT_MISSING:no-config" "$PROT_TMP/empty.conf:empty-key" \
   check "floor: settings.json ($_n)"           protected "$(protq "$_p" '.claude/settings.json')"
   check "floor: constitution.md ($_n)"         protected "$(protq "$_p" '.logic-loom/memory/constitution.md')"
   check "floor: governance.conf ITSELF ($_n)"  protected "$(protq "$_p" '.logic-loom/config/governance.conf')"
+  check "floor: gate-policy.conf ($_n)"        protected "$(protq "$_p" '.logic-loom/config/gate-policy.conf')"
   check "floor: verdict lib ITSELF ($_n)"      protected "$(protq "$_p" '.logic-loom/lib/governance-verdicts.sh')"
   check "floor: policy.sh ($_n)"               protected "$(protq "$_p" '.logic-loom/lib/policy.sh')"
   check "floor: loom-governance hooks ($_n)"   protected "$(protq "$_p" 'plugins/loom-governance/hooks/scripts/x.sh')"

@@ -528,9 +528,22 @@ loom_verdict_subagent_git() { # command agent_id -> allow|deny
   echo allow; return 0
 }
 
-# Main-agent MUTATING git requires explicit approval.
-loom_verdict_git_mutation() { # command -> allow|ask
-  if loom_git_is_mutation "$1"; then echo ask; return 0; fi
+# Main-agent MUTATING git: ask or allow, per the GATE POLICY (see the
+# "Gate policy" section below). Not every mutation is consequential — `git
+# commit` and `git push --force` used to produce identical friction, which is how
+# an approval prompt stops being read. The optional second argument is the host's
+# `permission_mode` from the PreToolUse payload; omitting it means "unknown mode",
+# which enforces the policy as written.
+#
+# Signature is backwards compatible: existing one-argument callers (the off-host
+# adapters, the golden fixtures) behave exactly as before, modulo the intended
+# ask -> silent moves in the default table.
+loom_verdict_git_mutation() { # command [permission_mode] -> allow|ask
+  local cmd="$1" mode="${2:-}" op
+  while IFS= read -r op; do
+    [ -n "$op" ] || continue
+    if [ "$(loom_gate_effective "$op" "$mode")" = "ask" ]; then echo ask; return 0; fi
+  done <<< "$(loom_git_ops "$cmd")"
   echo allow; return 0
 }
 
@@ -661,9 +674,14 @@ loom_gh_is_mutation() { # command -> 0 if a CONSEQUENTIAL gh command
   return 1
 }
 
-# Main-agent CONSEQUENTIAL gh requires explicit approval.
-loom_verdict_gh_mutation() { # command -> allow|ask
-  if loom_gh_is_mutation "$1"; then echo ask; return 0; fi
+# Main-agent CONSEQUENTIAL gh: ask or allow, per the GATE POLICY. Same shape and
+# same backwards-compatible signature as loom_verdict_git_mutation above.
+loom_verdict_gh_mutation() { # command [permission_mode] -> allow|ask
+  local cmd="$1" mode="${2:-}" op
+  while IFS= read -r op; do
+    [ -n "$op" ] || continue
+    if [ "$(loom_gate_effective "$op" "$mode")" = "ask" ]; then echo ask; return 0; fi
+  done <<< "$(loom_gh_ops "$cmd")"
   echo allow; return 0
 }
 
@@ -787,6 +805,7 @@ _loom_path_in_derived_floor() { # normalized path -> 0 if protected
     "$fw"/lib/governance-verdicts.sh \
     |"$fw"/lib/policy.sh \
     |"$fw"/config/governance.conf \
+    |"$fw"/config/gate-policy.conf \
     |"$fw"/memory/constitution.md) return 0 ;;
   esac
   return 1
@@ -798,6 +817,7 @@ _loom_path_in_builtin_floor() { # normalized path -> 0 if protected
     .claude/hooks/*|.claude/hooks \
     |.claude/settings.json|.claude/settings.local.json \
     |.logic-loom/config/governance.conf \
+    |.logic-loom/config/gate-policy.conf \
     |.logic-loom/memory/constitution.md \
     |.logic-loom/lib/governance-verdicts.sh|.logic-loom/lib/policy.sh \
     |plugins/loom-governance/hooks/*|plugins/loom-governance/hooks \
@@ -874,6 +894,7 @@ loom_protected_path_tokens() { # -> one protected path/prefix per line
     '.claude/settings.json' \
     '.claude/settings.local.json' \
     '.logic-loom/config/governance.conf' \
+    '.logic-loom/config/gate-policy.conf' \
     '.logic-loom/memory/constitution.md' \
     '.logic-loom/lib/governance-verdicts.sh' \
     '.logic-loom/lib/policy.sh' \
@@ -884,6 +905,7 @@ loom_protected_path_tokens() { # -> one protected path/prefix per line
       "$_LOOM_FRAMEWORK_NAME/lib/governance-verdicts.sh" \
       "$_LOOM_FRAMEWORK_NAME/lib/policy.sh" \
       "$_LOOM_FRAMEWORK_NAME/config/governance.conf" \
+      "$_LOOM_FRAMEWORK_NAME/config/gate-policy.conf" \
       "$_LOOM_FRAMEWORK_NAME/memory/constitution.md"
   fi
   _loom_config_protected_entries
@@ -898,6 +920,505 @@ loom_verdict_protected_path() { # rel_path agent_id -> allow|ask|deny
   fi
   echo allow; return 0
 }
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Gate policy — USER-CONFIGURABLE ask/silent split, with a NON-TUNABLE FLOOR
+# ─────────────────────────────────────────────────────────────────────────────
+# WHAT THIS IS. Everything above answers "does this command mutate?". This
+# section answers the separate question "does mutating warrant interrupting the
+# user?". Before it, the two were the same question and every mutation asked —
+# so `git commit -m x` and `git push --force` produced identical friction, and
+# the user learned to click through both. Splitting them lets the loud gate stay
+# loud.
+#
+# The split is expressed in a data file (`<framework-dir>/config/gate-policy.conf`)
+# so a user can move an operation between ASK and SILENT without editing shell.
+#
+# THREE LAYERS, in precedence order:
+#   1. FLOOR       — a small set of operations that ALWAYS ask. Config cannot
+#                    move them, and no permission mode relaxes them. Attempting
+#                    to is REFUSED with a typed reason (loom_gate_policy_refusals).
+#   2. CONFIG      — `<operation> = ask|silent` for every TUNABLE operation.
+#   3. DEFAULTS    — the built-in table below, used for any operation the config
+#                    does not mention, and for the whole file when it is
+#                    missing/unreadable/corrupt.
+#
+# FAIL-SAFE, NEVER FAIL-OPEN — same doctrine as the protected-path set. A missing
+# or unparseable gate-policy.conf falls back to the DEFAULTS (which ask for
+# everything consequential), never to "allow everything". An unrecognized key is
+# ignored; an unrecognized VALUE falls back to that operation's default; an
+# unknown operation id asks. There is no wildcard, no "silence all", and no
+# single line that can lower the floor — every operation is its own line, so
+# weakening the gate is proportional to the effort of weakening it.
+#
+# SUBAGENTS ARE OUT OF SCOPE, DELIBERATELY. loom_verdict_subagent_git /
+# loom_verdict_subagent_gh never consult this section. A subagent keeps
+# allowlisted read-only git and is denied every git mutation and all gh, in every
+# posture and every permission mode. That is floor, not policy.
+
+# Config file location. Derived from this library's own path (so it follows a
+# renamed framework directory), overridable for adapters/tests.
+if [ -z "${LOOM_GATE_POLICY_CONF:-}" ] && [ -n "${_LOOM_FRAMEWORK_DIR:-}" ]; then
+  LOOM_GATE_POLICY_CONF="$_LOOM_FRAMEWORK_DIR/config/gate-policy.conf"
+fi
+LOOM_GATE_POLICY_CONF="${LOOM_GATE_POLICY_CONF:-}"
+
+# THE FLOOR. Constitution Principle VI's irreducible core plus the credential and
+# repository-administration surface. Rationale per entry lives in
+# gate-policy.conf; the one-line test is "a wrong answer here leaves the repo, or
+# leaves a credential, somewhere a revert cannot reach".
+LOOM_GATE_FLOOR_OPS='git.push git.history-rewrite gh.repo.admin gh.secret.write gh.auth'
+
+# Built-in defaults. Space-separated `op:verdict` pairs; verdict is ask|silent.
+# This table IS the shipped policy — gate-policy.conf ships with the same values
+# spelled out so a user can see and move them, but deleting the file changes
+# nothing.
+LOOM_GATE_DEFAULTS='
+git.push:ask
+git.pull:ask
+git.merge:ask
+git.rebase:ask
+git.reset.hard:ask
+git.reset:ask
+git.clean:ask
+git.restore:ask
+git.rm:ask
+git.mv:ask
+git.branch.write:ask
+git.worktree.write:ask
+git.remote.write:ask
+git.history-rewrite:ask
+git.stash.drop:ask
+git.commit:silent
+git.add:silent
+git.stash:silent
+git.tag.write:silent
+git.checkout:silent
+git.cherry-pick:silent
+git.revert:silent
+git.am:silent
+git.apply:silent
+git.fetch:silent
+gh.pr.create:ask
+gh.pr.merge:ask
+gh.pr.edit:ask
+gh.workflow.write:ask
+gh.release.write:ask
+gh.repo.admin:ask
+gh.secret.write:ask
+gh.auth:ask
+gh.alias.set:ask
+gh.api.write:ask
+gh.issue.delete:ask
+gh.issue.write:silent
+gh.run.write:silent
+'
+
+# Permission-mode handling. OBSERVED (Claude Code 2.1.200): the PreToolUse hook
+# payload DOES carry `permission_mode` — the common hook-input builder sets it
+# alongside session_id/cwd/agent_id/agent_type, and PreToolUse spreads it. It is
+# present in real captured payloads. Valid values: default, acceptEdits, auto,
+# dontAsk, bypassPermissions, plan.
+#
+# Two actions per mode:
+#   enforce — use the per-operation policy as written
+#   relax   — TUNABLE operations become silent; FLOOR operations still ask
+#
+# EVERY mode ships as `enforce`, bypassPermissions included.
+#
+# There is a plausible argument for relaxing bypassPermissions: the host is
+# understood to map a hook "ask" back into the FULL permission pipeline, where
+# the mode then applies and auto-approves — which would make a LogicLoom `ask`
+# under that mode a log line rather than a safeguard. That argument is INFERRED
+# from reading host internals; it is NOT verified by us against a running
+# session. Meanwhile the tunable set includes operations with no undo —
+# git.clean, git.reset.hard, git.restore, git.rm, and the branch/worktree/remote
+# writes. Auto-allowing those on the strength of an unverified redundancy claim
+# is the wrong bet: a redundant prompt costs a keystroke, a wrong silence costs
+# the work. So the shipped default errs toward asking.
+#
+# Setting `mode.bypassPermissions = relax` in gate-policy.conf is a SUPPORTED,
+# deliberate choice — the mechanism is fully wired and covered by the contract
+# tests. It is simply not made on the user's behalf.
+#
+# `dontAsk` stays `enforce` for an independent reason: there an `ask` becomes a
+# DENY, which is the safe direction, and silently converting it to allow would be
+# the harness quietly overriding a mode the user chose to be restrictive.
+LOOM_GATE_MODE_DEFAULTS='
+default:enforce
+acceptEdits:enforce
+plan:enforce
+auto:enforce
+dontAsk:enforce
+bypassPermissions:enforce
+'
+
+# op -> ask|silent from the built-in table (empty if the op is unknown).
+_loom_gate_default() { # op -> ask|silent|''
+  local op="$1" line
+  case "$op" in ''|*[!a-z0-9.-]*) return 0 ;; esac
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case "$line" in
+      "$op":*) printf '%s' "${line#*:}"; return 0 ;;
+    esac
+  done <<< "$LOOM_GATE_DEFAULTS"
+  return 0
+}
+
+loom_gate_op_is_floor() { # op -> 0 if the op is FLOOR (never tunable)
+  _loom_in_list "$1" "$LOOM_GATE_FLOOR_OPS"
+}
+
+# Every operation id this build knows, one per line (for validators + docs).
+loom_gate_known_ops() {
+  local line
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    printf '%s\n' "${line%%:*}"
+  done <<< "$LOOM_GATE_DEFAULTS"
+}
+
+# Read ONE key from gate-policy.conf. First occurrence wins (override semantics,
+# like `mode` in governance.conf — NOT the union semantics of protected_paths;
+# a gate has exactly one verdict). Never sources or evaluates the file.
+_loom_gate_conf_raw() { # key -> raw value (may be empty)
+  local conf="${LOOM_GATE_POLICY_CONF:-}" key="$1" line rest
+  [ -n "$conf" ] || return 0
+  [ -f "$conf" ] || return 0
+  [ -r "$conf" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(_loom_ltrim "$line")"
+    case "$line" in "$key"*) ;; *) continue ;; esac
+    rest="$(_loom_ltrim "${line#"$key"}")"
+    case "$rest" in =*) ;; *) continue ;; esac   # `git.pushX = ...` is not the key
+    rest="${rest#=}"
+    rest="${rest%%#*}"
+    rest="$(_loom_ltrim "$rest")"
+    rest="${rest%"${rest##*[![:space:]]}"}"
+    printf '%s' "$rest"
+    return 0
+  done < "$conf"
+  return 0
+}
+
+# EFFECTIVE policy for an operation: ask|silent. Floor first (un-tunable), then
+# config, then the built-in default. Unknown operation -> ask (fail safe).
+loom_gate_policy() { # op -> ask|silent
+  local op="$1" def v
+  def="$(_loom_gate_default "$op")"
+  [ -n "$def" ] || { echo ask; return 0; }
+  if loom_gate_op_is_floor "$op"; then echo ask; return 0; fi
+  v="$(_loom_gate_conf_raw "$op")"
+  case "$v" in
+    ask|silent) echo "$v"; return 0 ;;
+  esac
+  echo "$def"; return 0
+}
+
+# mode -> enforce|relax. Unknown/absent mode -> enforce (fail safe).
+_loom_gate_mode_action() { # permission_mode -> enforce|relax
+  local m="$1" v line
+  [ -n "$m" ] || { echo enforce; return 0; }
+  case "$m" in *[!a-zA-Z]*) echo enforce; return 0 ;; esac
+  v="$(_loom_gate_conf_raw "mode.$m")"
+  case "$v" in
+    enforce|relax) echo "$v"; return 0 ;;
+  esac
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    case "$line" in
+      "$m":*) printf '%s\n' "${line#*:}"; return 0 ;;
+    esac
+  done <<< "$LOOM_GATE_MODE_DEFAULTS"
+  echo enforce; return 0
+}
+
+# The gate verdict for ONE operation under ONE permission mode: ask|allow.
+loom_gate_effective() { # op [permission_mode] -> ask|allow
+  local op="$1" mode="${2:-}"
+  [ "$(loom_gate_policy "$op")" = "silent" ] && { echo allow; return 0; }
+  if ! loom_gate_op_is_floor "$op" \
+     && [ "$(_loom_gate_mode_action "$mode")" = "relax" ]; then
+    echo allow; return 0
+  fi
+  echo ask; return 0
+}
+
+# Typed refusals for the current config, one per line, empty when it is clean.
+# Mirrors how the protected-path set refuses a removal: the attempt does not
+# quietly do nothing, it is NAMED. Consumed by /initialize-project and the
+# contract test; a hook never blocks on it.
+#   floor-gate-not-tunable: <op> = <value> — <why it is floor>
+#   invalid-verdict: <op> = <value> — expected ask|silent; using default <d>
+#   unknown-operation: <key> = <value> — not a LogicLoom gate operation
+loom_gate_policy_refusals() {
+  local conf="${LOOM_GATE_POLICY_CONF:-}" line key val known
+  [ -n "$conf" ] || return 0
+  [ -f "$conf" ] || return 0
+  [ -r "$conf" ] || return 0
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="$(_loom_ltrim "$line")"
+    case "$line" in ''|'#'*) continue ;; esac
+    case "$line" in *=*) ;; *) continue ;; esac
+    key="${line%%=*}"
+    key="${key%"${key##*[![:space:]]}"}"
+    val="${line#*=}"
+    val="${val%%#*}"
+    val="$(_loom_ltrim "$val")"
+    val="${val%"${val##*[![:space:]]}"}"
+    case "$key" in
+      mode.*)
+        case "$val" in enforce|relax) ;; *)
+          printf 'invalid-verdict: %s = %s — expected enforce|relax; using the built-in mode default\n' "$key" "$val" ;;
+        esac
+        continue ;;
+    esac
+    known="$(_loom_gate_default "$key")"
+    if [ -z "$known" ]; then
+      printf 'unknown-operation: %s = %s — not a LogicLoom gate operation; line has no effect\n' "$key" "$val"
+      continue
+    fi
+    if loom_gate_op_is_floor "$key" && [ "$val" != "ask" ]; then
+      printf 'floor-gate-not-tunable: %s = %s — REFUSED. %s stays ask under Principle VI; it leaves the repository (or a credential) somewhere a revert cannot reach\n' "$key" "$val" "$key"
+      continue
+    fi
+    case "$val" in ask|silent) ;; *)
+      printf 'invalid-verdict: %s = %s — expected ask|silent; using the built-in default %s\n' "$key" "$val" "$known" ;;
+    esac
+  done < "$conf"
+  return 0
+}
+
+# ── Operation classification ────────────────────────────────────────────────
+# Maps a command to the operation id(s) it performs. Reuses the SAME tokenizer
+# as the mutation detectors above; there is still exactly one.
+
+# Does this arg string contain the given long flag (either spelling)?
+_loom_git_has_flag() { # args flag -> 0 if present
+  local s="$1" want="$2" tok
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    [ "${tok%%=*}" = "$want" ] && return 0
+    s="${s#"$tok"}"
+  done
+  return 1
+}
+
+# `git checkout|switch <args>` -> which operation is this really?
+#   creates a branch (-b/-B/-c/-C/--orphan)               -> git.branch.write
+#   can discard working-tree content (pathspec form, --,
+#   -p/--patch, or an operand that is not unambiguously a
+#   branch name)                                          -> git.restore
+#   otherwise (moving between existing refs)              -> git.checkout
+# The "not unambiguously a branch name" clause is deliberately conservative:
+# `git checkout src/a.ts` DISCARDS that file, and nothing in the command string
+# distinguishes it from a ref of the same name. Consistent with the allowlist
+# doctrine at the top of this file, the ambiguous case takes the LOUD answer —
+# so `git checkout origin/main` also asks. A user who finds that noisy moves
+# `git.restore` to silent, which is exactly the knob this section exists for.
+_loom_git_checkout_op() { # subcommand args-after-it -> echoes op id
+  local sub="$1" s="$2" tok operands=0 lastop="" expect_arg=0
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    if [ "$expect_arg" = 1 ]; then expect_arg=0; s="${s#"$tok"}"; continue; fi
+    case "$tok" in
+      -b|-B|--orphan|-c|-C) printf 'git.branch.write'; return 0 ;;
+      --track|--track=*|-t) printf 'git.branch.write'; return 0 ;;
+      -p|--patch|--) printf 'git.restore'; return 0 ;;
+      --pathspec-from-file|--pathspec-from-file=*) printf 'git.restore'; return 0 ;;
+      --start-point|--conflict) expect_arg=1 ;;
+      -*) ;;
+      *) operands=$((operands + 1)); lastop="$tok" ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  # `git switch` cannot take a pathspec at all — it is branch-only by design.
+  if [ "$sub" = "switch" ]; then printf 'git.checkout'; return 0; fi
+  [ "$operands" -gt 1 ] && { printf 'git.restore'; return 0; }
+  case "$lastop" in
+    ''|-|HEAD) printf 'git.checkout'; return 0 ;;
+    *[/.]*)    printf 'git.restore';  return 0 ;;
+    *)         printf 'git.checkout'; return 0 ;;
+  esac
+}
+
+# One segment -> the git operation it performs (empty if it is not a mutating
+# git invocation). Same global-flag skipping as _loom_seg_git_mutates.
+_loom_seg_git_op() { # segment -> echoes op id or nothing
+  local s tok sub="" expect_arg=0 first
+  s="$(_loom_git_after_prefix "$1")" || return 0
+  tok="${s%%[[:space:]]*}"; s="${s#"$tok"}"
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    if [ "$expect_arg" = 1 ]; then expect_arg=0; s="${s#"$tok"}"; continue; fi
+    case "$tok" in
+      -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--super-prefix|--config-env|--attr-source) expect_arg=1 ;;
+      -*) ;;
+      *) sub="$tok"; s="${s#"$tok"}"; break ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  [ -n "$sub" ] || return 0
+  first="$(_loom_first_arg "$s")"
+  case "$sub" in
+    push)                    printf 'git.push\n' ;;
+    pull)                    printf 'git.pull\n' ;;
+    merge)                   printf 'git.merge\n' ;;
+    rebase)                  printf 'git.rebase\n' ;;
+    commit)                  printf 'git.commit\n' ;;
+    add)                     printf 'git.add\n' ;;
+    cherry-pick)             printf 'git.cherry-pick\n' ;;
+    revert)                  printf 'git.revert\n' ;;
+    am)                      printf 'git.am\n' ;;
+    apply)                   printf 'git.apply\n' ;;
+    clean)                   printf 'git.clean\n' ;;
+    rm)                      printf 'git.rm\n' ;;
+    mv)                      printf 'git.mv\n' ;;
+    restore)                 printf 'git.restore\n' ;;
+    reset)
+      if _loom_git_has_flag "$s" --hard; then printf 'git.reset.hard\n'
+      else printf 'git.reset\n'; fi ;;
+    update-ref|filter-branch|fast-import) printf 'git.history-rewrite\n' ;;
+    symbolic-ref)
+      _loom_git_symbolic_ref_readonly_sub "$s" || printf 'git.history-rewrite\n' ;;
+    checkout|switch)         _loom_git_checkout_op "$sub" "$s"; printf '\n' ;;
+    fetch)                   printf 'git.fetch\n' ;;
+    stash)
+      case "$first" in
+        drop|clear) printf 'git.stash.drop\n' ;;
+        *)          printf 'git.stash\n' ;;
+      esac ;;
+    tag)   _loom_git_tag_mutates "$s"  && printf 'git.tag.write\n' ;;
+    branch) _loom_git_branch_mutates "$s" && printf 'git.branch.write\n' ;;
+    remote) _loom_in_list "$first" "$LOOM_GIT_REMOTE_WRITE_VERBS" && printf 'git.remote.write\n' ;;
+    worktree) _loom_in_list "$first" "$LOOM_GIT_WORKTREE_WRITE_VERBS" && printf 'git.worktree.write\n' ;;
+  esac
+  return 0
+}
+
+# command -> every git operation it performs, one per line.
+loom_git_ops() { # command -> op ids
+  local seg
+  while IFS= read -r seg; do
+    _loom_seg_git_op "$seg"
+  done <<< "$(_loom_split_segments "$1")"
+  return 0
+}
+
+# One segment -> the gh operation it performs (empty if not consequential).
+_loom_seg_gh_op() { # segment -> echoes op id or nothing
+  local s tok noun="" verb="" expect_arg=0
+  s="$(_loom_gh_after_prefix "$1")" || return 0
+  tok="${s%%[[:space:]]*}"; s="${s#"$tok"}"
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    if [ "$expect_arg" = 1 ]; then expect_arg=0; s="${s#"$tok"}"; continue; fi
+    case "$tok" in
+      -R|--repo|--hostname) expect_arg=1 ;;
+      -*) ;;
+      *) noun="$tok"; s="${s#"$tok"}"; break ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  [ -n "$noun" ] || return 0
+  if [ "$noun" = "api" ]; then
+    _loom_gh_api_writes "$s" && printf 'gh.api.write\n'
+    return 0
+  fi
+  expect_arg=0
+  while :; do
+    s="$(_loom_ltrim "$s")"
+    [ -n "$s" ] || break
+    tok="${s%%[[:space:]]*}"
+    if [ "$expect_arg" = 1 ]; then expect_arg=0; s="${s#"$tok"}"; continue; fi
+    case "$tok" in
+      -R|--repo|--hostname) expect_arg=1 ;;
+      -*) ;;
+      *) verb="$tok"; break ;;
+    esac
+    s="${s#"$tok"}"
+  done
+  case "$noun $verb" in
+    'pr create')                                          printf 'gh.pr.create\n' ;;
+    'pr merge')                                           printf 'gh.pr.merge\n' ;;
+    'pr close'|'pr reopen'|'pr review'|'pr edit')         printf 'gh.pr.edit\n' ;;
+    'workflow run'|'workflow enable'|'workflow disable')  printf 'gh.workflow.write\n' ;;
+    'run rerun'|'run cancel')                             printf 'gh.run.write\n' ;;
+    'release create'|'release delete'|'release edit')     printf 'gh.release.write\n' ;;
+    'repo delete'|'repo archive'|'repo edit')             printf 'gh.repo.admin\n' ;;
+    'issue delete')                                       printf 'gh.issue.delete\n' ;;
+    'issue create'|'issue close'|'issue edit'|'issue pin') printf 'gh.issue.write\n' ;;
+    'alias set')                                          printf 'gh.alias.set\n' ;;
+    'secret set'|'variable set'|'ssh-key add')            printf 'gh.secret.write\n' ;;
+    'auth login'|'auth refresh')                          printf 'gh.auth\n' ;;
+  esac
+  return 0
+}
+
+# command -> every gh operation it performs, one per line.
+loom_gh_ops() { # command -> op ids
+  local seg
+  while IFS= read -r seg; do
+    _loom_seg_gh_op "$seg"
+  done <<< "$(_loom_split_segments "$1")"
+  return 0
+}
+
+# The FIRST operation in a command whose gate verdict is `ask` — the reason text
+# an adapter should show. Empty when nothing in the command asks.
+loom_gate_asking_op() { # command [permission_mode] -> op id or ''
+  local cmd="$1" mode="${2:-}" op
+  while IFS= read -r op; do
+    [ -n "$op" ] || continue
+    if [ "$(loom_gate_effective "$op" "$mode")" = "ask" ]; then
+      printf '%s' "$op"; return 0
+    fi
+  done <<< "$(loom_git_ops "$cmd"
+loom_gh_ops "$cmd")"
+  return 0
+}
+
+# The posture presets offered at onboarding. Emitting the file body from the
+# library (rather than from a script) keeps ONE definition of a posture, shared
+# by init-project.sh, /initialize-project, and the contract test.
+LOOM_GATE_POSTURES='strict balanced minimal'
+
+loom_gate_posture_is_valid() { # posture -> 0 if known
+  _loom_in_list "$1" "$LOOM_GATE_POSTURES"
+}
+
+# posture -> the `<op> = <verdict>` body for gate-policy.conf, one per line.
+#   strict   — every operation asks. Nothing is silent. Maximum interruption,
+#              zero surprise. (The floor is already ask, so strict == all-ask.)
+#   balanced — the shipped default: consequential and destructive operations ask;
+#              routine local work (commit/add/stash/tag/checkout/cherry-pick/
+#              revert/am/apply/fetch, gh issue + run) is silent.
+#   minimal  — everything TUNABLE is silent; only the floor asks.
+loom_gate_posture_body() { # posture -> "<op> = <verdict>" lines
+  local posture="$1" line op def
+  loom_gate_posture_is_valid "$posture" || return 1
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    op="${line%%:*}"; def="${line#*:}"
+    case "$posture" in
+      strict)   def=ask ;;
+      minimal)  loom_gate_op_is_floor "$op" && def=ask || def=silent ;;
+      balanced) ;;
+    esac
+    printf '%s = %s\n' "$op" "$def"
+  done <<< "$LOOM_GATE_DEFAULTS"
+  return 0
+}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Freeze write-scope (verbatim glob logic from freeze-write-scope.sh)

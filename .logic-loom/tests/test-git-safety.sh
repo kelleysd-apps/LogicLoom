@@ -391,8 +391,14 @@ test_git_safety_gate() {
     # Mutating with global flags between git and subcommand -> ask
     assert_equals "ask" "$(run_safety_gate "git -C /r push")" \
         "main 'git -C /r push' -> ask"
-    assert_equals "ask" "$(run_safety_gate "git -c k=v commit -m x")" \
-        "main 'git -c k=v commit' -> ask"
+    # GATE POLICY (2026-08): `git commit` is now SILENT by default (local, fully
+    # revertible, highest-frequency operation). The point of this assertion is
+    # flag-decoupling, not the commit verb, so it moves to an operation that
+    # still asks — and the new silent behaviour is asserted immediately below.
+    assert_equals "ask" "$(run_safety_gate "git -c k=v merge feature")" \
+        "main 'git -c k=v merge' -> ask"
+    assert_equals "allow" "$(run_safety_gate "git -c k=v commit -m x")" \
+        "main 'git -c k=v commit' -> allow (gate policy: git.commit = silent)"
     assert_equals "ask" "$(run_safety_gate "git --git-dir=x push")" \
         "main 'git --git-dir=x push' -> ask"
     assert_equals "ask" "$(run_safety_gate "/usr/bin/git push origin main")" \

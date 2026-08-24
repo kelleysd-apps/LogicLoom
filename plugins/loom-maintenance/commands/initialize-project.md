@@ -70,6 +70,58 @@ this step, and `framework-upstream.conf` identifies UPSTREAM, not this project).
 An unstamped file is a WARNING, never an error — a fresh clone that has not run
 this command is a normal state.
 
+### Step 1.7: Choose the Approval Posture
+
+Ask ONCE which repository operations should interrupt the user, and write the
+answer to `.logic-loom/config/gate-policy.conf`. This is a preference, not a
+constant — before it existed, `git commit -m "wip"` and `git push --force`
+produced the same prompt, which is how an approval prompt stops being read.
+
+**Do not ask thirty-eight questions.** Offer three named postures, one line each:
+
+| Posture | What it does |
+|---|---|
+| `strict` | Ask before every repository change. Nothing runs silently. |
+| `balanced` | Ask before anything consequential or destructive; let routine local work (commit, add, stash, tag, checkout, cherry-pick, revert, fetch) run. **Recommended, and the shipped default.** |
+| `minimal` | Only the five un-turn-off-able operations ask; everything else runs. |
+
+Steps:
+
+1. **Idempotency check (Principle IV).** If `gate-policy.conf` already contains an
+   active `# posture:` line, a posture has been chosen — say so and skip. Do not
+   re-prompt and do not overwrite a hand-tuned file.
+2. Ask the user, defaulting to `balanced`.
+3. Render the body from the verdict library — there is exactly ONE definition of
+   what a posture means, shared with `init-project.sh` and
+   `tests/contract/test_gate_policy.sh`:
+   ```bash
+   . .logic-loom/lib/governance-verdicts.sh && loom_gate_posture_body balanced
+   ```
+4. Rewrite `gate-policy.conf` by **stripping only the active
+   `<operation> = <verdict>` lines and appending the rendered body**, keeping all
+   commentary — that commentary is where the policy is explained. Strip with
+   `^[[:space:]]*(git|gh)\.[a-z0-9.-]+[[:space:]]*=` — the hyphen and digits
+   matter, because `git.cherry-pick` and `git.history-rewrite` contain one and a
+   surviving duplicate WINS (first occurrence takes precedence).
+   Add a `# posture: <name> (chosen at project initialization on <date>)` line so
+   step 1 can detect it next time.
+5. Surface any refusal, verbatim, and do not try to work around it:
+   ```bash
+   . .logic-loom/lib/governance-verdicts.sh && loom_gate_policy_refusals
+   ```
+
+**The floor is not negotiable, in any posture.** `git.push`,
+`git.history-rewrite`, `gh.repo.admin`, `gh.secret.write` and `gh.auth` always
+ask; a config line setting one of them to `silent` is REFUSED with a typed reason
+rather than ignored. Separately — and not represented in this file at all —
+governance-file writes stay subagent-DENY / main-ASK, and a subagent keeps
+read-only git only, with all `gh` denied. Never offer to relax any of that.
+
+Tell the user two things in closing: they can change any SINGLE operation later
+by editing one line in `gate-policy.conf`, and editing that file will itself
+prompt for approval (it is on the protected-file floor, so a subagent cannot
+rewrite the approval policy and then act under it).
+
 ### Step 2: Customize Constitution
 Read PRD goals and constraints. Update `.logic-loom/memory/constitution.md` principles as needed.
 
@@ -126,4 +178,6 @@ command themselves.
 Run `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Step 6: Report
-Show: VISION.md scaffolded/seeded (or skipped if author-filled), customizations applied, agents created, MCP servers recommended, next steps.
+Show: VISION.md scaffolded/seeded (or skipped if author-filled), the approval
+posture chosen (and any refused lines), customizations applied, agents created,
+MCP servers recommended, next steps.

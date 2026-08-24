@@ -647,6 +647,106 @@ contract rather than inferred from one implementation.
 
 ---
 
+## 11. The opt-in scaffolding (amends § 10)
+
+**Added after this policy's v1.0.0.** § 10 stated that no promotion command or CI
+workflow for environment promotion ships with LogicLoom, "and none was added by
+the change that wrote this policy." That was true of *that* change. It is no
+longer the whole picture, and § 10's table is amended here rather than rewritten,
+so the sequence stays legible: **the methodology was written down first, and the
+machinery was then built against a stated contract** — which is exactly what
+Principle V asked for.
+
+### What now ships
+
+`/scaffold-environments` (plugin `loom-maintenance`), over two scripts and five
+templates:
+
+| Ships | What it is |
+|---|---|
+| `.logic-loom/scripts/bash/detect-environment-topology.sh` | Read-only detection of branches, roles, default branch, CI provider, and existing declarations. Runs no git. |
+| `.logic-loom/scripts/bash/scaffold-environments.sh` | Plan / apply. `--plan` writes nothing; `--apply` requires `--only=…`. |
+| `.logic-loom/templates/environment-promotion/` | The five things it can write, as templates. |
+| `plugins/loom-maintenance/commands/scaffold-environments.md` + `skills/environment-scaffolding/` | The command and its skill. |
+| `tests/contract/test_environment_scaffolding.sh` | The contract, including the boundary below. |
+
+### What it writes into a project, all opt-in, all named before writing
+
+1. A filled-in `environments.conf` reflecting the branches the project **actually
+   has** (§ 9).
+2. A branch-boundary CI check for the project's production branch (§ 3),
+   generalized from `branch-topology-guard.yml` and parameterized by **their**
+   branch names. Fails closed, no exemptions, and the workflow itself states that
+   it only fires once merged to the base branch.
+3. A promotion checklist doc carrying the portable patterns of § 4 — fail-closed
+   with a typed reason, escalating confirmation by blast radius,
+   migrate-before-deploy, keep-the-rehearsal-alive-on-failure, secret names that
+   encode environment, and the vendor-dashboard-drift category — written against
+   the project's own branches, plus the § 7 unsolved problems restated as
+   unsolved.
+4. A **commented placeholder** deploy seam per environment, which the product
+   owns and the harness never invokes. It exits **non-zero**: a placeholder
+   exiting 0 would report a deployment that did not happen, which is § 4.2's
+   failure mode exactly.
+5. A default-branch-trap guard for the project's topology (§ 2), mode-selected —
+   see below.
+
+### The boundary is unchanged, and is now test-enforced
+
+Still **not** shipped, and now asserted by the contract suite rather than only
+promised here: cloud or CI-provider deploy logic, secret values, migration
+runners, seed scripts, teardown jobs, and rollback mechanisms. § 8 and the
+"Yours to provide" column of § 10 stand exactly as written.
+
+The scaffolder is a **planner and a file writer**. It runs no deployment, and it
+runs **no git at all** — branch detection reads refs off the filesystem, and no
+branch is ever created for an unfilled role.
+
+### § 2 generalized — and LogicLoom's inversion deliberately not exported
+
+§ 2.2 is the worked counter-example: LogicLoom's `origin/HEAD` is not stale and
+its default branch genuinely **is** its production line, so `git remote set-head
+origin --auto` does not apply *there*. § 2.3 says a customer project should do
+the opposite. The scaffolder implements that split rather than picking a side:
+
+| Detected arrangement | Generated guard |
+|---|---|
+| default branch **is** the integration branch | mode `expect-default-is-integration` — recommends keeping `origin/HEAD` fresh (§ 2.1) |
+| default branch is **not** the integration branch | mode `expect-explicit-base` — states that `set-head --auto` does **not** apply and requires the base to be named explicitly (§ 2.2's shape, § 2.3's decision) |
+| no integration branch | **not generated** — the trap does not arise yet |
+| default branch could not be determined | **not generated** — fail closed rather than guess (§ 4.2) |
+
+The generated script also detects that its own assumption has gone stale — if
+`origin/HEAD` no longer matches the arrangement it was built for, it says so and
+asks to be regenerated.
+
+### Adoption posture
+
+Four properties, each contract-tested:
+
+- **Detects, never assumes.** Roles match only branches that exist. Where the
+  scaffolder must assume something — writing a GitHub Actions workflow into a
+  repository with no CI at all — it says so in the proposal line rather than
+  silently.
+- **Proposes a delta.** A project that already has a `staging` branch is never
+  told to create one.
+- **Never overwrites.** No `--force`. An existing file is left byte-identical and
+  reported as a conflict; a file carrying the scaffolder's own marker is an
+  idempotent no-op (Principle IV).
+- **Declining leaves nothing behind.** `--plan` writes no file.
+
+### Naming
+
+`/scaffold-environments`, **not** `/promote` and not `/deploy-promote`. `/promote`
+is the maintainer release driver, stripped from customer copies by exact path
+(**LOOM-0006**). `/deploy-promote` was LOOM-0006's suggested name for a
+customer-facing *promotion* command — a thing that promotes. This command
+promotes nothing, so taking that name would have described the wrong verb and
+consumed the name the actual promotion command should have. LOOM-0006 remains
+open and its suggested resolution remains available.
+
+---
+
 ## References
 
 - Constitution v3.3.0: `.logic-loom/memory/constitution.md`
@@ -668,6 +768,15 @@ contract rather than inferred from one implementation.
 | 1.0.0 | Initial policy. Records the coding→deployed mapping, the default-branch trap **with LogicLoom's inverted exception** (its default branch genuinely *is* the production line, so `git remote set-head --auto` does not apply and worktrees must name the integration branch explicitly), the CI-enforced branch boundary, seven portable patterns, the one-directional data boundary, forward-only migrations, build-time binding, what a green rehearsal proves and does not, two explicitly unsolved problems, and the vendor adapter categories. Adds `rehearsal_seed_allowlist` and `confirm` to the `environments.conf` schema — commented out, declaration-only, no engine. No pipeline machinery was built. |
 
 ---
+
+> **Amendment (§ 11).** After v1.0.0, the opt-in scaffolding that LOOM-0025
+> called for was built: `/scaffold-environments`, its detector, and its
+> templates. § 10's "no promotion command or CI workflow ships" claim is amended
+> by § 11 — a **generated, opt-in** branch-boundary workflow and a set of
+> placeholder seams now ship as templates. The "Yours to provide" column is
+> unchanged: no deploy logic, no seed, no teardown, no migration runner, and no
+> rollback mechanism ships, and that boundary is now enforced by
+> `tests/contract/test_environment_scaffolding.sh` rather than only promised.
 
 **Policy Owner**: Architecture Department
 **Last Reviewed**: 2026-08-22

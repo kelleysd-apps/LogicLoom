@@ -38,7 +38,35 @@ extract_command() {
   printf '%s' "$INPUT" | grep -oE '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"command"[^"]*"//; s/"$//'
 }
 
+# The session's permission mode, when the host supplies one. OBSERVED PRESENT in
+# Claude Code 2.1.200: the common hook-input builder emits `permission_mode`
+# alongside session_id/cwd/agent_id/agent_type, PreToolUse spreads it, and it
+# appears in real captured payloads. Values:
+# default | acceptEdits | auto | dontAsk | bypassPermissions | plan.
+#
+# Why it matters here: it is the key the gate policy can be tuned against, so a
+# user can decide per-mode whether TUNABLE operations still interrupt them. It is
+# INFERRED (from host internals, not verified by us) that a hook `ask` is folded
+# back into the full permission pipeline — which would make an `ask` redundant
+# under bypassPermissions. Because that is unverified, NO mode ships as `relax`;
+# every mode enforces the policy as written until the user opts in via
+# gate-policy.conf. Empty/absent -> unknown mode -> policy as written.
+extract_permission_mode() {
+  if command -v jq >/dev/null 2>&1; then
+    printf '%s' "$INPUT" | jq -r '.permission_mode // empty' 2>/dev/null && return
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$INPUT" | python3 -c \
+      "import sys,json; d=json.load(sys.stdin); print(d.get('permission_mode') or '')" \
+      2>/dev/null && return
+  fi
+  printf '%s' "$INPUT" | grep -oE '"permission_mode"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"permission_mode"[^"]*"//; s/"$//'
+}
+
 COMMAND="$(extract_command || true)"
+PERMISSION_MODE="$(extract_permission_mode || true)"
+# A hostile/garbled value must never reach a case pattern as a metacharacter.
+case "$PERMISSION_MODE" in *[!a-zA-Z]*) PERMISSION_MODE="" ;; esac
 
 emit_allow() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}\n'
@@ -68,8 +96,17 @@ VERDICT_LIB="$(cd "$SCRIPT_DIR/../../../.." && pwd)/.logic-loom/lib/governance-v
 { [ -f "$VERDICT_LIB" ] && source "$VERDICT_LIB"; } 2>/dev/null || true
 
 if declare -f loom_verdict_git_mutation >/dev/null 2>&1; then
-  if [ "$(loom_verdict_git_mutation "$COMMAND")" = "ask" ]; then
-    emit_ask "Principle VI: git operation requires explicit user approval — '${COMMAND}'"
+  # Which operations ask, and which run silently, is the USER-CONFIGURABLE gate
+  # policy (.logic-loom/config/gate-policy.conf) — not a constant in this hook.
+  # A missing/corrupt policy file falls back to the built-in defaults, never to
+  # "allow everything"; five FLOOR operations (git.push, git.history-rewrite,
+  # gh.repo.admin, gh.secret.write, gh.auth) are not tunable at all.
+  GATE_OP=""
+  if declare -f loom_gate_asking_op >/dev/null 2>&1; then
+    GATE_OP="$(loom_gate_asking_op "$COMMAND" "$PERMISSION_MODE" || true)"
+  fi
+  if [ "$(loom_verdict_git_mutation "$COMMAND" "$PERMISSION_MODE")" = "ask" ]; then
+    emit_ask "Principle VI: git operation requires explicit user approval${GATE_OP:+ [gate: ${GATE_OP}]} — '${COMMAND}'"
   fi
   # Same gate for the GitHub CLI: `gh pr create/merge`, `gh workflow run`,
   # `gh release create`, `gh api -X POST|PUT|PATCH|DELETE` and friends mutate the
@@ -77,14 +114,18 @@ if declare -f loom_verdict_git_mutation >/dev/null 2>&1; then
   # list/view/watch, issue/repo/release/workflow view, `gh api` with no write
   # method) passes through unprompted.
   if declare -f loom_verdict_gh_mutation >/dev/null 2>&1 \
-     && [ "$(loom_verdict_gh_mutation "$COMMAND")" = "ask" ]; then
-    emit_ask "Principle VI: GitHub CLI operation mutates the repository and requires explicit user approval — '${COMMAND}'"
+     && [ "$(loom_verdict_gh_mutation "$COMMAND" "$PERMISSION_MODE")" = "ask" ]; then
+    emit_ask "Principle VI: GitHub CLI operation mutates the repository and requires explicit user approval${GATE_OP:+ [gate: ${GATE_OP}]} — '${COMMAND}'"
   fi
   emit_allow
 fi
 
 # Fail-SAFE fallback (verdict lib unavailable): inline-detect a mutating git and
-# still force approval rather than failing open. The lib is normally present and
+# still force approval rather than failing open. DELIBERATELY IGNORES the gate
+# policy and the permission mode: with the library gone there is nothing to parse
+# the policy file with, and a second, simpler copy of the ask/silent split would
+# be a second thing to get wrong. The cost is extra prompts during a window in
+# which the governance library is missing — a window that should be loud anyway. The lib is normally present and
 # self-protected; this last-resort copy keeps Principle VI from silently lapsing.
 _GIT_INVOKE='(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'
 _GIT_MUT='(^|[^[:alnum:]-])(push|pull|commit|merge|rebase|reset|checkout|switch|tag|stash|cherry-pick|revert|am|apply|clean|rm|mv|restore|update-ref|symbolic-ref|filter-branch|fast-import)([^[:alnum:]-]|$)'

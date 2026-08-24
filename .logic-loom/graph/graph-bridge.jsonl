@@ -71,6 +71,7 @@
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/testing.md","entityType":"code-path","observations":["testing.md"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/hooks.json","entityType":"code-path","observations":["hooks.json"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","entityType":"code-path","observations":["git-safety-gate.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/commands/scaffold-environments.md","entityType":"code-path","observations":["scaffold-environments.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-memory/config/memory.conf","entityType":"code-path","observations":["memory.conf"]}
@@ -87,6 +88,7 @@
 {"type":"entity","name":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/team-orchestration/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"specs/README.md","entityType":"note","observations":["Feature Specifications Directory"]}
+{"type":"entity","name":"tests/contract/test_environment_scaffolding.sh","entityType":"code-path","observations":["test_environment_scaffolding.sh"]}
 {"type":"entity","name":"tests/contract/test_freeze_scope.sh","entityType":"code-path","observations":["test_freeze_scope.sh"]}
 {"type":"entity","name":"tests/contract/test_git_adapter.sh","entityType":"code-path","observations":["test_git_adapter.sh"]}
 {"type":"entity","name":"tests/contract/test_governance_verdicts.sh","entityType":"code-path","observations":["test_governance_verdicts.sh"]}
@@ -111,6 +113,8 @@
 {"type":"relation","from":".docs/guides/unified-specification-guide.md","to":".docs/workflows/sdd-overview.md","relationType":"links-to"}
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/security.md","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/testing.md","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/environment-promotion-policy.md","to":"plugins/loom-maintenance/commands/scaffold-environments.md","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/environment-promotion-policy.md","to":"tests/contract/test_environment_scaffolding.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}

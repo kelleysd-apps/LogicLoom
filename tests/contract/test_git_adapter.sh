@@ -27,7 +27,13 @@ check "loom_verdict_git_mutation available after sourcing" yes \
 echo ""
 echo "autonomous (non-interactive) git mutations are BLOCKED"
 check "git push (autonomous) → block"        block "$(gate 'git push origin main')"
-check "git commit (autonomous) → block"      block "$(gate 'git commit -m x')"
+# GATE POLICY (2026-08): `git commit` moved ask -> silent — it is local, fully
+# revertible, and the highest-frequency operation there is. The adapter runs
+# OFF-HOST with no permission_mode, so it sees the policy exactly as written.
+# `git merge` below keeps the "autonomous mutation is blocked" assertion honest
+# for an operation that still asks.
+check "git commit (autonomous) → allow (gate: silent)" allow "$(gate 'git commit -m x')"
+check "git merge (autonomous) → block"       block "$(gate 'git merge feature')"
 check "git rebase (autonomous) → block"      block "$(gate 'git rebase main')"
 check "git reset --hard (autonomous) → block" block "$(gate 'git reset --hard HEAD~1')"
 check "/usr/bin/git push (path prefix) → block" block "$(gate 'cd /tmp && /usr/bin/git push')"
@@ -35,7 +41,7 @@ check "/usr/bin/git push (path prefix) → block" block "$(gate 'cd /tmp && /usr
 echo ""
 echo "explicit approval token lets a mutation through"
 check "git push + LOOM_GIT_APPROVED=1 → allow"   allow "$(gate 'git push origin main' 1)"
-check "git commit + LOOM_GIT_APPROVED=1 → allow" allow "$(gate 'git commit -m x' 1)"
+check "git merge + LOOM_GIT_APPROVED=1 → allow"  allow "$(gate 'git merge feature' 1)"
 
 echo ""
 echo "read-only git and non-git pass through"

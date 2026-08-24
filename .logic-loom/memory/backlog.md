@@ -601,26 +601,46 @@ reasoning instead of re-deriving it.
       should follow the ordinary advice instead — see
       `.docs/policies/environment-promotion-policy.md` § 2.
 
-- [ ] LOOM-0025 — Ship opt-in environment-promotion scaffolding, adoptable into an EXISTING project `status:open`
-      `.docs/policies/environment-promotion-policy.md` writes the methodology
-      down; nothing stands it up. The shippable capability is scaffolding a user
-      who adopts LogicLoom can run to get the shape into their own project:
-      the environment declarations, a branch-boundary CI guard adapted to their
-      topology, a rehearsal seed/teardown skeleton with the fail-closed allowlist
-      wired as an abort, and the escalating-confirm ladder in their promotion
-      script.
-      Two constraints that should be settled before any of it is built. (1) It
-      must be OPT-IN scaffolding, not hard rails — the harness ships no
-      deployment machinery today and Principle V says do not ship a
-      three-environment pipeline before one environment is proven in use. (2) It
-      must adopt into an EXISTING project, not only a greenfield one — a
-      repository that already has branches, workflows, and a deployed
-      environment is the normal case, so the command has to detect and merge
-      rather than assume it is writing onto a blank tree.
-      The command name is not free: `/promote` is taken by the maintainer
-      release driver and is stripped from customer copies by exact path — the
-      same collision already recorded as LOOM-0006.
-
+- [x] LOOM-0025 — Ship opt-in environment-promotion scaffolding, adoptable into an EXISTING project `status:done`
+      DONE. `/scaffold-environments` (plugin `loom-maintenance`) stands the
+      methodology up in a user's own project. Both constraints were honoured and
+      are contract-tested, not merely claimed.
+      (1) OPT-IN: `--plan` is the default and writes nothing; `--apply` REQUIRES
+      `--only=<targets>`, so there is no apply-everything-by-omission; there is
+      no `--force`, and an existing file is left byte-identical and reported as a
+      conflict. Declining leaves the tree byte-identical.
+      (2) EXISTING PROJECT: `detect-environment-topology.sh` reads branches,
+      roles, default branch, CI provider, environment-ish workflows, and any
+      existing declaration; the scaffolder then proposes a DELTA. No branch is
+      ever created — a role with no matching branch yields no environment, so
+      greenfield gets ONE environment (Principle V) and a project that already
+      has `develop`/`staging` gets a declaration in ITS names. Detection reads
+      `.git` refs off the FILESYSTEM and shells out to git nowhere, so it is
+      provably non-mutating, works under `subagent-git-guard.sh`, and its
+      fixtures need no repository.
+      Writes, all opt-in and all named before writing: a filled-in
+      `environments.conf`; a branch-boundary CI check generalized from
+      `branch-topology-guard.yml` and parameterized by their branches; a
+      promotion checklist carrying the portable patterns; a commented deploy-seam
+      placeholder per environment that exits NON-ZERO (a placeholder exiting 0
+      would report a deploy that did not happen).
+      Also generalizes the § 2 default-branch trap WITHOUT exporting LogicLoom's
+      inversion: the generated guard is mode-selected
+      (`expect-default-is-integration` vs `expect-explicit-base`), and is not
+      generated at all when there is no integration branch or the default branch
+      is unknown (fail closed).
+      Does NOT write, and the contract suite asserts it: cloud/CI deploy logic,
+      secret values, migration runners, seed or teardown scripts, rollback.
+      Landed: `plugins/loom-maintenance/commands/scaffold-environments.md`,
+      `plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md`,
+      `.logic-loom/scripts/bash/{detect-environment-topology,scaffold-environments}.sh`,
+      `.logic-loom/templates/environment-promotion/` (5 templates),
+      `tests/contract/test_environment_scaffolding.sh` (90 assertions),
+      `.docs/policies/environment-promotion-policy.md` § 11 (amends § 10).
+      The name deliberately avoids BOTH `/promote` and `/deploy-promote` —
+      LOOM-0006 stays open: this command promotes nothing, so it must not consume
+      the name the actual promotion command should have.
+      Deferred out of scope, minted below: LOOM-0028, LOOM-0029.
 - [ ] LOOM-0026 — Give `/promote` a typed-exact-phrase confirmation at the release step `status:open`
       `.docs/policies/environment-promotion-policy.md` § 4.3 adopts escalating
       confirmation strength by blast radius, with a typed exact phrase and no
@@ -645,6 +665,40 @@ reasoning instead of re-deriving it.
       leaving implicit — the alternative answer, that the harness's own release
       line is deliberately NOT an "environment" in this schema's sense, is also
       defensible and should be written down if chosen.
+
+- [ ] LOOM-0028 — Teach the environment scaffolder a non-GitHub CI provider `status:open`
+      `/scaffold-environments` only knows how to write a GitHub Actions
+      workflow. On a repo whose detected CI provider is GitLab, CircleCI,
+      Jenkins, or Azure Pipelines it SKIPS the `ci-guard` target with a typed
+      reason and points at `environment-promotion-policy.md` § 3 to port by hand.
+      That is deliberate — guessing at another provider's syntax would ship a
+      gate that silently never fires. But it means the branch-boundary check,
+      which the policy calls the one thing that turns a convention into a
+      boundary, is unavailable to a non-GitHub project.
+      Not obviously worth building: one template per provider, but each needs its
+      own fail-closed idiom AND its own answer to "is the workflow evaluated from
+      the base branch?" — GitHub's tamper-proof-by-placement property does NOT
+      generalize, and a ported gate lacking it is weaker in a way the copy would
+      not advertise. Decide whether to add providers or to state the limitation
+      permanently.
+
+- [ ] LOOM-0029 — Nothing regenerates environment scaffolding after a topology change `status:open`
+      `/scaffold-environments` never overwrites — correct on first adoption, and
+      a gap over time. Every artifact it writes encodes the topology detected at
+      scaffold time: the CI guard's allowed-head regex, the checklist's branch
+      table, the branch-base check's mode. Add a `staging` branch, or make the
+      integration branch the repository default, and all three now describe an
+      arrangement that no longer exists — while still passing, still looking
+      authoritative, and still carrying the scaffolder's marker.
+      Partial mitigation shipped: the generated `check-branch-base.sh` notices
+      that `origin/HEAD` no longer matches the mode it was built for and says so.
+      Nothing else does; the checklist and CI guard have no equivalent.
+      Each obvious answer has a cost: a `--check` mode that fails closed on drift
+      (a new gate to maintain, and it must not block anyone's CI); a
+      `--regenerate` that rewrites marker-carrying files (breaks the
+      never-overwrite guarantee that makes the tool safe to run); or a stamped
+      topology fingerprint compared on each `--plan` (cheap, advisory, and only
+      seen by someone already running the command).
 
 ---
 
@@ -678,6 +732,10 @@ Mapping from the original letters, for anyone reading the old report:
 | J — constitutional-check residual | LOOM-0013 |
 | K — dead code left deliberately | LOOM-0014, LOOM-0015 |
 
+LOOM-0028 and LOOM-0029 were minted on 2026-08-24 while building
+`/scaffold-environments` for LOOM-0025 — the two things that work deliberately
+did not do: non-GitHub CI providers, and regeneration after a topology change.
+
 LOOM-0024 … LOOM-0027 were minted on 2026-08-22 while writing
 `.docs/policies/environment-promotion-policy.md` — the portable
 environment-promotion methodology. They are the work that policy surfaced and
@@ -686,4 +744,4 @@ scaffolding a customer would adopt, the missing typed-phrase confirmation in
 `/promote`, and whether this repository's own release line belongs in
 `environments.conf`.
 
-**Next id to mint: LOOM-0028.**
+**Next id to mint: LOOM-0030.**

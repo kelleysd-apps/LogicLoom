@@ -86,6 +86,8 @@ run_suite "Product Workspace Boundary" "bash tests/contract/test_product_workspa
 run_suite "Model Agnosticism" "bash tests/contract/test_model_agnostic.sh"
 run_suite "Graph Bridge" "bash tests/contract/test_graph_bridge.sh"
 run_suite "Governance Verdicts" "bash tests/contract/test_governance_verdicts.sh"
+run_suite "Gate Policy" "bash tests/contract/test_gate_policy.sh"
+run_suite "Environment Scaffolding" "bash tests/contract/test_environment_scaffolding.sh"
 run_suite "Freeze Scope" "bash tests/contract/test_freeze_scope.sh"
 run_suite "Git Adapter" "bash tests/contract/test_git_adapter.sh"
 run_suite "Disposition Tandem" "bash tests/contract/test_disposition_tandem.sh"

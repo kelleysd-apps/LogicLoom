@@ -62,6 +62,12 @@ jobs:
       - name: Run Governance Verdicts Tests
         run: bash tests/contract/test_governance_verdicts.sh
 
+      - name: Run Gate Policy Tests
+        run: bash tests/contract/test_gate_policy.sh
+
+      - name: Run Environment Scaffolding Tests
+        run: bash tests/contract/test_environment_scaffolding.sh
+
       - name: Run Freeze Scope Tests
         run: bash tests/contract/test_freeze_scope.sh
 
