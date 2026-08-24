@@ -30,6 +30,7 @@
 {"type":"entity","name":".docs/policies/branching-strategy-policy.md","entityType":"note","observations":["Branching Strategy Policy"]}
 {"type":"entity","name":".docs/policies/code-review-policy.md","entityType":"note","observations":["Code Review Policy"]}
 {"type":"entity","name":".docs/policies/deployment-policy.md","entityType":"note","observations":["Deployment Policy"]}
+{"type":"entity","name":".docs/policies/environment-promotion-policy.md","entityType":"note","observations":["Environment Promotion Policy"]}
 {"type":"entity","name":".docs/policies/file-structure-policy.md","entityType":"note","observations":["File Structure & Organization Policy"]}
 {"type":"entity","name":".docs/policies/instruction-files-policy.md","entityType":"note","observations":["Instruction Files Policy (CLAUDE.md & AGENTS.md)"]}
 {"type":"entity","name":".docs/policies/release-management-policy.md","entityType":"note","observations":["Release Management Policy"]}

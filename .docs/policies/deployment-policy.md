@@ -1,6 +1,6 @@
 # Deployment Policy
 
-**Version**: 1.2.0
+**Version**: 1.3.0
 **Effective Date**: TBD
 **Authority**: Constitution v3.3.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
@@ -128,6 +128,12 @@ a block; the keys after it belong to that block.
 | `requires_approval` | `true` / `false`. Whether promotion *into* this environment needs a human approval. Defaults to `false`. |
 | `promotes_from` | The environment immediately before this one. Omit for the first in a chain. Must name a declared environment; the order must be acyclic. |
 | `deploy` | The product-owned deploy script. The seam. Never provided by the harness. |
+| `rehearsal_seed_allowlist` | Path to the product-owned, **fail-closed** seed allowlist for a rehearsal/staging environment. A second seam: the harness records where it lives and **never reads it**. Your seed must abort on an empty or missing allowlist, never widen to "copy everything". |
+| `confirm` | Confirmation strength for promoting **into** this environment: `none`, `prompt`, or `typed:<PHRASE>`. Declarative — the harness prompts for nothing. `typed:` requires `requires_approval = true` in the same block; the validator errors otherwise. |
+
+The last two keys carry patterns from
+`.docs/policies/environment-promotion-policy.md` (§ 4.4 and § 4.3). That policy
+owns the methodology; this table owns the grammar.
 
 Example (this is what ships in the file, commented out):
 
@@ -135,18 +141,22 @@ Example (this is what ships in the file, commented out):
 environment       = dev
 branch            = main
 requires_approval = false
+confirm           = none
 deploy            = web/scripts/deploy-dev.sh
 
 environment       = staging
 branch            = release
 promotes_from     = dev
 requires_approval = false
+confirm           = prompt
+rehearsal_seed_allowlist = web/config/rehearsal-allowlist.txt
 deploy            = web/scripts/deploy-staging.sh
 
 environment       = prod
 branch            = release
 promotes_from     = staging
 requires_approval = true
+confirm           = typed:PROMOTE TO PRODUCTION
 deploy            = web/scripts/deploy-prod.sh
 ```
 
@@ -170,8 +180,14 @@ Read-only. It parses, checks, and reports. It never deploys, never invokes the
 
 It **errors** on: a key outside any environment block, a duplicate environment
 name, a `promotes_from` naming an environment that is not declared, a cycle in
-the promotion order (naming the cycle), and a `requires_approval` that is not
-`true`/`false`.
+the promotion order (naming the cycle), a `requires_approval` that is not
+`true`/`false`, a `confirm` that is not `none`/`prompt`/`typed:<PHRASE>`, and a
+`confirm = typed:<PHRASE>` declared alongside anything but
+`requires_approval = true`.
+
+It **never opens** a declared `rehearsal_seed_allowlist`. It reports whether the
+path exists and nothing more — the file is product-owned, and enforcing its
+fail-closed-on-empty behaviour belongs to your seed script.
 
 It **warns** on an unknown key and carries on. That is deliberate: the sibling
 configs skip lines they do not recognise rather than failing, so this one does
@@ -437,6 +453,13 @@ Status: ✅ Healthy
 ---
 
 ## Rollback Procedures
+
+> **This section assumes a reversible-migration model.** A **forward-only**
+> migration model — no `down` migration anywhere, in any environment — is an
+> equally legitimate alternative, and is the one described in
+> `.docs/policies/environment-promotion-policy.md` § 5.2. Pick one and record the
+> choice here; if you pick forward-only, the database-rollback step and the
+> rollback timeline below describe a capability you do not have.
 
 ### When to Rollback
 
@@ -787,6 +810,7 @@ Deployment logs retained for:
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`
 - Branching Strategy: `.docs/policies/branching-strategy-policy.md`
+- Environment Promotion Methodology: `.docs/policies/environment-promotion-policy.md`
 - Release Management: `.docs/policies/release-management-policy.md`
 
 ---
@@ -795,6 +819,7 @@ Deployment logs retained for:
 
 | Version | Change |
 |---|---|
+| 1.3.0 | Added `rehearsal_seed_allowlist` and `confirm` to the declaration schema, carrying the fail-closed-seed and escalating-confirmation patterns from the new `.docs/policies/environment-promotion-policy.md`. Both ship commented out; both are declaration-only. The validator gained shape checks for `confirm` and one coherence check (`typed:` implies `requires_approval = true`), and explicitly never reads the allowlist file. Still no deploy execution, and still no promotion command. |
 | 1.2.0 | Added the **Environment Declaration** section: `.logic-loom/config/environments.conf` (schema) + `validate-environments.sh` (read-only reader/validator). The prose environment model in this policy now has a machine-readable counterpart. States plainly that the harness ships no deploy execution and that `deploy` is a product-owned seam. Ships with every declaration commented out. No promotion command was added — the `/promote` name collision is unresolved and is documented rather than worked around. |
 | 1.1.0 | Environments are now described as **roles** rather than branch names. Removed the assertions that deployment is automatic on push to `develop` / `staging` — neither branch exists, and the framework defines no environment branches. Stated plainly that no deployment machinery ships and none of this section is enforced. |
 | 1.0.0 | Initial policy. |

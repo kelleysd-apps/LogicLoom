@@ -578,6 +578,74 @@ reasoning instead of re-deriving it.
       Recorded rather than done because retargeting a passing security-shaped
       assertion deserves its own change, not a drive-by during a merge.
 
+### Environment promotion
+
+- [ ] LOOM-0024 — Base development worktrees on `dev-main` explicitly, never on the default branch `status:open`
+      VERIFIED cost, this session: `EnterWorktree` bases a new worktree on
+      `origin/<default-branch>`. In this repository the default branch is `main`
+      — the sanitized template line — so a worktree came up on the v6.4.1
+      release merge instead of `dev-main`, and a review agent then analyzed the
+      SANITIZED tree and produced findings that were artifacts of it (stripped
+      files reading as missing, stubbed files as incomplete).
+      The usual fix does NOT apply. `git remote set-head origin --auto` repairs a
+      STALE `origin/HEAD`; ours is not stale — `main` genuinely IS the production
+      line, and it must stay the default so "Use this template" clones the
+      sanitized tree rather than the dev tree. So the guard has to run the other
+      way: any tooling that creates a branch or worktree for development work
+      must name the integration branch EXPLICITLY and must never resolve its base
+      from the default branch, from `origin/HEAD`, or from an unqualified "main".
+      Shape is undecided and worth deciding before building: a documented rule
+      only (cheapest, followed-not-enforced), a `PreToolUse` guard on the
+      worktree-creating tool, or a startup assertion that reports when the
+      current tree is `main`. A customer project has no such constraint and
+      should follow the ordinary advice instead — see
+      `.docs/policies/environment-promotion-policy.md` § 2.
+
+- [ ] LOOM-0025 — Ship opt-in environment-promotion scaffolding, adoptable into an EXISTING project `status:open`
+      `.docs/policies/environment-promotion-policy.md` writes the methodology
+      down; nothing stands it up. The shippable capability is scaffolding a user
+      who adopts LogicLoom can run to get the shape into their own project:
+      the environment declarations, a branch-boundary CI guard adapted to their
+      topology, a rehearsal seed/teardown skeleton with the fail-closed allowlist
+      wired as an abort, and the escalating-confirm ladder in their promotion
+      script.
+      Two constraints that should be settled before any of it is built. (1) It
+      must be OPT-IN scaffolding, not hard rails — the harness ships no
+      deployment machinery today and Principle V says do not ship a
+      three-environment pipeline before one environment is proven in use. (2) It
+      must adopt into an EXISTING project, not only a greenfield one — a
+      repository that already has branches, workflows, and a deployed
+      environment is the normal case, so the command has to detect and merge
+      rather than assume it is writing onto a blank tree.
+      The command name is not free: `/promote` is taken by the maintainer
+      release driver and is stripped from customer copies by exact path — the
+      same collision already recorded as LOOM-0006.
+
+- [ ] LOOM-0026 — Give `/promote` a typed-exact-phrase confirmation at the release step `status:open`
+      `.docs/policies/environment-promotion-policy.md` § 4.3 adopts escalating
+      confirmation strength by blast radius, with a typed exact phrase and no
+      skip flag at production scale. `/promote` implements the ladder's shape —
+      per-mutation Principle VI approval, no skip flag anywhere, a hard stop on a
+      failed sanitization audit — but has no typed-phrase step. Its
+      highest-consequence action (publishing a sanitized template line the world
+      clones) is confirmed by the same prompt as every other git mutation.
+      Small change, and the policy currently has to state the gap rather than
+      cite the implementation. Decide whether the phrase belongs at the dispatch
+      step, at the PR-open step, or both.
+
+- [ ] LOOM-0027 — Decide whether LogicLoom's own promotion line is declarable in `environments.conf` `status:open`
+      This repository has a real promotion path — `dev-main` (integration) to
+      `main` (the sanitized template line, published to cloners) — and now has a
+      schema that could describe it. It declares nothing, because
+      `tests/contract/test_environment_declaration.sh` § 2 correctly asserts the
+      SHIPPED config has no uncommented `environment =` line: an active
+      declaration would hand every cloner a topology they do not have.
+      Same tension as LOOM-0023, one file over, and the same resolution is
+      available: ours in dev, stubbed at promote. Worth deciding rather than
+      leaving implicit — the alternative answer, that the harness's own release
+      line is deliberately NOT an "environment" in this schema's sense, is also
+      defensible and should be written down if chosen.
+
 ---
 
 ## Provenance
@@ -610,4 +678,12 @@ Mapping from the original letters, for anyone reading the old report:
 | J — constitutional-check residual | LOOM-0013 |
 | K — dead code left deliberately | LOOM-0014, LOOM-0015 |
 
-**Next id to mint: LOOM-0024.**
+LOOM-0024 … LOOM-0027 were minted on 2026-08-22 while writing
+`.docs/policies/environment-promotion-policy.md` — the portable
+environment-promotion methodology. They are the work that policy surfaced and
+deliberately did not do: the harness's own worktree-base guard, the opt-in
+scaffolding a customer would adopt, the missing typed-phrase confirmation in
+`/promote`, and whether this repository's own release line belongs in
+`environments.conf`.
+
+**Next id to mint: LOOM-0028.**

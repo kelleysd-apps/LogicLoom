@@ -16,6 +16,10 @@
 #   4. `requires_approval` is true|false           (ERROR)
 #   5. every `promotes_from` names a declared env  (ERROR)
 #   6. the promotion order is acyclic              (ERROR, names the cycle)
+#   7. `confirm` is none|prompt|typed:<PHRASE>     (ERROR)
+#   8. `confirm = typed:...` implies               (ERROR — fail closed with a
+#      `requires_approval = true`                   typed reason; the two cannot
+#                                                   both be true)
 #
 # Exit: 0 = valid (including "nothing declared" and warnings-only)
 #       1 = validation errors
@@ -65,13 +69,14 @@ fi
 
 # ── parse ────────────────────────────────────────────────────────────────────
 # Records accumulate as newline-separated, `|`-delimited lines:
-#   name|branch|promotes_from|requires_approval|deploy
+#   name|branch|promotes_from|requires_approval|deploy|rehearsal_seed_allowlist|confirm
 # `|` and not tab: tab is an IFS-whitespace character, so `read` would collapse
 # runs of it and silently shift the fields of any record with an empty value.
 # A value containing `|` is rejected below so the delimiter stays unambiguous.
 RECORDS=""
 NAMES=""          # newline-separated, declaration order
 cur_name=""; cur_branch=""; cur_from=""; cur_appr=""; cur_deploy=""
+cur_seed=""; cur_confirm=""
 have_env=0
 lineno=0
 
@@ -84,9 +89,10 @@ trim() { # value -> trimmed
 
 flush_record() {
   [ -n "$cur_name" ] || return 0
-  RECORDS="${RECORDS}${cur_name}|${cur_branch}|${cur_from}|${cur_appr}|${cur_deploy}
+  RECORDS="${RECORDS}${cur_name}|${cur_branch}|${cur_from}|${cur_appr}|${cur_deploy}|${cur_seed}|${cur_confirm}
 "
   cur_branch=""; cur_from=""; cur_appr=""; cur_deploy=""
+  cur_seed=""; cur_confirm=""
 }
 
 name_declared() { # name -> 0 if present in NAMES
@@ -124,7 +130,7 @@ while IFS= read -r line || [ -n "$line" ]; do
       NAMES="${NAMES}${val}
 "
       ;;
-    branch|promotes_from|requires_approval|deploy)
+    branch|promotes_from|requires_approval|deploy|rehearsal_seed_allowlist|confirm)
       if [ "$have_env" -eq 0 ]; then
         err "line $lineno: '$key' appears before any 'environment = <name>' — it belongs to no environment"
         continue
@@ -137,6 +143,17 @@ while IFS= read -r line || [ -n "$line" ]; do
         branch)        cur_branch="$val" ;;
         promotes_from) cur_from="$val" ;;
         deploy)        cur_deploy="$val" ;;
+        rehearsal_seed_allowlist) cur_seed="$val" ;;
+        confirm)
+          # none | prompt | typed:<PHRASE>. A `typed:` with an empty phrase is an
+          # error, not a degrade-to-prompt: an unevaluable gate fails closed.
+          case "$val" in
+            none|prompt)  cur_confirm="$val" ;;
+            typed:?*)     cur_confirm="$val" ;;
+            typed:|typed) err "line $lineno: confirm 'typed:' needs a phrase (e.g. 'typed:PROMOTE TO PRODUCTION')" ;;
+            *) err "line $lineno: confirm must be 'none', 'prompt', or 'typed:<PHRASE>', got '$val'" ;;
+          esac
+          ;;
         requires_approval)
           case "$val" in
             true|false) cur_appr="$val" ;;
@@ -146,7 +163,7 @@ while IFS= read -r line || [ -n "$line" ]; do
       esac
       ;;
     *)
-      warn "line $lineno: unknown key '$key' — ignored (known keys: environment, branch, promotes_from, requires_approval, deploy)"
+      warn "line $lineno: unknown key '$key' — ignored (known keys: environment, branch, promotes_from, requires_approval, deploy, rehearsal_seed_allowlist, confirm)"
       ;;
   esac
 done < "$CONF"
@@ -170,7 +187,7 @@ field() { # record-line, index -> field
 }
 
 pred_of() { # name -> its promotes_from (may be empty)
-  printf '%s\n' "$RECORDS" | while IFS='|' read -r n b f a d; do
+  printf '%s\n' "$RECORDS" | while IFS='|' read -r n b f a d s2 c; do
     [ "$n" = "$1" ] && { printf '%s' "$f"; break; }
   done
 }
@@ -179,7 +196,7 @@ pred_of() { # name -> its promotes_from (may be empty)
 # NOTE: every loop over $RECORDS below uses a heredoc, never a pipe. A pipe puts
 # the loop body in a subshell, where the ERRORS counter and $PLACED would be
 # mutated and then thrown away.
-while IFS='|' read -r n b f a d; do
+while IFS='|' read -r n b f a d s2 c; do
   [ -n "$n" ] || continue
   [ -n "$f" ] || continue
   if ! name_declared "$f"; then
@@ -188,6 +205,23 @@ while IFS='|' read -r n b f a d; do
   if [ "$f" = "$n" ]; then
     err "environment '$n' names itself as its predecessor"
   fi
+done <<EOF
+$RECORDS
+EOF
+
+# ── confirm/requires_approval coherence ─────────────────────────────────────
+# A typed-exact-phrase confirmation IS an approval. Declaring one while declaring
+# that no approval is required is a self-contradicting declaration, so it fails
+# closed and says which two lines disagree, rather than picking a winner.
+while IFS='|' read -r n b f a d s2 c; do
+  [ -n "$n" ] || continue
+  case "$c" in
+    typed:*)
+      if [ "$a" != "true" ]; then
+        err "environment '$n': confirm '$c' demands a typed phrase, but requires_approval is '${a:-false}' — set requires_approval = true, or lower confirm to 'prompt'"
+      fi
+      ;;
+  esac
 done <<EOF
 $RECORDS
 EOF
@@ -202,7 +236,7 @@ total_count="$(printf '%s\n' "$NAMES" | grep -c . || true)"
 progress=1
 while [ "$progress" -eq 1 ]; do
   progress=0
-  while IFS='|' read -r n b f a d; do
+  while IFS='|' read -r n b f a d s2 c; do
     [ -n "$n" ] || continue
     printf '%s\n' "$PLACED" | grep -qxF "$n" && continue
     if [ -z "$f" ] || ! name_declared "$f" || printf '%s\n' "$PLACED" | grep -qxF "$f"; then
@@ -217,7 +251,7 @@ EOF
 done
 
 UNPLACED=""
-while IFS='|' read -r n b f a d; do
+while IFS='|' read -r n b f a d s2 c; do
   [ -n "$n" ] || continue
   printf '%s\n' "$PLACED" | grep -qxF "$n" || UNPLACED="${UNPLACED}${n}
 "
@@ -259,12 +293,19 @@ if [ "$ERRORS" -eq 0 ]; then
     step=$((step + 1))
     rec="$(printf '%s\n' "$RECORDS" | grep "^${n}|")"
     b="$(field "$rec" 2)"; f="$(field "$rec" 3)"; a="$(field "$rec" 4)"; dep="$(field "$rec" 5)"
+    seed="$(field "$rec" 6)"; conf="$(field "$rec" 7)"
     [ -n "$a" ] || a="false"
+    [ -n "$conf" ] || conf="none"
     gate="no approval"
     [ "$a" = "true" ] && gate="APPROVAL REQUIRED"
     from="(start of chain)"
     [ -n "$f" ] && from="from '$f'"
     say "  $step. $n — $from; branch: ${b:-<none>}; $gate"
+    case "$conf" in
+      typed:*) say "       confirm: TYPED PHRASE \"${conf#typed:}\" — no flag may bypass it (declaration only; the harness prompts for nothing)" ;;
+      prompt)  say "       confirm: prompt (skippable by your own automation flag)" ;;
+      *)       say "       confirm: none" ;;
+    esac
     if [ -n "$dep" ]; then
       if [ -e "$ROOT/$dep" ]; then
         say "       deploy seam: $dep (present — product-owned; the harness never runs it)"
@@ -273,6 +314,16 @@ if [ "$ERRORS" -eq 0 ]; then
       fi
     else
       say "       deploy seam: <undeclared> — this environment has no deploy script; the harness ships none"
+    fi
+    if [ -n "$seed" ]; then
+      # Presence only. The allowlist is NEVER opened, parsed, or counted — it is a
+      # product-owned seam like `deploy`, and its fail-closed-on-empty behaviour is
+      # the product's seed script to implement, not this validator's to check.
+      if [ -e "$ROOT/$seed" ]; then
+        say "       rehearsal seed allowlist: $seed (present — never read by the harness; your seed must ABORT if it is empty)"
+      else
+        say "       rehearsal seed allowlist: $seed (NOT PRESENT — yours to provide; an absent allowlist must ABORT your seed, never widen it)"
+      fi
     fi
   done <<EOF
 $PLACED

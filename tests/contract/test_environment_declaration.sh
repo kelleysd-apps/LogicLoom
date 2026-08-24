@@ -6,9 +6,9 @@
 # environment branches. This suite asserts both halves:
 #
 #   1. the validator parses, validates, and reports (absent / valid / cycle /
-#      missing predecessor / duplicate / unknown key)
-#   2. the validator never deploys and never runs git, and the shipped config
-#      declares nothing active
+#      missing predecessor / duplicate / unknown key / confirm / seed allowlist)
+#   2. the validator never deploys and never runs git, never READS the declared
+#      seed allowlist, and the shipped config declares nothing active
 #
 # bash 3.2 safe: no associative arrays, no mapfile, no ${var,,}.
 set -uo pipefail
@@ -206,6 +206,109 @@ assert "deployment policy documents the declaration" \
   "grep -q 'environments.conf' '$ROOT/.docs/policies/deployment-policy.md'"
 assert "deployment policy states the harness runs no deploys" \
   "grep -qi 'no deploy execution' '$ROOT/.docs/policies/deployment-policy.md'"
+echo ""
+
+# ── 12. `confirm` — the escalating-confirm declaration ───────────────────────
+# Declaration only. The harness prompts for nothing; this key names the strength
+# a PRODUCT promotion script is expected to implement.
+# Policy: .docs/policies/environment-promotion-policy.md § 4.3
+echo "12. confirm: none | prompt | typed:<PHRASE>"
+cat > "$TMP/confirm.conf" <<'CONF_EOF'
+environment       = dev
+confirm           = none
+
+environment       = staging
+promotes_from     = dev
+confirm           = prompt
+
+environment              = prod
+promotes_from            = staging
+requires_approval        = true
+confirm                  = typed:PROMOTE TO PRODUCTION
+CONF_EOF
+CF_OUT="$(bash "$VALIDATOR" "$TMP/confirm.conf" 2>&1)"; CF_RC=$?
+assert "valid confirm ladder exits 0" "[ $CF_RC -eq 0 ]"
+assert "confirm is not treated as an unknown key" \
+  "! printf '%s' \"\$CF_OUT\" | grep -q \"unknown key 'confirm'\""
+assert "reports the typed phrase verbatim" \
+  "printf '%s' \"\$CF_OUT\" | grep -q 'PROMOTE TO PRODUCTION'"
+assert "says no flag may bypass the typed phrase" \
+  "printf '%s' \"\$CF_OUT\" | grep -q 'no flag may bypass'"
+assert "reports the skippable prompt tier" \
+  "printf '%s' \"\$CF_OUT\" | grep -q 'skippable'"
+echo ""
+
+# ── 13. confirm errors — fail closed with a typed reason ─────────────────────
+echo "13. confirm: invalid values and the approval coherence rule"
+printf 'environment = dev\nconfirm = maybe\n' > "$TMP/confbad.conf"
+CB_OUT="$(bash "$VALIDATOR" "$TMP/confbad.conf" 2>&1)"; CB_RC=$?
+assert "invalid confirm value exits nonzero" "[ $CB_RC -ne 0 ]"
+assert "invalid confirm value names the allowed forms" \
+  "printf '%s' \"\$CB_OUT\" | grep -q \"confirm must be 'none', 'prompt', or 'typed:<PHRASE>'\""
+
+printf 'environment = prod\nrequires_approval = true\nconfirm = typed:\n' > "$TMP/confempty.conf"
+CE_OUT="$(bash "$VALIDATOR" "$TMP/confempty.conf" 2>&1)"; CE_RC=$?
+assert "typed: with no phrase exits nonzero (never degrades to prompt)" "[ $CE_RC -ne 0 ]"
+assert "typed: with no phrase says a phrase is needed" \
+  "printf '%s' \"\$CE_OUT\" | grep -q 'needs a phrase'"
+
+# A typed phrase IS an approval. Declaring one alongside requires_approval=false
+# is a self-contradicting declaration and must fail closed, naming both keys.
+printf 'environment = prod\nrequires_approval = false\nconfirm = typed:GO\n' > "$TMP/confincoh.conf"
+CI_OUT="$(bash "$VALIDATOR" "$TMP/confincoh.conf" 2>&1)"; CI_RC=$?
+assert "typed phrase without requires_approval exits nonzero" "[ $CI_RC -ne 0 ]"
+assert "incoherence names both keys and the two remedies" \
+  "printf '%s' \"\$CI_OUT\" | grep -q 'requires_approval' && printf '%s' \"\$CI_OUT\" | grep -q \"lower confirm to 'prompt'\""
+
+# The REVERSE pairing is legitimate, not an error: an environment gated by a CI
+# approval (a reviewer on a protected environment) rather than a terminal prompt.
+printf 'environment = prod\nrequires_approval = true\nconfirm = none\n' > "$TMP/confok.conf"
+CO_OUT="$(bash "$VALIDATOR" "$TMP/confok.conf" 2>&1)"; CO_RC=$?
+assert "requires_approval=true with confirm=none is VALID (CI gate, not a prompt)" "[ $CO_RC -eq 0 ]"
+echo ""
+
+# ── 14. rehearsal_seed_allowlist — a seam, never read ────────────────────────
+# The allowlist is a PRODUCT-owned file. The harness records where it lives and
+# nothing else: it never opens it, parses it, or counts it. Its fail-closed-on-
+# empty behaviour is the product seed script's to implement.
+# Policy: .docs/policies/environment-promotion-policy.md § 4.4
+echo "14. rehearsal_seed_allowlist is a declared seam, never read"
+mkdir -p "$TMP/seedroot"
+printf 'SENTINEL_ACCOUNT_MUST_NOT_BE_READ\n' > "$TMP/seedroot/allowlist.txt"
+cat > "$TMP/seed.conf" <<'CONF_EOF'
+environment              = staging
+rehearsal_seed_allowlist = allowlist.txt
+CONF_EOF
+SD_OUT="$(bash "$VALIDATOR" "$TMP/seed.conf" --root "$TMP/seedroot" 2>&1)"; SD_RC=$?
+assert "declared allowlist exits 0" "[ $SD_RC -eq 0 ]"
+assert "allowlist is not treated as an unknown key" \
+  "! printf '%s' \"\$SD_OUT\" | grep -q \"unknown key 'rehearsal_seed_allowlist'\""
+assert "allowlist path is reported" \
+  "printf '%s' \"\$SD_OUT\" | grep -q 'rehearsal seed allowlist: allowlist.txt'"
+assert "present allowlist is reported as present" \
+  "printf '%s' \"\$SD_OUT\" | grep -q 'present'"
+assert "the allowlist CONTENTS never reach the output (never read)" \
+  "! printf '%s' \"\$SD_OUT\" | grep -q 'SENTINEL_ACCOUNT_MUST_NOT_BE_READ'"
+
+cat > "$TMP/seedabsent.conf" <<'CONF_EOF'
+environment              = staging
+rehearsal_seed_allowlist = nowhere/allowlist.txt
+CONF_EOF
+SA_OUT="$(bash "$VALIDATOR" "$TMP/seedabsent.conf" --root "$TMP/seedroot" 2>&1)"; SA_RC=$?
+assert "absent allowlist still exits 0 (declaration, not a gate)" "[ $SA_RC -eq 0 ]"
+assert "absent allowlist says the seed must ABORT, never widen" \
+  "printf '%s' \"\$SA_OUT\" | grep -q 'ABORT'"
+
+# An environment with no allowlist declared prints no allowlist line at all.
+assert "undeclared allowlist prints no allowlist line" \
+  "! printf '%s' \"\$VALID_OUT\" | grep -q 'rehearsal seed allowlist'"
+
+assert "validator never cats/parses the declared allowlist path" \
+  "! grep -nE '(cat|wc|awk|sed|head|tail|source|eval)[[:space:]]+\"?\\\$ROOT/\\\$seed' '$VALIDATOR' >/dev/null 2>&1"
+assert "config documents the allowlist as fail-closed and never read" \
+  "grep -q 'NEVER reads this file' '$CONF'"
+assert "promotion policy exists and names both new keys" \
+  "grep -q 'rehearsal_seed_allowlist' '$ROOT/.docs/policies/environment-promotion-policy.md' && grep -q 'confirm' '$ROOT/.docs/policies/environment-promotion-policy.md'"
 echo ""
 
 echo "═══════════════════════════════════════════════════════════"
