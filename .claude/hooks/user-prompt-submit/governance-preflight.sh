@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # UserPromptSubmit Hook: Orchestration Guidance + Memory Context Injection
-# Version: 3.2.0 (adds verification-intent nudge → cross-check disposition)
+# Version: 3.2.1 (fix grep -c two-line-value in domain_count; shell-idiom §1)
 # Constitution: v3.3.0 (16 principles)
 #
 # Provides Claude Code with orchestration guidance and memory context via
@@ -156,8 +156,14 @@ generate_orchestration_guidance() {
     delegates=$(echo "$domain_result" | cut -d'|' -f2)
 
     # Determine delegation strategy
+    # `grep -c` PRINTS "0" and EXITS 1 on no match, so `|| echo "0"` appends a
+    # SECOND line and yields the two-line string "0\n0" — every numeric test
+    # below then dies with "integer expression expected" and falls through to
+    # the wrong branch. Suppress grep's status WITHOUT touching its output, then
+    # default the empty case. See .docs/policies/shell-idiom-policy.md §1.1.
     local domain_count
-    domain_count=$(echo "$domains" | tr ',' '\n' | grep -c '[a-z]' 2>/dev/null || echo "0")
+    domain_count=$(echo "$domains" | tr ',' '\n' | grep -c '[a-z]' 2>/dev/null || true)
+    domain_count=${domain_count:-0}
 
     if [ "$domain_count" -eq 0 ]; then
         delegation="direct execution"

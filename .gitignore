@@ -162,3 +162,12 @@ __pycache__/
 
 # Local git worktrees (machine-specific; would be committed as a gitlink)
 .claude/worktrees/
+
+# Promotion runtime state: the promotion ledger and rehearsal attestations
+# written by promote-gate.sh / promotion-record.sh. Per-checkout machine state
+# that the gate READS -- not something a human opens -- so it follows the same
+# rule as backlog-index.json: track only what a human opens. Tracking it would
+# also collide across worktrees, since each checkout promotes independently.
+# A project that wants an auditable promotion record should publish it
+# deliberately rather than inherit it as tracked noise.
+.logic-loom/state/

@@ -100,6 +100,7 @@ run_suite "Plugin Manifest Schema" "bash tests/contract/test_plugin_manifest_sch
 run_suite "Project Identity" "bash tests/contract/test_project_identity.sh"
 run_suite "Backlog Index" "bash tests/contract/test_backlog_index.sh"
 run_suite "Backlog Dashboard" "bash tests/contract/test_backlog_dashboard.sh"
+run_suite "Promotion Lifecycle" "bash tests/contract/test_promotion_lifecycle.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

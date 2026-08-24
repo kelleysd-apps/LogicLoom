@@ -94,6 +94,7 @@
 {"type":"entity","name":"tests/contract/test_governance_verdicts.sh","entityType":"code-path","observations":["test_governance_verdicts.sh"]}
 {"type":"entity","name":"tests/contract/test_graph_bridge.sh","entityType":"code-path","observations":["test_graph_bridge.sh"]}
 {"type":"entity","name":"tests/contract/test_model_agnostic.sh","entityType":"code-path","observations":["test_model_agnostic.sh"]}
+{"type":"entity","name":"tests/contract/test_promotion_lifecycle.sh","entityType":"code-path","observations":["test_promotion_lifecycle.sh"]}
 {"type":"entity","name":"tests/contract/test_spec006_integration.sh","entityType":"code-path","observations":["test_spec006_integration.sh"]}
 {"type":"entity","name":"tests/contract/test_suite_registration.sh","entityType":"code-path","observations":["test_suite_registration.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
@@ -115,6 +116,7 @@
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/testing.md","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/environment-promotion-policy.md","to":"plugins/loom-maintenance/commands/scaffold-environments.md","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/environment-promotion-policy.md","to":"tests/contract/test_environment_scaffolding.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/environment-promotion-policy.md","to":"tests/contract/test_promotion_lifecycle.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}

@@ -101,6 +101,9 @@ jobs:
       - name: Run Backlog Dashboard Tests
         run: bash tests/contract/test_backlog_dashboard.sh
 
+      - name: Run Promotion Lifecycle Tests
+        run: bash tests/contract/test_promotion_lifecycle.sh
+
       # FAIL-CLOSED staleness gate for the repo's git-TRACKED generated
       # artifacts (artifacts/backlog-dashboard.html, .logic-loom/graph/
       # graph-bridge.jsonl). Regenerates each and fails if the committed copy

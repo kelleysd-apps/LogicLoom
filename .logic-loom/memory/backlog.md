@@ -276,7 +276,13 @@ has. That wiring is itself tracked below as LOOM-0017.
 
 ### Governance and constitution
 
-- [ ] LOOM-0001 — Maintainer sign-off on constitution v3.3.0 + the amendments extension point `status:in_progress`
+- [x] LOOM-0001 — Maintainer sign-off on constitution v3.3.0 + the amendments extension point `status:done`
+      Signed off 2026-08-24, followed-not-enforced by deliberate choice.
+      LOOM-0002 stays OPEN and the honesty is the point: nothing loads
+      `amendments.md`. It works because `CLAUDE.md` and `AGENTS.md` instruct
+      agents to read it, which the threat model states plainly. Wiring it into
+      `governance-preflight.sh` is a protected-hook edit and deserves its own
+      change rather than riding along with a sign-off.
       Constitution **v3.3.0** and the amendments extension point are implemented
       but sit **uncommitted** in the working tree, awaiting maintainer sign-off on
       the ratified text. This is the only uncommitted work from the 2026-08-13
@@ -641,7 +647,18 @@ reasoning instead of re-deriving it.
       LOOM-0006 stays open: this command promotes nothing, so it must not consume
       the name the actual promotion command should have.
       Deferred out of scope, minted below: LOOM-0028, LOOM-0029.
-- [ ] LOOM-0026 — Give `/promote` a typed-exact-phrase confirmation at the release step `status:open`
+- [x] LOOM-0026 — Give `/promote` a typed-exact-phrase confirmation at the release step `status:done`
+      **SUPERSEDED, not implemented as written.** The maintainer's decision on
+      2026-08-24: the maintainer `/promote` stays exactly as it is — the
+      template-release driver, stripped by exact path, untouched. The
+      escalating-confirm ladder ships instead as a customer-facing lifecycle:
+      `/promote-dev` and `/promote-staging` prompt (skippable), `/promote-prod`
+      demands a typed exact phrase that no flag bypasses. Confirmation strength
+      resolves from the target environment's declared `confirm` value first, so
+      the ladder is configurable rather than hardcoded. This also consumes the
+      customer-facing promotion command LOOM-0006 anticipated, so that item's
+      `/deploy-promote` naming suggestion is moot — `/scaffold-environments`
+      correctly declined the name and these are the promotion commands.
       `.docs/policies/environment-promotion-policy.md` § 4.3 adopts escalating
       confirmation strength by blast radius, with a typed exact phrase and no
       skip flag at production scale. `/promote` implements the ladder's shape —

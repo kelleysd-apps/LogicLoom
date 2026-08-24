@@ -747,6 +747,130 @@ open and its suggested resolution remains available.
 
 ---
 
+## 12. The three-command promotion lifecycle (amends § 10 and § 11)
+
+**Added after § 11.** § 10 said no promotion command ships. § 11 amended that
+for a *scaffolder* — a thing that writes files and promotes nothing. This
+section amends it for the **promotion commands themselves**, and keeps the same
+sequence legible: the methodology was written first, the scaffolding was built
+against it, and the commands are built against both.
+
+### What ships
+
+Three customer-facing commands (plugin `loom-maintenance`), over two scripts,
+one template, and one contract suite:
+
+| Ships | What it is |
+|---|---|
+| `/promote-dev` | Feature branch or worktree → integration branch → dev. Plain yes/no, skippable with `--yes`. |
+| `/promote-staging` | Stands up (or reuses) the rehearsal environment and runs the pass that rehearses `/promote-prod`. Plain yes/no, skippable with `--yes`. |
+| `/promote-prod` | The full production release. **Typed exact phrase; no flag skips it.** |
+| `.logic-loom/scripts/bash/promote-gate.sh` | The gate all three run: reads the declaration, enforces order, checks the rehearsal contract, confirms. |
+| `.logic-loom/scripts/bash/promotion-record.sh` | Appends one outcome to the promotion ledger. The only thing these commands write. |
+| `.logic-loom/templates/environment-promotion/rehearsal-attestation.conf.tmpl` | The attestation contract the product's rehearsal seam fills in. |
+| `tests/contract/test_promotion_lifecycle.sh` | The contract, including the boundary below. |
+
+They are **guidance a project adopts and then changes** — which is why every
+strength on the ladder is read from `environments.conf` rather than written into
+a command.
+
+### The boundary is unchanged, and is test-enforced
+
+These commands **orchestrate and gate. They do not deploy.** They contain no
+cloud or CI-provider API call, no deploy command, no migration runner, no seed
+or teardown, no secret handling, and no rollback mechanic. Every such step is a
+call out to the `deploy` seam declared in `environments.conf` — a PRODUCT-owned
+script the harness names and never inspects. § 8 and the "Yours to provide"
+column of § 10 stand exactly as written, and
+`tests/contract/test_promotion_lifecycle.sh` § 2 asserts it against the gate's
+code rather than only promising it here.
+
+The gate also **runs no git at all** (Principle VI). Any merge, tag, or push a
+promotion needs is surfaced for the user's approval individually.
+
+### § 4.3 made configurable rather than hardcoded
+
+The escalating ladder is resolved per promotion, in this order:
+
+1. `confirm` declared in the target environment's block — **wins**
+2. the command's own default: `prompt` for dev and staging,
+   `typed:PROMOTE TO PRODUCTION` for prod
+3. `none`
+
+So a project can **raise** the bar (declare `confirm = typed:SHIP DEV` on dev
+and `--yes` stops working there) or **lower** it (declare `confirm = prompt` on
+production — honoured, because the declaration is the source of truth, but
+printed as a loud note rather than accepted silently). Hardcoding the ladder
+would have made § 4.3 a rule about LogicLoom rather than a rule a project owns.
+
+The sharp edge of § 4.3 survives that flexibility: `--yes` is *read* at a
+`typed:` confirmation and deliberately does nothing but say it was ignored.
+There is no flag, environment variable, or non-interactive mode that skips a
+typed phrase. Overrides exist only on individual **checks**
+(`--allow-out-of-order`, `--allow-stale-rehearsal`), each requiring a non-empty
+reason that is echoed into the verdict.
+
+### § 6.1 as a declared contract — what is verified, what is trusted
+
+The harness runs no git and calls no CI API, so it **cannot** compute whether a
+rehearsed commit is an ancestor of what is being promoted. Rather than
+approximate it, the rehearsal contract is defined as an **attestation the
+product's rehearsal seam writes** at `<state-dir>/rehearsal-<env>.conf`, and the
+split is stated rather than blurred:
+
+| Verified by the harness | Taken on trust |
+|---|---|
+| the attestation exists and is readable | that a rehearsal actually ran |
+| `status = success` | that it actually passed |
+| `completed_at` parses, and is inside the staleness bound | — |
+| `rehearsed_commit` is present | that it really is an **ancestor** of the promoted commit |
+| the promoted commit is that commit, or is listed in `covers_commits` | — |
+
+An unparseable `completed_at` **refuses**; it is never treated as recent (§ 4.2).
+A missing attestation, a failed one, and a commit the attestation does not cover
+all refuse with **no override** — `--allow-stale-rehearsal` covers the age bound
+alone and cannot conjure a rehearsal that did not happen.
+
+**§ 6.4 is the seam's problem, and the template says so in full.** A staging
+branch rebuilt from production and re-merged means the commit actually rehearsed
+is the merge's **second parent**. A seam that writes the merge head writes a
+plausible wrong answer, and this gate will accept it. A seam that cannot
+identify the rehearsed commit unambiguously must write `status = failure` rather
+than guess. If that trust level is insufficient for a given blast radius, the
+fix is a stronger **seam** — one that computes ancestry with git in hand — not a
+stronger harness.
+
+### Promotion order, enforced from `promotes_from`
+
+`promotion-ledger.tsv` (append-only, tab-separated, under `<state-dir>`) is what
+turns `promotes_from` from a declaration into an enforced order: promoting into
+an environment whose predecessor has no **success** line is refused, naming the
+predecessor, the ledger path, the `promotion-record.sh` invocation that would
+fix it, and the override.
+
+A ledger entry records a **reported** outcome, not an observed one — the harness
+did not run the deploy and did not watch it. That is the same trust posture as
+the rehearsal attestation, and it is stated in the recorder's own output rather
+than left implied.
+
+### Nothing declared is a state, not a failure
+
+The shipped `environments.conf` declares nothing (§ 9). Each command therefore
+exits **3** — distinct from a refusal — says "NOTHING DECLARED", and points at
+`/scaffold-environments`. It writes nothing and guesses no topology. Principle V:
+one environment, or none, is a complete answer.
+
+### Naming, and what this does to LOOM-0006
+
+`/promote-dev`, `/promote-staging`, `/promote-prod` — deliberately **not**
+`/promote`, which remains the maintainer release driver for LogicLoom's own
+template line and is still stripped from customer copies by exact path
+(**LOOM-0006**). These three are the customer-facing promotion commands
+LOOM-0006 anticipated; the strip manifest is unchanged and the contract suite
+asserts they are **not** stripped.
+
+---
+
 ## References
 
 - Constitution v3.3.0: `.logic-loom/memory/constitution.md`
@@ -768,6 +892,17 @@ open and its suggested resolution remains available.
 | 1.0.0 | Initial policy. Records the coding→deployed mapping, the default-branch trap **with LogicLoom's inverted exception** (its default branch genuinely *is* the production line, so `git remote set-head --auto` does not apply and worktrees must name the integration branch explicitly), the CI-enforced branch boundary, seven portable patterns, the one-directional data boundary, forward-only migrations, build-time binding, what a green rehearsal proves and does not, two explicitly unsolved problems, and the vendor adapter categories. Adds `rehearsal_seed_allowlist` and `confirm` to the `environments.conf` schema — commented out, declaration-only, no engine. No pipeline machinery was built. |
 
 ---
+
+> **Amendment (§ 12).** After § 11, the three-command promotion lifecycle was
+> built: `/promote-dev`, `/promote-staging`, `/promote-prod`, over
+> `promote-gate.sh` and `promotion-record.sh`. They make § 4.3's escalating
+> ladder and § 6.1's rehearsal contract operable — and configurable, resolving
+> confirmation strength from the declaration rather than hardcoding it. The
+> boundary is unchanged and is now asserted against the gate's own code: these
+> commands gate and confirm, and **deploy nothing**. § 6.1's ancestry condition
+> is honest about its limits — the harness runs no git and no CI API, so
+> ancestry is a contract the product's rehearsal seam declares, and § 12 states
+> exactly what is verified versus taken on trust.
 
 > **Amendment (§ 11).** After v1.0.0, the opt-in scaffolding that LOOM-0025
 > called for was built: `/scaffold-environments`, its detector, and its

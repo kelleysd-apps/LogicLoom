@@ -25,19 +25,23 @@
     ]
   },
   "skills": {
-    "count": 4,
+    "count": 5,
     "list": [
       "environment-scaffolding",
       "framework-updater",
       "mcp-server-setup",
-      "project-initialization"
+      "project-initialization",
+      "promotion-lifecycle"
     ]
   },
   "commands": {
-    "count": 4,
+    "count": 7,
     "list": [
       "initialize-project",
       "promote",
+      "promote-dev",
+      "promote-prod",
+      "promote-staging",
       "scaffold-environments",
       "update-framework"
     ]

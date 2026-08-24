@@ -453,6 +453,35 @@
       ]
     },
     {
+      "path": ".logic-loom/config/project.conf",
+      "ops": [
+        {
+          "op": "delete-line",
+          "match": "# HARNESS-DEV NOTE (removed at promote by the same rule block that resets the\n# three keys): this tree is BOTH the harness AND the template source, so the keys\n# below are STAMPED here on dev-main — LogicLoom is a real project with a real\n# backlog — and RESET to `__UNSET__` in the promoted template by\n# history-scrub-rules.json. Same ours-in-dev / reset-at-promote pattern VISION.md\n# uses. Do NOT hand them back to `__UNSET__` here: that kills the scrub rule, and\n# tests/contract/test_scrub_rules_match.sh fails a rule that matches nothing.\n# `id_prefix = LOOM` is NOT a free choice — backlog ids are already minted with\n# it, and the prefix is immutable once the first id is minted.",
+          "replacement": "",
+          "note": "Harness-dev note explaining the ours-in-dev / reset-at-promote stamp. Meaningless once the keys are back to __UNSET__ — drop the whole comment block. Deliberately excludes the surrounding '# ───' separator and bare '#' lines, which recur throughout the file and would be over-deleted by the rstrip-equality matcher."
+        },
+        {
+          "op": "genericize",
+          "match": "project_slug = logicloom",
+          "replacement": "project_slug = __UNSET__",
+          "note": "Reset our own identity. A cloner must never inherit 'logicloom' as their slug (tests/contract/test_project_identity.sh asserts the placeholder on the SANITIZED tree). Only the active assignment line matches; the file's prose mentions `logicloom` inside a comment and is left alone."
+        },
+        {
+          "op": "genericize",
+          "match": "project_name = LogicLoom",
+          "replacement": "project_name = __UNSET__",
+          "note": "Reset our display name — this is what made artifacts/backlog-dashboard.html render its title."
+        },
+        {
+          "op": "genericize",
+          "match": "id_prefix    = LOOM",
+          "replacement": "id_prefix    = __UNSET__",
+          "note": "Reset our id prefix. LOOM is immutable on dev-main (ids already minted) but must not ship: a cloner minting LOOM-NNNN would collide with ours. Alignment whitespace is part of the literal."
+        }
+      ]
+    },
+    {
       "path": ".logic-loom/templates/skill-template.md",
       "ops": [
         {
