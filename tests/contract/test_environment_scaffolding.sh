@@ -105,36 +105,36 @@ echo "3. Detection reads what EXISTS — greenfield and existing project"
 mkrepo "$TMP/green" main main
 GREEN_KV="$(bash "$DETECT" --root "$TMP/green" --format kv 2>/dev/null)"
 assert "greenfield: production branch is main" \
-  "printf '%s' \"\$GREEN_KV\" | grep -qx 'prod_branch=main'"
+  "grep -qx 'prod_branch=main' <<< \"\$GREEN_KV\""
 assert "greenfield: no integration branch invented" \
-  "printf '%s' \"\$GREEN_KV\" | grep -qx 'integration_branch='"
+  "grep -qx 'integration_branch=' <<< \"\$GREEN_KV\""
 assert "greenfield: no staging branch invented" \
-  "printf '%s' \"\$GREEN_KV\" | grep -qx 'staging_branch='"
+  "grep -qx 'staging_branch=' <<< \"\$GREEN_KV\""
 assert "greenfield: default-branch trap is not applicable" \
-  "printf '%s' \"\$GREEN_KV\" | grep -qx 'default_trap=n/a-no-integration'"
+  "grep -qx 'default_trap=n/a-no-integration' <<< \"\$GREEN_KV\""
 
 mkrepo "$TMP/exist" main main develop staging feature/login
 EXIST_KV="$(bash "$DETECT" --root "$TMP/exist" --format kv 2>/dev/null)"
 assert "existing: detects develop as the integration branch" \
-  "printf '%s' \"\$EXIST_KV\" | grep -qx 'integration_branch=develop'"
+  "grep -qx 'integration_branch=develop' <<< \"\$EXIST_KV\""
 assert "existing: detects staging as the staging branch" \
-  "printf '%s' \"\$EXIST_KV\" | grep -qx 'staging_branch=staging'"
+  "grep -qx 'staging_branch=staging' <<< \"\$EXIST_KV\""
 assert "existing: a feature branch is given no role" \
-  "! printf '%s' \"\$EXIST_KV\" | grep -qE '^(prod|integration|staging)_branch=feature/login\$'"
+  "! grep -qE '^(prod|integration|staging)_branch=feature/login\$' <<< \"\$EXIST_KV\""
 assert "existing: trap advises because default != integration" \
-  "printf '%s' \"\$EXIST_KV\" | grep -qx 'default_trap=advise-set-default'"
+  "grep -qx 'default_trap=advise-set-default' <<< \"\$EXIST_KV\""
 
 # A repo whose default IS the integration branch gets the OPPOSITE advice.
 mkrepo "$TMP/devdefault" develop main develop
 DD_KV="$(bash "$DETECT" --root "$TMP/devdefault" --format kv 2>/dev/null)"
 assert "default-is-integration: trap reports the recommended arrangement" \
-  "printf '%s' \"\$DD_KV\" | grep -qx 'default_trap=ok-default-is-integration'"
+  "grep -qx 'default_trap=ok-default-is-integration' <<< \"\$DD_KV\""
 
 # Unknown default branch must be reported, never guessed.
 mkrepo "$TMP/nodefault" - main develop
 ND_KV="$(bash "$DETECT" --root "$TMP/nodefault" --format kv 2>/dev/null)"
 assert "unknown default: reported as a value, and its source is named" \
-  "printf '%s' \"\$ND_KV\" | grep -q '^default_branch_source='"
+  "grep -q '^default_branch_source=' <<< \"\$ND_KV\""
 assert "detector never runs the git binary" \
   "! grep -nE '(^|[^a-zA-Z_-])git[[:space:]]+(init|add|commit|checkout|switch|branch|push|fetch|remote|worktree)' '$DETECT'"
 echo ""
@@ -143,25 +143,25 @@ echo ""
 echo "4. Proposal is a delta — no branch is created, existing ones are adopted"
 EXIST_PLAN="$(bash "$SCAFFOLD" --root "$TMP/exist" 2>&1)"
 assert "existing project: adapts to 'develop', not a generic name" \
-  "printf '%s' \"\$EXIST_PLAN\" | grep -q \"branch 'develop'\""
+  "grep -q \"branch 'develop'\" <<< \"\$EXIST_PLAN\""
 assert "existing project: adopts the staging branch it already has" \
-  "printf '%s' \"\$EXIST_PLAN\" | grep -q \"branch 'staging'\""
+  "grep -q \"branch 'staging'\" <<< \"\$EXIST_PLAN\""
 assert "existing project: never proposes creating a branch" \
-  "! printf '%s' \"\$EXIST_PLAN\" | grep -qiE 'create (a |the )?branch|git (branch|checkout|switch) -'"
+  "! grep -qiE 'create (a |the )?branch|git (branch|checkout|switch) -' <<< \"\$EXIST_PLAN\""
 assert "existing project: states plainly that no branch will be created" \
-  "printf '%s' \"\$EXIST_PLAN\" | grep -q 'NO BRANCH WILL BE CREATED'"
+  "grep -q 'NO BRANCH WILL BE CREATED' <<< \"\$EXIST_PLAN\""
 assert "existing project: reports the CI it already has, unmodified" \
-  "printf '%s' \"\$EXIST_PLAN\" | grep -q 'environments.conf'"
+  "grep -q 'environments.conf' <<< \"\$EXIST_PLAN\""
 
 GREEN_PLAN="$(bash "$SCAFFOLD" --root "$TMP/green" 2>&1)"
 assert "greenfield: proposes exactly one environment (Principle V)" \
-  "printf '%s' \"\$GREEN_PLAN\" | grep -q 'Environments it would declare (1)'"
+  "grep -q 'Environments it would declare (1)' <<< \"\$GREEN_PLAN\""
 assert "greenfield: SKIPS the CI guard — main legitimately takes feature branches" \
-  "printf '%s' \"\$GREEN_PLAN\" | grep -q 'SKIP.*ci-guard'"
+  "grep -q 'SKIP.*ci-guard' <<< \"\$GREEN_PLAN\""
 assert "greenfield: SKIPS the branch-base check — no integration branch" \
-  "printf '%s' \"\$GREEN_PLAN\" | grep -q 'SKIP.*branch-base-check'"
+  "grep -q 'SKIP.*branch-base-check' <<< \"\$GREEN_PLAN\""
 assert "every skip states a reason" \
-  "! printf '%s' \"\$GREEN_PLAN\" | grep -qE 'SKIP[[:space:]]*\\][^\$]*\$' || true"
+  "! grep -qE 'SKIP[[:space:]]*\\][^\$]*\$' <<< \"\$GREEN_PLAN\" || true"
 echo ""
 
 # ── 5. Declining leaves the tree BYTE-IDENTICAL ──────────────────────────────
@@ -273,9 +273,9 @@ H_CONF="$(shasum -a 256 "$TMP/conf/.logic-loom/config/environments.conf" | cut -
 
 CONF_PLAN="$(bash "$SCAFFOLD" --root "$TMP/conf" 2>&1)"
 assert "plan reports CONFLICT rather than proposing an overwrite" \
-  "printf '%s' \"\$CONF_PLAN\" | grep -q 'CONFLICT'"
+  "grep -q 'CONFLICT' <<< \"\$CONF_PLAN\""
 assert "plan names the pre-existing declaration it will not append to" \
-  "printf '%s' \"\$CONF_PLAN\" | grep -q 'already declares environments'"
+  "grep -q 'already declares environments' <<< \"\$CONF_PLAN\""
 
 rc=0
 bash "$SCAFFOLD" --root "$TMP/conf" --apply \
@@ -305,14 +305,14 @@ IDEM_AFTER="$(treehash "$TMP/full")"
 assert "second run changes no file" "[ '$IDEM_BEFORE' = '$IDEM_AFTER' ]"
 assert "second run exits 0" "[ $IDEM_RC -eq 0 ]"
 assert "second run SAYS it did nothing (not silent)" \
-  "printf '%s' \"\$IDEM_OUT\" | grep -qi 'nothing to do\\|unchanged'"
+  "grep -qi 'nothing to do\\|unchanged' <<< \"\$IDEM_OUT\""
 # Captured first, then matched: `cmd | grep -q` under `set -o pipefail` reports
 # the pipeline as FAILED when grep exits early and the writer takes SIGPIPE.
 REPLAN_OUT="$(bash "$SCAFFOLD" --root "$TMP/full" 2>&1)"
 assert "re-plan reports ALREADY OK, not WOULD ADD, for scaffolded targets" \
-  "printf '%s' \"\$REPLAN_OUT\" | grep -q 'ALREADY OK'"
+  "grep -q 'ALREADY OK' <<< \"\$REPLAN_OUT\""
 assert "re-plan proposes nothing further" \
-  "! printf '%s' \"\$REPLAN_OUT\" | grep -q 'WOULD ADD'"
+  "! grep -q 'WOULD ADD' <<< \"\$REPLAN_OUT\""
 echo ""
 
 # ── 11. The default-branch trap is generalized, not LogicLoom's ─────────────

@@ -55,7 +55,7 @@ STATIC_COUNT=0
 BRIDGE_COUNT=0
 for cmd_file in .claude/commands/*.md; do
   [ -f "$cmd_file" ] || continue
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     BRIDGE_COUNT=$((BRIDGE_COUNT + 1))
   else
     STATIC_COUNT=$((STATIC_COUNT + 1))

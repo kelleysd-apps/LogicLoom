@@ -51,7 +51,7 @@ echo "2. Shipped config is an example, not an active topology"
 SHIPPED_OUT="$(bash "$VALIDATOR" "$CONF" 2>&1)"; SHIPPED_RC=$?
 assert "shipped config validates clean (exit 0)" "[ $SHIPPED_RC -eq 0 ]"
 assert "shipped config declares no environments" \
-  "printf '%s' \"\$SHIPPED_OUT\" | grep -q 'none declared'"
+  "grep -q 'none declared' <<< \"\$SHIPPED_OUT\""
 assert "shipped config has no uncommented 'environment =' line" \
   "! grep -E '^[[:space:]]*environment[[:space:]]*=' '$CONF' >/dev/null 2>&1"
 echo ""
@@ -61,7 +61,7 @@ echo "3. Absent declaration exits 0"
 ABSENT_OUT="$(bash "$VALIDATOR" "$TMP/nope.conf" 2>&1)"; ABSENT_RC=$?
 assert "absent config exits 0" "[ $ABSENT_RC -eq 0 ]"
 assert "absent config says so informationally" \
-  "printf '%s' \"\$ABSENT_OUT\" | grep -q 'nothing declared'"
+  "grep -q 'nothing declared' <<< \"\$ABSENT_OUT\""
 echo ""
 
 # ── 4. A valid three-environment chain reports its promotion order ───────────
@@ -86,14 +86,14 @@ CONF_EOF
 VALID_OUT="$(bash "$VALIDATOR" "$TMP/valid.conf" 2>&1)"; VALID_RC=$?
 assert "valid declaration exits 0" "[ $VALID_RC -eq 0 ]"
 assert "reports 3 declared environments" \
-  "printf '%s' \"\$VALID_OUT\" | grep -q '3 declared'"
-assert "orders dev first" "printf '%s' \"\$VALID_OUT\" | grep -q '1\. dev'"
-assert "orders staging second" "printf '%s' \"\$VALID_OUT\" | grep -q '2\. staging'"
-assert "orders prod third" "printf '%s' \"\$VALID_OUT\" | grep -q '3\. prod'"
+  "grep -q '3 declared' <<< \"\$VALID_OUT\""
+assert "orders dev first" "grep -q '1\. dev' <<< \"\$VALID_OUT\""
+assert "orders staging second" "grep -q '2\. staging' <<< \"\$VALID_OUT\""
+assert "orders prod third" "grep -q '3\. prod' <<< \"\$VALID_OUT\""
 assert "surfaces the approval gate on prod" \
-  "printf '%s' \"\$VALID_OUT\" | grep -q 'APPROVAL REQUIRED'"
+  "grep -q 'APPROVAL REQUIRED' <<< \"\$VALID_OUT\""
 assert "names the deploy seam as product-owned / absent" \
-  "printf '%s' \"\$VALID_OUT\" | grep -q 'deploy seam'"
+  "grep -q 'deploy seam' <<< \"\$VALID_OUT\""
 echo ""
 
 # ── 5. Cycle in the promotion order ──────────────────────────────────────────
@@ -111,9 +111,9 @@ CONF_EOF
 CYCLE_OUT="$(bash "$VALIDATOR" "$TMP/cycle.conf" 2>&1)"; CYCLE_RC=$?
 assert "cycle exits nonzero" "[ $CYCLE_RC -ne 0 ]"
 assert "cycle message says 'cycle'" \
-  "printf '%s' \"\$CYCLE_OUT\" | grep -q 'cycle in promotion order'"
+  "grep -q 'cycle in promotion order' <<< \"\$CYCLE_OUT\""
 assert "cycle message names the members" \
-  "printf '%s' \"\$CYCLE_OUT\" | grep -q 'a' && printf '%s' \"\$CYCLE_OUT\" | grep -q 'b' && printf '%s' \"\$CYCLE_OUT\" | grep -q 'c'"
+  "grep -q 'a' <<< \"\$CYCLE_OUT\" && grep -q 'b' <<< \"\$CYCLE_OUT\" && grep -q 'c' <<< \"\$CYCLE_OUT\""
 echo ""
 
 # ── 6. Predecessor that is not declared ──────────────────────────────────────
@@ -128,7 +128,7 @@ CONF_EOF
 MP_OUT="$(bash "$VALIDATOR" "$TMP/missingpred.conf" 2>&1)"; MP_RC=$?
 assert "missing predecessor exits nonzero" "[ $MP_RC -ne 0 ]"
 assert "missing predecessor names the missing env" \
-  "printf '%s' \"\$MP_OUT\" | grep -q \"predecessor 'staging'\""
+  "grep -q \"predecessor 'staging'\" <<< \"\$MP_OUT\""
 echo ""
 
 # ── 7. Duplicate environment name ────────────────────────────────────────────
@@ -143,7 +143,7 @@ CONF_EOF
 DUP_OUT="$(bash "$VALIDATOR" "$TMP/dupe.conf" 2>&1)"; DUP_RC=$?
 assert "duplicate name exits nonzero" "[ $DUP_RC -ne 0 ]"
 assert "duplicate name is reported" \
-  "printf '%s' \"\$DUP_OUT\" | grep -q 'duplicate environment name'"
+  "grep -q 'duplicate environment name' <<< \"\$DUP_OUT\""
 echo ""
 
 # ── 8. Unknown key WARNS, never fails ────────────────────────────────────────
@@ -160,9 +160,9 @@ CONF_EOF
 UNK_OUT="$(bash "$VALIDATOR" "$TMP/unknown.conf" 2>&1)"; UNK_RC=$?
 assert "unknown key exits 0 (warning, not error)" "[ $UNK_RC -eq 0 ]"
 assert "unknown key is warned about by name" \
-  "printf '%s' \"\$UNK_OUT\" | grep -q \"unknown key 'region'\""
+  "grep -q \"unknown key 'region'\" <<< \"\$UNK_OUT\""
 assert "unknown key does not suppress the report" \
-  "printf '%s' \"\$UNK_OUT\" | grep -q 'Promotion order'"
+  "grep -q 'Promotion order' <<< \"\$UNK_OUT\""
 echo ""
 
 # ── 9. Invalid requires_approval is an ERROR ─────────────────────────────────
@@ -174,7 +174,7 @@ CONF_EOF
 BA_OUT="$(bash "$VALIDATOR" "$TMP/badappr.conf" 2>&1)"; BA_RC=$?
 assert "invalid requires_approval exits nonzero" "[ $BA_RC -ne 0 ]"
 assert "invalid requires_approval is reported" \
-  "printf '%s' \"\$BA_OUT\" | grep -q 'requires_approval must be'"
+  "grep -q 'requires_approval must be' <<< \"\$BA_OUT\""
 echo ""
 
 # ── 10. Key outside any environment block is an ERROR ────────────────────────
@@ -187,7 +187,7 @@ CONF_EOF
 OR_OUT="$(bash "$VALIDATOR" "$TMP/orphan.conf" 2>&1)"; OR_RC=$?
 assert "orphan key exits nonzero" "[ $OR_RC -ne 0 ]"
 assert "orphan key is reported as belonging to no environment" \
-  "printf '%s' \"\$OR_OUT\" | grep -q 'belongs to no environment'"
+  "grep -q 'belongs to no environment' <<< \"\$OR_OUT\""
 echo ""
 
 # ── 11. The boundary: no deploy execution, no git, no branch creation ────────
@@ -229,13 +229,13 @@ CONF_EOF
 CF_OUT="$(bash "$VALIDATOR" "$TMP/confirm.conf" 2>&1)"; CF_RC=$?
 assert "valid confirm ladder exits 0" "[ $CF_RC -eq 0 ]"
 assert "confirm is not treated as an unknown key" \
-  "! printf '%s' \"\$CF_OUT\" | grep -q \"unknown key 'confirm'\""
+  "! grep -q \"unknown key 'confirm'\" <<< \"\$CF_OUT\""
 assert "reports the typed phrase verbatim" \
-  "printf '%s' \"\$CF_OUT\" | grep -q 'PROMOTE TO PRODUCTION'"
+  "grep -q 'PROMOTE TO PRODUCTION' <<< \"\$CF_OUT\""
 assert "says no flag may bypass the typed phrase" \
-  "printf '%s' \"\$CF_OUT\" | grep -q 'no flag may bypass'"
+  "grep -q 'no flag may bypass' <<< \"\$CF_OUT\""
 assert "reports the skippable prompt tier" \
-  "printf '%s' \"\$CF_OUT\" | grep -q 'skippable'"
+  "grep -q 'skippable' <<< \"\$CF_OUT\""
 echo ""
 
 # ── 13. confirm errors — fail closed with a typed reason ─────────────────────
@@ -244,13 +244,13 @@ printf 'environment = dev\nconfirm = maybe\n' > "$TMP/confbad.conf"
 CB_OUT="$(bash "$VALIDATOR" "$TMP/confbad.conf" 2>&1)"; CB_RC=$?
 assert "invalid confirm value exits nonzero" "[ $CB_RC -ne 0 ]"
 assert "invalid confirm value names the allowed forms" \
-  "printf '%s' \"\$CB_OUT\" | grep -q \"confirm must be 'none', 'prompt', or 'typed:<PHRASE>'\""
+  "grep -q \"confirm must be 'none', 'prompt', or 'typed:<PHRASE>'\" <<< \"\$CB_OUT\""
 
 printf 'environment = prod\nrequires_approval = true\nconfirm = typed:\n' > "$TMP/confempty.conf"
 CE_OUT="$(bash "$VALIDATOR" "$TMP/confempty.conf" 2>&1)"; CE_RC=$?
 assert "typed: with no phrase exits nonzero (never degrades to prompt)" "[ $CE_RC -ne 0 ]"
 assert "typed: with no phrase says a phrase is needed" \
-  "printf '%s' \"\$CE_OUT\" | grep -q 'needs a phrase'"
+  "grep -q 'needs a phrase' <<< \"\$CE_OUT\""
 
 # A typed phrase IS an approval. Declaring one alongside requires_approval=false
 # is a self-contradicting declaration and must fail closed, naming both keys.
@@ -258,7 +258,7 @@ printf 'environment = prod\nrequires_approval = false\nconfirm = typed:GO\n' > "
 CI_OUT="$(bash "$VALIDATOR" "$TMP/confincoh.conf" 2>&1)"; CI_RC=$?
 assert "typed phrase without requires_approval exits nonzero" "[ $CI_RC -ne 0 ]"
 assert "incoherence names both keys and the two remedies" \
-  "printf '%s' \"\$CI_OUT\" | grep -q 'requires_approval' && printf '%s' \"\$CI_OUT\" | grep -q \"lower confirm to 'prompt'\""
+  "grep -q 'requires_approval' <<< \"\$CI_OUT\" && grep -q \"lower confirm to 'prompt'\" <<< \"\$CI_OUT\""
 
 # The REVERSE pairing is legitimate, not an error: an environment gated by a CI
 # approval (a reviewer on a protected environment) rather than a terminal prompt.
@@ -282,13 +282,13 @@ CONF_EOF
 SD_OUT="$(bash "$VALIDATOR" "$TMP/seed.conf" --root "$TMP/seedroot" 2>&1)"; SD_RC=$?
 assert "declared allowlist exits 0" "[ $SD_RC -eq 0 ]"
 assert "allowlist is not treated as an unknown key" \
-  "! printf '%s' \"\$SD_OUT\" | grep -q \"unknown key 'rehearsal_seed_allowlist'\""
+  "! grep -q \"unknown key 'rehearsal_seed_allowlist'\" <<< \"\$SD_OUT\""
 assert "allowlist path is reported" \
-  "printf '%s' \"\$SD_OUT\" | grep -q 'rehearsal seed allowlist: allowlist.txt'"
+  "grep -q 'rehearsal seed allowlist: allowlist.txt' <<< \"\$SD_OUT\""
 assert "present allowlist is reported as present" \
-  "printf '%s' \"\$SD_OUT\" | grep -q 'present'"
+  "grep -q 'present' <<< \"\$SD_OUT\""
 assert "the allowlist CONTENTS never reach the output (never read)" \
-  "! printf '%s' \"\$SD_OUT\" | grep -q 'SENTINEL_ACCOUNT_MUST_NOT_BE_READ'"
+  "! grep -q 'SENTINEL_ACCOUNT_MUST_NOT_BE_READ' <<< \"\$SD_OUT\""
 
 cat > "$TMP/seedabsent.conf" <<'CONF_EOF'
 environment              = staging
@@ -297,11 +297,11 @@ CONF_EOF
 SA_OUT="$(bash "$VALIDATOR" "$TMP/seedabsent.conf" --root "$TMP/seedroot" 2>&1)"; SA_RC=$?
 assert "absent allowlist still exits 0 (declaration, not a gate)" "[ $SA_RC -eq 0 ]"
 assert "absent allowlist says the seed must ABORT, never widen" \
-  "printf '%s' \"\$SA_OUT\" | grep -q 'ABORT'"
+  "grep -q 'ABORT' <<< \"\$SA_OUT\""
 
 # An environment with no allowlist declared prints no allowlist line at all.
 assert "undeclared allowlist prints no allowlist line" \
-  "! printf '%s' \"\$VALID_OUT\" | grep -q 'rehearsal seed allowlist'"
+  "! grep -q 'rehearsal seed allowlist' <<< \"\$VALID_OUT\""
 
 assert "validator never cats/parses the declared allowlist path" \
   "! grep -nE '(cat|wc|awk|sed|head|tail|source|eval)[[:space:]]+\"?\\\$ROOT/\\\$seed' '$VALIDATOR' >/dev/null 2>&1"

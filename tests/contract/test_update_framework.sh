@@ -44,7 +44,7 @@ assert "extract-proposals.sh responds to --help" "[ $HELP_EXIT -eq 0 ]"
 
 # Test with dry-run (no upstream remote needed)
 DRY_OUTPUT=$(bash "$EXTRACT_SCRIPT" --dry-run 2>&1 || echo "")
-assert "extract-proposals.sh supports --dry-run" "echo '$DRY_OUTPUT' | grep -qi 'dry\|no upstream\|sync-ref' || true"
+assert "extract-proposals.sh supports --dry-run" "grep -qi 'dry\|no upstream\|sync-ref' <<< '$DRY_OUTPUT' || true"
 
 # ── Skill Definition Tests ──
 echo ""
@@ -69,7 +69,7 @@ assert "extract-proposals.sh outputs release_tag field" \
 assert "SKILL.md references release tag grouping" \
   "grep -qi 'release.tag\|per.release\|group.*by.*release' $SKILL_FILE"
 assert "Help text mentions release tags" \
-  "bash $EXTRACT_SCRIPT --help 2>&1 | grep -qi 'release\|tag'"
+  "grep -qi 'release\|tag' <<< \"\$(bash $EXTRACT_SCRIPT --help 2>&1)\""
 
 # ── Update Command ──
 echo ""

@@ -31,7 +31,7 @@ assert "sync-plugin-commands.sh is executable" "[ -x .logic-loom/scripts/bash/sy
 echo ""
 echo "Running bridge sync..."
 SYNC_OUTPUT=$(.logic-loom/scripts/bash/sync-plugin-commands.sh sync 2>&1) || true
-echo "$SYNC_OUTPUT" | head -20
+sed -n '1,20p' <<< "$SYNC_OUTPUT"
 
 # ── Manifest Tests ──
 echo ""
@@ -94,15 +94,15 @@ for cmd_file in .claude/commands/*.md; do
   BRIDGE_TOTAL=$((BRIDGE_TOTAL + 1))
   cmd_name=$(basename "$cmd_file" .md)
   
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     # Validate bridge wrapper quality
     has_frontmatter=false
-    if head -1 "$cmd_file" | grep -q "^---$"; then
+    if grep -q "^---$" <<< "$(head -1 "$cmd_file")"; then
       has_frontmatter=true
     fi
     
     has_name=false
-    if head -10 "$cmd_file" | grep -q "^name:"; then
+    if grep -q "^name:" <<< "$(head -10 "$cmd_file")"; then
       has_name=true
     fi
     
@@ -133,7 +133,7 @@ echo "Orphan detection"
 ORPHAN_COUNT=0
 for cmd_file in .claude/commands/*.md; do
   [ -f "$cmd_file" ] || continue
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     cmd_name=$(basename "$cmd_file" .md)
     found=false
     for plugin_dir in plugins/*/; do
@@ -232,9 +232,9 @@ for cmd_file in .claude/commands/*.md; do
   RESOLVE_TOTAL=$((RESOLVE_TOTAL + 1))
 
   # All commands should be bridge commands now (Plugin-First v4.0)
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     # Bridge command - follow to plugin source and check THAT file
-    plugin_source=$(grep "source:" "$cmd_file" | head -1 | sed 's/.*source: //' | sed 's/ .*//')
+    plugin_source=$(grep "source:" "$cmd_file" | sed -n '1p' | sed 's/.*source: //' | sed 's/ .*//')
     plugin_cmd_path="plugins/${plugin_source}/commands/${cmd_name}.md"
 
     if [ -f "$plugin_cmd_path" ]; then

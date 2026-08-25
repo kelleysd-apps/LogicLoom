@@ -177,7 +177,7 @@ assert "rule matcher ran without error" "[ $PY_STATUS -eq 0 ] && [ -n \"\$REPORT
 # ── 1. Every rule targets a file that exists ─────────────────────────────────
 echo ""
 echo "1. Every rule's target file exists"
-MISSING_FILES="$(printf '%s\n' "$REPORT" | grep '^MISSINGFILE	' | cut -f2)"
+MISSING_FILES="$(grep '^MISSINGFILE	' <<< "$REPORT" | cut -f2)"
 [ -n "$MISSING_FILES" ] && { echo "     MISSING TARGET FILE(S) — the rule points at a path that is gone.";
   echo "     Delete the rule block from ${RULES#$ROOT/}, or fix its \"path\":";
   printf '%s\n' "$MISSING_FILES" | sed 's/^/       - /'; }
@@ -226,21 +226,21 @@ echo "3. Replay is live and every op kind is known"
 assert "ops were replayed" "[ \$OP_COUNT -gt 0 ]"
 assert "most ops still match (>=80%)" "[ \$((HIT_COUNT * 100)) -ge \$((OP_COUNT * 80)) ]"
 assert "no unknown op kind in the ruleset" \
-  "! printf '%s\n' \"\$REPORT\" | grep -q 'UNKNOWN-OP:'"
+  "! grep -q 'UNKNOWN-OP:' <<< \"\$REPORT\""
 
 # ── 4. No stale exclusion ────────────────────────────────────────────────────
 # An exclusion whose op now matches must be removed, or it silently protects a
 # rule that no longer needs protecting.
 echo ""
 echo "4. No stale EXCLUSIONS entry"
-HIT_KEYS="$(printf '%s\n' "$REPORT" | grep '^OP	' | awk -F'\t' '$4=="HIT"{print $2 " :: " $5}')"
-ALL_KEYS="$(printf '%s\n' "$REPORT" | grep '^OP	' | awk -F'\t' '{print $2 " :: " $5}')"
+HIT_KEYS="$(grep '^OP	' <<< "$REPORT" | awk -F'\t' '$4=="HIT"{print $2 " :: " $5}')"
+ALL_KEYS="$(grep '^OP	' <<< "$REPORT" | awk -F'\t' '{print $2 " :: " $5}')"
 STALE=""
 while IFS= read -r e; do
   [ -n "$e" ] || continue
-  if printf '%s\n' "$HIT_KEYS" | grep -qxF -- "$e"; then
+  if grep -qxF -- "$e" <<< "$HIT_KEYS"; then
     STALE="${STALE}${e}   (now matches — remove the exclusion)"$'\n'
-  elif ! printf '%s\n' "$ALL_KEYS" | grep -qxF -- "$e"; then
+  elif ! grep -qxF -- "$e" <<< "$ALL_KEYS"; then
     STALE="${STALE}${e}   (no such rule — remove the exclusion)"$'\n'
   fi
 done <<EOF

@@ -19,13 +19,11 @@
     "loom-governance"
   ],
   "agents": {
-    "count": 1,
     "list": [
       "framework-sync-agent"
     ]
   },
   "skills": {
-    "count": 5,
     "list": [
       "environment-scaffolding",
       "framework-updater",
@@ -35,7 +33,6 @@
     ]
   },
   "commands": {
-    "count": 7,
     "list": [
       "initialize-project",
       "promote",

@@ -116,9 +116,9 @@ AFTER_A="$(snapshot "$FAKE_HOME")"
 assert "exits 0"                      "[ $RC_A -eq 0 ] && [ $RC_AS -eq 0 ]"
 assert "status is 'enabled'"          "[ \"\$ST_A\" = 'enabled' ]"
 assert "notice names the opt-out command" \
-  "printf '%s' \"\$OUT_A\" | grep -q 'gh config set telemetry disabled'"
+  "grep -q 'gh config set telemetry disabled' <<< \"\$OUT_A\""
 assert "notice states LogicLoom will NOT change it" \
-  "printf '%s' \"\$OUT_A\" | grep -qi 'will NOT change'"
+  "grep -qi 'will NOT change' <<< \"\$OUT_A\""
 assert "sandbox HOME unchanged"       "[ \"\$BEFORE_A\" = \"\$AFTER_A\" ]"
 
 # ── 4. State (b): gh absent → gh-absent, silent ──────────────────────────────

@@ -7,19 +7,16 @@
   "license": "MIT",
   "dependencies": [],
   "agents": {
-    "count": 1,
     "list": [
       "memory-context-agent"
     ]
   },
   "skills": {
-    "count": 1,
     "list": [
       "context-injection"
     ]
   },
   "commands": {
-    "count": 0,
     "list": []
   },
   "config": {

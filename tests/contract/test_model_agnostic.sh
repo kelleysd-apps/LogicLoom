@@ -88,7 +88,7 @@ while IFS= read -r -d '' f; do
   val="$(frontmatter_model "$f" || true)"
   [ -z "$val" ] && continue                 # no model: field → nothing to check
   SCANNED=$((SCANNED + 1))
-  if printf '%s' "$val" | grep -qiE "$TIER_RE"; then
+  if grep -qiE "$TIER_RE" <<< "$val"; then
     :                                        # a valid tier keyword
   else
     BAD_FRONTMATTER="${BAD_FRONTMATTER}${f} => model: ${val}"$'\n'

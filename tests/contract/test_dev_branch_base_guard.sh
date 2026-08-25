@@ -85,11 +85,11 @@ echo "--- actual output ---"
 printf '%s\n' "$OUT1"
 echo "--- end ---"
 check "exits 0" "$RC1" "0"
-if printf '%s' "$OUT1" | grep -q "WRONG BASE"; then ok "fires"; else bad "fires"; fi
-if printf '%s' "$OUT1" | grep -q "dev-main"; then ok "names the integration line"; else bad "names the integration line"; fi
-if printf '%s' "$OUT1" | grep -q "git reset --hard origin/dev-main"; then ok "gives an exact remedy command"; else bad "gives an exact remedy command"; fi
-if printf '%s' "$OUT1" | grep -q "sanitized"; then ok "explains WHY it is wrong"; else bad "explains WHY it is wrong"; fi
-if printf '%s' "$OUT1" | grep -q "LOOM-0024"; then ok "cites the policy reference"; else bad "cites the policy reference"; fi
+if grep -q "WRONG BASE" <<< "$OUT1"; then ok "fires"; else bad "fires"; fi
+if grep -q "dev-main" <<< "$OUT1"; then ok "names the integration line"; else bad "names the integration line"; fi
+if grep -q "git reset --hard origin/dev-main" <<< "$OUT1"; then ok "gives an exact remedy command"; else bad "gives an exact remedy command"; fi
+if grep -q "sanitized" <<< "$OUT1"; then ok "explains WHY it is wrong"; else bad "explains WHY it is wrong"; fi
+if grep -q "LOOM-0024" <<< "$OUT1"; then ok "cites the policy reference"; else bad "cites the policy reference"; fi
 echo ""
 
 echo "1b. Same topology, but HEAD literally on branch 'main' → FIRES, different remedy"
@@ -99,7 +99,7 @@ OUT1B="$(run_guard "$R1B")"
 echo "--- actual output (remedy line only) ---"
 printf '%s\n' "$OUT1B" | grep -A1 "Fix (run"
 echo "--- end ---"
-if printf '%s' "$OUT1B" | grep -q "git switch dev-main"; then ok "remedy is a plain switch"; else bad "remedy is a plain switch"; fi
+if grep -q "git switch dev-main" <<< "$OUT1B"; then ok "remedy is a plain switch"; else bad "remedy is a plain switch"; fi
 echo ""
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -205,17 +205,17 @@ for pair in "SessionStart/fire:$J_SS_FIRE" "SessionStart/silent:$J_SS_SIL" "User
   label="${pair%%:*}"; body="${pair#*:}"
   if json_ok "$body"; then ok "$label emits parseable JSON"; else bad "$label emits parseable JSON — got: $body"; fi
 done
-if printf '%s' "$J_SS_FIRE" | grep -q '"hookEventName":"SessionStart"'; then ok "SessionStart names its event"; else bad "SessionStart names its event"; fi
-if printf '%s' "$J_UP_FIRE" | grep -q '"blocked":false'; then ok "UserPromptSubmit never blocks"; else bad "UserPromptSubmit never blocks"; fi
-if printf '%s' "$J_UP_SIL" | grep -q '"blocked":false'; then ok "UserPromptSubmit silent path never blocks"; else bad "UserPromptSubmit silent path never blocks"; fi
+if grep -q '"hookEventName":"SessionStart"' <<< "$J_SS_FIRE"; then ok "SessionStart names its event"; else bad "SessionStart names its event"; fi
+if grep -q '"blocked":false' <<< "$J_UP_FIRE"; then ok "UserPromptSubmit never blocks"; else bad "UserPromptSubmit never blocks"; fi
+if grep -q '"blocked":false' <<< "$J_UP_SIL"; then ok "UserPromptSubmit silent path never blocks"; else bad "UserPromptSubmit silent path never blocks"; fi
 echo ""
 
 echo "7. UserPromptSubmit fires once per (root, HEAD), then goes quiet"
 export TMPDIR="$TMP/marker-home"; mkdir -p "$TMPDIR"
 M1="$(bash "$R1/.logic-loom/scripts/bash/check-dev-branch-base.sh" --root "$R1" --event UserPromptSubmit </dev/null 2>/dev/null)"
 M2="$(bash "$R1/.logic-loom/scripts/bash/check-dev-branch-base.sh" --root "$R1" --event UserPromptSubmit </dev/null 2>/dev/null)"
-if printf '%s' "$M1" | grep -q "WRONG BASE"; then ok "first prompt warns"; else bad "first prompt warns"; fi
-if printf '%s' "$M2" | grep -q "WRONG BASE"; then bad "second prompt is quiet"; else ok "second prompt is quiet"; fi
+if grep -q "WRONG BASE" <<< "$M1"; then ok "first prompt warns"; else bad "first prompt warns"; fi
+if grep -q "WRONG BASE" <<< "$M2"; then bad "second prompt is quiet"; else ok "second prompt is quiet"; fi
 MARKERS="$(find "$TMPDIR" -type f 2>/dev/null | grep -c . | head -1)"; [ -n "$MARKERS" ] || MARKERS=0
 if [ "$MARKERS" -ge 1 ]; then ok "the once-marker lives under TMPDIR"; else bad "the once-marker lives under TMPDIR"; fi
 STRAY="$(find "$R1/.git" "$R1/.logic-loom" -name '*loom-branch-base-guard*' 2>/dev/null | grep -c . | head -1)"; [ -n "$STRAY" ] || STRAY=0

@@ -7,10 +7,18 @@ enforced, lifted out of an inline heredoc so it can be run and tested locally:
   1. the manifest parses as JSON
   2. `name`, `version`, `dependencies` are present
 
-plus ONE addition (backlog §3.4):
+plus TWO additions:
 
-  3. IF an optional `eval` block is present, its SHAPE is valid.
+  3. IF an optional `eval` block is present, its SHAPE is valid (backlog §3.4).
      If it is absent, nothing is checked and nothing is reported.
+
+  4. The optional inventory blocks (`agents`, `skills`, `commands`) TELL THE
+     TRUTH (LOOM-0012). Each declares a `list` and nothing else — the former
+     `count` field is rejected, not merely ignored — and that list must equal
+     what is on disk. A block may be omitted entirely, but only when the
+     corresponding directory holds nothing; omitting it to silence the check is
+     itself an error. Before this, `count` and `list` were verified against
+     neither each other nor disk, and both had silently drifted.
 
 Scope guard: this validates METADATA ONLY. LogicLoom ships no eval judge, no
 eval runner, and no scoring engine — shipping one would make the harness an
@@ -102,6 +110,87 @@ def _validate_eval(block, errors, plugin):
                 errors.append(f"{at}.threshold must be between 0 and 1 (got {threshold})")
 
 
+# --- inventory blocks: agents / skills / commands --------------------------
+INVENTORY_KINDS = ("agents", "skills", "commands")
+INVENTORY_ALLOWED_KEYS = {"list"}
+
+
+def _inventory_on_disk(plugin_dir, kind):
+    """What the plugin actually ships for `kind`, sorted.
+
+    agents/commands -> `*.md` basenames without the extension.
+    skills          -> subdirectory names under skills/.
+    """
+    base = os.path.join(plugin_dir, kind)
+    if not os.path.isdir(base):
+        return []
+    if kind == "skills":
+        return sorted(
+            entry for entry in os.listdir(base)
+            if os.path.isdir(os.path.join(base, entry))
+        )
+    return sorted(
+        entry[:-3] for entry in os.listdir(base)
+        if entry.endswith(".md") and os.path.isfile(os.path.join(base, entry))
+    )
+
+
+def _validate_inventory(data, plugin_dir, errors, plugin):
+    """Check the agents/skills/commands blocks against the filesystem."""
+    for kind in INVENTORY_KINDS:
+        on_disk = _inventory_on_disk(plugin_dir, kind)
+        where = f"{plugin}: {kind}"
+
+        if kind not in data:
+            # Omission is legal ONLY when there is nothing to declare.
+            if on_disk:
+                errors.append(
+                    f"{where} block is missing but {kind}/ holds {len(on_disk)} "
+                    f"entr{'y' if len(on_disk) == 1 else 'ies'}: {', '.join(on_disk)}"
+                )
+            continue
+
+        block = data[kind]
+        if not isinstance(block, dict):
+            errors.append(f"{where} must be an object")
+            continue
+
+        unknown = sorted(set(block) - INVENTORY_ALLOWED_KEYS)
+        if unknown:
+            if "count" in unknown:
+                errors.append(
+                    f"{where} declares 'count', which was removed — a number "
+                    "nothing derives is a number that drifts. The list IS the "
+                    "inventory (see plugins/MANIFEST-SCHEMA.md)"
+                )
+            other = [key for key in unknown if key != "count"]
+            if other:
+                errors.append(f"{where} has unknown key(s): {', '.join(other)}")
+
+        if "list" not in block:
+            errors.append(f"{where} missing required key 'list'")
+            continue
+
+        declared = block["list"]
+        if not isinstance(declared, list) or not all(
+            isinstance(entry, str) for entry in declared
+        ):
+            errors.append(f"{where}.list must be an array of strings")
+            continue
+
+        if sorted(declared) != on_disk:
+            missing = [entry for entry in on_disk if entry not in declared]
+            extra = [entry for entry in declared if entry not in on_disk]
+            detail = []
+            if missing:
+                detail.append(f"on disk but undeclared: {', '.join(missing)}")
+            if extra:
+                detail.append(f"declared but absent from disk: {', '.join(extra)}")
+            if not detail:  # same members, wrong order or duplicated
+                detail.append(f"expected {on_disk}, got {declared}")
+            errors.append(f"{where}.list does not match disk — " + "; ".join(detail))
+
+
 def validate(root):
     """Return (errors, checked_count) for every manifest under <root>/plugins."""
     errors = []
@@ -135,6 +224,8 @@ def validate(root):
         # Optional. Absence is never an error.
         if "eval" in data:
             _validate_eval(data["eval"], errors, name)
+
+        _validate_inventory(data, os.path.join(plugins_dir, name), errors, name)
 
     return errors, checked
 

@@ -93,7 +93,7 @@ assert_contains() {
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
-    if echo "$haystack" | grep -q "$needle"; then
+    if grep -q -- "$needle" <<< "$haystack"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         echo -e "${GREEN}✓${NC} $message"
         return 0
@@ -274,7 +274,7 @@ test_suggest_commit_message() {
     # Test commit message suggestion
     local suggestions=$(suggest_commit_message 2>/dev/null || echo "")
 
-    if [[ -n "$suggestions" ]] && ! echo "$suggestions" | grep -q "No staged changes"; then
+    if [[ -n "$suggestions" ]] && ! grep -q "No staged changes" <<< "$suggestions"; then
         # Should contain at least one suggestion
         assert_contains "$suggestions" "feat\|fix\|chore\|docs" "Suggestions contain conventional commit types"
     else
@@ -329,7 +329,7 @@ json_escape() {
 
 # extract_decision <hook-json-output> -> permissionDecision value
 extract_decision() {
-    printf '%s' "$1" | grep -oE '"permissionDecision":"[a-z]+"' | head -1 | sed 's/.*:"//; s/"$//'
+    grep -oE '"permissionDecision":"[a-z]+"' <<< "$1" | sed -n '1p' | sed 's/.*:"//; s/"$//'
 }
 
 # run_subagent_guard <agent_id> <command> -> prints decision

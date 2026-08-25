@@ -1,6 +1,6 @@
 # Shell Idiom Policy
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Effective Date**: 2026-08-17
 **Authority**: Constitution v3.3.0 — Principle VI (Git Approval), Principle IV (Idempotency), Principle VII (Observability)
 **Review Cycle**: Quarterly
@@ -9,7 +9,7 @@
 
 ## Purpose
 
-This is a **style guide, not a linter.** It records five shell idioms whose
+This is a **style guide, not a linter.** It records six shell idioms whose
 *absence* has produced real, reproducible failures — in this tree and in the
 downstream Cosmos tree that fed them back. Each rule is here because something
 broke, not because it reads nicely.
@@ -221,6 +221,58 @@ indefinitely.
 **Governance note**: `gh workflow run` and `gh run rerun|cancel` are **gated**
 as of `38b0144`; subagents are denied `gh` wholesale, reads included. Read-only
 `gh run list` from the main agent is ungated. Poll from the main agent.
+
+---
+
+## 6. Never end a `pipefail` pipeline in an early-exiting consumer
+
+**Rule.** Under `set -o pipefail`, never write `producer | grep -q …` (or
+`| head -N`, or `| grep -m1`). The consumer exits the instant it has its answer,
+closes the pipe, and the producer takes `SIGPIPE` — which `pipefail` then
+propagates as the pipeline's status. Feed the consumer a **here-string** built
+from a captured value instead. No pipe, no race, and `pipefail` stays on for
+every other pipeline in the file.
+
+```bash
+# WRONG — a MATCHING grep can report failure. grep -q exits on the first hit,
+# printf takes SIGPIPE, and pipefail makes the whole pipeline non-zero.
+if printf '%s' "$OUT" | grep -q 'GATE CLEARED'; then
+
+# WRONG — same shape, any producer, any early-exiting consumer.
+if head -10 "$f" | grep -q "$MARKER"; then
+value=$(cmd | grep -oE '[0-9]+' | head -1)
+
+# RIGHT — here-string: the consumer reads a temp file, so there is no writer
+# to signal. Flags and pattern are unchanged.
+if grep -q 'GATE CLEARED' <<< "$OUT"; then
+if grep -q -- "$MARKER" <<< "$(head -10 "$f")"; then
+
+# RIGHT — where a consumer must stay in the pipeline, use one that reads to EOF.
+value=$(cmd | grep -oE '[0-9]+' | sed -n '1p')
+```
+
+Do **not** "fix" this by dropping `set -o pipefail` for the assertion — that
+silently weakens every other pipeline in the file, which is a far larger loss
+than the one line being repaired.
+
+**Why it is here.** `tests/contract/test_promotion_lifecycle.sh` asserted with
+`printf '%s' "$OUT" | grep -q 'different claims'`. The assertion failed
+**precisely because it succeeded**: `grep -q` matched early and exited, `printf`
+died on the closed pipe, and `pipefail` scored the match as a failure. A 40-run
+loop measured **18 failures** — reported as `printf: write error: Broken pipe`
+about half the time and as a bare `❌ FAIL` the rest, since a builtin killed by
+`SIGPIPE` does not always get to print. Two separate workers in one session
+reported the suite red when it was green, which is the real cost: a harness that
+lies at random trains everyone to re-run until it agrees with them.
+
+The size of the producer's output is **not** a defence. The failing case emitted
+a few hundred bytes — well under the pipe buffer — and still raced roughly one
+run in two. Treat every `pipefail` pipeline ending in an early-exiting consumer
+as at-risk unless the producer is a here-string or a file redirect.
+
+Repaired across the test tree in one pass (204 sites in 22 files); consumers
+that read to EOF (`grep -c`, `sed -n '1,Np'`, `wc`) were left alone, as were
+`$(…)` captures in files without `set -e`, where the status is discarded.
 
 ---
 

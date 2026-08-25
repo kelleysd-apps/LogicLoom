@@ -1,7 +1,7 @@
 # Plugin Manifest Schema — `.claude-plugin/plugin.json`
 
-**Version**: 1.0.0
-**Effective Date**: 2026-08-17
+**Version**: 1.1.0
+**Effective Date**: 2026-08-17 (rev. 2026-08-24 — LOOM-0012: `count` removed, inventory lists verified against disk)
 **Authority**: Constitution v3.3.0 — Principle XVI (Plugin-First Architecture)
 **Review Cycle**: Quarterly
 **Applies to**: LogicLoom v6.4.1, all 8 bundled plugins under `plugins/`
@@ -69,28 +69,42 @@ or convention.
 
 ### Optional — content inventory
 
-Three parallel blocks with an identical shape:
+Three parallel blocks with an identical shape. Each carries a `list` and
+**nothing else**:
 
 ```json
-"agents":   { "count": <int>, "list": [ "<name>", ... ] },
-"skills":   { "count": <int>, "list": [ "<name>", ... ] },
-"commands": { "count": <int>, "list": [ "<name>", ... ] }
+"agents":   { "list": [ "<name>", ... ] },
+"skills":   { "list": [ "<name>", ... ] },
+"commands": { "list": [ "<name>", ... ] }
 ```
 
 | Field | Type | Notes |
 |---|---|---|
 | `agents` | object | `list` entries are agent filenames **without** the `.md` extension, under `plugins/<name>/agents/`. |
 | `skills` | object | `list` entries are skill **directory** names under `plugins/<name>/skills/`, each containing a `SKILL.md`. |
-| `commands` | object | `list` entries are command filenames without `.md`, under `plugins/<name>/commands/`. Absent entirely from `loom-governance` (which ships no commands); `{"count":0,"list":[]}` is also used and equally valid. |
+| `commands` | object | `list` entries are command filenames without `.md`, under `plugins/<name>/commands/`. Absent entirely from `loom-governance` (which ships no commands); `{"list":[]}` is also used and equally valid. |
 
-> **`count` is not verified against `list`, and neither is verified against
-> disk.** This drifts in practice: `loom-orchestrator` declares
-> `commands.count: 8` and `skills.count: 10`, while disk holds **9** commands
-> and **11** skills — the `graph` command and skill were added without touching
-> the manifest. Treat these blocks as documentation, not as an index anything
-> resolves from. Command resolution goes through
-> `.logic-loom/scripts/bash/sync-plugin-commands.sh`, which walks the filesystem
-> and never reads `commands.list`.
+**`list` is verified against disk** by the CI validator — see
+[Enforcement](#enforcement). A block may be omitted, but **only** when the
+corresponding directory holds nothing; omitting it to silence the check is
+itself an error. Order inside `list` is free (it is compared as a set), but
+duplicates are not.
+
+> **There is no `count` field.** Blocks used to carry `"count": <int>` alongside
+> `list`, verified against neither the list nor disk — and it drifted exactly as
+> that guarantees: `loom-orchestrator` declared `commands.count: 8` /
+> `skills.count: 10` while disk held **9** and **11**, the `graph` command and
+> `project-graph` skill having been added without touching the manifest. The
+> field was removed rather than corrected (LOOM-0012): a count is fully derivable
+> from the list it sits next to, so it adds no information and one more thing to
+> keep true. A manifest that still declares `count` is now **rejected**, not
+> ignored.
+
+These blocks remain *documentation* — nothing resolves from them. Command
+resolution goes through `.logic-loom/scripts/bash/sync-plugin-commands.sh`,
+which walks the filesystem and never reads `commands.list`. The difference since
+LOOM-0012 is that the documentation is now checked, so it cannot quietly become
+false.
 
 ### Optional — path maps
 
@@ -121,6 +135,10 @@ the entire automated contract:
    type check, no format check, no semver parse, no directory-name match.
 3. If an `eval` block is present, its shape is valid (see below). If absent,
    nothing is checked.
+4. The `agents` / `skills` / `commands` inventory blocks match the filesystem:
+   each declares `list` and no other key (a leftover `count` is rejected), the
+   list equals what the directory holds, and a block may be omitted only when
+   that directory is empty or absent.
 
 That is all. Run it locally:
 
@@ -135,7 +153,6 @@ Everything else. Specifically, **nothing** checks that:
 - `name` matches the directory name, or carries the `loom-` prefix
 - `version` is valid semver
 - `dependencies` names resolve to plugins that exist, or include `loom-governance`
-- `agents` / `skills` / `commands` `count` matches `list`, or matches disk
 - `config` / `backends` paths exist
 - `constitutional_principles` are real principle IDs
 - `license` / `author` / `description` are present at all
@@ -143,7 +160,7 @@ Everything else. Specifically, **nothing** checks that:
 Contributor-side conventions are stated in
 [`plugins/CONTRIBUTING.md`](CONTRIBUTING.md). They are followed, not enforced —
 do not read a green CI run as confirmation that a manifest is well-formed
-beyond the three fields above.
+beyond the four checks above.
 
 ---
 
@@ -238,9 +255,9 @@ A minimal conforming manifest for a new plugin:
   "license": "MIT",
   "keywords": ["logic-loom", "yourname"],
   "dependencies": ["loom-governance"],
-  "agents":   { "count": 1, "list": ["yourname-specialist"] },
-  "skills":   { "count": 1, "list": ["yourname-operations"] },
-  "commands": { "count": 0, "list": [] }
+  "agents":   { "list": ["yourname-specialist"] },
+  "skills":   { "list": ["yourname-operations"] },
+  "commands": { "list": [] }
 }
 ```
 
@@ -265,5 +282,5 @@ bash tests/contract/test_plugin_manifest_schema.sh
 ---
 
 **Owner**: Framework maintainers
-**Last Reviewed**: 2026-08-17
+**Last Reviewed**: 2026-08-24
 **Next Review**: 2026-11-17

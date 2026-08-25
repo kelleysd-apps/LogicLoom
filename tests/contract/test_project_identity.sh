@@ -116,7 +116,7 @@ assert "the scrub ruleset carries a rule block for project.conf" \
   "grep -q '\"path\": \".logic-loom/config/project.conf\"' '$SCRUB_RULES'"
 assert "the scrubber ran cleanly over the fixture" "[ $SCRUB_RC -eq 0 ]"
 assert "no scrub op for project.conf missed" \
-  "printf '%s' \"\$SCRUB_OUT\" | grep -q 'project.conf: [0-9]* applied, 0 missed'"
+  "grep -q 'project.conf: [0-9]* applied, 0 missed' <<< \"\$SCRUB_OUT\""
 assert "the scrub actually changed something (not a vacuous pass)" \
   "! diff -q '$CONF' '$SANITIZED' >/dev/null 2>&1"
 
@@ -136,9 +136,9 @@ assert "shipped config carries no harness-dev note" \
 SHIPPED_OUT="$(bash "$VALIDATOR" "$SANITIZED" 2>&1)"; SHIPPED_RC=$?
 assert "shipped config exits 0 (unstamped is normal, not an error)" "[ $SHIPPED_RC -eq 0 ]"
 assert "shipped config is reported as UNSTAMPED" \
-  "printf '%s' \"\$SHIPPED_OUT\" | grep -q 'UNSTAMPED'"
+  "grep -q 'UNSTAMPED' <<< \"\$SHIPPED_OUT\""
 assert "unstamped is a WARNING, not an ERROR" \
-  "printf '%s' \"\$SHIPPED_OUT\" | grep -q '^WARN' && ! printf '%s' \"\$SHIPPED_OUT\" | grep -q '^ERROR'"
+  "grep -q '^WARN' <<< \"\$SHIPPED_OUT\" && ! grep -q '^ERROR' <<< \"\$SHIPPED_OUT\""
 echo ""
 
 # ── 2c. The dev tree IS stamped ──────────────────────────────────────────────
@@ -153,7 +153,7 @@ assert "dev-tree slug is 'logicloom'" \
 assert "dev-tree id_prefix is 'LOOM' (immutable — ids already minted)" \
   "grep -qE '^[[:space:]]*id_prefix[[:space:]]*=[[:space:]]*LOOM[[:space:]]*\$' '$CONF'"
 assert "dev-tree identity is reported as stamped, not UNSTAMPED" \
-  "! printf '%s' \"\$DEV_OUT\" | grep -q 'UNSTAMPED'"
+  "! grep -q 'UNSTAMPED' <<< \"\$DEV_OUT\""
 echo ""
 
 fi   # end IS_HARNESS_DEV branch (sections 2 + 2c)
@@ -177,7 +177,7 @@ assert "the 'no LOOM prefix' guard rejects a leaked prefix" \
   "grep -qE '^[[:space:]]*id_prefix[[:space:]]*=[[:space:]]*LOOM[[:space:]]*\$' '$LEAKED'"
 LEAK_OUT="$(bash "$VALIDATOR" "$LEAKED" 2>&1)"
 assert "the validator reports a leaked identity as STAMPED, not UNSTAMPED" \
-  "! printf '%s' \"\$LEAK_OUT\" | grep -q 'UNSTAMPED'"
+  "! grep -q 'UNSTAMPED' <<< \"\$LEAK_OUT\""
 echo ""
 
 
@@ -186,7 +186,7 @@ echo "3. Absent declaration exits 0"
 ABSENT_OUT="$(bash "$VALIDATOR" "$TMP/nope.conf" 2>&1)"; ABSENT_RC=$?
 assert "absent config exits 0" "[ $ABSENT_RC -eq 0 ]"
 assert "absent config says so informationally" \
-  "printf '%s' \"\$ABSENT_OUT\" | grep -q 'nothing declared'"
+  "grep -q 'nothing declared' <<< \"\$ABSENT_OUT\""
 echo ""
 
 # ── 4. A valid identity reports slug, name, prefix ───────────────────────────
@@ -199,14 +199,14 @@ repo         = acme/widgets
 CONF_EOF
 VALID_OUT="$(bash "$VALIDATOR" "$TMP/valid.conf" 2>&1)"; VALID_RC=$?
 assert "valid declaration exits 0" "[ $VALID_RC -eq 0 ]"
-assert "reports the slug" "printf '%s' \"\$VALID_OUT\" | grep -q 'acme-widgets'"
-assert "reports the display name" "printf '%s' \"\$VALID_OUT\" | grep -q 'ACME Widgets'"
+assert "reports the slug" "grep -q 'acme-widgets' <<< \"\$VALID_OUT\""
+assert "reports the display name" "grep -q 'ACME Widgets' <<< \"\$VALID_OUT\""
 assert "reports the id prefix and how ids mint" \
-  "printf '%s' \"\$VALID_OUT\" | grep -q 'ACME-001'"
+  "grep -q 'ACME-001' <<< \"\$VALID_OUT\""
 assert "calls the slug immutable" \
-  "printf '%s' \"\$VALID_OUT\" | grep -q 'immutable once set'"
+  "grep -q 'immutable once set' <<< \"\$VALID_OUT\""
 assert "does not claim to have verified the repo" \
-  "printf '%s' \"\$VALID_OUT\" | grep -q 'NOT verified'"
+  "grep -q 'NOT verified' <<< \"\$VALID_OUT\""
 echo ""
 
 # ── 5. Missing required key is an ERROR ──────────────────────────────────────
@@ -218,7 +218,7 @@ CONF_EOF
 MISS_OUT="$(bash "$VALIDATOR" "$TMP/missing.conf" 2>&1)"; MISS_RC=$?
 assert "missing required key exits nonzero" "[ $MISS_RC -ne 0 ]"
 assert "missing required key names the key" \
-  "printf '%s' \"\$MISS_OUT\" | grep -q \"required key 'id_prefix' is missing\""
+  "grep -q \"required key 'id_prefix' is missing\" <<< \"\$MISS_OUT\""
 echo ""
 
 # ── 6. Slug must be a safe machine token ─────────────────────────────────────
@@ -231,7 +231,7 @@ CONF_EOF
 BS_OUT="$(bash "$VALIDATOR" "$TMP/badslug.conf" 2>&1)"; BS_RC=$?
 assert "bad slug exits nonzero" "[ $BS_RC -ne 0 ]"
 assert "bad slug is reported by name" \
-  "printf '%s' \"\$BS_OUT\" | grep -q 'invalid project_slug'"
+  "grep -q 'invalid project_slug' <<< \"\$BS_OUT\""
 
 cat > "$TMP/emptyslug.conf" <<'CONF_EOF'
 project_slug =
@@ -241,7 +241,7 @@ CONF_EOF
 ES_OUT="$(bash "$VALIDATOR" "$TMP/emptyslug.conf" 2>&1)"; ES_RC=$?
 assert "empty slug exits nonzero" "[ $ES_RC -ne 0 ]"
 assert "empty slug is reported" \
-  "printf '%s' \"\$ES_OUT\" | grep -q 'project_slug is empty'"
+  "grep -q 'project_slug is empty' <<< \"\$ES_OUT\""
 echo ""
 
 # ── 7. id_prefix format ──────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ CONF_EOF
 BP_OUT="$(bash "$VALIDATOR" "$TMP/badprefix.conf" 2>&1)"; BP_RC=$?
 assert "lowercase/short prefix exits nonzero" "[ $BP_RC -ne 0 ]"
 assert "bad prefix is reported by name" \
-  "printf '%s' \"\$BP_OUT\" | grep -q 'invalid id_prefix'"
+  "grep -q 'invalid id_prefix' <<< \"\$BP_OUT\""
 
 cat > "$TMP/longprefix.conf" <<'CONF_EOF'
 project_slug = acme-widgets
@@ -264,7 +264,7 @@ CONF_EOF
 LP_OUT="$(bash "$VALIDATOR" "$TMP/longprefix.conf" 2>&1)"; LP_RC=$?
 assert "over-long prefix exits nonzero" "[ $LP_RC -ne 0 ]"
 assert "over-long prefix reports the length rule" \
-  "printf '%s' \"\$LP_OUT\" | grep -q '2 to 6 characters'"
+  "grep -q '2 to 6 characters' <<< \"\$LP_OUT\""
 echo ""
 
 # ── 8. Duplicate key is an ERROR ─────────────────────────────────────────────
@@ -278,7 +278,7 @@ CONF_EOF
 DUP_OUT="$(bash "$VALIDATOR" "$TMP/dupe.conf" 2>&1)"; DUP_RC=$?
 assert "duplicate key exits nonzero" "[ $DUP_RC -ne 0 ]"
 assert "duplicate key is reported" \
-  "printf '%s' \"\$DUP_OUT\" | grep -q \"duplicate key 'project_slug'\""
+  "grep -q \"duplicate key 'project_slug'\" <<< \"\$DUP_OUT\""
 echo ""
 
 # ── 9. Unknown key WARNS, never fails ────────────────────────────────────────
@@ -294,9 +294,9 @@ CONF_EOF
 UNK_OUT="$(bash "$VALIDATOR" "$TMP/unknown.conf" 2>&1)"; UNK_RC=$?
 assert "unknown key exits 0 (warning, not error)" "[ $UNK_RC -eq 0 ]"
 assert "unknown key is warned about by name" \
-  "printf '%s' \"\$UNK_OUT\" | grep -q \"unknown key 'owner'\""
+  "grep -q \"unknown key 'owner'\" <<< \"\$UNK_OUT\""
 assert "unknown key does not suppress the report" \
-  "printf '%s' \"\$UNK_OUT\" | grep -q 'acme-widgets'"
+  "grep -q 'acme-widgets' <<< \"\$UNK_OUT\""
 echo ""
 
 # ── 10. The validator writes NOTHING ─────────────────────────────────────────

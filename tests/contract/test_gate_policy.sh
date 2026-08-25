@@ -112,7 +112,7 @@ run_table() { # conf_path [permission_mode] -> "op:verdict" per line
 }
 
 verdict_of() { # results op -> verdict
-  printf '%s\n' "$1" | grep -m1 "^$2:" | sed 's/^[^:]*://'
+  grep "^$2:" <<< "$1" | sed -n '1p' | sed 's/^[^:]*://'
 }
 
 expected_for() { # op state -> verdict
@@ -205,15 +205,15 @@ done
 REFUSALS="$( export LOOM_GATE_POLICY_CONF="$TMP/floorattack.conf"; . "$LIB"; loom_gate_policy_refusals )"
 for _op in git.push git.history-rewrite gh.repo.admin gh.secret.write gh.auth; do
   check "[floorattack] typed refusal names $_op" yes \
-    "$(printf '%s\n' "$REFUSALS" | grep -q "^floor-gate-not-tunable: $_op " && echo yes || echo no)"
+    "$(grep -q "^floor-gate-not-tunable: $_op " <<< "$REFUSALS" && echo yes || echo no)"
 done
 check "[floorattack] unknown keys are reported, not swallowed" yes \
-  "$(printf '%s\n' "$REFUSALS" | grep -q '^unknown-operation: ' && echo yes || echo no)"
+  "$(grep -q '^unknown-operation: ' <<< "$REFUSALS" && echo yes || echo no)"
 # NOTE: `git.push = off` reports as floor-gate-not-tunable, not invalid-verdict —
 # the floor refusal is checked first and is the more important thing to say. The
 # invalid-verdict class is exercised by the TUNABLE `git.merge = off` line.
 check "[floorattack] invalid verdicts are reported" yes \
-  "$(printf '%s\n' "$REFUSALS" | grep -q '^invalid-verdict: ' && echo yes || echo no)"
+  "$(grep -q '^invalid-verdict: ' <<< "$REFUSALS" && echo yes || echo no)"
 check "[floorattack] parser treats the file as DATA (no eval)" yes \
   "$( export LOOM_GATE_POLICY_CONF="$TMP/floorattack.conf"; . "$LIB"; \
       loom_gate_policy git.push >/dev/null; \
@@ -352,7 +352,7 @@ for _posture in strict balanced minimal; do
   grep -vE '^[[:space:]]*(git|gh)\.[a-z0-9.-]+[[:space:]]*=' "$SHIPPED_CONF" > "$_applied"
   ( . "$LIB"; loom_gate_posture_body "$_posture" ) >> "$_applied"
   check "[apply $_posture] exactly one active line per operation" \
-    "$(printf '%s\n' "$TABLE" | grep -c '^[a-z]')" \
+    "$(grep -c '^[a-z]' <<< "$TABLE")" \
     "$(grep -cE '^[[:space:]]*(git|gh)\.[a-z0-9.-]+[[:space:]]*=' "$_applied")"
   check "[apply $_posture] commentary survived" yes \
     "$( [ "$(grep -c '^#' "$_applied")" -gt 50 ] && echo yes || echo no )"
@@ -379,12 +379,12 @@ check "every known operation is written ACTIVE in the shipped file" "" "$_miss"
 _miss=""
 while IFS= read -r _op; do
   [ -n "$_op" ] || continue
-  printf '%s\n' "$TABLE" | grep -q "^$(printf '%s' "$_op" | sed 's/\./\\./g')|" || _miss="$_miss $_op"
+  grep -q "^$(sed 's/\./\\./g' <<< "$_op")|" <<< "$TABLE" || _miss="$_miss $_op"
 done <<< "$KNOWN"
 check "every known operation has a fixture in this suite" "" "$_miss"
 check "known-operation count matches the table" \
   "$(printf '%s\n' "$KNOWN" | grep -c .)" \
-  "$(printf '%s\n' "$TABLE" | grep -c '^[a-z]')"
+  "$(grep -c '^[a-z]' <<< "$TABLE")"
 check "floor list is exactly the five documented operations" \
   "git.push git.history-rewrite gh.repo.admin gh.secret.write gh.auth" \
   "$( export LOOM_GATE_POLICY_CONF="$TMP/floorattack.conf"; . "$LIB"; printf '%s' "$LOOM_GATE_FLOOR_OPS" )"

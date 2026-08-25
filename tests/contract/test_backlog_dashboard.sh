@@ -137,7 +137,7 @@ echo "1. Renders a page carrying identity, generated_at and schema_version"
 bash "$GEN" "$FX" >/dev/null 2>"$TMP/run1.err"; RC1=$?
 assert "generator exits 0" "[ $RC1 -eq 0 ]"
 assert "wrote the page at the default path" "[ -f '$PAGE' ]"
-assert "page opens with a DOCTYPE" "head -1 '$PAGE' | grep -qi '^<!DOCTYPE html>'"
+assert "page opens with a DOCTYPE" "grep -qi '^<!DOCTYPE html>' <<< \"\$(head -1 '$PAGE')\""
 assert "page carries a <title>" "grep -q '<title>' '$PAGE'"
 assert "project name appears" "grep -q 'ACME Widgets' '$PAGE'"
 assert "project slug appears" "grep -q 'acme-widgets' '$PAGE'"
@@ -604,7 +604,7 @@ TASK_EOF
   assert "each class shows the source document it came from" \
     "grep -q '.logic-loom/memory/todos.md' '$T3P' && grep -q '.logic-loom/memory/backlog.md' '$T3P' && grep -q 'features/\*/plan.md' '$T3P' && grep -q 'specs/\*/tasks.md' '$T3P'"
   assert "a CROSS-STREAM blocker resolves: deferred TRI-0005 links to active TRI-0001" \
-    "grep -A6 'id=\"item-TRI-0005\"' '$T3P' | grep -q 'href=\"#item-TRI-0001\"'"
+    "grep -q 'href=\"#item-TRI-0001\"' <<< \"\$(grep -A6 'id=\"item-TRI-0005\"' '$T3P')\""
   assert "feature ids are namespaced by their feature directory" \
     "grep -q 'id=\"item-alpha:t2\"' '$T3P'"
   assert "spec ids are namespaced by their spec directory" \

@@ -81,13 +81,42 @@ fi
 echo -e "${BLUE}[1/16] Principle I: Library-First Architecture${NC}"
 echo "Checking for library structure..."
 
-# Check if project has a libs or packages directory
+# Library-First is about how PRODUCT code is organised — reusable capability
+# extracted into libs/packages rather than welded into an app. A harness-only
+# checkout has no product code at all (the repo root is framework-owned; see
+# CLAUDE.md § "Harness ↔ product boundary"), so there is nothing to organise and
+# nothing to verify: that is a SKIP.
+#
+# The finding this must NOT swallow: a repo that DOES ship product code and has
+# no library structure. That is a real Library-First observation, and it is still
+# reported as a warning below. The gate is "is there product code", never "did
+# the check find something" — a SKIP here means nothing was checked, not that
+# the principle was satisfied.
+LIBRARY_FOUND=false
+# Repo-root layouts are checked first: a monorepo fork may legitimately keep
+# shared packages at the root even though LogicLoom's own root is framework-owned.
 if [ -d "$REPO_ROOT/libs" ] || [ -d "$REPO_ROOT/packages" ] || [ -d "$REPO_ROOT/src/libs" ]; then
+    LIBRARY_FOUND=true
+else
+    for product_root in ${PRODUCT_ROOTS[@]+"${PRODUCT_ROOTS[@]}"}; do
+        if [ -d "$product_root/libs" ] || [ -d "$product_root/packages" ] || \
+           [ -d "$product_root/lib" ] || [ -d "$product_root/src/libs" ] || \
+           [ -d "$product_root/src/lib" ]; then
+            LIBRARY_FOUND=true
+            break
+        fi
+    done
+fi
+
+if [ "$LIBRARY_FOUND" = true ]; then
     echo -e "   ${GREEN}✅ PASS${NC}: Library structure exists"
     ((PASS_COUNT++))
+elif [ ${#PRODUCT_ROOTS[@]} -eq 0 ]; then
+    echo -e "   ${BLUE}⊘ SKIP${NC}: No product workspace to check (no web/ or apps/*)"
+    record_skip "Principle I: no product workspace (web/, apps/*) present — library structure not evaluated (a shell/markdown harness has no application code to extract libraries from)"
 else
-    echo -e "   ${YELLOW}⚠${NC}  WARNING: No library structure found (libs/, packages/, or src/libs/)"
-    record_warn "Consider creating library structure for reusable components"
+    echo -e "   ${YELLOW}⚠${NC}  WARNING: Product workspace ships no library structure"
+    record_warn "Product code exists but no libs/, packages/, or lib/ under web/ or apps/* — extract reusable capability into libraries (Principle I)"
     ((CHECK_WARN_COUNT++))
 fi
 echo ""
@@ -129,25 +158,68 @@ echo ""
 echo -e "${BLUE}[3/16] Principle III: Contract-First Design${NC}"
 echo "Checking for contract definitions..."
 
-# Check for contracts directory in specs
-CONTRACT_FOUND=false
+# Contracts are declared either in an SDD spec (specs/*/contracts/, which exists
+# independently of any product workspace — contract-before-implementation is the
+# point) or alongside the product code that implements them. Both are searched.
+#
+# The old check ran `find` over the WHOLE repo root and so matched
+# node_modules/@sinclair/typebox/.../schema.d.ts — a transitive devDependency's
+# type stub. That is a vacuous PASS: it reported contract-first compliance for a
+# repo with no contracts at all. Vendor trees are excluded below.
+#
+# The finding this must NOT swallow: a product workspace with API surface and no
+# contracts. That is still a warning. SKIP fires only when there is neither an
+# SDD spec tree nor a product workspace — nothing to contract, nothing checked.
+# An "active" spec tree means specs/ holds at least one spec directory. A specs/
+# that contains only a README is an unused placeholder (this repo's case) and is
+# treated exactly like an absent one — warning that a harness has no contracts
+# because of a placeholder directory is the vacuous finding LOOM-0013 is about.
+SPEC_TREE_ACTIVE=false
 if [ -d "$REPO_ROOT/specs" ]; then
+    for spec_dir in "$REPO_ROOT/specs"/*/; do
+        [ -d "$spec_dir" ] && SPEC_TREE_ACTIVE=true && break
+    done
+fi
+
+CONTRACT_FOUND=false
+if [ "$SPEC_TREE_ACTIVE" = true ]; then
     if find "$REPO_ROOT/specs" -type d -name "contracts" 2>/dev/null | grep -q .; then
+        CONTRACT_FOUND=true
+    fi
+    if find "$REPO_ROOT/specs" -type f \
+        \( -name "*contract*.ts" -o -name "*contract*.json" -o -name "openapi.yaml" -o -name "openapi.json" -o -name "swagger.json" \) \
+        2>/dev/null | grep -q .; then
         CONTRACT_FOUND=true
     fi
 fi
 
-# Check for contract/schema files
-if find "$REPO_ROOT" -type f \( -name "*contract*.ts" -o -name "*schema*.ts" -o -name "*contract*.json" -o -name "openapi.yaml" -o -name "swagger.json" \) 2>/dev/null | grep -q .; then
-    CONTRACT_FOUND=true
+if [ "$CONTRACT_FOUND" = false ] && [ ${#PRODUCT_ROOTS[@]} -gt 0 ]; then
+    # Vendor and build trees are excluded: a dependency's *schema*.ts says
+    # nothing about whether THIS project defines contracts.
+    if find "${PRODUCT_ROOTS[@]}" \
+        \( -name node_modules -o -name .next -o -name dist -o -name build -o -name vendor -o -name .venv \) -prune -o \
+        -type f \( -name "*contract*.ts" -o -name "*schema*.ts" -o -name "*contract*.json" -o -name "openapi.yaml" -o -name "openapi.json" -o -name "swagger.json" \) -print \
+        2>/dev/null | grep -q .; then
+        CONTRACT_FOUND=true
+    fi
 fi
 
 if [ "$CONTRACT_FOUND" = true ]; then
     echo -e "   ${GREEN}✅ PASS${NC}: Contract definitions found"
     ((PASS_COUNT++))
+elif [ "$SPEC_TREE_ACTIVE" = false ] && [ ${#PRODUCT_ROOTS[@]} -eq 0 ]; then
+    echo -e "   ${BLUE}⊘ SKIP${NC}: No spec tree and no product workspace to check"
+    record_skip "Principle III: no active specs/ tree and no product workspace (web/, apps/*) present — contract definitions not evaluated (a shell/markdown harness exposes no API surface to contract)"
+elif [ ${#PRODUCT_ROOTS[@]} -eq 0 ]; then
+    # An active specs/ tree declares no contracts, and there is no product code.
+    # Reported, not skipped: an SDD spec tree with no contracts/ is exactly the
+    # Contract-First gap the principle names.
+    echo -e "   ${YELLOW}⚠${NC}  WARNING: specs/ holds specs but declares no contracts"
+    record_warn "specs/ tree present but no specs/*/contracts/ or contract definitions — define contracts before implementation (Principle III)"
+    ((CHECK_WARN_COUNT++))
 else
     echo -e "   ${YELLOW}⚠${NC}  WARNING: No contract definitions found"
-    record_warn "Consider defining contracts in specs/*/contracts/ or *contract*.ts files"
+    record_warn "No contracts in specs/*/contracts/ or the product workspace (*contract*.ts, openapi.yaml) — define contracts before implementation (Principle III)"
     ((CHECK_WARN_COUNT++))
 fi
 echo ""

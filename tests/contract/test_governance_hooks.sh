@@ -37,7 +37,7 @@ decision() {
     jq -r '.hookSpecificOutput.permissionDecision // empty' 2>/dev/null
   else
     grep -oE '"permissionDecision"[[:space:]]*:[[:space:]]*"[^"]*"' \
-      | head -1 | sed 's/.*"permissionDecision"[^"]*"\([^"]*\)".*/\1/'
+      | sed -n '1p' | sed 's/.*"permissionDecision"[^"]*"\([^"]*\)".*/\1/'
   fi
 }
 

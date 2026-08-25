@@ -36,14 +36,14 @@ run_suite() {
   # Parse results from output
   parsed=false
   results_line=$(echo "$output" | grep -E "Results:|pass.*fail" | tail -1)
-  if echo "$results_line" | grep -qE "[0-9]+/[0-9]+"; then
+  if grep -qE "[0-9]+/[0-9]+" <<< "$results_line"; then
     parsed=true
     passed=$(echo "$results_line" | grep -oE "[0-9]+" | head -1)
     total=$(echo "$results_line" | grep -oE "[0-9]+" | head -2 | tail -1)
     failed=$(echo "$results_line" | grep -oE "[0-9]+" | tail -1)
     TOTAL_PASS=$((TOTAL_PASS + passed))
     TOTAL_FAIL=$((TOTAL_FAIL + failed))
-  elif echo "$output" | grep -q "^ℹ pass"; then
+  elif grep -q "^ℹ pass" <<< "$output"; then
     # Node.js test runner format
     parsed=true
     passed=$(echo "$output" | grep "^ℹ pass" | grep -oE "[0-9]+")

@@ -10,6 +10,9 @@
 #   2. The VALIDATOR behaves. Three proofs demanded of the optional `eval`
 #      block: it passes on all real manifests, it REJECTS a malformed block,
 #      and it ACCEPTS a manifest with no `eval` at all.
+#   3. The INVENTORY blocks tell the truth (§8, LOOM-0012). `count` is gone and
+#      rejected on sight; `list` is compared against the filesystem; a block
+#      cannot be deleted to duck the check.
 #
 # Scope guard: the validator checks METADATA SHAPE ONLY. LogicLoom ships no eval
 # judge, runner, or scoring engine. This suite asserts that too — if someone
@@ -104,10 +107,10 @@ run_validator "$ROOT"; REAL_RC=$RC; REAL_OUT="$OUT"
 echo "     $REAL_OUT"
 assert "exit 0 on the real tree" "[ $REAL_RC -eq 0 ]"
 assert "reports all manifests valid" \
-  "printf '%s' \"$REAL_OUT\" | grep -q 'All plugin manifests valid'"
+  "grep -q 'All plugin manifests valid' <<< \"$REAL_OUT\""
 MANIFEST_COUNT=$(ls -d "$ROOT"/plugins/*/.claude-plugin/plugin.json 2>/dev/null | wc -l | tr -d ' ')
 assert "checked count matches manifests on disk ($MANIFEST_COUNT)" \
-  "printf '%s' \"$REAL_OUT\" | grep -q '($MANIFEST_COUNT checked)'"
+  "grep -q '($MANIFEST_COUNT checked)' <<< \"$REAL_OUT\""
 assert "no bundled manifest declares eval (none has a genuine suite)" \
   "! grep -l '\"eval\"' $ROOT/plugins/*/.claude-plugin/plugin.json >/dev/null 2>&1"
 echo ""
@@ -121,7 +124,7 @@ run_validator "$TMP/no-eval"; NOEVAL_RC=$RC; NOEVAL_OUT="$OUT"
 echo "     $NOEVAL_OUT"
 assert "exit 0 with eval absent" "[ $NOEVAL_RC -eq 0 ]"
 assert "says nothing about eval when absent" \
-  "! printf '%s' \"$NOEVAL_OUT\" | grep -qi 'eval'"
+  "! grep -qi 'eval' <<< \"$NOEVAL_OUT\""
 echo ""
 
 # ── 5. eval PRESENT and well-formed is accepted ──────────────────────────────
@@ -154,7 +157,7 @@ reject_case() {  # $1 = fixture name, $2 = description, $3 = expected substring
   echo "     [$fixture] rc=$rc :: $out"
   assert "REJECT: $desc (exit 1)" "[ $rc -eq 1 ]"
   assert "REJECT: $desc (message names the defect)" \
-    "printf '%s' \"$out\" | grep -q '$want'"
+    "grep -q '$want' <<< \"$out\""
 }
 
 make_fixture eval-not-object <<'JSON'
@@ -233,12 +236,100 @@ assert "a plugins/ subdir with no manifest is skipped, not an error" \
   "[ $NOPLUG_RC -eq 0 ]"
 echo ""
 
-# ── 8. Scope guard: metadata only, no engine ─────────────────────────────────
-echo "8. Scope guard — metadata only, no judge/runner/scoring engine"
+# ── 8. Inventory blocks must match disk (LOOM-0012) ──────────────────────────
+#
+# The agents/skills/commands blocks used to be decorative: `count` was verified
+# against neither `list` nor disk, and loom-orchestrator drifted to 8/10 declared
+# vs 9/11 actual. `count` is gone (a number nothing derives is a number that
+# drifts) and `list` is now checked against the filesystem. These assertions are
+# what stops it drifting back.
+echo "8. Inventory blocks (agents/skills/commands) are verified against disk"
+
+assert "no manifest in tree still declares a count field" \
+  "! grep -l '\"count\"' $ROOT/plugins/*/.claude-plugin/plugin.json >/dev/null 2>&1"
+assert "the drift that started this is declared: loom-orchestrator ships graph" \
+  "grep -q '\"graph\"' '$ROOT/plugins/loom-orchestrator/.claude-plugin/plugin.json'"
+assert "…and project-graph" \
+  "grep -q '\"project-graph\"' '$ROOT/plugins/loom-orchestrator/.claude-plugin/plugin.json'"
+
+# Fixture with a real commands/ directory holding two commands.
+inv_fixture() {  # $1 = fixture name; manifest body on stdin
+  local fixture="$1"
+  mkdir -p "$TMP/$fixture/plugins/loom-fixture/.claude-plugin"
+  mkdir -p "$TMP/$fixture/plugins/loom-fixture/commands"
+  : > "$TMP/$fixture/plugins/loom-fixture/commands/alpha.md"
+  : > "$TMP/$fixture/plugins/loom-fixture/commands/beta.md"
+  cat > "$TMP/$fixture/plugins/loom-fixture/.claude-plugin/plugin.json"
+}
+
+inv_fixture inv-good <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [],
+  "commands": { "list": ["alpha", "beta"] } }
+JSON
+run_validator "$TMP/inv-good"
+echo "     [inv-good] rc=$RC :: $OUT"
+assert "ACCEPT: list that matches disk exactly" "[ $RC -eq 0 ]"
+
+inv_fixture inv-count <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [],
+  "commands": { "count": 2, "list": ["alpha", "beta"] } }
+JSON
+reject_case inv-count "a count field is rejected, not ignored" "count., which was removed"
+
+inv_fixture inv-wrong-count <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [],
+  "commands": { "count": 8, "list": ["alpha", "beta"] } }
+JSON
+reject_case inv-wrong-count "a deliberately WRONG count is rejected too" "count., which was removed"
+
+inv_fixture inv-undeclared <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [],
+  "commands": { "list": ["alpha"] } }
+JSON
+reject_case inv-undeclared "a command on disk but not in list" "on disk but undeclared: beta"
+
+inv_fixture inv-phantom <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [],
+  "commands": { "list": ["alpha", "beta", "gamma"] } }
+JSON
+reject_case inv-phantom "a command in list but not on disk" "declared but absent from disk: gamma"
+
+inv_fixture inv-omitted <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [] }
+JSON
+reject_case inv-omitted "deleting the block to silence the check" "block is missing but commands/ holds"
+
+inv_fixture inv-not-list <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [],
+  "commands": { "list": "alpha" } }
+JSON
+reject_case inv-not-list "list is a string, not an array" "must be an array of strings"
+
+# Omitting a block when the directory does not exist stays legal — loom-governance
+# ships no commands/ and declares no commands block.
+make_fixture inv-legal-omission <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [] }
+JSON
+run_validator "$TMP/inv-legal-omission"
+echo "     [inv-legal-omission] rc=$RC :: $OUT"
+assert "ACCEPT: block omitted when the directory does not exist" "[ $RC -eq 0 ]"
+assert "loom-governance really does omit commands (the case above is real)" \
+  "! grep -q '\"commands\"' '$ROOT/plugins/loom-governance/.claude-plugin/plugin.json'"
+
+assert "schema doc records that lists are verified against disk" \
+  "grep -qi 'verified against disk' '$SCHEMA_DOC'"
+assert "schema doc declares the count field gone" \
+  "grep -q 'There is no .count. field' '$SCHEMA_DOC'"
+assert "schema doc worked example declares no count" \
+  "! grep -q '\"count\": 0' '$SCHEMA_DOC'"
+echo ""
+
+# ── 9. Scope guard: metadata only, no engine ─────────────────────────────────
+echo "9. Scope guard — metadata only, no judge/runner/scoring engine"
 assert "validator never executes a declared eval path" \
   "! grep -nE '(subprocess|os\.system|os\.exec|popen|shutil\.which)' '$VALIDATOR' >/dev/null 2>&1"
 assert "validator never checks an eval path for existence (deliberate)" \
-  "! grep -n 'suite\[.path.\]' '$VALIDATOR' | grep -q 'exists'"
+  "! grep -q 'exists' <<< \"\$(grep -n 'suite\[.path.\]' '$VALIDATOR')\""
 assert "validator declares the no-engine scope in its header" \
   "grep -qi 'no eval judge' '$VALIDATOR'"
 assert "schema doc states no judge/runner ships" \

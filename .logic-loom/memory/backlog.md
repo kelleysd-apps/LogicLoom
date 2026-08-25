@@ -318,7 +318,7 @@ wiring is tracked as LOOM-0017 in `todos.md`.
 
 ### Governance and constitution
 
-- [ ] LOOM-0013 — Decide whether Principles I and III should report SKIP for a harness-shaped repo `status:open`
+- [x] LOOM-0013 — Decide whether Principles I and III should report SKIP for a harness-shaped repo `status:done`
       `constitutional-check.sh` still reports findings for Principles **I
       (Library-First)** and **III (Contract-First)** — no `libs/`, no contract
       files. These findings are *real for a shell/markdown harness*, and they are
@@ -358,7 +358,7 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       maintainer release driver or force a manifest restructure. Documented and
       undecided. **Suggested resolution: `/deploy-promote <env>`.**
 
-- [ ] LOOM-0012 — Reconcile or remove the `loom-orchestrator` manifest inventory counts `status:open`
+- [x] LOOM-0012 — Reconcile or remove the `loom-orchestrator` manifest inventory counts `status:done`
       The manifest declares `commands.count: 8` / `skills.count: 10`; disk has
       **9 and 11** (the `graph` command and skill). Harmless today, but it proves
       the inventory blocks are **documentation, not an index** — nothing
@@ -521,7 +521,7 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       reader has so far, and `backlog.md` already draws the line that threads are
       DIRECTION and items are WORK — a tag must not blur it.
 
-- [ ] LOOM-0034 — Retire VISION thread #17 at the next Open Threads rewrite `status:open`
+- [x] LOOM-0034 — Retire VISION thread #17 at the next Open Threads rewrite `status:done`
       Thread #17 (separate tool registration from exposure) is marked STALE as of
       2026-08-24: the runtime now ships deferred tools plus `ToolSearch`, which is
       registration without exposure, in the host. Building our own would be

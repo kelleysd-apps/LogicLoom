@@ -193,9 +193,9 @@ assert "wrote the index at the default path" "[ -f '$IDX' ]"
 assert "index is valid JSON" "jq -e . '$IDX' >/dev/null 2>&1"
 assert "schema_version is the integer 1" "[ \"\$(jq -r '.schema_version' '$IDX')\" = '1' ]"
 assert "generated_at is ISO 8601 UTC" \
-  "jq -r '.generated_at' '$IDX' | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\$'"
+  "grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z\$' <<< \"\$(jq -r '.generated_at' '$IDX')\""
 assert "source_digest is a sha256 hex string" \
-  "jq -r '.source_digest' '$IDX' | grep -qE '^[0-9a-f]{64}\$'"
+  "grep -qE '^[0-9a-f]{64}\$' <<< \"\$(jq -r '.source_digest' '$IDX')\""
 assert "project carries the declared slug" "[ \"\$(jq -r '.project.slug' '$IDX')\" = 'acme-widgets' ]"
 assert "project carries the declared id_prefix" "[ \"\$(jq -r '.project.id_prefix' '$IDX')\" = 'LOOM' ]"
 assert "project carries repo when declared" "[ \"\$(jq -r '.project.repo' '$IDX')\" = 'acme/widgets' ]"
@@ -435,22 +435,22 @@ assert "a clean backlog produces no findings (--strict exits 0)" "[ \"\$(lint_rc
 
 mkfx unparseable '- [ ] LOOM-0001 - hyphen, not an em dash `status:open`'
 assert "unparseable: --strict exits 1" "[ \"\$(lint_rc unparseable)\" = '1' ]"
-assert "unparseable: names the class" "lint_out unparseable | grep -q '^unparseable:'"
+assert "unparseable: names the class" "grep -q '^unparseable:' <<< \"\$(lint_out unparseable)\""
 
 mkfx duplicate '- [ ] LOOM-0001 — First `status:open`' '- [ ] LOOM-0001 — Second `status:open`'
 assert "duplicate-id: --strict exits 1" "[ \"\$(lint_rc duplicate)\" = '1' ]"
 assert "duplicate-id: names the class and the id" \
-  "lint_out duplicate | grep -q \"^duplicate-id:.*LOOM-0001\""
+  "grep -q \"^duplicate-id:.*LOOM-0001\" <<< \"\$(lint_out duplicate)\""
 
 mkfx badstatus '- [ ] LOOM-0001 — Bad vocabulary `status:wip`'
 assert "bad-status: --strict exits 1" "[ \"\$(lint_rc badstatus)\" = '1' ]"
 assert "bad-status: names the class and the offending value" \
-  "lint_out badstatus | grep -q \"^bad-status:.*'wip'\""
+  "grep -q \"^bad-status:.*'wip'\" <<< \"\$(lint_out badstatus)\""
 
 mkfx unknownblocker '- [ ] LOOM-0001 — Dangling blocker `status:blocked` `blocked_on:LOOM-0099`'
 assert "unknown-blocker: --strict exits 1" "[ \"\$(lint_rc unknownblocker)\" = '1' ]"
 assert "unknown-blocker: names the class and the missing id" \
-  "lint_out unknownblocker | grep -q \"^unknown-blocker:.*LOOM-0099\""
+  "grep -q \"^unknown-blocker:.*LOOM-0099\" <<< \"\$(lint_out unknownblocker)\""
 
 mkfx boxmismatch '- [x] LOOM-0001 — Box says done, tag says open `status:open`' \
                  '- [ ] LOOM-0002 — Tag says done, box says open `status:done`'
@@ -464,7 +464,7 @@ printf 'project_slug = acme\nproject_name = ACME\nid_prefix    = LOOM\n' \
   > "$TMP/lint/prefixmismatch/.logic-loom/config/project.conf"
 assert "prefix-mismatch: --strict exits 1" "[ \"\$(lint_rc prefixmismatch)\" = '1' ]"
 assert "prefix-mismatch: names the class and the declared prefix" \
-  "lint_out prefixmismatch | grep -q \"^prefix-mismatch:.*'LOOM'\""
+  "grep -q \"^prefix-mismatch:.*'LOOM'\" <<< \"\$(lint_out prefixmismatch)\""
 
 # Unstamped project: nothing to compare against, so the class must go quiet
 # rather than telling a fresh clone its backlog is wrong.
@@ -500,7 +500,7 @@ mkfx extdangling '- [ ] LOOM-0001 — Real dangling ref `status:blocked` `blocke
 assert "the external form does not suppress a genuine dangling id" \
   "[ \"\$(lint_rc extdangling)\" = '1' ]"
 assert "exactly one unknown-blocker fires, and it names the dangling id" \
-  "[ \"\$(lint_out extdangling | grep -c '^unknown-blocker:')\" = '1' ] && lint_out extdangling | grep -q 'LOOM-0099'"
+  "[ \"\$(lint_out extdangling | grep -c '^unknown-blocker:')\" = '1' ] && grep -q 'LOOM-0099' <<< \"\$(lint_out extdangling)\""
 
 mkfx extbare '- [ ] LOOM-0001 — Reason withheld `status:blocked` `blocked_on:external:`'
 assert "a bare 'external:' with no reason is a finding" "[ \"\$(lint_rc extbare)\" = '1' ]"
@@ -537,16 +537,16 @@ fatalfx dupid '- [ ] LOOM-0001 — First copy `status:open`' \
 assert "duplicate id: collector exits non-zero" "[ \"\$(fatal_rc dupid)\" != '0' ]"
 assert "duplicate id: exit code is the documented 3" "[ \"\$(fatal_rc dupid)\" = '3' ]"
 assert "duplicate id: message names the defect and the id" \
-  "fatal_err dupid | grep -q \"duplicate id 'LOOM-0001'\""
+  "grep -q \"duplicate id 'LOOM-0001'\" <<< \"\$(fatal_err dupid)\""
 assert "duplicate id: message points at BOTH occurrences" \
-  "fatal_err dupid | grep -q 'First copy' && fatal_err dupid | grep -q 'Second copy'"
+  "grep -q 'First copy' <<< \"\$(fatal_err dupid)\" && grep -q 'Second copy' <<< \"\$(fatal_err dupid)\""
 assert "duplicate id: the previous index is left UNTOUCHED" "prev_intact dupid"
 
 fatalfx malformed '- [ ] LOOM-0001 — Fine `status:open`' \
                   '- [ ] LOOM-0002 - hyphen instead of an em dash `status:open`'
 assert "malformed item line: collector exits 3" "[ \"\$(fatal_rc malformed)\" = '3' ]"
 assert "malformed item line: message names the line and the reason" \
-  "fatal_err malformed | grep -q 'separator'"
+  "grep -q 'separator' <<< \"\$(fatal_err malformed)\""
 assert "malformed item line: the previous index is left UNTOUCHED" "prev_intact malformed"
 
 fatalfx badid '- [ ] loom-1 — lowercase, too few digits `status:open`'
@@ -560,7 +560,7 @@ assert "missing status tag: the previous index is left UNTOUCHED" "prev_intact n
 fatalfx badstatus '- [ ] LOOM-0001 — Outside the vocabulary `status:wip`'
 assert "out-of-vocabulary status: collector exits 3" "[ \"\$(fatal_rc badstatus)\" = '3' ]"
 assert "out-of-vocabulary status: message names the offending value" \
-  "fatal_err badstatus | grep -q \"'wip'\""
+  "grep -q \"'wip'\" <<< \"\$(fatal_err badstatus)\""
 assert "out-of-vocabulary status: the previous index is left UNTOUCHED" "prev_intact badstatus"
 
 # The scope rules still win: a malformed line that is NOT an item is not fatal.
@@ -611,17 +611,17 @@ COL_LINT="$(bash "$LINTER" "$COL" --strict --quiet 2>&1 || true)"
 COL_LINT_RC=0; bash "$LINTER" "$COL" --strict --quiet >/dev/null 2>&1 || COL_LINT_RC=$?
 assert "linter: --strict exits 1 on the cross-file collision" "[ \"\$COL_LINT_RC\" = '1' ]"
 assert "linter: reports it as duplicate-id and names the id" \
-  "printf '%s' \"\$COL_LINT\" | grep -q '^duplicate-id:.*LOOM-0030'"
+  "grep -q '^duplicate-id:.*LOOM-0030' <<< \"\$COL_LINT\""
 assert "linter: names BOTH files, so the author knows where to look" \
-  "printf '%s' \"\$COL_LINT\" | grep -q 'todos.md' && printf '%s' \"\$COL_LINT\" | grep -q 'backlog.md'"
+  "grep -q 'todos.md' <<< \"\$COL_LINT\" && grep -q 'backlog.md' <<< \"\$COL_LINT\""
 
 COL_RC=0; SOURCE_DATE_EPOCH=1700000000 bash "$COLLECTOR" "$COL" >/dev/null 2>&1 || COL_RC=$?
 COL_ERR="$(SOURCE_DATE_EPOCH=1700000000 bash "$COLLECTOR" "$COL" 2>&1 >/dev/null || true)"
 assert "collector: the collision is FATAL (documented exit 3)" "[ \"\$COL_RC\" = '3' ]"
 assert "collector: the error names the duplicated id" \
-  "printf '%s' \"\$COL_ERR\" | grep -q \"duplicate id 'LOOM-0030'\""
+  "grep -q \"duplicate id 'LOOM-0030'\" <<< \"\$COL_ERR\""
 assert "collector: the error points at BOTH source files" \
-  "printf '%s' \"\$COL_ERR\" | grep -q 'todos.md' && printf '%s' \"\$COL_ERR\" | grep -q 'backlog.md'"
+  "grep -q 'todos.md' <<< \"\$COL_ERR\" && grep -q 'backlog.md' <<< \"\$COL_ERR\""
 assert "collector: nothing was written — the previous index is UNTOUCHED" \
   "grep -q 'PREVIOUS' '$COL/.logic-loom/backlog-index.json'"
 

@@ -205,7 +205,7 @@ harness-dev-specific, so it carries a `stub:` entry in
 
 Direction lives in `VISION.md`; these are the *work* those threads imply.
 
-- [ ] LOOM-0007 — Make `.gitignore` patterns actually match the local-override filenames (VISION #2) `status:open`
+- [x] LOOM-0007 — Make `.gitignore` patterns actually match the local-override filenames (VISION #2) `status:done`
       `.local/` and `*.local` still do **not** match `settings.local.json` or
       `CLAUDE.local.md` — the two files the patterns were added to cover. A user's
       local overrides are therefore tracked unless they notice.
@@ -238,7 +238,7 @@ Direction lives in `VISION.md`; these are the *work* those threads imply.
       withdrawn. This item is the withdrawal decision itself; LOOM-0005 is blocked
       on it.
 
-- [ ] LOOM-0016 — Audit VISION threads #9–#18 `status:open`
+- [x] LOOM-0016 — Audit VISION threads #9–#18 `status:done`
       Threads #1–#8 were audited or resolved during the 2026-08-13 pass (#1 closed,
       #8 annotated, #2–#6 audited, #7 left open for LOOM-0002). **#9–#18 are
       untouched** — never read against current state, so their claims are of
@@ -246,13 +246,13 @@ Direction lives in `VISION.md`; these are the *work* those threads imply.
 
 ### Dead code and test hygiene
 
-- [ ] LOOM-0014 — Remove the dead `mcp-servers/` loop at `setup.sh:206` `status:open`
+- [x] LOOM-0014 — Remove the dead `mcp-servers/` loop at `setup.sh:206` `status:done`
       Loops over a nonexistent `mcp-servers/` directory — dead since the
       marketplace MCP removal. **Left in place deliberately** during the
       2026-08-13 governance pass rather than touched mid-pass; it needs its own
       change.
 
-- [ ] LOOM-0015 — Give `logging.sh` an override for `LOG_DIR` `status:open`
+- [x] LOOM-0015 — Give `logging.sh` an override for `LOG_DIR` `status:done`
       `logging.sh` hardcodes `LOG_DIR` with no override, so **every test suite
       appends to the operations log**. A test-isolation gap, not a correctness
       bug — but it means the operations log is polluted by test runs and cannot be
@@ -291,7 +291,7 @@ and completed. Its id did not change on the way across.
 
 ### Environment promotion
 
-- [ ] LOOM-0024 — Base development worktrees on `dev-main` explicitly, never on the default branch `status:open`
+- [x] LOOM-0024 — Base development worktrees on `dev-main` explicitly, never on the default branch `status:done`
       VERIFIED cost, this session: `EnterWorktree` bases a new worktree on
       `origin/<default-branch>`. In this repository the default branch is `main`
       — the sanitized template line — so a worktree came up on the v6.4.1

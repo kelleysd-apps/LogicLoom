@@ -120,6 +120,7 @@
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-memory/scripts/memory-log.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_promotion_lifecycle.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_spec006_integration.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_suite_registration.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/README.md","to":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","relationType":"links-to"}

@@ -15,7 +15,7 @@ short. Acceptance criteria and schemas belong in a PRD/plan, not here.
 
 **Product**: `logic-loom` (brand: **LogicLoom**)
 **Document**: product north-star (living)
-**Version**: 2.2 · **Last updated**: 2026-08-24 · **Owner**: brian@kelleysd.com
+**Version**: 2.3 · **Last updated**: 2026-08-24 · **Owner**: brian@kelleysd.com
 **Framework state**: v6.4.1 · constitution v3.3.0 · dev line `dev-main` · template line `main` (v6.4.1, 2026-08-13)
 
 ---
@@ -209,9 +209,14 @@ Ordered by what should happen next. Each is a candidate to spin into a
 
 **Convention for closed threads:** a resolved thread is **kept in place**, marked
 `✅ RESOLVED (<date>, <version>)`, its original text left intact, and a short
-`**Fix:**` line appended recording what actually landed. Threads are pruned only
-when the whole section is rewritten — a closed thread is the record that the
-defect was real. Anything not marked `✅ RESOLVED` is still open.
+`**Fix:**` line appended recording what actually landed. A thread closed *without*
+work — obsoleted by the host, or abandoned — is closed the same way but marked
+`⛔ WITHDRAWN (<date>)` with a `**Why withdrawn:**` line, because there is no fix
+to record and calling it "resolved" would claim work that never happened. Threads
+are **never renumbered** — the numbers are cited from `.docs/` and from backlog
+items — and are pruned only when the whole section is rewritten; a closed thread
+is the record that the question was real. Anything not marked `✅ RESOLVED` or
+`⛔ WITHDRAWN` is still open.
 
 ### Now — verified defects and unlanded work
 
@@ -435,17 +440,25 @@ defect was real. Anything not marked `✅ RESOLVED` is still open.
     appears twice, both times to say gating is `/plan-review`'s job. There is no
     hard-gate contract to harden yet — one has to be written.
 
-17. ⚠️ **STALE (assessed 2026-08-24) — the runtime now does this natively.**
-    *Original thread:* **Tool registration-vs-exposure separation.** Register many
-    tools, expose few per-agent. Assess fit for swarm workers.
+17. ⛔ **WITHDRAWN (2026-08-24) — the runtime does this natively; nothing left to
+    build.** *Original thread:* **Tool registration-vs-exposure separation.**
+    Register many tools, expose few per-agent. Assess fit for swarm workers.
 
-    **What changed:** Claude Code ships deferred tools plus a `ToolSearch` tool —
+    **Why withdrawn:** Claude Code ships deferred tools plus a `ToolSearch` tool —
     tools are registered but their schemas are not exposed until a search loads
     them. That *is* this separation, in the runtime. `AGENTS.md` already lists
     `ToolSearch` in the main-agent tool set and `.claude/statusline.sh` renders
-    it. Building our own would be reimplementation under Pillar 2. What survives
-    is a much smaller question — whether swarm/team worker briefs should say
-    anything about which tools a worker loads. Kept as the record; not work.
+    it. Building our own would be reimplementation under Pillar 2.
+
+    **The one surviving question, answered and dropped:** whether swarm/team
+    worker briefs should say anything about which tools a worker loads. They
+    should not. Tool exposure is decided by the host per agent definition, not by
+    brief prose — a worker cannot widen or narrow its own tool set by being told
+    to — and the domain-brief registry
+    (`plugins/loom-governance/domain-briefs/`) is keyed by *technical domain*
+    (frontend/backend/database/…), so a host-runtime instruction would have to be
+    duplicated into all seven files while belonging to none of them. No brief was
+    changed. This closes the thread rather than deferring it (LOOM-0034).
 
 18. **Cross-session vision↔task sync loop.** A lightweight ritual (or `/loop`)
     reconciling these Open Threads with active tasks and memory each session —

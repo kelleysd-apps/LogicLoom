@@ -79,7 +79,7 @@ RUNNER_PATHS="$(printf '%s\n' "$RUNNER_BODY" \
 
 # Basename appears anywhere in a body (tolerates `tests/contract/x.sh` and bare
 # `x.sh` reference styles).
-referenced_in() { printf '%s\n' "$2" | grep -qF -- "$1"; }
+referenced_in() { grep -qF -- "$1" <<< "$2"; }
 
 echo "═══ Test Suite Registration Coherence ═══"
 echo ""
