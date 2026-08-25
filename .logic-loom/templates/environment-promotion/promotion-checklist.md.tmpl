@@ -1,0 +1,237 @@
+<!-- LOOM-SCAFFOLD-MARKER: environment-promotion -->
+# Promotion Checklist
+
+**Scaffolded by**: `/scaffold-environments`
+**Source methodology**: `.docs/policies/environment-promotion-policy.md`
+**Status**: yours to maintain. Nothing in this file is enforced, and no hook,
+command, or script in LogicLoom reads it.
+
+---
+
+## What this file is
+
+The portable patterns from the environment-promotion methodology, written out
+against **this repository's actual topology** so they can be used as a working
+checklist rather than read as theory.
+
+It was generated from the branches this repository had when the scaffolder ran:
+
+| Role | Branch |
+|---|---|
+| production | `__PROD_BRANCH__` |
+| integration | `__INTEGRATION_BRANCH_DISPLAY__` |
+| staging / rehearsal | `__STAGING_BRANCH_DISPLAY__` |
+
+Declared environments: `__ENV_NAMES_DISPLAY__`
+(see `.logic-loom/config/environments.conf`; validate with
+`./.logic-loom/scripts/bash/validate-environments.sh`)
+
+**No branch was created.** The scaffolder only ever reads branches; if a role
+above says *none*, that role has no branch in this repository and none was
+invented for it.
+
+---
+
+## What LogicLoom did NOT scaffold, and will not
+
+No deployment machinery of any kind: no pipeline, no cloud or CI-provider deploy
+logic, no migration runner, no seed script, no teardown job, no rollback
+mechanism, and no secret values. Those are the product's — this file is the
+checklist against which you build them, and the `deploy` seam in
+`environments.conf` is where you point at them.
+
+---
+
+## 1. The branch boundary — is it in CI, or only in convention?
+
+A stated branching convention is not a boundary. It is a boundary when a check
+**hard-fails** a pull request that violates it.
+
+- [ ] A CI check fails any PR into `__PROD_BRANCH__` whose head is not an
+      allowed branch. __CI_GUARD_STATUS__
+- [ ] It **fails closed**: an empty or unreadable head ref is a failure, not a
+      pass, and it prints why.
+- [ ] It has **no exemptions** — no label, no actor allowlist, no skip flag.
+      Widening the allowed set is an edit to a reviewed file; an escape hatch is
+      not.
+- [ ] It lives **on the base branch**. For `pull_request` events the workflow is
+      evaluated from the base, so a PR cannot modify the copy that judges it —
+      but only if that copy is merged to `__PROD_BRANCH__`.
+
+---
+
+## 2. The default-branch trap
+
+Tooling that bases a new branch or worktree on "the default branch" reads a
+pointer written once at clone time. It goes stale silently; nothing errors; the
+wrong base is simply used.
+
+**This repository's arrangement**: __TRAP_NARRATIVE__
+
+- [ ] Every tool that creates a branch or worktree here resolves its base the
+      way described above — and you have checked which, rather than assumed.
+- [ ] __TRAP_ACTION__
+- [ ] If the topology changes, this checklist and
+      `__BRANCH_BASE_CHECK_DISPLAY__` are regenerated. They encode the
+      arrangement that was true when they were written.
+
+---
+
+## 3. Migrate before deploy — structurally
+
+- [ ] The migration step **gates** every deploy step that depends on it, as a
+      dependency edge in the CI graph.
+- [ ] Not as step ordering inside one job. Not as documentation. A documented
+      ordering is followed until someone reorders steps in a hurry; a dependency
+      edge cannot be skipped without editing the graph, which is reviewable.
+- [ ] Every migration is **safely re-runnable** (Principle IV), and no migration
+      is ever applied out-of-band. Both known failure modes in this methodology
+      trace to out-of-band application desynchronizing what environments believe
+      they have already applied.
+- [ ] You have decided and **written down** whether migrations are forward-only
+      or reversible. Both are legitimate; only the undecided case is a bug — and
+      if you pick forward-only, say so wherever your rollback procedure is
+      documented, or that section describes a capability you do not have.
+
+---
+
+## 4. Fail closed, with a typed reason
+
+The single most reusable pattern here, and house style for every gate.
+
+> A gate that cannot evaluate its own condition — an API outage, an unparseable
+> date, an ambiguous ancestry check, an empty input — must **fail**, and must
+> print (a) *why* it could not evaluate, and (b) *which* override exists, if one
+> does. Never silently pass. Never silently fail.
+
+- [ ] Every gate in the promotion path prints a reason on failure.
+- [ ] No gate passes optimistically when its input is missing or unreadable.
+- [ ] Where a gate is deliberately fail-**open** (a viewer, a report, anything
+      that must not block a workflow), that is stated in the script itself, and
+      any fail-closed companion lives in a **separate** script rather than as a
+      flag on the fail-open one.
+
+---
+
+## 5. Confirmation scaled to blast radius
+
+| Promoting into | Confirmation | Skippable? |
+|---|---|---|
+| dev-class environment | none, or a light prompt | yes |
+| staging / rehearsal | a plain yes/no prompt | yes, via an automation flag |
+| **production** | a **typed exact phrase** | **no — no flag bypasses it** |
+
+- [ ] Each environment's `confirm` value in `environments.conf` matches what the
+      promotion script actually does. The harness prompts for nothing; the
+      declaration is a statement of intent you implement.
+- [ ] The automation flag that suppresses ordinary prompts explicitly does
+      **not** bypass the production confirmation.
+- [ ] Where an override is genuinely needed at production scale, it is scoped to
+      one specific **check** (a staleness bound, say) — never to the
+      confirmation step.
+
+---
+
+## 6. The rehearsal environment
+
+__REHEARSAL_SECTION__
+
+---
+
+## 7. Secrets that encode environment
+
+- [ ] No secret name is bare. Each encodes its environment and, where the vendor
+      has one, its mode (test vs. live).
+- [ ] Where your CI supports **environment-scoped secrets with branch binding**,
+      you use them. Platform-enforced isolation beats naming discipline; naming
+      is the fallback, not the goal.
+- [ ] No secret **value** is in this repository, in a deploy seam, or in a
+      per-environment config file.
+- [ ] You have checked whether any per-environment config file was tracked
+      **before** it was added to `.gitignore`. `.gitignore` does not retroactively
+      untrack a file, and a credential pasted into one has been caught by human
+      review rather than by tooling.
+
+> The incident this prevents is verified and unglamorous: a payment-provider
+> secret in production turned out to be byte-identical to the sandbox/test-mode
+> secret in a lower environment — a test credential silently serving production
+> traffic. It was found by a human comparing key digests. Root cause: a bare
+> secret name encoding neither environment nor mode.
+>
+> There is **no cross-environment secret-value parity check** here or anywhere in
+> this methodology. Naming is a diagnosis of why one is needed, not a substitute
+> for one.
+
+---
+
+## 8. Standing risk: vendor-dashboard-only configuration
+
+Configuration that lives **only** in a vendor's dashboard or management API —
+not in this repository — is never code-reviewed and drifts silently between
+environments.
+
+- [ ] Reviewed this cycle. List the dashboards checked and what differed:
+
+      | Vendor / dashboard | Setting reviewed | Environments compared | Differed? |
+      |---|---|---|---|
+      |  |  |  |  |
+
+> **Adopt the category, not a solution.** Nobody has solved this. A verified
+> instance: one environment's auth redirect allowlist had fewer entries than
+> another's, and the auth service's default for an unlisted redirect is to
+> *silently fall back* rather than error. The misconfiguration fails quietly.
+> Naming the category on a recurring checklist is the available control.
+
+---
+
+## 9. Data direction across environment boundaries
+
+| Flow | Allowed? |
+|---|---|
+| production → staging / rehearsal | **Yes — allowlist-scoped only** |
+| production → dev | **Never.** Dev gets schema via migrations, never rows. |
+| staging → production | **Never.** |
+| dev → production | **Never.** |
+| dev → staging | **Never.** |
+
+- [ ] No exception and no override exists. "Just this once, to reproduce a bug"
+      is the request this rule exists to refuse.
+- [ ] If your environments share database or platform infrastructure with
+      another team, **write that down here** — the table above assumes the blast
+      radius is yours alone:
+
+      _Shared infrastructure:_ ______________________________________________
+
+---
+
+## 10. What a green pipeline proves — say it plainly
+
+- [ ] You can state, in one sentence, what a green run of your promotion
+      pipeline actually establishes.
+- [ ] You can state what it does **not** establish — in particular, whether any
+      automated end-to-end test drives the built artifact against the live
+      environment, and whether any core user flow (login, the primary feature,
+      billing) is exercised by CI at all.
+
+> **"It deployed successfully" and "it was proven to work" are different
+> claims.** Reporting the former as the latter is the failure this section
+> exists to prevent — in a status update, in a release note, and in an agent's
+> summary of its own work.
+
+---
+
+## Explicitly unsolved — do not record these as design decisions
+
+1. **Schema-drift detection between deployed environments.** There is none.
+   Resetting a fresh *local* database from migration files is not a
+   cross-environment diff. The one real drift ever found here was found by a
+   human doing manual inspection.
+2. **Cross-environment secret-value parity checking.** There is none. See § 7.
+
+Their absence is a gap, not a considered choice. Do not copy it forward as one.
+
+---
+
+**Regenerate**: `/scaffold-environments` will not overwrite this file. If your
+topology changes, move this file aside and re-run the command, then merge your
+own annotations back in by hand.

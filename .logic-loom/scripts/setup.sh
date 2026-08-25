@@ -122,7 +122,7 @@ if ! command -v claude &> /dev/null; then
     echo -e "${BLUE}It provides:${NC}"
     echo -e "  • Interactive guidance throughout development"
     echo -e "  • Troubleshooting support for any errors"
-    echo -e "  • Automated workflows (/specify, /plan, /tasks, /create-prd)"
+    echo -e "  • Automated workflows (/create-prd, /swarm, /specification)"
     echo ""
 
     # Attempt automatic installation
@@ -200,21 +200,12 @@ else
     echo -e "${GREEN}[OK]${NC} Dependencies already installed"
 fi
 
-# Install MCP server dependencies
-echo ""
-echo -e "${BLUE}Setting up MCP servers...${NC}"
-for mcp_dir in mcp-servers/*/; do
-    if [ -f "${mcp_dir}package.json" ]; then
-        mcp_name=$(basename "$mcp_dir")
-        if [ ! -d "${mcp_dir}node_modules" ]; then
-            echo -e "${BLUE}Installing ${mcp_name} dependencies...${NC}"
-            (cd "$mcp_dir" && npm install --production 2>/dev/null)
-            echo -e "${GREEN}[OK]${NC} ${mcp_name} dependencies installed"
-        else
-            echo -e "${GREEN}[OK]${NC} ${mcp_name} dependencies already installed"
-        fi
-    fi
-done
+# NOTE: an in-house `mcp-servers/*/` npm-install loop used to run here. The
+# directory went away with the sdd-marketplace MCP (see CHANGELOG v6.x); the
+# loop matched nothing and only printed a "Setting up MCP servers..." heading
+# over an empty section. LogicLoom now defers MCP discovery to the Anthropic
+# Plugin Marketplace and the Docker MCP Toolkit, so there is nothing for setup
+# to install.
 
 # Create .env file from template if it doesn't exist
 if [ ! -f ".env" ]; then
@@ -340,11 +331,13 @@ echo -e "${YELLOW}Step 3: Create specialized agents (if needed)${NC}"
 echo -e "  ${BLUE}In Claude Code, run:${NC} ${GREEN}/create-agent${NC}"
 echo ""
 echo -e "${YELLOW}Step 4: Start feature development${NC}"
-echo -e "  ${BLUE}Available commands in Claude Code:${NC}"
-echo -e "    ${GREEN}/specify${NC}      - Create feature specification"
-echo -e "    ${GREEN}/plan${NC}         - Generate implementation plan"
-echo -e "    ${GREEN}/tasks${NC}        - Create task list"
-echo -e "    ${GREEN}/finalize${NC}     - Pre-commit compliance validation"
+echo -e "  Pick the workflow pack that matches the problem:"
+echo ""
+echo -e "    ${GREEN}/swarm explore <topic>${NC}    - scope still unclear; read-only investigation,"
+echo -e "                                then plan mode and ${GREEN}/swarm implement${NC}"
+echo -e "    ${GREEN}/specification <feature>${NC}  - requirements settled; spec, plan and tasks"
+echo -e "                                in one pass"
+echo -e "    ${GREEN}/finalize${NC}                 - pre-commit compliance validation"
 echo ""
 
 # Offer to launch Claude Code

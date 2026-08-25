@@ -2,7 +2,7 @@
 
 **A governed Claude Code harness: a constitutional governance core with interchangeable workflow packs.**
 
-This guide walks new users through their first feature using the **swarm pack** (one of two interchangeable workflow packs). For the **SDD waterfall pack** (`/specification`, `/specify`, `/plan`, `/tasks`), see the section near the end. Neither is privileged — pick by problem shape.
+This guide walks new users through their first feature using the **swarm pack** (one of two interchangeable workflow packs). For the **SDD waterfall pack** (`/specification`), see the section near the end. Neither is privileged — pick by problem shape.
 
 ---
 
@@ -20,13 +20,42 @@ bash init-project.sh
 
 | Path | Purpose |
 |------|---------|
-| `.logic-loom/memory/constitution.md` | 16 governance principles (v3.2.0) |
+| `.logic-loom/memory/constitution.md` | 16 governance principles (v3.3.0) |
 | `.logic-loom/scripts/bash/` | Workflow automation and plugin command bridge |
 | `.logic-loom/templates/` | `vision-template.md`, `prd-template.md`, plan/sprint/retro templates |
-| `.logic-loom/config/` | Quality thresholds |
+| `.logic-loom/config/` | `governance.conf` (lean/strict), `models.conf` (role -> tier), `gate-policy.conf` (see below), `project.conf` (your project's identity -- ships **unstamped**, `/initialize-project` fills it in), `environments.conf` (environment + promotion-order declaration -- ships **fully commented out**), `architecture.conf`, `framework-upstream.conf` |
+| `.logic-loom/memory/todos.md` + `backlog.md` | Cross-cutting work that is not a feature: `todos.md` is what is being worked now, `backlog.md` is what to raise later. Same grammar, same id space |
 | `.logic-loom/lib/` | Shared shell libraries |
 
 Launch Claude Code with `claude`. The governance preflight hook fires on every message, injecting domain briefs and memory context. Governance is **hook-enforced** (git-safety gate, freeze-scope) — there is no per-message compliance ceremony in the default `lean` mode; set `LOOM_GOVERNANCE_MODE=strict` to re-add a recitation for weaker models.
+
+### How much does LogicLoom interrupt you?
+
+That is your call, and it lives in one file: **`.logic-loom/config/gate-policy.conf`**.
+
+Governance used to ask one question — "does this command change the repo?" — so
+`git commit -m "wip"` and `git push --force` produced the same prompt. A prompt
+you see fifty times a day is a prompt you stop reading. `gate-policy.conf`
+separates that into a second question you answer: *is this change worth
+interrupting you?* Each git/gh operation gets `ask` (an approval prompt) or
+`silent` (runs without an extra LogicLoom prompt -- still logged, still in your
+transcript, still subject to your Claude Code permission mode).
+
+`/initialize-project` offers three postures, and you can edit any line afterwards:
+
+| Posture | What it means |
+|---------|---------------|
+| `strict` | Every operation asks. Nothing is silent |
+| `balanced` | **The shipped default.** Consequential and destructive operations ask; routine local work (commit, add, stash, checkout between existing branches) runs silent |
+| `minimal` | Everything tunable is silent; only the floor asks |
+
+**The floor is not tunable.** Five operations -- push, history rewriting, repo
+admin, secret write, auth -- refuse a `silent` setting and tell you why, on one
+test: *a wrong answer leaves the repository, or a credential, somewhere a revert
+cannot reach.* Three more are not config keys at all: governance-file writes, the
+dangerous-command guard, and subagent git/gh. There is no wildcard and no
+"silence everything" line -- weakening the gate costs one line per thing you
+weaken.
 
 ### Framework updates
 
@@ -136,15 +165,52 @@ The peer workflow pack. The **SDD waterfall** suits well-understood features wit
 
 | Command | Purpose |
 |---------|---------|
-| `/specification` | Unified workflow — spec + plan + tasks |
-| `/specify` | Create feature specification |
-| `/plan` | Generate implementation plan |
-| `/tasks` | Generate dependency-ordered task list |
+| `/specification` | The entire waterfall in one command — spec, then plan, then dependency-ordered tasks, as three sequential phases with quality gates |
 | `/build-team` | Sequential architect → implementor → reviewer |
 | `/fullstack-team` | Parallel full-stack team |
 | `/finalize` | Pre-commit compliance validation |
 
+> **`/specify`, `/plan`, and `/tasks` do not exist.** They were three separate
+> commands before v5.1.0 and were **merged** into `/specification` — not renamed.
+> One command now produces all three artifacts; there is nothing else to run.
+
 Pick the layout that matches the problem shape. Exploratory work belongs in `features/`; stable, well-spec'd work can use either.
+
+---
+
+## Environment promotion (optional)
+
+`/promote-dev` -> `/promote-staging` -> `/promote-prod` is a promotion
+**lifecycle, not a deploy engine.** Each rung checks the declared promotion
+order and asks for a confirmation whose
+strength escalates with blast radius -- a prompt at dev and staging, a **typed
+exact phrase** at prod that no flag, environment variable, or non-interactive
+path can bypass (`--yes` is read and explicitly reported as ignored). Then it
+calls out to the `deploy` seam **your project owns**. LogicLoom itself runs no
+cloud or CI call, no deploy command, no migration, seed, teardown, secret or
+rollback -- and no git. The **rehearsal attestation is read at prod only**:
+`/promote-prod` is the only rung that asks for one, so dev and staging neither
+read nor require it.
+
+| Command | Purpose |
+|---------|---------|
+| `/scaffold-environments` | Adopt the methodology into a new **or existing** project: detects what you already have, proposes a delta, writes only what you name |
+| `/promote-dev` | Gates a feature branch or worktree into the integration branch and the dev environment, then prints your deploy seam's command. Prompts; skippable |
+| `/promote-staging` | Gates a promotion into the rehearsal environment, then prints the seam command that stands it up and runs the smoke pass rehearsing `/promote-prod` |
+| `/promote-prod` | Rehearsal contract, promotion order, typed exact phrase |
+
+Declare your environments in `.logic-loom/config/environments.conf` (it ships
+fully commented out -- an active default would assert a branch topology your repo
+does not have) and check it with
+`.logic-loom/scripts/bash/validate-environments.sh`. Confirmation strength
+resolves from the target environment's declared `confirm` first, then the command
+default, so you can raise dev to a typed phrase or lower prod to a prompt -- the
+ladder is guidance, not rails, and a weakening is reported loudly rather than
+refused.
+
+The methodology, including what a green rehearsal does **not** prove and two
+problems recorded as UNSOLVED rather than dressed up as patterns:
+[.docs/policies/environment-promotion-policy.md](.docs/policies/environment-promotion-policy.md).
 
 ---
 
@@ -152,7 +218,11 @@ Pick the layout that matches the problem shape. Exploratory work belongs in `fea
 
 ```
 your-project/
-├── .logic-loom/             # Framework core (constitution, scripts, templates, config, lib)
+├── .logic-loom/             # Framework core
+│   ├── memory/               # constitution.md, todos.md (working now), backlog.md (later)
+│   ├── config/               # governance.conf, models.conf, gate-policy.conf,
+│   │                         #   project.conf, environments.conf, ...
+│   └── scripts/  templates/  lib/
 ├── .claude/                 # commands, context, hooks, settings.json
 ├── plugins/                 # LogicLoom plugins
 ├── features/                # Swarm pack — per-feature folders
@@ -205,9 +275,37 @@ so it exists only inside a LogicLoom project. If you put adversarial-review
 instructions in your own `~/.claude/CLAUDE.md`, they will also run in projects
 that have no `/cross-check` — and no governance floor. Inside a LogicLoom project,
 use `/cross-check`; outside one, if you call an external model's CLI directly,
-pass that provider's read-only sandbox flag (for Codex, `--sandbox read-only
---ask-for-approval never`). The harness's hooks cannot see inside a CLI
-subprocess, so that flag is the only thing keeping the external model read-only.
+pass that provider's read-only sandbox flag. For Codex CLI that is
+`codex exec --sandbox read-only -c approval_policy='"never"' "<brief>"` —
+`codex exec` has no `--ask-for-approval` flag, so passing one makes the call
+exit 2 without running. The harness's hooks cannot see inside a CLI subprocess,
+so `--sandbox read-only` is the only thing keeping the external model
+read-only.
+
+### A note on GitHub CLI telemetry
+
+GitHub CLI telemetry is **opt-out** — it is on by default (gh v2.91.0 onward) —
+and LogicLoom uses `gh` heavily. So setup tells you once and stops there:
+
+```bash
+bash .logic-loom/scripts/bash/check-gh-telemetry.sh   # read-only; run it any time
+```
+
+It reads `command -v gh`, the `DO_NOT_TRACK` / `GH_TELEMETRY` environment
+variables, and the `telemetry:` key in your gh config file. It **changes
+nothing** — not your gh config, not `~/.zshrc`, not `~/.bashrc` — and it always
+exits 0, so a missing or unreadable gh install never blocks setup. Silence means
+there is nothing to tell you.
+
+If you want to opt out, that is yours to run:
+
+```bash
+gh config set telemetry disabled
+```
+
+Same boundary as above: this is a per-user, per-machine preference. LogicLoom
+will not make it for you, and neither `init-project.sh` nor `/initialize-project`
+will offer to.
 
 **Versioning your personal config.** Keep `~/.claude/` itself out of git — it
 holds session state and secrets-adjacent material. If you want a backup, the
@@ -224,7 +322,7 @@ does not automate it.
 - **README.md** — framework features and architecture
 - **AGENTS.md** — complete agent registry
 - **features/README.md** — per-feature layout convention with rationale
-- **.logic-loom/memory/constitution.md** — 16 principles (v3.2.0)
+- **.logic-loom/memory/constitution.md** — 16 principles (v3.3.0)
 - **.docs/policies/** — framework policies
 
 ---

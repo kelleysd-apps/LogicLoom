@@ -45,9 +45,7 @@ than routing to a dedicated specialist plugin.
 | Security | `domain-briefs/security.md` | `get_domain_brief security` |
 | Performance | `domain-briefs/performance.md` | `get_domain_brief performance` |
 | DevOps | `domain-briefs/devops.md` | `get_domain_brief devops` |
-| Specification | sdd-specification skill | sdd-specification |
-| Planning | sdd-planning skill | sdd-specification |
-| Tasks | sdd-tasks skill | sdd-specification |
+| Specification / Planning / Tasks | unified-specification skill | sdd-specification |
 | Multi-Domain | team-orchestration skill | loom-orchestrator |
 | PRD | prd-specialist agent | loom-creation |
 
@@ -57,11 +55,7 @@ than routing to a dedicated specialist plugin.
 |---------|-------------|-------------|
 | /specification | unified-specification skill | Unified spec + plan + tasks workflow |
 | /create-prd | prd-specialist agent | Create Product Requirements Document |
-| /specify | sdd-specification skill | Create feature specification |
-| /plan | sdd-planning skill | Generate implementation plan |
-| /tasks | sdd-tasks skill | Generate task list |
 | /create-agent | subagent-architect agent | Create new specialized agent |
-| /debug | auto-debug-agent | Debug deployment/runtime issues |
 | /research | team-synthesizer agent | Multi-LLM tribunal research |
 | /swarm | team-orchestration skill | Multi-agent swarm execution |
 

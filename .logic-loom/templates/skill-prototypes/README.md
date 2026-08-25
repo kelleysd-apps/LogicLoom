@@ -13,10 +13,7 @@ This directory contains prototype templates for creating new skills following Lo
 ### 1. SDD Workflow Skill (`sdd-workflow-skill.template.md`)
 
 Use for skills that are part of the Spec-Driven Development workflow:
-- `/specify` related skills
-- `/plan` related skills
-- `/tasks` related skills
-- `/debug` related skills
+- `/specification` related skills (its spec, plan and tasks phases)
 - `/finalize` related skills
 
 **Characteristics**:
@@ -64,10 +61,10 @@ All templates use `{{VARIABLE_NAME}}` placeholders. Replace these with actual va
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `{{SKILL_NAME}}` | Skill identifier | `sdd-specification` |
+| `{{SKILL_NAME}}` | Skill identifier | `unified-specification` |
 | `{{SKILL_DESCRIPTION}}` | Brief description | `Handles feature specification` |
-| `{{PRIMARY_TRIGGER}}` | Main activation keyword | `/specify` |
-| `{{PRIMARY_AGENT}}` | Main agent to invoke | `specification-orchestrator` |
+| `{{PRIMARY_TRIGGER}}` | Main activation keyword | `/specification` |
+| `{{PRIMARY_AGENT}}` | Main agent to invoke | `subagent-architect` |
 
 ### RL Variables
 

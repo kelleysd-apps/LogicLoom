@@ -4,6 +4,16 @@
 # Feature: 005-agent-architecture-refactor
 set -euo pipefail
 
+# Operations-log isolation: the scripts this suite drives source common.sh /
+# logging.sh, which otherwise append to the shared
+# .logic-loom/logs/operations/ file. LOOM_LOG_DIR redirects that (same idiom as
+# LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh), exported so
+# subprocesses inherit it, and set before anything is sourced because logging.sh
+# resolves LOG_FILE once at source time.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+trap 'rm -rf "$LOOM_LOG_DIR"' EXIT
+
 PASS=0; FAIL=0; TOTAL=0
 
 assert() {
@@ -27,7 +37,7 @@ assert() {
 count_matches() {
   local n
   n=$(grep -c "$@" 2>/dev/null || true)
-  n=$(printf '%s' "$n" | tr -dc '0-9\n' | head -1)
+  n=$(tr -dc '0-9\n' <<< "$n" | sed -n '1p')
   [ -n "$n" ] || n=0
   printf '%s' "$n"
 }
@@ -73,11 +83,11 @@ assert "Search returns output for known content" "[ $SEARCH_OUTPUT_LEN -gt 0 ]"
 
 # Test output format
 if [ -n "$SEARCH_OUTPUT" ]; then
-  HAS_HEADER=$(echo "$SEARCH_OUTPUT" | head -1 | count_matches "MEMORY CONTEXT")
+  HAS_HEADER=$(sed -n '1p' <<< "$SEARCH_OUTPUT" | count_matches "MEMORY CONTEXT")
   assert "Search output has MEMORY CONTEXT header" "[ '$HAS_HEADER' -ge 1 ]"
   if [ "$HAS_HEADER" -lt 1 ]; then
     echo "     ↳ diagnostic: first 5 lines of search output:"
-    echo "$SEARCH_OUTPUT" | head -5 | sed 's/^/       | /'
+    sed -n '1,5p' <<< "$SEARCH_OUTPUT" | sed 's/^/       | /'
   fi
 fi
 
@@ -235,14 +245,14 @@ V2_OUTPUT=$(bash plugins/loom-memory/scripts/memory-search.sh "constitution gove
 V2_LEN=${#V2_OUTPUT}
 assert "v2.0 search returns output for known content" "[ $V2_LEN -gt 0 ]"
 if [ -n "$V2_OUTPUT" ]; then
-  V2_HEADER=$(echo "$V2_OUTPUT" | head -1 | count_matches "MEMORY CONTEXT")
+  V2_HEADER=$(sed -n '1p' <<< "$V2_OUTPUT" | count_matches "MEMORY CONTEXT")
   assert "v2.0 search output has MEMORY CONTEXT header" "[ '$V2_HEADER' -ge 1 ]"
   V2_BACKEND=$(echo "$V2_OUTPUT" | count_matches "backend: keyword")
   assert "v2.0 search shows keyword backend" "[ '$V2_BACKEND' -ge 1 ]"
   if [ "$V2_HEADER" -lt 1 ] || [ "$V2_BACKEND" -lt 1 ]; then
     echo "     ↳ diagnostic: MEMORY_BACKEND=$(grep -E '^[[:space:]]*MEMORY_BACKEND' plugins/loom-memory/config/memory-v2.conf 2>/dev/null | tr -d '\n')"
     echo "     ↳ diagnostic: first 5 lines of v2 search output:"
-    echo "$V2_OUTPUT" | head -5 | sed 's/^/       | /'
+    sed -n '1,5p' <<< "$V2_OUTPUT" | sed 's/^/       | /'
   fi
 fi
 

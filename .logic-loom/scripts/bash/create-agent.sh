@@ -29,35 +29,55 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# Department definitions with their characteristics
-declare -A DEPARTMENTS=(
-    ["architecture"]="System design and planning"
-    ["engineering"]="Development and implementation"
-    ["quality"]="Testing and review"
-    ["data"]="Data management and pipelines"
-    ["product"]="Requirements and UX"
-    ["operations"]="DevOps and maintenance"
-)
+# Department definitions.
+#
+# bash 3.2 (stock macOS `/bin/bash`) has no associative arrays and this repo
+# declares 3.2 the floor for `.logic-loom/scripts/` — see
+# `.docs/policies/shell-idiom-policy.md`. `case` lookups plus an explicit
+# DEPARTMENT_LIST carry the same meaning; the lookups return non-zero for an
+# unknown department, which is the membership test the old
+# `${DEPARTMENTS[$d]+exists}` reads performed. DEPARTMENT_LIST also pins the
+# listing order that `${!DEPARTMENTS[@]}` left to bash's hash function.
+DEPARTMENT_LIST="architecture engineering quality data product operations"
+
+# Department characteristics
+dept_description() {
+    case "$1" in
+        architecture) printf '%s' "System design and planning" ;;
+        engineering)  printf '%s' "Development and implementation" ;;
+        quality)      printf '%s' "Testing and review" ;;
+        data)         printf '%s' "Data management and pipelines" ;;
+        product)      printf '%s' "Requirements and UX" ;;
+        operations)   printf '%s' "DevOps and maintenance" ;;
+        *)            return 1 ;;
+    esac
+}
 
 # Tool access matrix by department
-declare -A DEPT_TOOLS=(
-    ["architecture"]="Read, Grep, Glob, WebSearch, TaskCreate, TaskUpdate"
-    ["engineering"]="Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, TaskCreate, TaskUpdate"
-    ["quality"]="Read, Grep, Glob, Bash, WebSearch, TaskCreate, TaskUpdate"
-    ["data"]="Read, Edit, Bash, Grep, Glob, TaskCreate, TaskUpdate"
-    ["product"]="Read, WebSearch, TaskCreate, TaskUpdate"
-    ["operations"]="Read, Bash, Grep, Glob, TaskCreate, TaskUpdate"
-)
+dept_tools() {
+    case "$1" in
+        architecture) printf '%s' "Read, Grep, Glob, WebSearch, TaskCreate, TaskUpdate" ;;
+        engineering)  printf '%s' "Read, Write, Edit, MultiEdit, Bash, Grep, Glob, WebSearch, TaskCreate, TaskUpdate" ;;
+        quality)      printf '%s' "Read, Grep, Glob, Bash, WebSearch, TaskCreate, TaskUpdate" ;;
+        data)         printf '%s' "Read, Edit, Bash, Grep, Glob, TaskCreate, TaskUpdate" ;;
+        product)      printf '%s' "Read, WebSearch, TaskCreate, TaskUpdate" ;;
+        operations)   printf '%s' "Read, Bash, Grep, Glob, TaskCreate, TaskUpdate" ;;
+        *)            return 1 ;;
+    esac
+}
 
 # MCP access matrix by department
-declare -A DEPT_MCP=(
-    ["architecture"]="mcp__ref-tools, mcp__supabase__search_docs, mcp__perplexity, mcp__claude-context"
-    ["engineering"]="mcp__ide, mcp__supabase, mcp__ref-tools, mcp__browsermcp, mcp__claude-context"
-    ["quality"]="mcp__ide__executeCode, mcp__ide__getDiagnostics, mcp__ref-tools"
-    ["data"]="mcp__supabase, mcp__supabase__apply_migration, mcp__supabase__execute_sql"
-    ["product"]="mcp__ref-tools, mcp__browsermcp, mcp__perplexity"
-    ["operations"]="mcp__supabase__deploy_edge_function, mcp__supabase__get_logs, mcp__supabase__create_project"
-)
+dept_mcp() {
+    case "$1" in
+        architecture) printf '%s' "mcp__ref-tools, mcp__supabase__search_docs, mcp__perplexity, mcp__claude-context" ;;
+        engineering)  printf '%s' "mcp__ide, mcp__supabase, mcp__ref-tools, mcp__browsermcp, mcp__claude-context" ;;
+        quality)      printf '%s' "mcp__ide__executeCode, mcp__ide__getDiagnostics, mcp__ref-tools" ;;
+        data)         printf '%s' "mcp__supabase, mcp__supabase__apply_migration, mcp__supabase__execute_sql" ;;
+        product)      printf '%s' "mcp__ref-tools, mcp__browsermcp, mcp__perplexity" ;;
+        operations)   printf '%s' "mcp__supabase__deploy_edge_function, mcp__supabase__get_logs, mcp__supabase__create_project" ;;
+        *)            return 1 ;;
+    esac
+}
 
 # Functions
 print_header() {
@@ -94,7 +114,7 @@ analyze_existing_agents() {
     echo -e "${YELLOW}▶ Analyzing existing agent architecture...${NC}"
 
     # Count agents by department
-    for dept in "${!DEPARTMENTS[@]}"; do
+    for dept in $DEPARTMENT_LIST; do
         if [[ -d "${AGENTS_DIR}/${dept}" ]]; then
             count=$(find "${AGENTS_DIR}/${dept}" -name "*.md" -type f 2>/dev/null | wc -l)
             echo -e "  ${dept}: ${count} agents"
@@ -144,7 +164,8 @@ create_agent_file() {
     local description=$3
     local tools=$4
     local responsibilities=$5
-    local mcp_access="${DEPT_MCP[$department]:-none}"
+    local mcp_access
+    mcp_access="$(dept_mcp "$department" 2>/dev/null || printf '%s' none)"
 
     local agent_file="${AGENTS_DIR}/${department}/${agent_name}.md"
 
@@ -491,7 +512,7 @@ should_suggest_skill() {
     fi
 
     # Workflow/command keywords
-    if echo "$description" | grep -qiE "workflow|command|procedure|step-by-step|orchestration|coordination|validation|compliance|integration|setup|initialization|/plan|/specify|/tasks"; then
+    if echo "$description" | grep -qiE "workflow|command|procedure|step-by-step|orchestration|coordination|validation|compliance|integration|setup|initialization|/specification|/plan-review"; then
         return 0
     fi
 
@@ -828,20 +849,20 @@ interactive_create() {
     suggested_dept=$(determine_department "$description")
     echo
     echo "Available departments:"
-    for dept in "${!DEPARTMENTS[@]}"; do
-        echo "  - ${dept}: ${DEPARTMENTS[$dept]}"
+    for dept in $DEPARTMENT_LIST; do
+        echo "  - ${dept}: $(dept_description "$dept")"
     done
     echo
     read -p "Enter department (suggested: ${suggested_dept}): " department
     department=${department:-$suggested_dept}
 
-    if [[ ! "${DEPARTMENTS[$department]+exists}" ]]; then
+    if ! dept_description "$department" >/dev/null 2>&1; then
         echo -e "${RED}✗ Invalid department${NC}"
         exit 1
     fi
 
     # Get tools (use department defaults or custom)
-    default_tools="${DEPT_TOOLS[$department]}"
+    default_tools="$(dept_tools "$department")"
     echo
     echo "Default tools for ${department}: ${default_tools}"
     read -p "Use default tools? (y/n): " use_defaults
@@ -867,7 +888,8 @@ interactive_create() {
     create_memory_structure "$agent_name" "$department"
 
     # Get MCP access for the department
-    local mcp_access="${DEPT_MCP[$department]:-none}"
+    local mcp_access
+    mcp_access="$(dept_mcp "$department" 2>/dev/null || printf '%s' none)"
 
     # Update related files
     update_claude_md "$agent_name" "$department" "$description"
@@ -933,8 +955,8 @@ json_create() {
 
     # Use default tools if not provided
     if [[ -z "$tools" ]]; then
-        if [[ "${DEPT_TOOLS[$department]+exists}" ]]; then
-            tools="${DEPT_TOOLS[$department]}"
+        if dept_tools "$department" >/dev/null 2>&1; then
+            tools="$(dept_tools "$department")"
         else
             tools="Read, Grep, Glob, TaskCreate, TaskUpdate"  # Minimal default
         fi
@@ -951,7 +973,8 @@ json_create() {
     create_memory_structure "$agent_name" "$department" > /dev/null 2>&1
 
     # Get MCP access for the department
-    local mcp_access="${DEPT_MCP[$department]:-none}"
+    local mcp_access
+    mcp_access="$(dept_mcp "$department" 2>/dev/null || printf '%s' none)"
 
     # Update related files
     update_claude_md "$agent_name" "$department" "$description" > /dev/null 2>&1

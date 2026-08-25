@@ -15,17 +15,14 @@
     "loom-governance"
   ],
   "agents": {
-    "count": 0,
     "list": []
   },
   "skills": {
-    "count": 1,
     "list": [
       "unified-specification"
     ]
   },
   "commands": {
-    "count": 1,
     "list": [
       "specification"
     ]

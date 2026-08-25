@@ -1,7 +1,7 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.4.1
-**Constitution**: v3.2.0 (16 Principles)
+**Version**: 6.5.0
+**Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 8 (6 plugin + 2 project-level: deep-reasoner, fast-worker)
 **Plugins**: 8
@@ -34,7 +34,7 @@ This file is the **Single Source of Truth (SSOT)** for agent information in Logi
 
 **These principles are MODEL-FOLLOWED unless your host enforces them.**
 LogicLoom's deterministic backstops — the git-approval gate, governance-file
-protection, subagent-git-deny, and freeze-write-scope — are **Claude Code
+protection, subagent-git-mutation-deny, and freeze-write-scope — are **Claude Code
 hooks**. They exist **only on the Claude Code host**. On every other host there
 is **no automated enforcement** of these rules today: if you skip an approval,
 run git autonomously, or write outside your assigned scope, nothing stops you.
@@ -65,6 +65,44 @@ enforced-vs-followed matrix by host.)
   `package.json` / `tests/`. (Claude Code: see CLAUDE.md "Harness ↔ product
   boundary"; full rule `.docs/policies/file-structure-policy.md` § Product
   Workspace.)
+
+### Project amendments (project extension of the floor)
+
+A project may layer its own mandates on top of the principles above. They live in
+**`.logic-loom/memory/amendments.md`** (fork-owned; seeded from
+`.logic-loom/templates/amendments-template.md`), never inside the constitution
+itself — so upstream framework updates never collide with them.
+
+Nothing loads that file, and that is **settled, not pending**. No hook,
+preflight, or context module reads it; nothing validates a mandate; nothing fails
+closed. A project that does not read it gets no mandates and no warning. So:
+**read `amendments.md` if it exists** and treat its mandates as binding alongside
+the principles. Mandates are followed policy, never host enforcement.
+
+Wiring the file into a loader was **considered and declined** (2026-08-24) — no
+loader is coming, so do not read its absence as unfinished work. A loader would
+make mandates *look* enforced without making them enforced: no floor mechanism,
+on any host, consults a mandate. What a project gets is a file upstream never
+overwrites, a mandate grammar, and the composition rules below, binding on any
+agent that reads them. What it does not get is injection, validation, a warning,
+or any change in enforcement behaviour.
+
+The only normative unit is a **named mandate**: `### Mandate: <NAME>` with
+`Constrains:` / `Rule:` / `Rationale:`. Composition is a conjunction — **effective
+governance = the principles AND every mandate**. The principles remain normatively
+supreme: a mandate may *tighten* any principle (including the immutable three) or
+cover ground the principles are silent on, and may never relax, disable, exempt
+from, or override one. There is no field for that, but `Rule` is free natural
+language, so a weakening mandate can still be written — the invariant is upheld by
+your adjudication, not by the shape of the file.
+
+Adjudicate toward the floor, always: relaxing wording is void in that respect; an
+ambiguous mandate takes its tightening reading, and is void if it has none; a
+formal tightening that makes a principle impossible to satisfy is void the same
+way; two conflicting mandates compose to the stricter obligation, and genuinely
+contradicting ones are both void in that respect; validity is per-effect, so a
+partly-valid mandate keeps only its valid part. Direction documents such as
+`VISION.md` never relax a mandate or a principle.
 
 ### Cross-Check Disposition
 
@@ -126,6 +164,10 @@ cheaper-faster model".
 
 The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval on any git mutation regardless of mode (Principle VI). The dangerous-command guard and freeze-write-scope hooks likewise run independent of the mode.
 
+**Where the hooks are.** Every one is wired from `.claude/settings.json` at the repo root; that wiring, not the file's location, is what makes it load. The three constitutional guard scripts — `git-safety-gate.sh`, `subagent-git-guard.sh`, `protect-governance-files.sh` — live under `plugins/loom-governance/hooks/scripts/` and are invoked **by path** from root (they do **not** load as plugin hooks). The remaining hooks live under `.claude/hooks/`, with `governance-preflight.sh` one level down in `.claude/hooks/user-prompt-submit/`. To confirm a hook is live, grep `.claude/settings.json` for its path — file existence is not registration. Full table kept in tandem with CLAUDE.md § *LogicLoom Hooks*.
+
+The **subagent git guard** denies MUTATING git from a subagent. A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, branch/tag/stash listings, `rev-parse`, `config --get`, `worktree list`, …); write forms, `fetch`, code-executing global flags (`-c`, `--git-dir`, `--work-tree`, `--exec-path`) and command substitution are denied. The GitHub CLI (`gh`) stays **categorically** denied for subagents, reads included. Kept in tandem with CLAUDE.md § Governance; full statement in `.docs/architecture/governance-threat-model.md` § *The subagent git guarantee*.
+
 **Key Responsibilities** (via hooks):
 1. Inject constitutional governance context (lean) or full compliance assist (strict)
 2. Detect domains and recommend domain briefs / specialist skills (Principle X)
@@ -143,17 +185,17 @@ The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval
 |-------|---------|-------|
 | **constitutional-governance-agent** | Primary entry point, governance enforcement | opus |
 
-### loom-orchestrator (1 agent, 10 skills)
+### loom-orchestrator (1 agent, 11 skills)
 
 | Agent | Purpose | Model |
 |-------|---------|-------|
 | **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
 
-> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, and `cross-check` (10 skills total in this plugin).
+> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, `cross-check`, and `project-graph` among them (11 skills total in this plugin).
 
 ### sdd-specification (0 agents — skill-based)
 
-> Specification work is skill-based: `sdd-specification`, `sdd-planning`, `sdd-tasks`, `unified-specification` back the SDD-waterfall workflow pack.
+> Specification work is skill-based: a single `unified-specification` skill backs the single `/specification` command, which runs spec, plan, and tasks as three sequential phases. There is no separate `/specify`, `/plan`, or `/tasks` command.
 
 ### loom-creation (2 agents)
 
@@ -303,9 +345,9 @@ Quick reference for delegation based on task domain:
 | Domain | Keywords | Delegate To | Type | Plugin | Pack |
 |--------|----------|-------------|------|--------|------|
 | **PRD/Product** | PRD, product, vision, personas | prd-specialist | agent | loom-creation | shared |
-| **Specification** | spec, requirements, user story | sdd-specification skill | skill | sdd-specification | SDD waterfall |
-| **Planning** | /plan, research, contracts | sdd-planning skill | skill | sdd-specification | SDD waterfall |
-| **Tasks** | /tasks, task list, breakdown | sdd-tasks skill | skill | sdd-specification | SDD waterfall |
+| **Specification** | spec, requirements, user story | unified-specification skill | skill | sdd-specification | SDD waterfall |
+| **Planning** | implementation plan, research, contracts | unified-specification skill (phase 2) | skill | sdd-specification | SDD waterfall |
+| **Tasks** | task list, breakdown | unified-specification skill (phase 3) | skill | sdd-specification | SDD waterfall |
 | **Plan review** | /plan-review, plan verdict | plan-review skill | skill | loom-orchestrator | vision/swarm |
 | **Retro** | /retro, learnings | retro skill | skill | loom-orchestrator | vision/swarm |
 | **Unified spec** | /specification | unified-specification skill | skill | sdd-specification | SDD waterfall |
@@ -327,18 +369,26 @@ Quick reference for delegation based on task domain:
 | `/retro` | retro skill | loom-orchestrator | Post-feature learning capture |
 | `/review-team` | 4 reviewers + cross-provider adversary | loom-orchestrator | security + quality + performance + behavioral evaluator + Codex adversary |
 | `/git-push` | - | loom-git | Complete git workflow (commit + push + PR) |
-| `/code-review` | - | loom-git | PR-level review |
-| `/specification` | unified-specification skill | sdd-specification | SDD waterfall pack — spec+plan+tasks |
-| `/specify` | sdd-specification skill | sdd-specification | SDD waterfall pack — create feature specification |
-| `/plan` | sdd-planning skill | sdd-specification | SDD waterfall pack — generate implementation plan |
-| `/tasks` | sdd-tasks skill | sdd-specification | SDD waterfall pack — generate task list |
+| `/code-review` | - | *(external Claude Code command — not shipped by LogicLoom)* | PR-level review |
+| `/specification` | unified-specification skill | sdd-specification | SDD waterfall pack — runs spec, plan, and tasks as three sequential phases. There is no separate `/specify`, `/plan`, or `/tasks`: v5.1.0 merged them into this one command |
 | `/build-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — sequential architect→implementor→reviewer |
 | `/fullstack-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — parallel full-stack team |
 | `/finalize` | - | loom-git | Pre-commit compliance validation (no git execution) |
 | `/create-agent` | subagent-architect | loom-creation | Create new agent |
 | `/create-plugin` | subagent-architect | loom-creation | Create new plugin |
 | `/update-framework` | framework-sync-agent | loom-maintenance | Framework updates from upstream |
-| `/initialize-project` | - | loom-maintenance | Post-PRD project customization |
+| `/initialize-project` | - | loom-maintenance | Post-PRD project customization (also picks the gate-policy posture) |
+| `/scaffold-environments` | environment-scaffolding skill | loom-maintenance | Opt-in scaffolding of the promotion methodology into a new or existing project — detect, propose a delta, write only what is named |
+| `/promote-dev` | promotion-lifecycle skill | loom-maintenance | Lowest rung — gates feature branch/worktree → integration branch + dev, then prints the project's seam command. Prompts; skippable |
+| `/promote-staging` | promotion-lifecycle skill | loom-maintenance | Middle rung — gates a promotion into the rehearsal environment, then prints the seam command that stands it up and runs the smoke pass |
+| `/promote-prod` | promotion-lifecycle skill | loom-maintenance | Top rung — rehearsal contract + promotion order + typed exact phrase no flag bypasses |
+
+The three `/promote-*` commands **gate and confirm; they deploy nothing** — no
+cloud or CI call, no deploy command, no migration, seed, teardown, secret or
+rollback, and no git. Every action is a call out to the `deploy` seam the product
+owns. Methodology: `.docs/policies/environment-promotion-policy.md`. Not to be
+confused with `/promote`, the maintainer-only template release driver, which is
+stripped from a customer's clone.
 
 ---
 
@@ -376,7 +426,7 @@ test / fix loop
 prd-specialist (Phase 0: PRD)
        ↓
 unified-specification skill (/specification)
-  → sdd-specification skill → sdd-planning skill → sdd-tasks skill
+  → phase 1 spec → phase 2 plan → phase 3 tasks (one skill, three phases)
        ↓
 [Domain-brief workers for implementation]
        ↓
@@ -429,12 +479,9 @@ plugins/
 │       ├── research/SKILL.md
 │       ├── plan-review/SKILL.md     (v6.0.0)
 │       ├── retro/SKILL.md           (v6.0.0)
-│       └── ... (9 skills total)
+│       └── ... (11 skills total)
 ├── sdd-specification/skills/
-│   ├── sdd-specification/SKILL.md
-│   ├── sdd-planning/SKILL.md
-│   ├── sdd-tasks/SKILL.md
-│   └── unified-specification/SKILL.md
+│   └── unified-specification/SKILL.md   (the only skill; spec+plan+tasks merged in v5.1.0)
 ├── loom-creation/agents/
 │   ├── prd-specialist.md
 │   └── subagent-architect.md
@@ -448,7 +495,7 @@ plugins/
 
 ## Constitutional Compliance
 
-All agents enforce Constitution v3.2.0 (16 Principles), the durable governance core for every workflow pack:
+All agents enforce Constitution v3.3.0 (16 Principles), the durable governance core for every workflow pack:
 
 ### Immutable Principles (I-III)
 - **I: Library-First** — Features as standalone libraries
@@ -466,8 +513,20 @@ All agents enforce Constitution v3.2.0 (16 Principles), the durable governance c
   `/build-team`, `/fullstack-team`, and `/finalize` are all first-class pack
   entry points — pick the pack that fits the problem shape.
 
+### Project amendments
+Constitution v3.3.0 adds a fork extension point: project mandates live in
+`.logic-loom/memory/amendments.md` (optional, fork-owned), composed
+conjunctively with the 16 principles. Intended additive-only, with precedence
+rules that resolve conflict and ambiguity toward the floor — reader-adjudicated,
+not grammar-guaranteed, and with no loader, validator, or enforcement behind it.
+Agents read it when present.
+Reference: `plugins/MANIFEST-SCHEMA.md` (Principle XVI plugin manifests) and
+`.docs/policies/shell-idiom-policy.md` (hook/script shell idioms) are the
+companion contributor references.
+
 ### All Agents Must
 - Reference constitution in their system prompt
+- Honor `.logic-loom/memory/amendments.md` mandates when the file exists
 - Enforce TDD and library-first patterns
 - Defer git mutations to the git-safety-gate hook (which forces approval)
 - Maintain audit trails
@@ -493,7 +552,7 @@ Security concerns? ────────────────────�
 Performance issues? ───────────────────────→ performance domain brief (via swarm/team)
 Deploying/CI-CD? ──────────────────────────→ devops domain brief (via swarm/team)
 Creating new agent? ───────────────────────→ subagent-architect (agent)
-Contract-first, well-understood feature? ──→ /specification (unified) or /specify + /plan + /tasks
+Contract-first, well-understood feature? ──→ /specification (spec + plan + tasks in one command)
 ```
 
 ---
@@ -523,4 +582,4 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 **Registry Maintainer**: subagent-architect
 **Review Cycle**: On any agent change
-**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `features/README.md`
+**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `.logic-loom/memory/amendments.md` (fork-owned, optional), `.docs/policies/shell-idiom-policy.md`, `plugins/MANIFEST-SCHEMA.md`, `features/README.md`

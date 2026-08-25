@@ -2,6 +2,7 @@
 
 **Command**: `/specification`
 **Version**: 1.0.0
+**Plugin**: `sdd-specification`
 
 ---
 
@@ -111,18 +112,23 @@ The workflow tracks its state in `specs/<branch>/.workflow-state.json`:
 
 ---
 
-# Wait for completion, verify spec.md
-/plan
-# Wait for completion, verify artifacts
-/tasks
-# Finally get tasks.md
-```
+## One Command, Three Phases
 
-### After (1 command, automated)
+`/specification` runs the whole waterfall in a single invocation, carrying
+context between phases and applying a quality gate at each boundary:
 
 ```bash
 /specification "feature description"
 # All 7 artifacts generated with quality gates
+```
+
+To run just one phase — because an earlier artifact already exists, or you want
+to review before continuing — scope it:
+
+```bash
+/specification "feature description" --phase spec    # spec.md only
+/specification --phase plan                          # planning artifacts only
+/specification --phase tasks                         # tasks.md only
 ```
 
 ---
@@ -158,4 +164,5 @@ The workflow tracks its state in `specs/<branch>/.workflow-state.json`:
 ## Related
 
 - [Git Push Guide](./git-push-guide.md)
-- [SDD Workflow Overview](../workflows/sdd-overview.md)
+- [sdd-specification plugin README](../../plugins/sdd-specification/README.md)
+- [unified-specification skill](../../plugins/sdd-specification/skills/unified-specification/SKILL.md)

@@ -25,11 +25,17 @@ name: Promote dev-main → sanitized main (clean template)
 #
 # THE BINDING SANITIZATION GATE is the in-workflow audit (Checks 1-7, where
 # Check 7 IS leak-guard.sh) run in the `release` job below. The PR's
-# `leak-guard.yml` is a customer-visible backstop — NOTE: a PR opened by the
-# built-in GITHUB_TOKEN does NOT trigger `pull_request` workflows, so leak-guard
-# may not auto-run on the promotion PR. Do not rely on it; the in-workflow audit
-# is what blocks an unsanitized snapshot. (Re-run leak-guard manually on the PR,
-# or merge knowing the in-workflow audit already passed.)
+# `leak-guard.yml` is a customer-visible backstop.
+#
+# WHY THIS WORKFLOW NEVER OPENS THE PR (do not "fix" this by adding gh pr create):
+#   A PR opened with the built-in GITHUB_TOKEN does NOT trigger `pull_request`
+#   workflows — GitHub suppresses them to prevent recursion. So a PR opened here
+#   would show "no checks reported" and `leak-guard.yml` would silently never run
+#   on the one PR it exists to guard. That bit us on the SUCCESS path only, which
+#   is the worst possible shape: the better outcome lost validation. In `pr` mode
+#   this job therefore pushes `release/<version>` and STOPS. A human (or the
+#   maintainer `/promote` driver) opens the PR with a USER token, which does fire
+#   `pull_request` events. The exact command is printed to the job summary.
 # =============================================================================
 
 on:
@@ -46,12 +52,20 @@ on:
 
 permissions:
   contents: write          # push the release branch (and, in direct-push, main + tag)
-  pull-requests: write     # open the promotion PR
+  # NO `pull-requests: write` — this workflow deliberately never opens the PR
+  # (see the header). Least privilege: the release bot cannot create a PR at all,
+  # so the "checks silently did not run" failure mode cannot reappear.
 
 jobs:
   # ---- GATE: tests + constitution + ORIGIN sanitization on UNsanitized dev-main
   gate:
     runs-on: ubuntu-latest
+    outputs:
+      # THE ONE CANONICAL FORM of the release version, normalized here and here
+      # only. Every downstream site consumes `needs.gate.outputs.version` — none
+      # of them reads `inputs.version` again, so there is no second place for the
+      # `v` prefix to be handled differently.
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with: { ref: dev-main, fetch-depth: 0 }
@@ -59,6 +73,65 @@ jobs:
         with: { node-version: '20' }
       - uses: actions/setup-python@v5
         with: { python-version: '3.11' }
+      # ── BIND THE RELEASE TAG TO THE VERSION STAMPS ──────────────────────────
+      # Until this step existed, `inputs.version` was a free-text string that
+      # reached the commit subject, the branch name and the tag WITHOUT ever
+      # being validated or compared to anything in the tree. Dispatching
+      # `v6.5.0` without having run bump-version.sh first published a template
+      # tagged v6.5.0 whose package.json, README.md, CLAUDE.md, AGENTS.md,
+      # TEMPLATE_INIT.md, architecture.conf (x4), MANIFEST-SCHEMA.md and
+      # governance-threat-model.md all still said 6.4.1 — and release-tag.yml
+      # auto-tags on merge, so it was public before anyone could look. The only
+      # thing binding tag to stamps was a line of prose in promote.md addressed
+      # to an agent. Prose is not a gate.
+      #
+      # THE `v` PREFIX, DECIDED ONCE. The canonical form is `vX.Y.Z`, because
+      # that is what the rest of the release chain already requires:
+      #   * release-tag.yml parses the commit subject with
+      #     /^release: (v[0-9]+\.[0-9]+\.[0-9]+) sanitized template/ — a bare
+      #     `6.5.0` subject makes that regex miss and the merged release is
+      #     silently never tagged (the v6.3.1 failure shape).
+      #   * every published tag to date is v-prefixed (v6.2.0 … v6.4.1).
+      #   * the dispatch input's own description says "e.g. v6.2.0".
+      # A bare `6.5.0` is therefore ACCEPTED and normalized up to `v6.5.0` here
+      # rather than rejected — one normalization, at the top, exported as a job
+      # output. bump-version.sh independently accepts either form and strips the
+      # `v` for the stamps, which are bare `X.Y.Z`.
+      #
+      # `inputs.version` is passed through `env:` rather than interpolated into
+      # the script body: `${{ }}` inside a `run:` splices attacker-controlled
+      # text straight into the shell.
+      - name: Validate release version and bind it to the tree's version stamps
+        id: version
+        env:
+          RAW_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          RAW="$(printf '%s' "$RAW_VERSION" | tr -d '[:space:]')"
+          if ! printf '%s' "$RAW" | grep -qE '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Release version '$RAW_VERSION' is not a valid semver tag. Expected vX.Y.Z (e.g. v6.5.0)."
+            exit 1
+          fi
+          VERSION="v${RAW#v}"
+          echo "Canonical release version: $VERSION"
+
+          # THE BINDING CHECK. bump-version.sh --check exits non-zero and names
+          # every mismatched site, so the failure tells the maintainer exactly
+          # what to run. It lives on dev-main (maintainer-only, stripped at
+          # release) and this job checks out un-stripped dev-main, so it is here.
+          # Fail-closed: a missing bump-version.sh means the binding cannot be
+          # checked at all. That is a blocked release, not a passed gate.
+          if [ ! -f .logic-loom/scripts/bash/bump-version.sh ]; then
+            echo "::error::.logic-loom/scripts/bash/bump-version.sh is missing from dev-main — the release tag cannot be bound to the version stamps. Do not release until it is restored."
+            exit 1
+          fi
+          if ! bash .logic-loom/scripts/bash/bump-version.sh --check "$VERSION"; then
+            echo "::error::Version stamps in the tree do not match the release version $VERSION (see the mismatches above). Run 'bash .logic-loom/scripts/bash/bump-version.sh $VERSION' on dev-main, roll the CHANGELOG, commit and push, then re-dispatch."
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Contract suite
         run: |
           set -e
@@ -83,7 +156,8 @@ jobs:
     runs-on: ubuntu-latest
     environment: release        # human-approval gate (configure reviewers!)
     env:
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # No GH_TOKEN: nothing in this job shells out to `gh` any more. Pushes use
+      # the checkout action's credential.
       THIS_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
@@ -145,20 +219,254 @@ jobs:
       - name: Sanitization audit on sanitized tree (1-7)
         run: LOOM_AUDIT_ROOT="$PWD" bash /tmp/loom-audit-tools/sanitization-audit.sh
 
-      # POST-STRIP TEST GATE: the `gate` job runs the contract suite against
-      # UN-stripped dev-main, so a test that asserts content history-scrub REMOVES
-      # (e.g. constitution version-history rows) passes there but would redden a
-      # customer's FIRST push. Run the exact customer-CI contract suite (same set
-      # as .github/workflows/plugin-tests.yml) against the SANITIZED tree here, so
-      # post-strip breakage blocks the release instead of shipping red.
-      - name: Customer-CI contract suite on the sanitized tree
+      # ─────────────────────────────────────────────────────────────────────
+      # POST-STRIP TEST GATE — the acceptance test for "a cloner's first push
+      # is green".
+      # ─────────────────────────────────────────────────────────────────────
+      # The `gate` job runs tests against UN-stripped dev-main, so anything that
+      # only breaks AFTER the strip passes there and reddens a customer's FIRST
+      # push. This step is the only place that catches that class.
+      #
+      # IT USED TO BE A HAND-COPIED LIST OF FIVE SUITES while customer CI ran 35
+      # steps. That 30-step gap is exactly how the check-generated-freshness.sh
+      # blocker shipped: the freshness gate demanded artifacts/backlog-dashboard.html
+      # and .logic-loom/graph/graph-bridge.jsonl, both of which the strip manifest
+      # removes WHOLESALE, and no post-strip step ever ran it. A hand-copied
+      # subset drifts silently and by default — the only thing that does not is
+      # deriving the list from the file customer CI actually uses.
+      #
+      # So: PARSE .github/workflows/plugin-tests.yml — the SANITIZED tree's own
+      # copy, i.e. the very file a cloner's Actions run will execute — and run
+      # every step it declares. Add a step there and it is gated here on the next
+      # release, with no edit to this file.
+      #
+      # ── FULL ACCOUNTING, NOT A COVERAGE FLOOR (this is the load-bearing part)
+      # The previous version derived only single-line `run: bash …` / `run:
+      # python3 …` steps and then sanity-checked the count with `>= 20`. It
+      # happened to derive 36 of 37 declarations, so coverage was good — but the
+      # floor permitted 16 of them (44%) to silently vanish before it tripped,
+      # and `run: npm test`, `run: ./script.sh` and every `run: |` block were
+      # invisible to it by construction. Silent narrowing is precisely how the
+      # original blocker shipped.
+      #
+      # The floor is therefore gone. EVERY `run:` declaration in the file must
+      # end up in exactly one of two buckets:
+      #
+      #   REPLAYED   — a single-line `bash …` / `python3 …` command with no
+      #                step-level `if:`, no step-level `env:`, and no `${{ }}`
+      #                interpolation. Executed here against the sanitized tree,
+      #                from its `working-directory:` if it declares one.
+      #   ACCOUNTED  — listed by STEP NAME in the ACCOUNTED heredoc below WITH a
+      #                reason on the same line. A stale entry (one that no longer
+      #                matches a real step) FAILS, so an accounting line cannot
+      #                quietly outlive the step it excused.
+      #
+      # Anything else is UNCLASSIFIED and fails the release, naming the step. The
+      # gate can no longer cover less than it did yesterday without someone
+      # writing down why.
+      #
+      # ── WHAT THE REPLAY STILL DOES NOT REPRODUCE (Actions ≠ this shell)
+      # Handled: `working-directory:` (the command is run from it). Fail-closed —
+      # i.e. pushed into ACCOUNTED rather than mis-executed: step-level `if:`
+      # (GitHub expressions are not evaluable here, so a step Actions would SKIP
+      # must not be silently run or silently dropped), step-level `env:` (we do
+      # not parse YAML env mappings), and any `${{ }}` interpolation in a run
+      # command (eval would run the literal text). Workflow-level `env:`,
+      # job-level `env:`, and `defaults:` are detected and hard-fail, because
+      # they would change every step's environment invisibly.
+      #
+      # KNOWN, ACCEPTED, UNFIXED HERE — the replay is an approximation of a
+      # customer runner, not a simulation of one:
+      #   * ENVIRONMENT: this runs inside the `release` job — its checkout, its
+      #     $GITHUB_* variables, its preinstalled toolchain versions, and WITHOUT
+      #     the `actions/setup-node@v4` / `actions/setup-python@v5` pins that
+      #     plugin-tests.yml applies. A step that depends on node 20 or python
+      #     3.11 exactly could pass here and fail for a customer, or vice versa.
+      #   * NON-`run:` STEPS are not replayed at all (`uses:` actions —
+      #     checkout, setup-node, setup-python). Only their absence is reasoned
+      #     about above; nothing asserts it.
+      #   * `shell:`, `continue-on-error:`, `timeout-minutes:`, `services:`,
+      #     `container:`, `strategy:`/matrix, and job-level `if:` are ignored.
+      #     None are used by plugin-tests.yml today; if one appears, the parser
+      #     does not see it and this comment is the only warning.
+      #   * MULTI-JOB workflows: every `run:` in the file is accounted for
+      #     regardless of which job owns it, so a second job's steps would be
+      #     replayed in this job's context.
+      #   * The RENAME GUARD below is filename-based: it fails if
+      #     plugin-tests.yml is gone and flags any OTHER shipped push/PR workflow
+      #     that invokes a repo script, but it cannot tell a legitimate second CI
+      #     workflow from a renamed one — it only refuses to stay silent.
+      #
+      # EXCLUSIONS: suites that cannot assert on a maintainer-only file are
+      # strip-aware IN THE SUITE (tests/lib/tree-provenance.sh), where the reason
+      # lives next to the assertion and a partially-stripped tree is a hard
+      # failure rather than a skip. ACCOUNTED here is for steps this shell cannot
+      # FAITHFULLY REPLAY — not for suites that fail.
+      - name: Customer-CI suite on the sanitized tree (derived from plugin-tests.yml)
         run: |
-          set -e
-          bash tests/contract/plugins/test_plugin_lifecycle.sh
-          bash tests/contract/plugins/test_swarm_lifecycle.sh
-          bash tests/contract/test_constitution.sh
-          bash tests/contract/test_deprecation.sh
-          bash tests/contract/test_plugin_command_bridge.sh
+          set -uo pipefail
+          CI_WF=.github/workflows/plugin-tests.yml
+          [ -f "$CI_WF" ] || { echo "::error::$CI_WF is missing from the sanitized tree — customer CI cannot be replayed. If it was RENAMED, point this gate at the new name in the same change."; exit 1; }
+
+          # ── RENAME / SECOND-CI GUARD ────────────────────────────────────────
+          # Any OTHER shipped workflow that a customer's own push or PR fires and
+          # that invokes a repo script is a second customer-CI surface this gate
+          # does not replay. Report it loudly rather than pretending it is not
+          # there.
+          for wf in .github/workflows/*.yml .github/workflows/*.yaml; do
+            [ -f "$wf" ] || continue
+            [ "$wf" = "$CI_WF" ] && continue
+            grep -qE '^[[:space:]]*(push|pull_request):' "$wf" || continue
+            if grep -qE '^[[:space:]]+run: (bash|python3|\./)' "$wf"; then
+              echo "::warning::$wf also fires on a customer push/PR and invokes repo scripts, but is NOT replayed post-strip. If it is customer CI, add it here."
+            fi
+          done
+
+          # ── ACCOUNTED: step NAME <TAB> reason. One line per step this shell
+          # cannot faithfully replay. A stale entry fails the build.
+          ACCOUNTED=$(mktemp)
+          printf '%s\t%s\n' \
+            'Constitutional Compliance Check' 'multi-line `run: |` block guarded by `if: github.event_name == '"'"'pull_request'"'"'`; GitHub expressions are not evaluable here, and the body is `|| true` so it asserts nothing to replay' \
+            > "$ACCOUNTED"
+
+          # ── PARSE: every `run:` declaration, with the step attributes that
+          # decide whether this shell can faithfully replay it. Line-based on
+          # purpose — PyYAML is not in the stdlib and this must not need a pip
+          # install on the release runner.
+          STEPS_FILE=$(mktemp)
+          python3 - "$CI_WF" > "$STEPS_FILE" <<'PYEOF'
+          import re, sys
+
+          path = sys.argv[1]
+          lines = open(path, encoding='utf-8').read().split('\n')
+
+          # Top-level / job-level env: and defaults: change every step's
+          # environment invisibly. Refuse rather than replay a lie.
+          for ln in lines:
+              if re.match(r'^ {0,4}(env|defaults):[ \t]*$', ln):
+                  sys.stderr.write("UNSUPPORTED\t%s\n" % ln.strip())
+
+          steps = []
+          cur = None
+
+          def flush():
+              global cur
+              if cur is not None and cur['run'] is not None:
+                  steps.append(cur)
+              cur = None
+
+          def setkey(st, key, val):
+              val = val.strip()
+              if key == 'name':
+                  st['name'] = val.strip('"\'')
+              elif key == 'if':
+                  st['if'] = 1
+              elif key == 'env':
+                  st['env'] = 1
+              elif key == 'working-directory':
+                  st['wd'] = val.strip('"\'')
+              elif key == 'run':
+                  st['run'] = val
+
+          KEY = r'([A-Za-z0-9_-]+):[ \t]?(.*)$'
+          for ln in lines:
+              m = re.match(r'^([ ]*)-[ ]+' + KEY, ln)
+              if m:
+                  flush()
+                  cur = {'name': '', 'if': 0, 'env': 0, 'wd': '', 'run': None,
+                         'indent': len(m.group(1)) + 2}
+                  setkey(cur, m.group(2), m.group(3))
+                  continue
+              if cur is None:
+                  continue
+              m = re.match(r'^([ ]*)' + KEY, ln)
+              if m and len(m.group(1)) == cur['indent']:
+                  setkey(cur, m.group(2), m.group(3))
+                  continue
+              # dedent below the step's key indent ends the step
+              if ln.strip() and not ln.startswith(' ' * cur['indent']):
+                  flush()
+          flush()
+
+          # PARSE-INTEGRITY: a dumb count of `run:` declarations must equal what
+          # the structured parse found. If it does not, the parser broke and the
+          # gate must not report on a set it did not really derive.
+          raw = sum(1 for ln in lines if re.match(r'^[ \t]+run:', ln))
+          sys.stderr.write("RAWCOUNT\t%d\t%d\n" % (raw, len(steps)))
+
+          for s in steps:
+              cmd = s['run']
+              block = 1 if (cmd == '' or cmd.startswith('|') or cmd.startswith('>')) else 0
+              # \x1f (unit separator), NOT tab: tab is IFS-*whitespace*, so
+              # bash `read` collapses a run of tabs into one delimiter and an
+              # empty `working-directory` field silently shifts every field
+              # after it. Caught in testing — every step misread as unclassified.
+              sys.stdout.write('\x1f'.join([
+                  s['name'] or '(unnamed)', str(s['if']), str(s['env']),
+                  s['wd'], str(block), cmd]) + '\n')
+          PYEOF
+          PRC=$?
+          [ "$PRC" -eq 0 ] || { echo "::error::Failed to parse $CI_WF (python3 exit $PRC)."; exit 1; }
+
+          # python3's stderr carried the integrity signals; re-derive them here so
+          # a broken parse cannot be read as a small workflow.
+          RAW=$(grep -cE '^[[:space:]]+run:' "$CI_WF" || true)
+          PARSED=$(grep -c . "$STEPS_FILE" || true)
+          if [ "$RAW" -ne "$PARSED" ]; then
+            echo "::error::Parse integrity: $CI_WF declares $RAW \`run:\` steps but the parser derived $PARSED. Refusing to gate on a set it did not fully derive."
+            exit 1
+          fi
+          if grep -qE '^[[:space:]]{0,4}(env|defaults):[[:space:]]*$' "$CI_WF"; then
+            echo "::error::$CI_WF declares a workflow- or job-level \`env:\`/\`defaults:\` block. This replay does not reproduce it, so every step below would run in the wrong environment. Teach this gate about it before releasing."
+            exit 1
+          fi
+
+          # ── CLASSIFY + REPLAY ───────────────────────────────────────────────
+          # An Actions expression opener, written as a character class so this
+          # very line is not itself interpolated by Actions at parse time.
+          EXPR='[$][{][{]'
+          REPLAYED=0; ACC=0; UNCLASS=0; RC=0
+          MATCHED=$(mktemp); : > "$MATCHED"
+          while IFS="$(printf '\037')" read -r NAME HASIF HASENV WD BLOCK CMD; do
+            [ -z "$NAME" ] && continue
+            if grep -qF "$(printf '%s\t' "$NAME")" "$ACCOUNTED"; then
+              printf '%s\n' "$NAME" >> "$MATCHED"
+              ACC=$((ACC + 1)); echo "ACCOUNTED  $NAME"; continue
+            fi
+            REASON=""
+            [ "$BLOCK" = "1" ]  && REASON="multi-line \`run:\` block"
+            [ "$HASIF" = "1" ]  && REASON="step-level \`if:\` (GitHub expression)"
+            [ "$HASENV" = "1" ] && REASON="step-level \`env:\` mapping"
+            printf '%s' "$CMD" | grep -qE "$EXPR" && REASON="GitHub expression interpolation in the command"
+            case "$CMD" in bash\ *|python3\ *) ;; *) [ -z "$REASON" ] && REASON="not a single-line \`bash …\`/\`python3 …\` command" ;; esac
+            if [ -n "$REASON" ]; then
+              echo "::error::UNCLASSIFIED step '$NAME' — $REASON. This gate cannot replay it and nothing accounts for it. Either make it replayable, or add it to the ACCOUNTED list in .github/workflows/promote-to-main.yml WITH the reason."
+              UNCLASS=$((UNCLASS + 1)); continue
+            fi
+            REPLAYED=$((REPLAYED + 1))
+            if [ -n "$WD" ]; then
+              out=$( cd "$WD" 2>/dev/null && eval "$CMD" 2>&1 ); rc=$?
+            else
+              out=$(eval "$CMD" 2>&1); rc=$?
+            fi
+            if [ "$rc" -eq 0 ]; then
+              echo "PASS       $CMD"
+            else
+              echo "FAIL       $CMD"; printf '%s\n' "$out" | tail -40 | sed 's/^/    /'; RC=1
+            fi
+          done < "$STEPS_FILE"
+
+          # A stale accounting entry is a silently-shrinking gate. Fail on one.
+          while IFS="$(printf '\t')" read -r ANAME AREASON; do
+            [ -z "$ANAME" ] && continue
+            grep -qxF "$ANAME" "$MATCHED" || { echo "::error::ACCOUNTED entry '$ANAME' matches no step in $CI_WF. Remove it or fix it."; UNCLASS=$((UNCLASS + 1)); }
+          done < "$ACCOUNTED"
+
+          echo ""
+          echo "run: declarations in $CI_WF: $RAW  ·  replayed: $REPLAYED  ·  accounted-for: $ACC  ·  unclassified: $UNCLASS"
+          rm -f "$STEPS_FILE" "$ACCOUNTED" "$MATCHED"
+          [ "$UNCLASS" -eq 0 ] || { echo "::error::Every \`run:\` step must be replayed or explicitly accounted for. $UNCLASS were neither."; exit 1; }
+          [ "$RC" -eq 0 ] || { echo "::error::The sanitized tree fails customer CI. A cloner's FIRST push would be red. Fix before releasing."; exit 1; }
 
       # COMPOSE: SINGLE-PARENT commit. Parent = current main only. dev-main sha is
       # recorded as a trailer string, NOT as a -p parent. This is the invariant.
@@ -169,7 +477,7 @@ jobs:
           TREE=$(git write-tree)
           PARENT=$(git rev-parse refs/remotes/origin/main)
           SRC=$(git rev-parse HEAD)            # dev-main tip (string only)
-          MSG="release: ${{ inputs.version }} sanitized template"
+          MSG="release: ${{ needs.gate.outputs.version }} sanitized template"
           C1=$(printf '%s\n\nSource-dev-main: %s\n' "$MSG" "$SRC" \
                  | git commit-tree "$TREE" -p "$PARENT")
           echo "commit=$C1" >> "$GITHUB_OUTPUT"
@@ -186,21 +494,47 @@ jobs:
           echo "$C1" > .sdd-sync-ref
           git add .sdd-sync-ref
           TREE2=$(git write-tree)
-          C2=$(printf 'chore: advance .sdd-sync-ref to %s\n' "${{ inputs.version }}" \
+          C2=$(printf 'chore: advance .sdd-sync-ref to %s\n' "${{ needs.gate.outputs.version }}" \
                  | git commit-tree "$TREE2" -p "$C1")
           echo "commit=$C2" >> "$GITHUB_OUTPUT"
 
-      # PUBLISH (default): push a release branch to THIS repo + open a PR to main,
-      # so leak-guard.yml is available as the customer-visible backstop. A human
-      # merges with a MERGE COMMIT; the tag is applied AFTER merge.
-      - name: Publish via PR to main
+      # PUBLISH (default): push the release branch to THIS repo and STOP. The PR
+      # is opened afterwards with a USER token — see the header for why this
+      # workflow must not open it. A human merges with a MERGE COMMIT; the tag is
+      # applied AFTER merge by release-tag.yml.
+      - name: Publish release branch (PR is opened with a user token)
         if: ${{ inputs.publish_mode == 'pr' }}
         run: |
-          BR="release/${{ inputs.version }}"
+          set -euo pipefail
+          BR="release/${{ needs.gate.outputs.version }}"
           git push origin "${{ steps.sync.outputs.commit }}:refs/heads/$BR"
-          gh pr create --repo "$THIS_REPO" --base main --head "$BR" \
-            --title "Release ${{ inputs.version }}: sanitized template" \
-            --body "Automated single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ inputs.version }} (the sanitized snapshot) — no manual tagging. NOTE: leak-guard.yml may not auto-run on this PR (PRs opened by GITHUB_TOKEN don't trigger pull_request workflows); re-run it manually if you want the customer-visible backstop on the record."
+          BODY="Single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ needs.gate.outputs.version }} (the sanitized snapshot) — no manual tagging."
+          {
+            echo "## Release branch pushed — PR NOT opened (by design)"
+            echo ""
+            echo "Branch: \`$BR\`"
+            echo ""
+            echo "This workflow does not open the promotion PR. A PR created with the"
+            echo "built-in \`GITHUB_TOKEN\` does not trigger \`pull_request\` workflows, so"
+            echo "\`leak-guard.yml\` would never run on it. Open it with a **user token**:"
+            echo ""
+            echo '```'
+            echo "gh pr create --repo \"$THIS_REPO\" --base main --head \"$BR\" \\"
+            echo "  --title \"Release ${{ needs.gate.outputs.version }}: sanitized template\" \\"
+            echo "  --body-file <(cat <<'EOF'"
+            echo "$BODY"
+            echo "EOF"
+            echo ")"
+            echo '```'
+            echo ""
+            echo "Then confirm checks actually REPORTED (not merely that none failed):"
+            echo ""
+            echo '```'
+            echo "gh pr view <pr> --repo \"$THIS_REPO\" --json statusCheckRollup \\"
+            echo "  --jq '.statusCheckRollup | length'   # must be > 0"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Release branch $BR pushed. Open the PR with a user token (see job summary)."
 
       # PUBLISH (alt): fast-forward push straight to main + tag immediately. Use
       # only if main's branch protection permits the bot and you accept skipping
@@ -209,5 +543,5 @@ jobs:
         if: ${{ inputs.publish_mode == 'direct-push' }}
         run: |
           git push origin "${{ steps.sync.outputs.commit }}:main"
-          git tag "${{ inputs.version }}" "${{ steps.compose.outputs.commit }}"
-          git push origin "${{ inputs.version }}"
+          git tag "${{ needs.gate.outputs.version }}" "${{ steps.compose.outputs.commit }}"
+          git push origin "${{ needs.gate.outputs.version }}"

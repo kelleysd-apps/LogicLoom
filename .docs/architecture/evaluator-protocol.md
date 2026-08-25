@@ -1,9 +1,92 @@
 # Evaluator Protocol
 
-**Status**: v0.1
+**Status**: v0.2 — gate semantics decided: advisory only.
+**Supersedes**: v0.1, which left gate semantics
+undefined. Behaviour is unchanged; the disposition is now stated.
 **Skill**: `plugins/loom-orchestrator/skills/review-evaluator/SKILL.md`
 **Reference**: Anthropic, "How we built our multi-agent harness" — the
 generator/grader split (article §Concrete Grading Criteria).
+
+---
+
+## Disposition: the evaluator is ADVISORY ONLY
+
+**The evaluator produces findings. It does not gate, block, or fail a workflow.
+A `fail` verdict is information, not a stop.** No exit code, no refusal, no
+branch of the harness is derived from an evaluator verdict. The human decides
+what happens next.
+
+This is a decision, not a gap. v0.1 of this protocol specified no gate semantics
+at all, and an open VISION thread (#16) asked to "harden the hard-gate
+contract" — presuming a contract that had never been written. The maintainer
+answered the question instead of building the contract: **the evaluator reports;
+the human decides.** There is no hard gate to harden, and one is not planned.
+
+### One policy, not three coincidences
+
+The same posture already governs LogicLoom's other two verification surfaces.
+`/cross-check`'s hard constraints
+(`plugins/loom-orchestrator/skills/cross-check/SKILL.md` § *Hard constraints*)
+state it verbatim:
+
+1. **Advisory only** — the reviewer emits findings; the governed Claude main
+   agent triages and decides what (if anything) to change. It never edits code.
+2. **No git, ever** (Principle VI).
+3. **Read-only** — it writes only its own report, never repo source.
+4. **Fail-open, never phantom-gate** — a verifier that cannot run must not block
+   work.
+
+`/research` sits in the same place: a tribunal that returns opinion, and a
+governed agent that decides. The evaluator is the third member of that set, on
+the same terms — advisory, read-only, non-blocking, fail-open. Cross-check's
+constraint 5 already names the evaluator's non-UI fail-open as its own
+precedent; this section makes the symmetry explicit in both directions.
+
+It is also the shape of **Principle VI**: humans approve, tools inform. A tool
+that can halt the workflow on its own judgment has taken an approval decision
+that belongs to a person.
+
+### What this means for a consumer
+
+For `/review-team`, the only consumer: the evaluator's report is surfaced to the
+governed agent alongside the security, quality, and performance reviewers and
+the cross-provider adversary. The governed agent triages the findings and
+recommends; the human decides whether to act, defer, or dismiss. **Nothing in
+the harness converts an evaluator verdict into an exit code, a non-zero status,
+a refusal to proceed, or a blocked `/git-push`.** If the evaluator cannot run at
+all (chrome-devtools MCP absent, non-UI diff), it does not write a report and
+does not fail the review — the same fail-open rule cross-check states.
+
+The `pass | concern | fail` verdict and the required-changes checklist below are
+therefore **triage inputs**, not control flow. Read the synthesis rule in
+*Outputs* as "how the evaluator words its opinion", never as "what the harness
+does next".
+
+### The tradeoff, stated plainly
+
+This choice has a real cost and is not strictly superior to a gate.
+
+**An advisory evaluator can be ignored, and a finding nobody acts on is
+indistinguishable from no finding.** A hard gate would make a `fail` impossible
+to skip; advisory-only makes it easy to skip — quietly, under deadline, with no
+trace that anything was skipped. Anyone claiming this design "catches" a class
+of defect is overclaiming: it *reports* them. Whether they are caught depends on
+a person reading the report.
+
+The mitigation is partial, and worth naming as partial: the findings are
+**surfaced** in `/review-team`'s output rather than buried, and the report is
+**written to disk** under `features/<name>/sprints/…`, so the record exists and
+an ignored `fail` is at least discoverable after the fact. That converts silent
+loss into auditable loss. It does not convert it into prevention.
+
+What buys the cost: the failure mode of a gate is worse here. The evaluator
+grades subjective rubric items (Design Quality, Originality, Craft) from a
+model's judgment of a rendered surface, over a browser MCP that may be absent or
+flaky. A gate built on that would block real work on a wrong opinion or an
+unavailable tool, and the predictable response is a bypass flag — at which point
+the gate is advisory again, with extra machinery. LogicLoom keeps deterministic
+gating for deterministic checks (the hook floor) and keeps model judgment
+advisory.
 
 ---
 
@@ -73,7 +156,8 @@ protocol record):
 - Required-changes checklist (only if verdict is `fail` or `concern`): each
   item must be concrete and grounded in a named rubric item.
 
-Verdict synthesis rule:
+Verdict synthesis rule (how the opinion is worded — **not** control flow; see
+*Disposition: the evaluator is ADVISORY ONLY* above):
 
 - `pass` only if every applicable rubric item is `pass`.
 - `fail` if any item is `fail`, OR if Functionality is `concern` and another

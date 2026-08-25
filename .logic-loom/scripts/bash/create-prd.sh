@@ -146,7 +146,7 @@ if [ "$JSON_MODE" = false ]; then
     echo -e "${YELLOW}The PRD serves as Single Source of Truth (SSOT) for:${NC}"
     echo ""
     echo -e "  📋 ${GREEN}/specification${NC} → Pulls user stories, personas, acceptance criteria from PRD"
-    echo -e "     (combines /specify, /plan, /tasks into unified workflow)"
+    echo -e "     (runs spec, plan, and tasks as three sequential phases)"
     echo -e "  ⚙️  ${GREEN}Constitution${NC} → Customized with project-specific guidance from PRD"
     echo -e "  🤖 ${GREEN}Custom Agents${NC} → Created based on specialized needs in PRD"
     echo ""
@@ -229,15 +229,16 @@ For each feature:
 
 ## Using the PRD
 
-### When Running /specify
+### When Running /specification
 The unified-specification skill will:
+
+In its specification phase:
 - Pull user stories from your PRD
 - Reference personas for context
 - Use acceptance criteria patterns
 - Align with release phases
 
-### When Running /plan
-The sdd-planning skill will:
+In its planning phase:
 - Read constitutional customizations
 - Apply technical constraints
 - Use integration requirements

@@ -11,7 +11,6 @@
     "multi-agent",
     "team",
     "parallel",
-    "marketplace",
     "tribunal",
     "voting",
     "multi-llm",
@@ -20,19 +19,18 @@
     "perplexity"
   ],
   "agents": {
-    "count": 1,
     "list": [
       "team-synthesizer"
     ]
   },
   "skills": {
-    "count": 10,
     "list": [
       "cross-check",
       "full-stack-feature",
       "migration-workflow",
       "multi-skill-workflow",
       "plan-review",
+      "project-graph",
       "retro",
       "review-evaluator",
       "swarm-explore",
@@ -41,11 +39,11 @@
     ]
   },
   "commands": {
-    "count": 8,
     "list": [
       "build-team",
       "cross-check",
       "fullstack-team",
+      "graph",
       "plan-review",
       "research",
       "retro",
