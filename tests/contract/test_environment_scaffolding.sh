@@ -235,11 +235,48 @@ assert "guard fails closed on an empty head ref" \
   "grep -q 'failing closed' '$GUARD'"
 assert "guard offers no skip/exemption hatch" \
   "! grep -qiE 'skip-check|skip_ci|contains\\(github.event.pull_request.labels' '$GUARD'"
-if command -v python3 >/dev/null 2>&1; then
-  assert "guard parses as YAML" \
+# YAML well-formedness, in two layers.
+#
+# Layer 1 ALWAYS runs and needs no library: the generated file is a GitHub
+# workflow whose shape this scaffolder controls, so its structure is known and
+# narrow. A full YAML parse would be nicer, but it needs PyYAML — which is NOT
+# in the stdlib (same fact promote-to-main.yml already records), so guarding on
+# `command -v python3` guarded the wrong thing: on a runner where
+# actions/setup-python provides a fresh interpreter, python3 exists and
+# `import yaml` still fails. Worse, a parse check that skips on every CI runner
+# is a gate that never runs. So the structural check is unconditional and the
+# PyYAML parse is the bonus layer.
+guard_yaml_structure_ok() {
+  local f="$1" k n
+  [ -f "$f" ] || return 1
+  # Tabs are illegal for YAML indentation anywhere in the document.
+  ! grep -q "$(printf '\t')" "$f" || return 1
+  # Column-0 keys are the workflow's top-level mapping. Block-scalar bodies are
+  # indented, so anything at column 0 really is a top-level key.
+  grep -qE '^[A-Za-z_][A-Za-z0-9_-]*:' "$f" || return 1
+  [ -z "$(grep -E '^[A-Za-z_][A-Za-z0-9_-]*:' "$f" | grep -vE '^(name|on|permissions|jobs):')" ] \
+    || return 1
+  for k in name on permissions jobs; do
+    n="$(grep -cE "^$k:" "$f")"
+    [ "$n" -eq 1 ] || return 1          # present exactly once — no duplicate key
+  done
+  # jobs: → <job-id>: → runs-on/steps → a step sequence, each a deeper block.
+  grep -qE '^  [A-Za-z0-9_-]+:[[:space:]]*$' "$f" || return 1
+  grep -qE '^    runs-on:[[:space:]]*[^[:space:]]' "$f" || return 1
+  grep -qE '^    steps:[[:space:]]*$' "$f" || return 1
+  grep -qE '^      - name:[[:space:]]*[^[:space:]]' "$f" || return 1
+  # A `run:` body must be a block scalar; a bare multi-line run: would be invalid.
+  grep -qE '^ +run:[[:space:]]*[|>]' "$f" || return 1
+  return 0
+}
+assert "guard is structurally well-formed YAML (no library required)" \
+  "guard_yaml_structure_ok '$GUARD'"
+if python3 -c 'import yaml' >/dev/null 2>&1; then
+  assert "guard parses as YAML (PyYAML full parse)" \
     "python3 -c \"import yaml,sys; yaml.safe_load(open('$GUARD'))\" >/dev/null 2>&1"
 else
-  echo "  ⏭  SKIP: python3 unavailable — YAML parse not checked"
+  skip "guard parses as YAML (PyYAML full parse)" \
+    "PyYAML not importable (it is NOT in the python3 stdlib, and this suite installs nothing) — UNVERIFIED: full YAML parse, quoting/escaping errors inside values, and anchors/aliases. The unconditional structural check above still ran"
 fi
 for f in deploy-dev.sh deploy-staging.sh deploy-prod.sh check-branch-base.sh; do
   assert "generated script parses: $f" "bash -n '$TMP/full/scripts/deploy/$f' >/dev/null 2>&1"
