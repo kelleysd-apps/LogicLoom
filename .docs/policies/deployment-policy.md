@@ -1,8 +1,8 @@
 # Deployment Policy
 
-**Version**: 1.0.0
+**Version**: 1.3.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.2.0 - Principle VII (Observability)
+**Authority**: Constitution v3.3.0 - Principle VII (Observability)
 **Review Cycle**: Quarterly
 
 ---
@@ -81,7 +81,143 @@ All deployments to production and production-like environments must follow this 
 
 ---
 
+## Environment Declaration (`environments.conf`)
+
+Everything in this policy below this section is **prose**. This section is the
+one part a machine can read.
+
+`.logic-loom/config/environments.conf` is where your project **declares** its
+environments and the order changes promote through them. A reader/validator
+ships with it:
+
+```bash
+./.logic-loom/scripts/bash/validate-environments.sh
+```
+
+### What the harness ships, and what it does not
+
+| Ships with LogicLoom | Yours to provide |
+|---|---|
+| The declaration schema (`environments.conf`) | Which cloud, which CI provider |
+| The promotion order and its coherence checks | Deploy commands and build steps |
+| The `requires_approval` gate **structure** | The real gate (e.g. a GitHub Environment with required reviewers) |
+| The `deploy` **seam** — a place to name your script | The deploy script itself |
+| A read-only validator that never deploys and never runs git | Secrets store, migration runner, rollback mechanics |
+
+**The harness provides no deploy execution.** It will not run your deployment,
+inspect it, or have an opinion about how it works. `deploy` is a **seam**: it
+names a product-owned script so the declaration can point at the thing that does
+the work without the harness owning that thing. If you leave `deploy` out, the
+environment simply has no deploy script — that is a valid declaration.
+
+**Nothing here is enforced.** No hook reads this file. `requires_approval` is a
+declaration your CI or your reviewer is expected to honour; the harness will not
+notice if you deviate. Principle VI still governs the git operations you run
+yourself — the approval gate on any promotion that touches git comes from the
+git-safety hook, not from this file.
+
+### The declaration
+
+Same `key = value` grammar as the sibling configs. `environment = <name>` opens
+a block; the keys after it belong to that block.
+
+| Key | Meaning |
+|---|---|
+| `environment` | Block opener. The environment's name. Required, unique. |
+| `branch` | The branch this environment tracks. Free text — **the harness creates no branches and verifies none.** Omit it if a tag or manual dispatch advances the environment instead. |
+| `requires_approval` | `true` / `false`. Whether promotion *into* this environment needs a human approval. Defaults to `false`. |
+| `promotes_from` | The environment immediately before this one. Omit for the first in a chain. Must name a declared environment; the order must be acyclic. |
+| `deploy` | The product-owned deploy script. The seam. Never provided by the harness. |
+| `rehearsal_seed_allowlist` | Path to the product-owned, **fail-closed** seed allowlist for a rehearsal/staging environment. A second seam: the harness records where it lives and **never reads it**. Your seed must abort on an empty or missing allowlist, never widen to "copy everything". |
+| `confirm` | Confirmation strength for promoting **into** this environment: `none`, `prompt`, or `typed:<PHRASE>`. Declarative — the harness prompts for nothing. `typed:` requires `requires_approval = true` in the same block; the validator errors otherwise. |
+
+The last two keys carry patterns from
+`.docs/policies/environment-promotion-policy.md` (§ 4.4 and § 4.3). That policy
+owns the methodology; this table owns the grammar.
+
+Example (this is what ships in the file, commented out):
+
+```conf
+environment       = dev
+branch            = main
+requires_approval = false
+confirm           = none
+deploy            = web/scripts/deploy-dev.sh
+
+environment       = staging
+branch            = release
+promotes_from     = dev
+requires_approval = false
+confirm           = prompt
+rehearsal_seed_allowlist = web/config/rehearsal-allowlist.txt
+deploy            = web/scripts/deploy-staging.sh
+
+environment       = prod
+branch            = release
+promotes_from     = staging
+requires_approval = true
+confirm           = typed:PROMOTE TO PRODUCTION
+deploy            = web/scripts/deploy-prod.sh
+```
+
+### Shipped with nothing declared
+
+`environments.conf` ships with **every declaration commented out**. An active
+default would assert branches and a topology your project does not have — the
+same defect that made this policy describe a repo that did not exist (see
+Version History 1.1.0). Principle V (Progressive Enhancement) says the same
+thing from the other side: do not ship a three-environment pipeline before one
+environment is proven in use.
+
+**One environment is a perfectly good answer.** So is none — a project with no
+environments declared is normal, and the validator exits 0 on an absent or empty
+file.
+
+### The validator
+
+Read-only. It parses, checks, and reports. It never deploys, never invokes the
+`deploy` seam, never runs git, never creates a branch, and never writes a file.
+
+It **errors** on: a key outside any environment block, a duplicate environment
+name, a `promotes_from` naming an environment that is not declared, a cycle in
+the promotion order (naming the cycle), a `requires_approval` that is not
+`true`/`false`, a `confirm` that is not `none`/`prompt`/`typed:<PHRASE>`, and a
+`confirm = typed:<PHRASE>` declared alongside anything but
+`requires_approval = true`.
+
+It **never opens** a declared `rehearsal_seed_allowlist`. It reports whether the
+path exists and nothing more — the file is product-owned, and enforcing its
+fail-closed-on-empty behaviour belongs to your seed script.
+
+It **warns** on an unknown key and carries on. That is deliberate: the sibling
+configs skip lines they do not recognise rather than failing, so this one does
+not fail either — but it says so out loud, because a typo'd key here would
+otherwise silently do nothing.
+
+### On a promotion command
+
+There is no customer-facing promotion command, and this task did not add one.
+The maintainer-only `/promote` name is already taken and is stripped from
+customer copies by exact path, so a customer-facing `/promote <env>` would
+collide with it. If one is ever added, it needs a **different name** — the
+working suggestion is `/deploy-promote <env>` — or a manifest restructure.
+Until that is decided, the declaration is read by humans, by agents, and by the
+validator; promotion itself is run by your own CI.
+
+---
+
 ## Deployment Environments
+
+The three environments below are **roles**, not branch names. LogicLoom ships no
+deployment machinery and defines no environment branches — **which branch (or
+tag, or manual dispatch) advances which environment is a decision your project
+makes**, and it belongs in your own copy of this policy. The triggers named below
+are stated as roles precisely so they cannot rot into a description of branches
+that do not exist.
+
+> **Nothing in this section is enforced.** There is no hook, no check, and no
+> workflow behind it. It is a template for the deployment discipline your project
+> should adopt; the harness will not notice if you deviate.
 
 ### Development (dev)
 
@@ -94,9 +230,11 @@ All deployments to production and production-like environments must follow this 
 - Debug mode enabled
 - No user data
 
-**Deployment**: Automatic on push to `develop` branch
+**Deployment trigger**: continuous, on every change that lands in the mainline
+(or in your integration branch, if you run one). Record the concrete trigger
+here.
 
-### Staging (staging)
+### Staging
 
 **Purpose**: Pre-production verification
 
@@ -107,7 +245,8 @@ All deployments to production and production-like environments must follow this 
 - User acceptance testing
 - Integration testing
 
-**Deployment**: Automatic on push to `staging` branch
+**Deployment trigger**: on each release candidate — a tag, a release branch, or a
+manual dispatch. Record the concrete trigger here.
 
 **Requirements**:
 - All tests pass
@@ -314,6 +453,13 @@ Status: ✅ Healthy
 ---
 
 ## Rollback Procedures
+
+> **This section assumes a reversible-migration model.** A **forward-only**
+> migration model — no `down` migration anywhere, in any environment — is an
+> equally legitimate alternative, and is the one described in
+> `.docs/policies/environment-promotion-policy.md` § 5.2. Pick one and record the
+> choice here; if you pick forward-only, the database-rollback step and the
+> rollback timeline below describe a capability you do not have.
 
 ### When to Rollback
 
@@ -570,10 +716,14 @@ ci:
 
 ### Continuous Deployment
 
+**LogicLoom ships none of the pipelines below.** They are shapes to adapt. Each
+`trigger:` is written as a role — substitute the branch, tag, or dispatch event
+your project actually uses.
+
 **Development** (Automatic):
 ```yaml
 deploy-dev:
-  trigger: push to develop branch
+  trigger: <changes landing on your mainline>
   steps:
     - run CI pipeline
     - deploy to dev environment
@@ -583,7 +733,7 @@ deploy-dev:
 **Staging** (Automatic):
 ```yaml
 deploy-staging:
-  trigger: push to staging branch
+  trigger: <release candidate — tag, release branch, or dispatch>
   steps:
     - run CI pipeline
     - deploy to staging environment
@@ -655,12 +805,24 @@ Deployment logs retained for:
 
 ## References
 
-- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.3.0: `.logic-loom/memory/constitution.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Security Policy: `.docs/policies/security-policy.md`
 - Branching Strategy: `.docs/policies/branching-strategy-policy.md`
+- Environment Promotion Methodology: `.docs/policies/environment-promotion-policy.md`
 - Release Management: `.docs/policies/release-management-policy.md`
+
+---
+
+## Version History
+
+| Version | Change |
+|---|---|
+| 1.3.0 | Added `rehearsal_seed_allowlist` and `confirm` to the declaration schema, carrying the fail-closed-seed and escalating-confirmation patterns from the new `.docs/policies/environment-promotion-policy.md`. Both ship commented out; both are declaration-only. The validator gained shape checks for `confirm` and one coherence check (`typed:` implies `requires_approval = true`), and explicitly never reads the allowlist file. Still no deploy execution, and still no promotion command. |
+| 1.2.0 | Added the **Environment Declaration** section: `.logic-loom/config/environments.conf` (schema) + `validate-environments.sh` (read-only reader/validator). The prose environment model in this policy now has a machine-readable counterpart. States plainly that the harness ships no deploy execution and that `deploy` is a product-owned seam. Ships with every declaration commented out. No promotion command was added — the `/promote` name collision is unresolved and is documented rather than worked around. |
+| 1.1.0 | Environments are now described as **roles** rather than branch names. Removed the assertions that deployment is automatic on push to `develop` / `staging` — neither branch exists, and the framework defines no environment branches. Stated plainly that no deployment machinery ships and none of this section is enforced. |
+| 1.0.0 | Initial policy. |
 
 ---
 

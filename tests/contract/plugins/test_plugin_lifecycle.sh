@@ -25,7 +25,18 @@ assert "plugin.json has version field" "python3 -c 'import json; d=json.load(ope
 
 echo ""
 echo "T1.1.2: Plugin has required components"
-assert "Has hooks/hooks.json" "[ -f plugins/loom-governance/hooks/hooks.json ]"
+# LOOM-0032: the old assertion here was "hooks/hooks.json exists" -- a true statement
+# about a file that does nothing. A per-plugin hooks/hooks.json is never loaded in this
+# repo (LogicLoom's plugins/ tree is not a Claude Code plugin installation), so that
+# check manufactured confidence in wiring that has never fired. What actually carries
+# the governance floor is the ROOT wiring in .claude/settings.json invoking each guard
+# script by path -- so that is what we assert. This also catches the failure the threat
+# model calls out: root wiring left pointing at a missing script, which would make the
+# hook error non-blocking and silently thin the floor.
+for gscript in protect-governance-files.sh subagent-git-guard.sh git-safety-gate.sh; do
+  assert "floor: ${gscript} exists" "[ -f plugins/loom-governance/hooks/scripts/${gscript} ]"
+  assert "floor: ${gscript} wired from root settings.json" "grep -q '${gscript}' .claude/settings.json"
+done
 assert "Has at least 1 skill" "[ \$(find plugins/loom-governance/skills -name 'SKILL.md' | wc -l) -gt 0 ]"
 assert "Has at least 1 agent" "[ \$(ls plugins/loom-governance/agents/*.md 2>/dev/null | wc -l) -gt 0 ]"
 
@@ -83,6 +94,13 @@ echo "Specification agent-to-skill conversion"
 assert "deprecated sdd-specification skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-specification ]"
 assert "deprecated sdd-planning skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-planning ]"
 assert "deprecated sdd-tasks skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-tasks ]"
+# Positive form of the same invariant: the plugin ships exactly ONE skill, and it
+# is unified-specification. Catches reintroduction of ANY phantom skill, not just
+# the three named above (which the [ ! -d ] checks would also pass if the whole
+# plugin were deleted).
+SPEC_SKILL_COUNT=$(find plugins/sdd-specification/skills -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+assert "sdd-specification ships exactly 1 skill (found ${SPEC_SKILL_COUNT})" "[ ${SPEC_SKILL_COUNT} -eq 1 ]"
+assert "that skill is unified-specification" "[ -f plugins/sdd-specification/skills/unified-specification/SKILL.md ]"
 assert "unified-specification skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/unified-specification/SKILL.md"
 assert "specification agents directory removed" "[ ! -d plugins/sdd-specification/agents ]"
 assert "plugin.json has empty agents array" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-specification/.claude-plugin/plugin.json\")); agents=d.get(\"agents\",{}); lst=agents.get(\"list\",agents) if isinstance(agents,dict) else agents; assert lst==[]'"

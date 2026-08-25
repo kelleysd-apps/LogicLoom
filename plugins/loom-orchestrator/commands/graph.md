@@ -59,7 +59,7 @@ dangling `covers:` (path missing), and orphan notes. **Warn-only**, never blocks
 ```
 /graph build                              # regenerate graph-bridge.jsonl
 /graph query "what covers .logic-loom/lib/parallel.sh"
-/graph query "blast radius of .claude/hooks/git-safety-gate.sh"
+/graph query "blast radius of plugins/loom-governance/hooks/scripts/git-safety-gate.sh"
 /graph query "what does .docs/architecture/loom-architecture.md cover"
 /graph query "neighbors of .docs/architecture/governance-threat-model.md"
 /graph viz                                # Obsidian view + Mermaid export

@@ -1,14 +1,18 @@
 # sdd-specification
 
-SDD specification lifecycle plugin providing specification workflow commands.
+SDD specification lifecycle plugin. It ships **one command**, `/specification`,
+backed by **one skill**, `unified-specification`.
 
 ## Commands
 | Command | Purpose |
 |---------|---------|
-| `/specification` | Unified spec → plan → tasks in one workflow |
-| `/specify` | Create feature specification |
-| `/plan` | Generate implementation plan |
-| `/tasks` | Generate task list |
+| `/specification` | Unified specification workflow — spec, plan, and tasks run as three sequential phases |
 
-## Skills: sdd-specification, sdd-planning, sdd-tasks, unified-specification
-## Agents: (none — specification lifecycle powered via skills)
+There is no separate `/specify`, `/plan`, or `/tasks` command. The three were
+merged into `/specification`, and their skills merged into
+`unified-specification`. Any material that tells you to run `/specify`, `/plan`,
+or `/tasks` — or that names an `sdd-specification`, `sdd-planning`, or
+`sdd-tasks` skill — is out of date.
+
+## Skills: unified-specification (the only skill in this plugin)
+## Agents: (none — the specification lifecycle is skill-based)

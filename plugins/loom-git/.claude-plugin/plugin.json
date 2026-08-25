@@ -15,18 +15,15 @@
     "loom-governance"
   ],
   "agents": {
-    "count": 0,
     "list": []
   },
   "skills": {
-    "count": 2,
     "list": [
       "finalize",
       "git-push-workflow"
     ]
   },
   "commands": {
-    "count": 2,
     "list": [
       "finalize",
       "git-push"

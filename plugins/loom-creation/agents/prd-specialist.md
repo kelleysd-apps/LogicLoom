@@ -40,11 +40,11 @@ Phase 0: Product Requirements (prd-specialist) ← YOU ARE HERE
    ↓ Produces: prd.md (vision, goals, requirements, constitutional guidance)
    ↓ Guides: constitution.md customization, agent creation
    ↓
-Phase 1: Specification (sdd-specification skill)
+Phase 1: Specification (unified-specification skill, phase 1)
    ↓ References: PRD for user stories, personas, acceptance criteria
    ↓ Produces: spec.md for each feature
    ↓
-Phase 2: Planning (sdd-planning skill)
+Phase 2: Planning (unified-specification skill, phase 2)
    ↓ References: PRD for technical constraints, architecture principles
    ↓ Produces: plan.md, research.md, contracts/, etc.
    ↓
@@ -205,7 +205,7 @@ Phase 3+: Implementation (domain skills)
 **Activities**:
 - **Domain Analysis**: Identify technical domains (frontend, backend, data, ML, etc.)
 - **Agent Planning**: Determine which custom agents are needed
-- **Workflow Integration**: Define how PRD integrates with `/specify`, `/plan`, `/tasks`
+- **Workflow Integration**: Define how the PRD feeds the `/specification` phases (spec, plan, tasks)
 - **SSOT Mapping**: Document which PRD sections feed into which workflow stages
 - **Handoff Planning**: Define what /specification workflow pulls from PRD
 
@@ -351,7 +351,7 @@ Phase 3+: Implementation (domain skills)
 - Implementation details (HOW to build)
 - Specific technology choices (unless constrained)
 - Code structure or architecture patterns
-- Detailed API designs (that's /plan's job)
+- Detailed API designs (that's the `/specification` plan phase's job)
 - Timeline commitments (only recommendations)
 
 ### Quality Standards
@@ -398,18 +398,18 @@ Phase 3+: Implementation (domain skills)
 
 ## Integration with SDD Workflow
 
-### How /specify Uses This PRD
+### How the Spec Phase Uses This PRD
 
-When `/specify` is run for a feature:
+When `/specification` runs its spec phase for a feature:
 1. Reads PRD personas for user story context
 2. References PRD acceptance criteria patterns
 3. Pulls success metrics for feature validation
 4. Uses PRD constraints to inform requirements
 5. Aligns feature scope with PRD release phases
 
-### How /plan Uses This PRD
+### How the Plan Phase Uses This PRD
 
-When `/plan` is run for a feature:
+When `/specification` runs its plan phase for a feature:
 1. Reads constitutional customizations for compliance
 2. References technical constraints for architecture decisions
 3. Uses integration requirements for dependency planning

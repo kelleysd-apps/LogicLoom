@@ -220,7 +220,7 @@ Before completing:
 ## Related Skills
 
 - **validation/message-preflight**: Detects multi-domain need
-- **sdd-workflow/sdd-planning**: Plans multi-domain features
+- **sdd-specification/unified-specification**: Specs, plans, and task-breaks multi-domain features
 - **orchestration/migration-workflow**: For migrations
 
 ## Constitutional Compliance

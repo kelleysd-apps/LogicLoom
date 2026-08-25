@@ -31,7 +31,7 @@ assert "sync-plugin-commands.sh is executable" "[ -x .logic-loom/scripts/bash/sy
 echo ""
 echo "Running bridge sync..."
 SYNC_OUTPUT=$(.logic-loom/scripts/bash/sync-plugin-commands.sh sync 2>&1) || true
-echo "$SYNC_OUTPUT" | head -20
+sed -n '1,20p' <<< "$SYNC_OUTPUT"
 
 # ── Manifest Tests ──
 echo ""
@@ -40,7 +40,14 @@ assert "Manifest exists" "[ -f .claude/commands/.bridge-manifest.json ]"
 assert "Manifest is valid JSON" "python3 -c 'import json; json.load(open(\".claude/commands/.bridge-manifest.json\"))'"
 assert "Manifest has bridged section" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"bridged\" in d'"
 assert "Manifest has static section" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"static\" in d'"
-assert "Manifest has generated timestamp" "python3 -c 'import json; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); assert \"generated\" in d'"
+# The manifest SHIPS in the public template and is a pure function of
+# .claude/commands/*.md, so it must carry no dated stamp: one would ship a date
+# to customers AND make every sync a spurious diff. (This assertion replaced an
+# earlier "has generated timestamp" check — the stamp was the defect.)
+assert "Manifest carries no dated stamp" \
+  "! grep -qE '\"(generated|date|timestamp|last_updated)\"' .claude/commands/.bridge-manifest.json"
+assert "Manifest regeneration is byte-stable" \
+  "cp .claude/commands/.bridge-manifest.json /tmp/loom-bm-\$\$.json && .logic-loom/scripts/bash/sync-plugin-commands.sh sync >/dev/null 2>&1 && cmp -s /tmp/loom-bm-\$\$.json .claude/commands/.bridge-manifest.json; rc=\$?; rm -f /tmp/loom-bm-\$\$.json; [ \$rc -eq 0 ]"
 assert "Manifest has zero statics" "python3 -c 'import json,sys; d=json.load(open(\".claude/commands/.bridge-manifest.json\")); sys.exit(0 if len(d.get(\"static\",[])) == 0 else 1)'"
 
 # ── Command Coverage Tests ──
@@ -87,15 +94,15 @@ for cmd_file in .claude/commands/*.md; do
   BRIDGE_TOTAL=$((BRIDGE_TOTAL + 1))
   cmd_name=$(basename "$cmd_file" .md)
   
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     # Validate bridge wrapper quality
     has_frontmatter=false
-    if head -1 "$cmd_file" | grep -q "^---$"; then
+    if grep -q "^---$" <<< "$(head -1 "$cmd_file")"; then
       has_frontmatter=true
     fi
     
     has_name=false
-    if head -10 "$cmd_file" | grep -q "^name:"; then
+    if grep -q "^name:" <<< "$(head -10 "$cmd_file")"; then
       has_name=true
     fi
     
@@ -126,7 +133,7 @@ echo "Orphan detection"
 ORPHAN_COUNT=0
 for cmd_file in .claude/commands/*.md; do
   [ -f "$cmd_file" ] || continue
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     cmd_name=$(basename "$cmd_file" .md)
     found=false
     for plugin_dir in plugins/*/; do
@@ -225,9 +232,9 @@ for cmd_file in .claude/commands/*.md; do
   RESOLVE_TOTAL=$((RESOLVE_TOTAL + 1))
 
   # All commands should be bridge commands now
-  if head -10 "$cmd_file" | grep -q "$BRIDGE_MARKER"; then
+  if grep -q -- "$BRIDGE_MARKER" <<< "$(head -10 "$cmd_file")"; then
     # Bridge command - follow to plugin source and check THAT file
-    plugin_source=$(grep "source:" "$cmd_file" | head -1 | sed 's/.*source: //' | sed 's/ .*//')
+    plugin_source=$(grep "source:" "$cmd_file" | sed -n '1p' | sed 's/.*source: //' | sed 's/ .*//')
     plugin_cmd_path="plugins/${plugin_source}/commands/${cmd_name}.md"
 
     if [ -f "$plugin_cmd_path" ]; then
@@ -260,7 +267,7 @@ echo "Governance hook integrity"
 HOOK_FILE=".claude/hooks/user-prompt-submit/governance-preflight.sh"
 assert "Governance hook exists" "[ -f '$HOOK_FILE' ]"
 assert "Governance hook is executable" "[ -x '$HOOK_FILE' ]"
-assert "Hook references constitution v3.2.0" "grep -q 'v3.2.0' '$HOOK_FILE'"
+assert "Hook references constitution v3.3.0" "grep -q 'v3.3.0' '$HOOK_FILE'"
 assert "Hook detects command invocations" "grep -q 'detect_slash_command' '$HOOK_FILE'"
 
 # ═══════════════════════════════════════

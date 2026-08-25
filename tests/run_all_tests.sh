@@ -36,14 +36,14 @@ run_suite() {
   # Parse results from output
   parsed=false
   results_line=$(echo "$output" | grep -E "Results:|pass.*fail" | tail -1)
-  if echo "$results_line" | grep -qE "[0-9]+/[0-9]+"; then
+  if grep -qE "[0-9]+/[0-9]+" <<< "$results_line"; then
     parsed=true
     passed=$(echo "$results_line" | grep -oE "[0-9]+" | head -1)
     total=$(echo "$results_line" | grep -oE "[0-9]+" | head -2 | tail -1)
     failed=$(echo "$results_line" | grep -oE "[0-9]+" | tail -1)
     TOTAL_PASS=$((TOTAL_PASS + passed))
     TOTAL_FAIL=$((TOTAL_FAIL + failed))
-  elif echo "$output" | grep -q "^ℹ pass"; then
+  elif grep -q "^ℹ pass" <<< "$output"; then
     # Node.js test runner format
     parsed=true
     passed=$(echo "$output" | grep "^ℹ pass" | grep -oE "[0-9]+")
@@ -73,7 +73,7 @@ echo "╚═══════════════════════�
 # Contract Tests
 run_suite "Plugin Lifecycle" "bash tests/contract/plugins/test_plugin_lifecycle.sh"
 run_suite "Swarm Lifecycle" "bash tests/contract/plugins/test_swarm_lifecycle.sh"
-run_suite "Constitution v3.2.0" "bash tests/contract/test_constitution.sh"
+run_suite "Constitution v3.3.0" "bash tests/contract/test_constitution.sh"
 run_suite "Governance Hooks" "bash tests/contract/test_governance_hooks.sh"
 run_suite "Policy Matching" "bash tests/contract/test_policy_matching.sh"
 run_suite "Deprecation Compliance" "bash tests/contract/test_deprecation.sh"
@@ -85,6 +85,26 @@ run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.s
 run_suite "Product Workspace Boundary" "bash tests/contract/test_product_workspace_boundary.sh"
 run_suite "Model Agnosticism" "bash tests/contract/test_model_agnostic.sh"
 run_suite "Graph Bridge" "bash tests/contract/test_graph_bridge.sh"
+run_suite "Governance Verdicts" "bash tests/contract/test_governance_verdicts.sh"
+run_suite "Gate Policy" "bash tests/contract/test_gate_policy.sh"
+run_suite "Environment Scaffolding" "bash tests/contract/test_environment_scaffolding.sh"
+run_suite "Dev Branch Base Guard" "bash tests/contract/test_dev_branch_base_guard.sh"
+run_suite "Freeze Scope" "bash tests/contract/test_freeze_scope.sh"
+run_suite "Git Adapter" "bash tests/contract/test_git_adapter.sh"
+run_suite "Disposition Tandem" "bash tests/contract/test_disposition_tandem.sh"
+run_suite "Suite Registration" "bash tests/contract/test_suite_registration.sh"
+run_suite "Generated Artifacts Declared" "bash tests/contract/test_generated_artifacts_declared.sh"
+run_suite "Scrub Rules Match" "bash tests/contract/test_scrub_rules_match.sh"
+run_suite "gh Telemetry Notice" "bash tests/contract/test_gh_telemetry_notice.sh"
+run_suite "Environment Declaration" "bash tests/contract/test_environment_declaration.sh"
+run_suite "Plugin Manifest Schema" "bash tests/contract/test_plugin_manifest_schema.sh"
+run_suite "Project Identity" "bash tests/contract/test_project_identity.sh"
+run_suite "Backlog Index" "bash tests/contract/test_backlog_index.sh"
+run_suite "Backlog Dashboard" "bash tests/contract/test_backlog_dashboard.sh"
+run_suite "Promotion Lifecycle" "bash tests/contract/test_promotion_lifecycle.sh"
+run_suite "Shipped Gates vs Strip" "bash tests/contract/test_shipped_gates_vs_strip.sh"
+run_suite "Sanitization Audit" "bash tests/contract/test_sanitization_audit.sh"
+run_suite "bash 3.2 Floor" "bash tests/contract/test_bash32_floor.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

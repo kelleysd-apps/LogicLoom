@@ -36,6 +36,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
 fi
 cd "$ROOT"
 
+# Operations-log isolation: the scripts this suite drives source common.sh /
+# logging.sh, which otherwise append to the shared
+# .logic-loom/logs/operations/ file. LOOM_LOG_DIR redirects that (same idiom as
+# LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh), exported so
+# subprocesses inherit it.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+trap 'rm -rf "$LOOM_LOG_DIR"' EXIT
+
 # Tier keywords that a `model:` field is allowed to hold.
 TIER_RE='^(opus|sonnet|haiku|inherit)$'
 # A concrete pinned Claude id (what we forbid in frontmatter / scaffolder default).
@@ -79,7 +88,7 @@ while IFS= read -r -d '' f; do
   val="$(frontmatter_model "$f" || true)"
   [ -z "$val" ] && continue                 # no model: field → nothing to check
   SCANNED=$((SCANNED + 1))
-  if printf '%s' "$val" | grep -qiE "$TIER_RE"; then
+  if grep -qiE "$TIER_RE" <<< "$val"; then
     :                                        # a valid tier keyword
   else
     BAD_FRONTMATTER="${BAD_FRONTMATTER}${f} => model: ${val}"$'\n'

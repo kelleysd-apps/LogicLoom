@@ -42,9 +42,7 @@ orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 ### Workflow & Orchestration (skills/agents)
 
 - `subagent-architect` agent (loom-creation plugin) - Creating new SDD-compliant agents
-- `unified-specification` skill (sdd-specification plugin) - Feature specs, requirements, user stories
-- `planning-agent` skill (sdd-specification plugin) - Implementation planning, technical research, contract design
-- `task-generation` skill (sdd-specification plugin) - Task breakdown, dependency tracking
+- `unified-specification` skill (sdd-specification plugin) - Feature specs, requirements and user stories (phase 1); implementation planning, technical research and contract design (phase 2); task breakdown and dependency tracking (phase 3)
 - `team-orchestration` skill (loom-orchestrator plugin) / `/swarm` - Multi-domain workflow coordination
 
 ---
@@ -240,7 +238,7 @@ orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 
 **Primary Keywords** (MUST delegate):
 - Implementation plan, technical plan, architecture plan, planning phase
-- /plan command, Phase 0, Phase 1, Phase 2
+- Planning phase of /specification, Phase 0, Phase 1, Phase 2
 - Technical research, library evaluation, framework selection
 - Technology stack, tech stack selection
 - API design, contract design, schema design, OpenAPI, GraphQL
@@ -252,7 +250,7 @@ orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 
 **Example Phrases**:
 - "Create implementation plan for feature"
-- "Execute the /plan command"
+- "Run the planning phase of /specification"
 - "Research technology stack options"
 - "Design API contracts and data models"
 - "Evaluate libraries for this feature"
@@ -260,11 +258,11 @@ orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 
 **Workflow Context**:
 - Phase 2 of SDD workflow (between specification and tasks)
-- Receives: spec.md from sdd-specification skill
+- Receives: spec.md from the specification phase of the same skill
 - Produces: plan.md, research.md, data-model.md, contracts/, quickstart.md
-- Hands off to: task-generation skill for task generation
+- Hands off to: the tasks phase of the same skill for task generation
 
-**Delegate To**: `planning-agent` skill (sdd-specification plugin)
+**Delegate To**: `unified-specification` skill, planning phase (sdd-specification plugin)
 
 ---
 
@@ -272,7 +270,7 @@ orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 
 **Primary Keywords** (MUST delegate):
 - Task, todo, checklist, action items
-- /tasks command, task generation, task list
+- Tasks phase of /specification, task generation, task list
 - Dependency, prerequisite, blocker
 - Parallel, concurrent, sequential
 - Priority, critical, high, medium, low
@@ -282,18 +280,18 @@ orchestration resolve to skills/agents. Domains are *briefs, not plugins*.
 
 **Example Phrases**:
 - "Break down feature into tasks"
-- "Execute the /tasks command"
+- "Run the tasks phase of /specification"
 - "Create task list with dependencies"
 - "Generate implementation checklist"
 - "Prioritize tasks by importance"
 
 **Workflow Context**:
 - Phase 3 of SDD workflow (after planning, before implementation)
-- Receives: plan.md + artifacts from planning-agent skill
+- Receives: plan.md + artifacts from the planning phase of the same skill
 - Produces: tasks.md with dependency-ordered task list
 - Hands off to: Domain-specific skills for task execution
 
-**Delegate To**: `task-generation` skill (sdd-specification plugin)
+**Delegate To**: `unified-specification` skill, tasks phase (sdd-specification plugin)
 
 ---
 
@@ -566,9 +564,7 @@ Checks for:
 | Security | `get_domain_brief security` | security, XSS, encryption, vulnerability |
 | Performance | `get_domain_brief performance` | optimization, caching, benchmark, speed |
 | DevOps | `get_domain_brief devops` | deploy, CI/CD, Docker, infrastructure |
-| Specs | unified-specification (sdd-specification) | spec, requirements, user story |
-| Planning | planning-agent (sdd-specification) | implementation plan, research, contracts |
-| Tasks | task-generation (sdd-specification) | task list, breakdown, dependency |
+| Specs / Planning / Tasks | unified-specification (sdd-specification) | spec, requirements, user story; implementation plan, research, contracts; task list, breakdown, dependency |
 | Multi-Domain | team-orchestration (loom-orchestrator) / `/swarm` | 2+ domains, complex feature |
 | Agent Creation | subagent-architect | create agent, new agent |
 

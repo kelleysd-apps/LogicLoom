@@ -1,5 +1,10 @@
 # Workflows Context Module
 <!-- Auto-generated from CLAUDE.md -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from CLAUDE.md), not a
+     live pipeline. Edit it directly and keep it in step with CLAUDE.md by hand.
+     Every command, skill and path named here must resolve on disk. -->
 <!-- Module: workflow commands, feature development lifecycle, architecture -->
 
 ## Workflow Packs (Interchangeable)
@@ -12,9 +17,10 @@ on top of it as **interchangeable packs** — none is primary or legacy:
 | **Vision / Swarm** (`features/<name>/`) | Exploratory or novel work; unclear scope |
 | **SDD waterfall** (`specs/###-name/`) | Well-understood feature with stable requirements |
 
-This module documents the **SDD waterfall pack** (spec → plan → tasks → finalize).
-All packs share the same built-in quality gates, constitutional compliance, and
-multi-agent coordination.
+This module documents the **SDD waterfall pack**. Its three phases — spec, plan,
+tasks — are driven by the single `/specification` command; `/finalize` closes the
+loop. All packs share the same built-in quality gates, constitutional compliance,
+and multi-agent coordination.
 
 ---
 
@@ -44,11 +50,12 @@ multi-agent coordination.
 - Custom agent planning
 - Quick reference guide
 
-**File Created**: `.docs/prd/prd.md`
+**File Created**: `specs/prd/PRD.md` (or a feature-specific location, e.g. `features/<name>/prd.md`)
 
 **Workflow Integration**:
-- `/specify` → References PRD for user stories, personas, acceptance criteria
-- `/plan` → References PRD for technical constraints, architecture principles
+- `/specification` → References the PRD for user stories, personas and acceptance
+  criteria in Phase 1, and for technical constraints and architecture principles
+  in Phase 2
 - Constitution → Updated with project-specific guidance from PRD
 - Custom agents → Created based on needs identified in PRD
 
@@ -60,127 +67,64 @@ multi-agent coordination.
 
 ---
 
-## Phase 1: Feature Specification
+## Phases 1-3: Specification, Planning & Tasks
 
-### /specify Command
+### /specification Command
 
-**Purpose**: Create detailed feature specification with user stories and acceptance criteria
+**Purpose**: Produce the full SDD artifact set — specification, implementation
+plan and dependency-ordered tasks — in one governed run.
 
-**Skill**: Executed by `sdd-specification` skill (auto-delegated per Principle X)
+**Skill**: Executed by the `unified-specification` skill (auto-delegated per Principle X)
 
-**Script**: `.logic-loom/scripts/bash/create-new-feature.sh --json "$ARGUMENTS"`
+**Command**: `plugins/sdd-specification/commands/specification.md`
+
+**Supporting scripts**: `.logic-loom/scripts/bash/create-new-feature.sh`,
+`.logic-loom/scripts/bash/setup-plan.sh`,
+`.logic-loom/scripts/bash/check-task-prerequisites.sh`
 
 **When to Use**:
-- Starting new feature development
-- Need to document requirements before implementation
-- Establish acceptance criteria for feature
+- Requirements are well understood and stable
+- A feature needs spec, contracts, data model and tasks as one coherent set
+- (For exploratory or novel work, use the swarm pack instead: `/swarm explore` →
+  `/create-prd` → plan mode → `/plan-review` → `/swarm implement`)
 
 **User Approval Required**:
-- **REQUIRES USER APPROVAL** for new feature branch creation
-- Will ask if you want a new feature branch created
-- If approved, will ask for desired branch format/name
-- Default format when approved: `###-feature-name`
+- **REQUIRES USER APPROVAL** for new feature branch creation (Principle VI)
+- Default branch format when approved: `###-feature-name`
 
-**Outputs**:
-- spec.md at `specs/###-feature-name/spec.md`
-- User stories with acceptance criteria
-- Functional and non-functional requirements
-- Constraints and dependencies
-- Success metrics
+**Phase 1 — Specification**
+1. Gather feature context and objectives
+2. Define user stories, scenarios and acceptance criteria
+3. Document functional and non-functional requirements, constraints, dependencies
+4. Output: `spec.md` — validated by `.logic-loom/scripts/bash/validate-spec.sh`
+   (quality gate: ≥ 90% completeness)
 
-**Skill Reference**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
+**Phase 2 — Planning**
+1. **Research**: technology stack selection, library evaluation, resolve unknowns
+2. **Constitution Check Gate**: validate research completeness
+3. **Design**: API contracts (OpenAPI/GraphQL), data entity modeling, test scenarios
+4. **Constitution Check Gate**: validate design quality and spec alignment
+5. Outputs: `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
+   — validated by `.logic-loom/scripts/bash/validate-plan.sh`
+   (quality gate: ≥ 85% plan quality)
 
-**Usage**:
-```bash
-/specify
-# Interactive prompts for feature details
-```
-
----
-
-## Phase 2: Implementation Planning
-
-### /plan Command
-
-**Purpose**: Generate implementation plan with technical research, API contracts, and data models
-
-**Skill**: Executed by `sdd-planning` skill (auto-delegated per Principle X)
-
-**Script**: `.logic-loom/scripts/bash/setup-plan.sh --json`
-
-**When to Use**:
-- After feature spec is complete
-- Need technical research and design decisions
-- Design API contracts and data models before coding
-
-**Workflow Steps**:
-1. **Phase 0 - Research**: Technology stack selection, library evaluation, best practices research, resolve technical unknowns
-2. **Constitution Check Gate**: Validate research completeness
-3. **Phase 1 - Design**: API contracts (OpenAPI/GraphQL), data entity modeling, test scenario planning
-4. **Constitution Check Gate**: Validate design quality and spec alignment
-5. **Readiness Validation**: Ensure ready for task generation
-
-**Outputs**:
-- `plan.md` - Implementation approach and architecture decisions
-- `research.md` - Technical decisions, library choices, pattern recommendations
-- `data-model.md` - Entity definitions with fields, relationships, validation rules
-- `contracts/` - API contract schemas (OpenAPI/GraphQL)
-- `quickstart.md` - Test scenarios and integration test plan
-
-**Constitutional Validation**:
-- Enforces Library-First, Test-First, Contract-First principles
-- Pre-research and post-design compliance checks
-- Complexity tracking and justification documentation
-
-**Skill Reference**: `plugins/sdd-specification/skills/sdd-planning/SKILL.md`
-
-**Usage**:
-```bash
-/plan
-# Reads spec.md and generates planning artifacts
-```
-
----
-
-## Phase 3: Task Generation
-
-### /tasks Command
-
-**Purpose**: Create dependency-ordered task list from design artifacts
-
-**Skill**: Executed by `sdd-tasks` skill (auto-delegated per Principle X)
-
-**Script**: `.logic-loom/scripts/bash/check-task-prerequisites.sh --json`
-
-**When to Use**:
-- After implementation plan is complete
-- Need task breakdown with dependencies
-- Ready to start implementation
-
-**Prerequisites**:
-- spec.md exists
-- plan.md exists
-- contracts/ directory exists (if feature has API endpoints)
-- data-model.md exists (if feature has data entities)
-
-**Workflow Steps**:
+**Phase 3 — Tasks**
 1. Verify plan artifacts exist
-2. Extract tasks from plan and contracts
-3. Identify dependencies between tasks
-4. Mark parallel-executable tasks with [P]
-5. Order tasks by dependencies
-6. Generate tasks.md
+2. Extract tasks from plan and contracts, identify dependencies
+3. Mark parallel-executable tasks with `[P]`, order by dependency
+4. Output: `tasks.md` — validated by `.logic-loom/scripts/bash/validate-tasks.sh`
 
-**Output**: `tasks.md` with dependency-ordered task list
+**Constitutional Validation**: enforces Library-First, Test-First and
+Contract-First; pre-research and post-design compliance checks; complexity
+tracking and justification.
 
-**Parallel Execution Markers**: Tasks marked with [P] can be executed in parallel (no dependencies)
-
-**Skill Reference**: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
+**Skill Reference**: `plugins/sdd-specification/skills/unified-specification/SKILL.md`
 
 **Usage**:
 ```bash
-/tasks
-# Generates task list from plan artifacts
+/specification "Build user authentication with email and password"
+/specification --resume        # Resume an interrupted workflow
+/specification --phase plan    # Start from a specific phase
 ```
 
 ---
@@ -219,7 +163,11 @@ multi-agent coordination.
 
 **Purpose**: Pre-commit constitutional compliance validation
 
-**Script**: `.logic-loom/scripts/bash/finalize-feature.sh --json`
+**Command**: `plugins/loom-git/commands/finalize.md`
+
+**Scripts run**: `.logic-loom/scripts/bash/constitutional-check.sh`,
+`tests/run_all_tests.sh`, and — when present and executable —
+`.logic-loom/scripts/bash/build-graph-bridge.sh` + `.logic-loom/scripts/bash/lint-graph.sh`
 
 **CRITICAL**: NEVER performs git operations autonomously (Principle VI)
 
@@ -248,7 +196,9 @@ git push origin <branch>
 **Usage Pattern**:
 ```bash
 # After implementation complete
-./.logic-loom/scripts/bash/finalize-feature.sh
+/finalize
+# (or run the compliance validator directly)
+./.logic-loom/scripts/bash/constitutional-check.sh
 
 # If all checks pass, manually execute suggested git commands
 git add <files>
@@ -270,54 +220,39 @@ Phase 0: Project Initialization
 │ - Product vision & goals         │
 │ - User personas & journeys       │
 │ - Constitutional customizations  │
-│ Output: .docs/prd/prd.md         │
+│ Output: specs/prd/PRD.md         │
 └──────────────────────────────────┘
    ↓
-Phase 1: Feature Specification
+Phases 1-3: Spec, Plan, Tasks
    ↓
 ┌──────────────────────────────────┐
-│ /specify                         │ ← sdd-specification skill
+│ /specification                   │ ← unified-specification skill
+│ Phase 1: Specification           │
 │ - User stories                   │
 │ - Acceptance criteria            │
-│ - Constraints                    │
-│ Output: specs/###/spec.md        │
-└──────────────────────────────────┘
-   ↓
-Phase 2: Implementation Planning
-   ↓
-┌──────────────────────────────────┐
-│ /plan                            │ ← sdd-planning skill
-│ Phase 0: Technical Research      │
-│ - Library evaluation             │
-│ - Best practices                 │
-│ Constitution Check Gate ✓        │
-│ Phase 1: Design                  │
+│ Quality Gate: spec ≥ 90% ✓       │
+│ Phase 2: Planning                │
+│ - Technical research             │
 │ - API contracts                  │
 │ - Data models                    │
-│ - Test scenarios                 │
-│ Constitution Check Gate ✓        │
-│ Output: plan.md, research.md,    │
-│         data-model.md, contracts/│
-└──────────────────────────────────┘
-   ↓
-Phase 3: Task Generation
-   ↓
-┌──────────────────────────────────┐
-│ /tasks                           │ ← sdd-tasks skill
-│ - Task breakdown                 │
+│ Quality Gate: plan ≥ 85% ✓       │
+│ Phase 3: Tasks                   │
 │ - Dependency analysis            │
 │ - Parallel markers [P]           │
-│ Output: specs/###/tasks.md       │
+│ Output: specs/<feature>/          │
+│   spec.md, plan.md, research.md, │
+│   data-model.md, contracts/,     │
+│   quickstart.md, tasks.md        │
 └──────────────────────────────────┘
    ↓
 Phase 4: Implementation
    ↓
 ┌──────────────────────────────────┐
-│ Execute Tasks                    │ ← Domain skills
-│ - TDD: Tests first               │   (frontend-operations,
-│ - Implement features             │    api-design,
-│ - Integration tests              │    schema-design,
-│ - Documentation                  │    testing-operations, etc.)
+│ Execute Tasks                    │ ← Domain briefs, loaded via
+│ - TDD: Tests first               │   get_domain_brief <domain>
+│ - Implement features             │   (frontend, backend, database,
+│ - Integration tests              │    testing, security,
+│ - Documentation                  │    performance, devops)
 └──────────────────────────────────┘
    ↓
 Phase 5: Finalization & Commit
@@ -395,7 +330,7 @@ Manual Git Operations (User Approval Required)
 ```
 .logic-loom/
 ├── memory/
-│   ├── constitution.md                    # Core principles (v3.2.0 - 16 principles)
+│   ├── constitution.md                    # Core principles (v3.3.0 - 16 principles)
 │   ├── constitution_update_checklist.md   # Mandatory change management
 │   └── agent-collaboration-triggers.md    # Agent delegation reference
 ├── scripts/bash/                          # Workflow automation scripts
@@ -404,7 +339,10 @@ Manual Git Operations (User Approval Required)
 │   ├── create-new-feature.sh              # Feature initialization
 │   ├── setup-plan.sh                      # Planning workflow
 │   ├── check-task-prerequisites.sh        # Task generation validator
-│   └── finalize-feature.sh                # Pre-commit compliance validation
+│   ├── validate-spec.sh                   # Phase 1 quality gate
+│   ├── validate-plan.sh                   # Phase 2 quality gate
+│   ├── validate-tasks.sh                  # Phase 3 quality gate
+│   └── load-context.sh                    # Modular context loading
 ├── templates/                             # Document templates
 │   ├── spec-template.md                   # Feature specification
 │   ├── plan-template.md                   # Implementation plan (9-step)
@@ -434,7 +372,7 @@ specs/###-feature-name/                     # Per-feature documentation
 - **create-new-feature.sh**: Initialize feature branch and spec
 - **setup-plan.sh**: Prepare implementation planning
 - **check-task-prerequisites.sh**: Verify design artifacts exist before task generation
-- **finalize-feature.sh**: Pre-commit compliance validation (no auto-git)
+- **constitutional-check.sh**: Pre-commit compliance validation, all 16 principles (no auto-git; invoked by `/finalize`)
 - **update-agent-context.sh**: Update AI assistant context files
 
 ### Validation Scripts
@@ -457,7 +395,7 @@ Load workflow context when needed:
 ./.logic-loom/scripts/bash/load-context.sh load workflows
 
 # Load based on request analysis
-./.logic-loom/scripts/bash/load-context.sh analyze "/plan the authentication feature"
+./.logic-loom/scripts/bash/load-context.sh analyze "/specification the authentication feature"
 ```
 
 ---
@@ -467,7 +405,7 @@ Load workflow context when needed:
 **Source Documents**:
 - CLAUDE.md "Commands" and "Key Architecture" sections
 - `.logic-loom/scripts/bash/` workflow scripts
-- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `.logic-loom/memory/constitution.md` (v3.3.0)
 - `plugins/*/skills/` skill definitions
 
 ## Unified Specification Workflow

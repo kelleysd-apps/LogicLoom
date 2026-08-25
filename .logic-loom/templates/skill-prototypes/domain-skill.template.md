@@ -194,7 +194,7 @@ Verifier Validation
 ## Related Skills
 
 - **Multi-domain**: orchestration/multi-skill-workflow
-- **SDD Integration**: sdd-workflow/sdd-{{RELATED_PHASE}}
+- **SDD Integration**: sdd-workflow/unified-specification (`--phase {{RELATED_PHASE}}`)
 - **Quality**: validation/message-preflight
 
 ---
