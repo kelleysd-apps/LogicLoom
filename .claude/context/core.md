@@ -1,5 +1,10 @@
 # Core Context Module
 <!-- Auto-generated from CLAUDE.md -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from CLAUDE.md), not a
+     live pipeline. Edit it directly and keep it in step with CLAUDE.md by hand.
+     Every command, skill and path named here must resolve on disk. -->
 <!-- Module: Essential instructions, constitutional principles, project overview -->
 
 ## Governance Is Hook-Enforced (No Recited Ceremony)
@@ -45,7 +50,7 @@ distribution machinery.
 
 **The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v3.2.0) contains **16 enforceable principles**:
+The constitution (v3.3.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **7 Workflow & Delegation Principles** (X-XVI): Delegation & Context Isolation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
@@ -118,7 +123,7 @@ Or analyze request automatically:
 **Module Version**: 2.0.0
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `.logic-loom/memory/constitution.md` (v3.3.0)
 - CLAUDE.md core sections
 - `.logic-loom/config/governance.conf` (LOOM_GOVERNANCE_MODE)
 - `.claude/hooks/` (preflight + dangerous-command guard)

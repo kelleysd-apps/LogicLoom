@@ -8,6 +8,11 @@
             "type": "command",
             "command": "bash .claude/hooks/worktree-port-namespace.sh",
             "timeout": 3000
+          },
+          {
+            "type": "command",
+            "command": "bash .logic-loom/scripts/bash/check-dev-branch-base.sh --event SessionStart",
+            "timeout": 5000
           }
         ]
       }
@@ -25,6 +30,11 @@
             "type": "command",
             "command": "bash .claude/hooks/context-cap-warn.sh",
             "timeout": 2000
+          },
+          {
+            "type": "command",
+            "command": "bash .logic-loom/scripts/bash/check-dev-branch-base.sh --event UserPromptSubmit",
+            "timeout": 5000
           }
         ]
       }

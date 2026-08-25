@@ -162,9 +162,60 @@ EVENT_TYPES=()
 DECISION_TYPES=()
 LAYERS=()
 
-declare -A EVENT_TYPE_COUNT
-declare -A DECISION_TYPE_COUNT
-declare -A LAYER_COUNT
+# Per-key counters.
+#
+# bash 3.2 (stock macOS `/bin/bash`) has no associative arrays and this repo
+# declares 3.2 the floor for `.logic-loom/scripts/` — see
+# `.docs/policies/shell-idiom-policy.md`. Keys here are DYNAMIC (they come out
+# of the audit JSON), so a `case` won't do: each counter is two parallel
+# indexed arrays with a linear upsert. Keys land in FIRST-SEEN order, where
+# `${!EVENT_TYPE_COUNT[@]}` used bash's hash order.
+#
+# Deliberately three near-identical functions rather than one `eval`-driven
+# helper: the keys are untrusted log content, and `eval` on them is exactly the
+# indirection a shell should not be doing.
+EVENT_TYPE_KEYS=();    EVENT_TYPE_VALS=()
+DECISION_TYPE_KEYS=(); DECISION_TYPE_VALS=()
+LAYER_KEYS=();         LAYER_VALS=()
+
+bump_event_type() {
+    local key="$1" i=0 n=${#EVENT_TYPE_KEYS[@]}
+    while [ "$i" -lt "$n" ]; do
+        if [ "${EVENT_TYPE_KEYS[$i]}" = "$key" ]; then
+            EVENT_TYPE_VALS[$i]=$(( ${EVENT_TYPE_VALS[$i]} + 1 ))
+            return 0
+        fi
+        i=$((i + 1))
+    done
+    EVENT_TYPE_KEYS[$n]="$key"
+    EVENT_TYPE_VALS[$n]=1
+}
+
+bump_decision_type() {
+    local key="$1" i=0 n=${#DECISION_TYPE_KEYS[@]}
+    while [ "$i" -lt "$n" ]; do
+        if [ "${DECISION_TYPE_KEYS[$i]}" = "$key" ]; then
+            DECISION_TYPE_VALS[$i]=$(( ${DECISION_TYPE_VALS[$i]} + 1 ))
+            return 0
+        fi
+        i=$((i + 1))
+    done
+    DECISION_TYPE_KEYS[$n]="$key"
+    DECISION_TYPE_VALS[$n]=1
+}
+
+bump_layer() {
+    local key="$1" i=0 n=${#LAYER_KEYS[@]}
+    while [ "$i" -lt "$n" ]; do
+        if [ "${LAYER_KEYS[$i]}" = "$key" ]; then
+            LAYER_VALS[$i]=$(( ${LAYER_VALS[$i]} + 1 ))
+            return 0
+        fi
+        i=$((i + 1))
+    done
+    LAYER_KEYS[$n]="$key"
+    LAYER_VALS[$n]=1
+}
 
 # Process each session file
 for session_file in $SESSION_FILES; do
@@ -182,16 +233,18 @@ for session_file in $SESSION_FILES; do
         LAYER=$(grep -o '"layer"[[:space:]]*:[[:space:]]*"[^"]*"' "$session_file" 2>/dev/null | sed 's/.*"\([^"]*\)".*/\1/' || echo "unknown")
     fi
 
-    ((TOTAL_EVENTS++))
+    # NOT `((TOTAL_EVENTS++))`: post-increment evaluates to the OLD value, so
+    # the very first event returns 0 -> status 1 -> `set -e` kills the script.
+    TOTAL_EVENTS=$((TOTAL_EVENTS + 1))
 
     # Count by event type
-    EVENT_TYPE_COUNT[$EVENT_TYPE]=$((${EVENT_TYPE_COUNT[$EVENT_TYPE]:-0} + 1))
+    bump_event_type "$EVENT_TYPE"
 
     # Count by decision type
-    DECISION_TYPE_COUNT[$DECISION_TYPE]=$((${DECISION_TYPE_COUNT[$DECISION_TYPE]:-0} + 1))
+    bump_decision_type "$DECISION_TYPE"
 
     # Count by layer
-    LAYER_COUNT[$LAYER]=$((${LAYER_COUNT[$LAYER]:-0} + 1))
+    bump_layer "$LAYER"
 done
 
 # ============================================
@@ -211,10 +264,13 @@ if [ "$OUTPUT_FORMAT" = "markdown" ]; then
     echo ""
     echo "| Event Type | Count | Percentage |"
     echo "|------------|-------|------------|"
-    for event_type in "${!EVENT_TYPE_COUNT[@]}"; do
-        count=${EVENT_TYPE_COUNT[$event_type]}
+    _i=0
+    while [ "$_i" -lt "${#EVENT_TYPE_KEYS[@]}" ]; do
+        event_type="${EVENT_TYPE_KEYS[$_i]}"
+        count=${EVENT_TYPE_VALS[$_i]}
         percentage=$((count * 100 / TOTAL_EVENTS))
         echo "| $event_type | $count | $percentage% |"
+        _i=$((_i + 1))
     done
     echo ""
 
@@ -222,10 +278,13 @@ if [ "$OUTPUT_FORMAT" = "markdown" ]; then
     echo ""
     echo "| Decision Type | Count | Percentage |"
     echo "|---------------|-------|------------|"
-    for decision_type in "${!DECISION_TYPE_COUNT[@]}"; do
-        count=${DECISION_TYPE_COUNT[$decision_type]}
+    _i=0
+    while [ "$_i" -lt "${#DECISION_TYPE_KEYS[@]}" ]; do
+        decision_type="${DECISION_TYPE_KEYS[$_i]}"
+        count=${DECISION_TYPE_VALS[$_i]}
         percentage=$((count * 100 / TOTAL_EVENTS))
         echo "| $decision_type | $count | $percentage% |"
+        _i=$((_i + 1))
     done
     echo ""
 
@@ -233,10 +292,13 @@ if [ "$OUTPUT_FORMAT" = "markdown" ]; then
     echo ""
     echo "| Layer | Count | Percentage |"
     echo "|-------|-------|------------|"
-    for layer in "${!LAYER_COUNT[@]}"; do
-        count=${LAYER_COUNT[$layer]}
+    _i=0
+    while [ "$_i" -lt "${#LAYER_KEYS[@]}" ]; do
+        layer="${LAYER_KEYS[$_i]}"
+        count=${LAYER_VALS[$_i]}
         percentage=$((count * 100 / TOTAL_EVENTS))
         echo "| $layer | $count | $percentage% |"
+        _i=$((_i + 1))
     done
     echo ""
 
@@ -252,26 +314,35 @@ else
     echo ""
 
     echo -e "${BLUE}Event Type Distribution:${NC}"
-    for event_type in "${!EVENT_TYPE_COUNT[@]}"; do
-        count=${EVENT_TYPE_COUNT[$event_type]}
+    _i=0
+    while [ "$_i" -lt "${#EVENT_TYPE_KEYS[@]}" ]; do
+        event_type="${EVENT_TYPE_KEYS[$_i]}"
+        count=${EVENT_TYPE_VALS[$_i]}
         percentage=$((count * 100 / TOTAL_EVENTS))
         printf "  %-30s %5d (%3d%%)\n" "$event_type" "$count" "$percentage"
+        _i=$((_i + 1))
     done
     echo ""
 
     echo -e "${BLUE}Decision Type Distribution:${NC}"
-    for decision_type in "${!DECISION_TYPE_COUNT[@]}"; do
-        count=${DECISION_TYPE_COUNT[$decision_type]}
+    _i=0
+    while [ "$_i" -lt "${#DECISION_TYPE_KEYS[@]}" ]; do
+        decision_type="${DECISION_TYPE_KEYS[$_i]}"
+        count=${DECISION_TYPE_VALS[$_i]}
         percentage=$((count * 100 / TOTAL_EVENTS))
         printf "  %-30s %5d (%3d%%)\n" "$decision_type" "$count" "$percentage"
+        _i=$((_i + 1))
     done
     echo ""
 
     echo -e "${BLUE}Layer Distribution:${NC}"
-    for layer in "${!LAYER_COUNT[@]}"; do
-        count=${LAYER_COUNT[$layer]}
+    _i=0
+    while [ "$_i" -lt "${#LAYER_KEYS[@]}" ]; do
+        layer="${LAYER_KEYS[$_i]}"
+        count=${LAYER_VALS[$_i]}
         percentage=$((count * 100 / TOTAL_EVENTS))
         printf "  %-30s %5d (%3d%%)\n" "$layer" "$count" "$percentage"
+        _i=$((_i + 1))
     done
     echo ""
 

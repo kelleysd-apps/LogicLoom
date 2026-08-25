@@ -399,7 +399,10 @@ case "${1:-}" in
                 if [ "$SYNC_REF" = "$UP_HEAD" ]; then
                     echo "Status: UP TO DATE"
                 else
-                    CHANGE_COUNT=$(git -C "$REPO_ROOT" diff --name-only "$SYNC_REF..$LOOM_UPSTREAM_REF" 2>/dev/null | grep -vc '^\.sdd-sync-ref$' || echo 0)
+                    # `grep -vc` prints "0" and exits 1 when nothing survives the
+                    # inversion, so `|| echo 0` appended a second line ("0\n0").
+                    # See .docs/policies/shell-idiom-policy.md §1.
+                    CHANGE_COUNT=$(git -C "$REPO_ROOT" diff --name-only "$SYNC_REF..$LOOM_UPSTREAM_REF" 2>/dev/null | grep -vc '^\.sdd-sync-ref$' || true); CHANGE_COUNT=${CHANGE_COUNT:-0}
                     echo "Status: $CHANGE_COUNT files changed upstream since last sync"
                     TAGS_IN_RANGE=$(list_tags_in_range "$SYNC_REF" "$LOOM_UPSTREAM_REF")
                     if [ -n "$TAGS_IN_RANGE" ]; then

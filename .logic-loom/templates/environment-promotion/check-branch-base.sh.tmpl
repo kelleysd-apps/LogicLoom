@@ -1,0 +1,119 @@
+#!/usr/bin/env bash
+# LOOM-SCAFFOLD-MARKER: environment-promotion
+#
+# check-branch-base.sh — guards the DEFAULT-BRANCH TRAP for THIS repository's
+# topology (.docs/policies/environment-promotion-policy.md § 2).
+#
+# THE TRAP. Tooling that creates a branch or worktree "off the default branch"
+# resolves that by reading a pointer equivalent to `origin/HEAD`. That pointer
+# is written ONCE, at clone time, and goes stale silently if the repository's
+# default branch changes later. Nothing errors. The wrong base is checked out,
+# and every downstream artifact — a diff, a review, a test run — is quietly
+# about the wrong tree. VERIFIED: this has cost real work in a real repository.
+#
+# THE FIX IS TOPOLOGY-DEPENDENT, WHICH IS THE WHOLE POINT. "Point tooling at the
+# default branch" is advice with a precondition, not a law. This script was
+# generated for the arrangement detected at scaffold time and states which one
+# it assumes, so that a later change to your topology makes it WRONG LOUDLY
+# rather than silently.
+#
+#   scaffold-time integration branch : __INTEGRATION_BRANCH__
+#   scaffold-time default branch     : __DEFAULT_BRANCH__
+#   mode                             : __TRAP_MODE__
+#
+# THIS SCRIPT IS YOURS. It is product-owned, the harness never invokes it, and
+# /update-framework will not touch it. Wire it into whatever creates your
+# branches and worktrees, or run it by hand before you cut one.
+#
+# It runs READ-ONLY git only (`rev-parse`, `symbolic-ref --short`,
+# `merge-base --is-ancestor`). It creates nothing, checks out nothing, and
+# rewrites no ref. The one remedy it suggests that DOES mutate a ref
+# (`git remote set-head`) is printed for you to run, never run for you.
+#
+# Usage: check-branch-base.sh [BASE_REF]
+#   BASE_REF   the base you are about to branch from. Default: HEAD.
+# Exit: 0 = the base is the integration branch
+#       1 = it is not, or the check could not evaluate itself (fail closed)
+
+set -uo pipefail
+
+INTEGRATION='__INTEGRATION_BRANCH__'
+MODE='__TRAP_MODE__'
+BASE_REF="${1:-HEAD}"
+
+fail() { printf 'check-branch-base: FAIL — %s\n' "$1" >&2; }
+
+command -v git >/dev/null 2>&1 || {
+  fail "git is not on PATH, so the base cannot be verified."
+  echo "  This check fails closed: it will not report a base it could not read." >&2
+  exit 1
+}
+
+# Resolve what BASE_REF actually points at. `rev-parse --abbrev-ref` gives the
+# NAME where one exists; a detached HEAD yields the literal 'HEAD'.
+rc=0
+base_name="$(git rev-parse --abbrev-ref "$BASE_REF" 2>/dev/null)" || rc=$?
+if [ "$rc" -ne 0 ] || [ -z "$base_name" ]; then
+  fail "could not resolve '$BASE_REF' to a branch name."
+  echo "  Fail closed (§ 4.2): an unresolvable base is not a passing base." >&2
+  exit 1
+fi
+
+if [ "$base_name" = "$INTEGRATION" ]; then
+  echo "check-branch-base: OK — base is the integration branch '$INTEGRATION'."
+  exit 0
+fi
+
+# Not the integration branch. Report, and give the remedy this topology needs.
+fail "base '$base_name' is not the integration branch '$INTEGRATION'."
+echo "" >&2
+echo "  Anything cut from '$base_name' will diff, review, and test against the" >&2
+echo "  wrong tree — and it will do so without erroring. That silence is the" >&2
+echo "  failure mode; this message is the only thing standing in for it." >&2
+echo "" >&2
+
+# `rc=0; cmd || rc=$?` — never collapse this into `&&`/`||` chaining; a status
+# read that way is silently lost. (.docs/policies/shell-idiom-policy.md § 1.)
+rc=0
+actual_default="$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" || rc=$?
+if [ "$rc" -ne 0 ]; then
+  actual_default=""
+else
+  actual_default="${actual_default#origin/}"
+fi
+
+if [ "$MODE" = "expect-default-is-integration" ]; then
+  echo "  REMEDY (this repository's default branch IS its integration branch):" >&2
+  echo "    Your tooling should resolve the base from the default branch — but only" >&2
+  echo "    if that pointer is fresh. Refresh it, then re-cut the branch:" >&2
+  echo "" >&2
+  echo "        git remote set-head origin --auto" >&2
+  echo "" >&2
+  if [ -n "$actual_default" ] && [ "$actual_default" != "$INTEGRATION" ]; then
+    echo "    NOTE: origin/HEAD currently names '$actual_default', not '$INTEGRATION'." >&2
+    echo "    Either the pointer is stale (refresh it, as above) or your default" >&2
+    echo "    branch genuinely changed — in which case re-run /scaffold-environments," >&2
+    echo "    because this check was generated for the old arrangement." >&2
+  fi
+else
+  echo "  REMEDY (this repository's default branch is NOT its integration branch):" >&2
+  echo "    'git remote set-head origin --auto' does NOT apply here and will not help." >&2
+  echo "    That command repairs a STALE pointer; yours is not stale — this" >&2
+  echo "    repository deliberately keeps '__DEFAULT_BRANCH__' as its default while" >&2
+  echo "    developing on '$INTEGRATION'." >&2
+  echo "" >&2
+  echo "    So the guard runs the other way: name the base EXPLICITLY. Any tooling" >&2
+  echo "    that creates a development branch or worktree here must base it on" >&2
+  echo "    '$INTEGRATION' by name, and must never resolve its base from the default" >&2
+  echo "    branch, from origin/HEAD, or from an unqualified branch name." >&2
+  echo "" >&2
+  echo "        git switch -c <new-branch> origin/$INTEGRATION" >&2
+  echo "        git worktree add <path> -b <new-branch> origin/$INTEGRATION" >&2
+  echo "" >&2
+  if [ -n "$actual_default" ] && [ "$actual_default" = "$INTEGRATION" ]; then
+    echo "    NOTE: origin/HEAD now names '$INTEGRATION' — your topology appears to" >&2
+    echo "    have changed since this check was generated. Re-run" >&2
+    echo "    /scaffold-environments so this guard matches reality." >&2
+  fi
+fi
+exit 1

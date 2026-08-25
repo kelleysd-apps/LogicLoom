@@ -249,7 +249,7 @@ If workflow coordinator fails:
 ## Related Skills
 
 - **Domain skills**: {{RELATED_DOMAIN_SKILLS}}
-- **SDD workflow**: sdd-workflow/sdd-tasks
+- **SDD workflow**: sdd-specification/unified-specification
 - **Compliance**: validation/message-preflight
 
 ---

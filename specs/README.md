@@ -15,11 +15,11 @@ Each feature gets its own subdirectory with the format `###-feature-name/` conta
 
 ## Workflow
 
-1. **Create Specification**: Use `/specify` command
-2. **Generate Plan**: Use `/plan` command
-3. **Generate Tasks**: Use `/tasks` command
-4. **Implement**: Follow tasks in dependency order
-5. **Validate**: Use `/finalize` command before commit
+1. **Generate the artifacts**: Use the `/specification` command — it produces
+   spec, plan, and tasks in one run. Scope it to a single phase with
+   `--phase spec|plan|tasks`, and continue an interrupted run with `--resume`.
+2. **Implement**: Follow tasks in dependency order
+3. **Validate**: Use `/finalize` command before commit
 
 ## More Information
 

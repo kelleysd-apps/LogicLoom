@@ -34,6 +34,22 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 POLICY_LIB="$ROOT_DIR/.logic-loom/lib/policy.sh"
 
+# Operations-log isolation: policy.sh logs every blocked/approval command via
+# logging.sh, which defaults to the shared .logic-loom/logs/operations/ file.
+# Point it at a temp dir (same idiom as LOOM_CHECKPOINT_DIR in
+# .logic-loom/tests/test-git-safety.sh) so the suite is not stateful across runs
+# and does not pollute the working tree.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+cleanup_test_logs() {
+  if [ -n "${LOOM_LOG_DIR:-}" ] && [ -d "$LOOM_LOG_DIR" ]; then
+    case "$LOOM_LOG_DIR" in
+      */loom-logs.*) rm -rf "$LOOM_LOG_DIR" ;;
+    esac
+  fi
+}
+trap cleanup_test_logs EXIT
+
 PASS=0; FAIL=0; TOTAL=0
 
 echo "=== Policy Pattern-Matching Contract Tests ==="
@@ -112,7 +128,11 @@ expect_ec 2 "cd /tmp && $RM_ROOT" "cd /tmp && rm -rf /"
 expect_ec 2 "$RM_GLOB" "rm -rf /*"
 expect_ec 2 "pkill -f node" "pkill -f node"
 expect_ec 2 "chmod -R 777 /etc" "chmod -R 777 /etc"
-expect_ec 2 "git push --force origin main" "git push --force origin main"
+# Force push is deliberately NOT in group A. It moved out of `dangerous_commands`
+# (hard block, ec=2) into `git_operations` (require_approval, ec=3): a hard deny
+# left the user no approval path at all, which contradicts "if the user asks, the
+# hook should not stop the ask". It is still gated — see group F.
+expect_ec 3 "git push --force origin main" "git push --force origin main (approval-gated, not blocked)"
 
 echo ""
 
@@ -188,6 +208,19 @@ expect_ec 0 "$RM_ROOT@" "rm -rf /@  (real dir named @ - must NOT block)"
 expect_ec 0 "rm $RF ${SLASH}tmp/x && echo $SLASH" "rm -rf /tmp/x && echo /  (wildcard must not cross the operator)"
 expect_ec 0 "rm $RF ${SLASH}tmp/scratch" "rm -rf /tmp/scratch  (ordinary path)"
 expect_ec 0 "rm $RF ./build/" "rm -rf ./build/  (ordinary relative path)"
+
+echo ""
+
+# ==========================================================================
+# GROUP F - force push is approval-gated (ec=3), never a silent allow, and
+# never an unappealable block. The rest of dangerous_commands is untouched.
+# ==========================================================================
+echo "--- Group F: force push reclassified block -> require_approval ---"
+
+FORCE="--$(printf 'force')"
+expect_ec 3 "git push $FORCE origin main" "git push --force origin main"
+expect_ec 3 "git push $FORCE-with-lease origin main" "git push --force-with-lease origin main"
+expect_ec 3 "git push origin main" "git push origin main (plain push still gated)"
 
 echo ""
 echo "======================================="

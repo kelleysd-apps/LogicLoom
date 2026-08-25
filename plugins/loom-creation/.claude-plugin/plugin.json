@@ -15,14 +15,12 @@
     "loom-governance"
   ],
   "agents": {
-    "count": 2,
     "list": [
       "prd-specialist",
       "subagent-architect"
     ]
   },
   "skills": {
-    "count": 5,
     "list": [
       "create-agent",
       "create-plugin",
@@ -32,7 +30,6 @@
     ]
   },
   "commands": {
-    "count": 4,
     "list": [
       "create-agent",
       "create-plugin",

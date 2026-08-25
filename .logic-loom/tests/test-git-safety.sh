@@ -8,17 +8,51 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Operations-log isolation. MUST be set BEFORE common.sh is sourced: logging.sh
+# resolves LOG_FILE from LOOM_LOG_DIR once, at source time, so exporting it later
+# would be too late and the suite would keep appending to the shared
+# .logic-loom/logs/operations/ file. (LOOM_CHECKPOINT_DIR below has no such
+# ordering constraint — checkpoint_dir_path reads it at call time.)
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+
 # Source the library under test. common.sh pulls in logging.sh/policy.sh which
 # require bash 4+ (associative arrays). Under bash 3.2 those `declare -A` lines
 # trip `set -u` and would terminate the sourcing shell (can't be `||`-caught
 # from a sourced file), so only source when running on bash 4+. The T007-T011
 # function tests below skip gracefully when the functions are absent, and the
 # hook-gate tests drive the hook scripts as subprocesses and need nothing here.
-if [ "${BASH_VERSINFO[0]:-0}" -ge 4 ]; then
+# Probe with THIS interpreter in a subshell first (a failure inside a sourced
+# file can't be `||`-caught), then source for real only if the probe survives.
+# This replaces a hard `bash >= 4` version gate: the libs are bash-3.2-clean
+# now, and the version gate silently skipped every T007-T011 assertion on
+# stock macOS.
+if "${BASH:-bash}" -c "set -euo pipefail; source \"$REPO_ROOT/.logic-loom/scripts/bash/common.sh\"" >/dev/null 2>&1; then
     source "$REPO_ROOT/.logic-loom/scripts/bash/common.sh"
 else
-    echo "[skip] bash ${BASH_VERSION%%(*}: common.sh not sourced (lib needs bash 4+) — T007-T011 function tests will skip"
+    echo "[skip] bash ${BASH_VERSION%%(*}: common.sh could not be sourced — T007-T011 function tests will skip"
 fi
+
+# Git checkpoint isolation: point the checkpoint writer at a temp dir so the
+# suite never writes into the repo working tree and is not stateful across runs.
+# common.sh honours LOOM_CHECKPOINT_DIR (see checkpoint_dir_path).
+LOOM_CHECKPOINT_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-checkpoints.XXXXXX")"
+export LOOM_CHECKPOINT_DIR
+# Both temp dirs are cleaned up by the SAME trap — a second `trap ... EXIT`
+# would REPLACE this one rather than add to it.
+cleanup_test_checkpoints() {
+    if [ -n "${LOOM_CHECKPOINT_DIR:-}" ] && [ -d "$LOOM_CHECKPOINT_DIR" ]; then
+        case "$LOOM_CHECKPOINT_DIR" in
+            */loom-checkpoints.*) rm -rf "$LOOM_CHECKPOINT_DIR" ;;
+        esac
+    fi
+    if [ -n "${LOOM_LOG_DIR:-}" ] && [ -d "$LOOM_LOG_DIR" ]; then
+        case "$LOOM_LOG_DIR" in
+            */loom-logs.*) rm -rf "$LOOM_LOG_DIR" ;;
+        esac
+    fi
+}
+trap cleanup_test_checkpoints EXIT
 
 # Test utilities
 TESTS_RUN=0
@@ -59,7 +93,7 @@ assert_contains() {
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
-    if echo "$haystack" | grep -q "$needle"; then
+    if grep -q -- "$needle" <<< "$haystack"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         echo -e "${GREEN}✓${NC} $message"
         return 0
@@ -108,10 +142,14 @@ test_get_git_diff_preview() {
     local diff_output="1 file changed, 10 insertions(+), 2 deletions(-)"
 
     # Function should format the output appropriately
-    local preview=$(get_git_diff_preview 2>/dev/null || echo "")
+    # NOTE: assign first, capture status on the NEXT line. `local x=$(cmd)`
+    # makes $? the status of `local` (always 0), so the assertion below would
+    # pass unconditionally.
+    local preview="" rc=0
+    preview=$(get_git_diff_preview 2>/dev/null) || rc=$?
 
     # Check that function executed without error
-    assert_equals "0" "$?" "get_git_diff_preview executes without error"
+    assert_equals "0" "$rc" "get_git_diff_preview executes without error"
 }
 
 test_request_git_approval_with_preview() {
@@ -147,12 +185,20 @@ test_create_git_checkpoint() {
     if [[ -n "$checkpoint_id" ]]; then
         assert_contains "$checkpoint_id" "^[0-9]\{10\}$" "Checkpoint ID is a valid epoch timestamp"
 
-        # Verify checkpoint file was created
-        local checkpoint_file=".logic-loom/logs/git-checkpoints/$(date +%Y-%m-%d).json"
+        # Verify checkpoint file was created (in the isolated temp dir)
+        local checkpoint_file="$LOOM_CHECKPOINT_DIR/$(date +%Y-%m-%d).json"
         assert_file_exists "$checkpoint_file" "Checkpoint file created"
 
-        # Cleanup test checkpoint
-        # (In real implementation, would restore from this checkpoint)
+        # Each record must be ONE line of valid JSON (JSONL) — line-by-line
+        # readers (list_git_checkpoints) depend on it.
+        local bad_lines=0
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            echo "$line" | jq -e . >/dev/null 2>&1 || bad_lines=$((bad_lines + 1))
+        done < "$checkpoint_file"
+        assert_equals "0" "$bad_lines" "Checkpoint records are one-line valid JSON (JSONL)"
+
+        # Temp checkpoint dir is removed by the EXIT trap.
     else
         echo -e "${YELLOW}⊘${NC} Checkpoint creation returned empty (function may not be complete)"
     fi
@@ -167,11 +213,19 @@ test_list_git_checkpoints() {
         return 0
     fi
 
-    # Test checkpoint listing
-    local checkpoints=$(list_git_checkpoints 2>/dev/null || echo "")
+    # Seed a checkpoint so listing has something real to render.
+    create_git_checkpoint "list-test-operation" >/dev/null 2>&1 || true
+
+    # Assign first, capture status on the NEXT line (see note above).
+    local checkpoints="" rc=0
+    checkpoints=$(list_git_checkpoints 2>/dev/null) || rc=$?
 
     # Should at least execute without error
-    assert_equals "0" "$?" "list_git_checkpoints executes without error"
+    assert_equals "0" "$rc" "list_git_checkpoints executes without error"
+
+    # ...and actually render the checkpoint it was given, not a silent blank.
+    assert_contains "$checkpoints" "list-test-operation" \
+        "list_git_checkpoints renders the checkpoint record it just wrote"
 }
 
 test_restore_git_checkpoint() {
@@ -197,9 +251,11 @@ test_cleanup_old_checkpoints() {
         return 0
     fi
 
-    # Should execute without error
-    cleanup_old_checkpoints 2>/dev/null || true
-    assert_equals "0" "$?" "cleanup_old_checkpoints executes without error"
+    # Should execute without error. `|| true` would make $? unconditionally 0,
+    # so capture the real status instead.
+    local rc=0
+    cleanup_old_checkpoints >/dev/null 2>&1 || rc=$?
+    assert_equals "0" "$rc" "cleanup_old_checkpoints executes without error"
 }
 
 # ==============================================================================
@@ -218,7 +274,7 @@ test_suggest_commit_message() {
     # Test commit message suggestion
     local suggestions=$(suggest_commit_message 2>/dev/null || echo "")
 
-    if [[ -n "$suggestions" ]] && ! echo "$suggestions" | grep -q "No staged changes"; then
+    if [[ -n "$suggestions" ]] && ! grep -q "No staged changes" <<< "$suggestions"; then
         # Should contain at least one suggestion
         assert_contains "$suggestions" "feat\|fix\|chore\|docs" "Suggestions contain conventional commit types"
     else
@@ -273,7 +329,7 @@ json_escape() {
 
 # extract_decision <hook-json-output> -> permissionDecision value
 extract_decision() {
-    printf '%s' "$1" | grep -oE '"permissionDecision":"[a-z]+"' | head -1 | sed 's/.*:"//; s/"$//'
+    grep -oE '"permissionDecision":"[a-z]+"' <<< "$1" | sed -n '1p' | sed 's/.*:"//; s/"$//'
 }
 
 # run_subagent_guard <agent_id> <command> -> prints decision
@@ -301,9 +357,9 @@ run_safety_gate() {
 
 test_subagent_git_guard() {
     echo ""
-    echo "Test: subagent-git-guard.sh blocks git from subagents (path-prefix safe)"
+    echo "Test: subagent-git-guard.sh blocks MUTATING git from subagents (path-prefix safe)"
 
-    # Subagent + git invocations (including path-prefix bypasses) -> deny
+    # Subagent + MUTATING git invocations (including path-prefix bypasses) -> deny
     assert_equals "deny" "$(run_subagent_guard "a8e123" "/usr/bin/git push")" \
         "subagent '/usr/bin/git push' -> deny"
     assert_equals "deny" "$(run_subagent_guard "a8e123" "./git clean -fd")" \
@@ -312,8 +368,21 @@ test_subagent_git_guard() {
         "subagent 'git -C /t reset --hard' -> deny"
     assert_equals "deny" "$(run_subagent_guard "a8e123" "cd x && /usr/bin/git push")" \
         "subagent 'cd x && /usr/bin/git push' -> deny"
-    assert_equals "deny" "$(run_subagent_guard "a8e123" "git status")" \
-        "subagent 'git status' (read-only still blocked) -> deny"
+    # §7.3: read-only git from a subagent is ALLOWED (was: blanket deny). The
+    # allowlist is explicit — known-safe reads pass, everything else is denied.
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "git status")" \
+        "subagent 'git status' (read-only allowlist) -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "git log --oneline -20")" \
+        "subagent 'git log' (read-only allowlist) -> allow"
+    assert_equals "allow" "$(run_subagent_guard "a8e123" "git branch -a")" \
+        "subagent 'git branch -a' (listing) -> allow"
+    # ...but the write forms and the code-execution globals stay denied.
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git branch newfeature")" \
+        "subagent 'git branch newfeature' (creates) -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git -c core.fsmonitor=evil status")" \
+        "subagent 'git -c core.fsmonitor=<cmd> status' (executes cmd) -> deny"
+    assert_equals "deny" "$(run_subagent_guard "a8e123" "git fetch")" \
+        "subagent 'git fetch' (writes remote-tracking refs) -> deny"
 
     # Subagent + non-git substrings -> allow (no false positives)
     assert_equals "allow" "$(run_subagent_guard "a8e123" "ls && grep digit f")" \
@@ -337,8 +406,14 @@ test_git_safety_gate() {
     # Mutating with global flags between git and subcommand -> ask
     assert_equals "ask" "$(run_safety_gate "git -C /r push")" \
         "main 'git -C /r push' -> ask"
-    assert_equals "ask" "$(run_safety_gate "git -c k=v commit -m x")" \
-        "main 'git -c k=v commit' -> ask"
+    # GATE POLICY (2026-08): `git commit` is now SILENT by default (local, fully
+    # revertible, highest-frequency operation). The point of this assertion is
+    # flag-decoupling, not the commit verb, so it moves to an operation that
+    # still asks — and the new silent behaviour is asserted immediately below.
+    assert_equals "ask" "$(run_safety_gate "git -c k=v merge feature")" \
+        "main 'git -c k=v merge' -> ask"
+    assert_equals "allow" "$(run_safety_gate "git -c k=v commit -m x")" \
+        "main 'git -c k=v commit' -> allow (gate policy: git.commit = silent)"
     assert_equals "ask" "$(run_safety_gate "git --git-dir=x push")" \
         "main 'git --git-dir=x push' -> ask"
     assert_equals "ask" "$(run_safety_gate "/usr/bin/git push origin main")" \

@@ -2,7 +2,7 @@
 
 **Version**: 1.1.0
 **Effective Date**: 2026-06-30
-**Authority**: Constitution v3.2.0
+**Authority**: Constitution v3.3.0
 **Review Cycle**: Quarterly
 
 ---
@@ -68,6 +68,9 @@ project-root/
 ├── specs/                      # Feature specs (SDD waterfall workflow pack)
 │   └── ###-feature-name/       # Per-feature spec directory
 │
+├── artifacts/                  # Standalone deliverables (vision, research, forensics,
+│                               # docs — never a plan). Create on first use.
+│
 ├── web/  (or apps/<name>/)     # PRODUCT app workspace (own package.json — see "Product Workspace")
 │   └── src/                    # Product application code (NOT at repo root)
 │
@@ -130,8 +133,8 @@ product specification and exploratory work.
 ### Why a separate workspace (not the root)
 
 Sharing the root `package.json` / `tests/` with product code causes two **silent**
-collisions documented in the harness↔product-boundary exploration
-(`features/harness-product-boundary/exploration/`):
+collisions — silent because neither one fails a build; they just quietly change
+what `npm test` covers:
 
 - **jest-glob collision** — the framework's root `testMatch` glob sweeps product
   tests into `npm test`, mixing them with framework suites and forcing them under
@@ -175,31 +178,29 @@ its own runner.
 - Department folder must exist before creating agent
 - Use `.logic-loom/templates/agent-template.md` for new agents
 
-### .claude/skills/ - Skill Definitions
+### plugins/<plugin>/skills/ - Skill Definitions
+
+Skills belong to a plugin (Principle XVI). There is **no** top-level
+`.claude/skills/` directory — `constitutional-check.sh` warns if one appears.
 
 **Structure**:
 ```
-.claude/skills/
-├── sdd-workflow/               # SDD command skills
-│   ├── sdd-specification/
+plugins/
+├── loom-governance/skills/     # Governance-core skills
+│   ├── constitutional-compliance/
 │   │   └── SKILL.md
-│   ├── sdd-planning/
+│   ├── domain-detection/
 │   │   └── SKILL.md
-│   └── sdd-tasks/
-│       └── SKILL.md
-└── validation/                 # Validation skills
-    ├── constitutional-compliance/
-    │   └── SKILL.md
-    ├── domain-detection/
-    │   └── SKILL.md
-    ├── message-preflight/
-    │   └── SKILL.md
-    └── file-organization/      # NEW
+│   ├── file-organization/
+│   │   └── SKILL.md
+│   └── ...
+└── sdd-specification/skills/   # SDD waterfall pack
+    └── unified-specification/  # the plugin's only skill
         └── SKILL.md
 ```
 
 **Rules**:
-- Each skill gets its own folder
+- Each skill gets its own folder inside its owning plugin
 - Main file MUST be named `SKILL.md`
 - Supporting files allowed: `reference.md`, `examples.md`
 - Use `.logic-loom/templates/skill-template.md` for new skills
@@ -278,6 +279,70 @@ specs/
 - Directory name: `###-feature-name` (kebab-case)
 - All files use templates from `.logic-loom/templates/`
 - Created via `/specification` command (SDD waterfall pack)
+
+### artifacts/ - Standalone deliverables (who/what/why/where)
+
+A repo-root directory for **standalone deliverables**: a vision page, a research
+write-up, a forensic record of an incident, a rendered doc. The test is
+*who / what / why / where* — an artifact states something. It is **never a plan**:
+sequencing belongs to `features/<name>/plan.md` or `specs/###-name/tasks.md`, and
+hardwiring a plan into an artifact confines the agent that should be deciding it.
+
+**Structure**:
+```
+artifacts/
+├── <name>.html                 # self-contained page (inline CSS/JS, no external requests)
+└── <name>.md                   # or plain markdown
+```
+
+**Rules**:
+- **Create on first use.** The directory does not ship in a fresh clone — like
+  `web/`, it is documented here and created when there is something to put in it.
+- **Contents are project-owned**, not framework machinery. LogicLoom's own
+  artifacts are stripped at template release (`artifacts` is a wholesale entry in
+  `.logic-loom/scripts/bash/template-strip-manifest.txt`), so a cloner inherits
+  the convention and none of our pages.
+- Flat by default; add subdirectories only when the file count warrants it.
+- An HTML artifact must be **self-contained** — inline CSS and JS, no CDN, no
+  webfont, no remote image — because it is opened directly from disk over
+  `file://`, where cross-origin requests (including `fetch()` of a sibling JSON)
+  are blocked. `.logic-loom/scripts/bash/build-backlog-dashboard.sh` is the
+  worked example: it inlines a snapshot of its data source for exactly this reason.
+- **Placement follows what a file IS; tracking follows how it is PRODUCED.**
+  These are separate questions and `artifacts/` answers only the first. Most
+  artifacts are hand-authored and committed. A **generated** page that meets the
+  who/what/why/where test belongs here too — and is **tracked like its
+  neighbours, on one condition**: a fail-closed freshness gate covers it.
+  Worked example: `artifacts/backlog-dashboard.html`, produced by
+  `.logic-loom/scripts/bash/build-backlog-dashboard.sh` from
+  `.logic-loom/backlog-index.json`. It is a *what/where* view — which work
+  exists, of what class, from which source, in what state — and it sequences
+  nothing, so it is an artifact and not a plan.
+
+  **The rule for a generated deliverable, in full:**
+  1. **Track only what a human opens.** The dashboard is read by people, so it
+     is committed and travels worktree → feature branch → `dev-main` like any
+     other file. A **machine-readable intermediate with no standalone reader** —
+     `.logic-loom/backlog-index.json` — is not a deliverable, stays under
+     `.logic-loom/`, and stays **gitignored**: nothing is lost by regenerating
+     it, so nothing justifies the staleness cost of tracking it.
+  2. **Pay the staleness cost with a gate, not a warning.** A tracked derived
+     artifact drifts from its sources the moment one is edited without
+     regenerating — the class that produced three defects in this repo, two of
+     them behind a warn-only lint. The licence to track is
+     `.logic-loom/scripts/bash/check-generated-freshness.sh`, which regenerates
+     the artifact and **fails** if the committed copy differs. It runs in
+     `.github/workflows/plugin-tests.yml`. Add a tracked generated file and you
+     add it to that gate in the same change; remove the gate and the file goes
+     back to being ignored.
+  3. **Keep it out of the customer template at promote, not with an ignore
+     rule.** Our artifacts are ours: `artifacts` is a **wholesale** entry in
+     `.logic-loom/scripts/bash/template-strip-manifest.txt`, so the directory is
+     removed when the sanitized template is built. Note that `.gitignore` is
+     **not branch-scoped** in any reliable way — it is itself a tracked file, so
+     a per-branch divergence merges and propagates like any other content
+     difference. "Not ignored + stripped at promote" is the mechanism; a
+     dev-only ignore rule is not.
 
 ### Product source code (inside the product workspace)
 
@@ -517,12 +582,13 @@ All agents MUST:
 |--------------|------|
 | Agent definition | `.claude/agents/[dept]/[agent].md` |
 | Agent memory | `.docs/agents/[dept]/[agent]/` |
-| Skill | `.claude/skills/[category]/[skill]/SKILL.md` |
+| Skill | `plugins/[plugin]/skills/[skill]/SKILL.md` |
 | Command | `.claude/commands/[command].md` |
 | Policy | `.docs/policies/[topic]-policy.md` |
 | Feature (vision/PRD/plan pack) | `features/<name>/` |
 | Feature (SDD waterfall pack) | `specs/###-[name]/` |
 | Template | `.logic-loom/templates/[name]-template.md` |
+| Standalone deliverable (vision / research / forensics / doc) | `artifacts/[name].html` or `.md` |
 
 ### Creation Commands
 
@@ -530,8 +596,8 @@ All agents MUST:
 # Create agent (use script)
 .logic-loom/scripts/bash/create-agent.sh [name] [description]
 
-# Create skill folder
-mkdir -p .claude/skills/[category]/[skill-name]
+# Create skill folder (skills live inside their owning plugin)
+mkdir -p plugins/[plugin]/skills/[skill-name]
 
 # Create feature via vision/PRD/plan workflow pack
 /create-prd [feature-name]      # bootstraps features/<name>/vision.md

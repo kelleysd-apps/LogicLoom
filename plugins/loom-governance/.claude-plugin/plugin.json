@@ -16,13 +16,11 @@
   "required": true,
   "protected": true,
   "agents": {
-    "count": 1,
     "list": [
       "constitutional-governance-agent"
     ]
   },
   "skills": {
-    "count": 6,
     "list": [
       "constitutional-compliance",
       "domain-detection",

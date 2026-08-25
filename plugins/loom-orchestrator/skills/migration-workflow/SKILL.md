@@ -217,6 +217,9 @@ progressive-disclosure:
 
 ## Migration Scripts
 
+Illustrative invocation shapes. None of these scripts ship in this repository —
+write the migration step yourself, or adapt the shape below.
+
 ### migrate-agent-to-skill.sh
 ```bash
 # Usage: ./migrate-agent-to-skill.sh <agent-name> <target-brief>
@@ -226,7 +229,7 @@ progressive-disclosure:
 ### upgrade-skill-to-v3.sh
 ```bash
 # Usage: ./upgrade-skill-to-v3.sh <skill-path>
-./upgrade-skill-to-v3.sh sdd-workflow/sdd-specification
+./upgrade-skill-to-v3.sh sdd-specification/unified-specification
 ```
 
 ### consolidate-agents.sh

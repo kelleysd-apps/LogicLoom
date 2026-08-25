@@ -1,15 +1,23 @@
 #!/usr/bin/env bash
 # Subagent Git Guard — PreToolUse hook (Bash matcher), Principle VI hardening.
 #
-# Git operations may ONLY be run by the MAIN agent, acting on a direct user
-# request. Subagents (spawned via the Task/Agent tool) must NEVER run git — a
+# MUTATING git may ONLY be run by the MAIN agent, acting on a direct user
+# request. Subagents (spawned via the Task/Agent tool) must NEVER mutate git — a
 # stray `git clean`/`reset` from a subagent is what can silently destroy
 # uncommitted work.
+#
+# §7.3: a subagent MAY run explicitly ALLOWLISTED read-only git (status, log,
+# diff, show, branch listing, ...). Read-only exploration is legitimate worker
+# behavior and denying it bought nothing. The allowlist lives in
+# `loom_git_is_readonly_for_subagent` (.logic-loom/lib/governance-verdicts.sh)
+# and is an ALLOWLIST by design — known-safe reads pass, everything else is
+# denied — so the failure mode is a loud false POSITIVE, never a silent mutation.
 #
 # Detection (empirically verified): when a tool call originates from a subagent,
 # Claude Code includes an `agent_id` (and `agent_type`) field in the PreToolUse
 # stdin JSON. The main agent's calls have NO `agent_id`. So:
-#   - agent_id present  + git command -> DENY (hard block)
+#   - agent_id present + non-allowlisted git -> DENY (hard block)
+#   - agent_id present + allowlisted read    -> ALLOW
 #   - agent_id absent (main agent)    -> ALLOW here; the git-safety-gate hook
 #                                        still forces user approval ("ask").
 #
@@ -74,7 +82,16 @@ VERDICT_LIB="$(cd "$SCRIPT_DIR/../../../.." && pwd)/.logic-loom/lib/governance-v
 if declare -f loom_verdict_subagent_git >/dev/null 2>&1; then
   if [ "$(loom_verdict_subagent_git "$COMMAND" "$AGENT_ID")" = "deny" ]; then
     AGENT_TYPE="$(json_get '.agent_type' || true)"
-    deny "Git is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run git — return findings to the main agent, which will run git with user approval. Blocked: '${COMMAND}'"
+    deny "Mutating git is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may run ONLY allowlisted read-only git (status, log, diff, show, branch/tag/stash listing, rev-parse, config --get, worktree list, ...) with no code-executing global flags (-c, --git-dir, --work-tree, --exec-path) and no command substitution. Return findings to the main agent, which will run git with user approval. Blocked: '${COMMAND}'"
+  fi
+  # Same rule for the GitHub CLI. `gh pr create` / `gh pr merge` /
+  # `gh workflow run` mutate the repository server-side, so a subagent that may
+  # not run `git push` must not be able to merge a PR either. Categorical (reads
+  # included), matching the git rule.
+  if declare -f loom_verdict_subagent_gh >/dev/null 2>&1 \
+     && [ "$(loom_verdict_subagent_gh "$COMMAND" "$AGENT_ID")" = "deny" ]; then
+    AGENT_TYPE="$(json_get '.agent_type' || true)"
+    deny "The GitHub CLI is restricted to the main agent (direct user request only). Subagent '${AGENT_TYPE:-unknown}' may not run gh — a subagent must not create/merge PRs or dispatch workflows. Return findings to the main agent. Blocked: '${COMMAND}'"
   fi
   allow
 fi
@@ -84,8 +101,19 @@ fi
 # present and self-protected; if it is somehow gone we DENY any subagent git
 # inline rather than failing open — the deny that this hook exists to enforce
 # must not evaporate because a dependency went missing.
+#
+# This fallback is DELIBERATELY CATEGORICAL: it denies ALL subagent git, reads
+# included. Do NOT teach it the §7.3 read-only allowlist. A second, simpler
+# implementation of the allowlist here would be a second thing to get wrong, and
+# the only cost of being categorical is that a worker loses `git status` during
+# the window where the governance lib is missing — which is a window that should
+# be loud anyway.
 if [ -n "$AGENT_ID" ] && printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?git([[:space:]]|$)'; then
   AGENT_TYPE="$(json_get '.agent_type' || true)"
   deny "Git is restricted to the main agent (verdict lib unavailable — failing safe). Subagent '${AGENT_TYPE:-unknown}' may not run git. Blocked: '${COMMAND}'"
+fi
+if [ -n "$AGENT_ID" ] && printf '%s' "$COMMAND" | grep -qE '(^|[^[:alnum:]_])([^[:space:]]*/)?gh([[:space:]]|$)'; then
+  AGENT_TYPE="$(json_get '.agent_type' || true)"
+  deny "The GitHub CLI is restricted to the main agent (verdict lib unavailable — failing safe). Subagent '${AGENT_TYPE:-unknown}' may not run gh. Blocked: '${COMMAND}'"
 fi
 allow

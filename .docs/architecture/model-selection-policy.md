@@ -230,10 +230,12 @@ models.conf that isn't on the accepted touch-list.
 
 ### Optional convenience
 
-`bump-version.sh` currently stamps only the framework VERSION across 8 SITES
-(models.conf is not among them). A future enhancement could add a
-`bump-model.sh <tier> <new-id>` helper that edits models.conf and the touch-list
-in one pass — **not required by this policy**; the manual 3-step above is the
+LogicLoom's own `bump-version.sh` stamps only the framework VERSION — 12 stamp
+sites across 9 files; models.conf is not among them. It is **maintainer release
+tooling and is stripped from the template**, so it is not present in a cloned
+project; nothing in this policy depends on it. A `bump-model.sh <tier> <new-id>`
+helper that edits models.conf and the touch-list in one pass would be a
+convenience — **not required by this policy**; the manual 3-step above is the
 contract. (Do not fold model refresh into the version bump; they are decoupled by
 design.)
 

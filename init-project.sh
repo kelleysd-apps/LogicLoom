@@ -45,6 +45,133 @@ echo ""
 echo -e "${BLUE}Initializing project: ${PROJECT_NAME}${NC}"
 echo ""
 
+# ====================================
+# Project identity — stamp .logic-loom/config/project.conf
+# ====================================
+# The template ships this file with `__UNSET__` placeholders on purpose: a cloner
+# must never inherit a plausible-looking slug. Stamp it here, once, with the name
+# the user just gave. IDEMPOTENT (Principle IV): an already-stamped file is left
+# alone — the slug is the machine key everything cross-project references, so
+# rewriting it silently would orphan that history.
+PROJECT_CONF=".logic-loom/config/project.conf"
+# Match ACTIVE key lines only. The file's own comments discuss `__UNSET__` by
+# name, so a bare `grep __UNSET__` would report an already-stamped file as
+# unstamped and re-prompt on every run.
+PROJECT_CONF_UNSET_RE='^[[:space:]]*(project_slug|project_name|id_prefix)[[:space:]]*=[[:space:]]*__UNSET__[[:space:]]*$'
+echo -e "${BLUE}Stamping project identity...${NC}"
+if [ ! -f "$PROJECT_CONF" ]; then
+    echo -e "${YELLOW}⚠${NC}  $PROJECT_CONF not found — skipping identity stamp"
+elif ! grep -qE "$PROJECT_CONF_UNSET_RE" "$PROJECT_CONF"; then
+    echo -e "${YELLOW}ℹ${NC}  Project identity already stamped — leaving it untouched"
+    echo -e "    $(grep -E '^[[:space:]]*project_slug[[:space:]]*=' "$PROJECT_CONF" | head -1)"
+else
+    # Default id_prefix: the slug's alphanumerics, uppercased, first 4 characters.
+    # `acme-widgets` -> `ACME`. Offered as a default, not imposed.
+    DEFAULT_PREFIX=$(printf '%s' "$PROJECT_NAME" | tr -cd '[:alnum:]' | tr '[:lower:]' '[:upper:]' | cut -c1-4)
+    [ -n "$DEFAULT_PREFIX" ] || DEFAULT_PREFIX="PROJ"
+
+    read -p "Display name for this project [$PROJECT_NAME]: " PROJECT_DISPLAY_NAME
+    PROJECT_DISPLAY_NAME="${PROJECT_DISPLAY_NAME:-$PROJECT_NAME}"
+
+    read -p "Task id prefix (uppercase, 2-6 chars) [$DEFAULT_PREFIX]: " PROJECT_ID_PREFIX
+    PROJECT_ID_PREFIX="${PROJECT_ID_PREFIX:-$DEFAULT_PREFIX}"
+    PROJECT_ID_PREFIX=$(printf '%s' "$PROJECT_ID_PREFIX" | tr '[:lower:]' '[:upper:]')
+    if ! [[ "$PROJECT_ID_PREFIX" =~ ^[A-Z][A-Z0-9]{1,5}$ ]]; then
+        echo -e "${YELLOW}⚠${NC}  '$PROJECT_ID_PREFIX' is not a valid id prefix — using $DEFAULT_PREFIX"
+        PROJECT_ID_PREFIX="$DEFAULT_PREFIX"
+    fi
+
+    # Replace only the three placeholder values; every comment in the file — which
+    # is where the schema is documented — survives verbatim.
+    PROJECT_CONF_BODY=$(cat "$PROJECT_CONF")
+    PROJECT_CONF_BODY=${PROJECT_CONF_BODY/project_slug = __UNSET__/project_slug = $PROJECT_NAME}
+    PROJECT_CONF_BODY=${PROJECT_CONF_BODY/project_name = __UNSET__/project_name = $PROJECT_DISPLAY_NAME}
+    PROJECT_CONF_BODY=${PROJECT_CONF_BODY/id_prefix    = __UNSET__/id_prefix    = $PROJECT_ID_PREFIX}
+    printf '%s\n' "$PROJECT_CONF_BODY" > "$PROJECT_CONF"
+
+    echo -e "${GREEN}✓${NC} Project identity stamped: slug=${PROJECT_NAME}, prefix=${PROJECT_ID_PREFIX}"
+    echo -e "    ${YELLOW}The slug is immutable once set${NC} — anything referencing this project across repos keys on it."
+fi
+
+# Read-only confirmation. `|| true` because an informational check must never fail
+# the bootstrap, and this script runs under `set -e`.
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/validate-project-identity.sh" ]; then
+    bash "$SCRIPT_DIR/.logic-loom/scripts/bash/validate-project-identity.sh" --quiet || true
+fi
+echo ""
+
+# ====================================
+# Approval posture — stamp .logic-loom/config/gate-policy.conf
+# ====================================
+# Which repository-mutating operations INTERRUPT you is a preference, not a
+# constant. Asked ONCE, here, as three named postures rather than ~38 individual
+# questions. IDEMPOTENT (Principle IV): an existing gate-policy.conf that has
+# already been chosen is left alone.
+#
+# Every posture respects the FLOOR — git.push, git history rewriting, gh repo
+# administration, gh secret writes, and gh auth always ask, and the subagent
+# rules (read-only git only, no gh at all) are untouched by any of them.
+GATE_CONF=".logic-loom/config/gate-policy.conf"
+GATE_LIB="$SCRIPT_DIR/.logic-loom/lib/governance-verdicts.sh"
+echo ""
+echo -e "${BLUE}Approval posture${NC}"
+if [ ! -f "$GATE_LIB" ]; then
+    echo -e "${YELLOW}⚠${NC}  governance verdict library not found — leaving the gate policy at its shipped defaults"
+elif [ -f "$GATE_CONF" ] && grep -q '^[[:space:]]*# posture:' "$GATE_CONF"; then
+    echo -e "${YELLOW}ℹ${NC}  Approval posture already chosen — leaving it untouched"
+    echo -e "    $(grep -m1 '^[[:space:]]*# posture:' "$GATE_CONF")"
+else
+    echo "  How often should LogicLoom stop and ask before a git/gh operation?"
+    echo ""
+    echo -e "    ${GREEN}1) strict${NC}    — ask before every repository change. Nothing runs silently."
+    echo -e "    ${GREEN}2) balanced${NC}  — ask before anything consequential or destructive; let routine"
+    echo -e "                   local work (commit, add, stash, tag, checkout, fetch) run.  ${YELLOW}[recommended]${NC}"
+    echo -e "    ${GREEN}3) minimal${NC}   — only the five un-turn-off-able operations ask; everything else runs."
+    echo ""
+    echo "  You can change any single operation later by editing $GATE_CONF."
+    read -p "  Choose a posture [2]: " GATE_CHOICE
+    case "${GATE_CHOICE:-2}" in
+        1|strict)   GATE_POSTURE=strict ;;
+        3|minimal)  GATE_POSTURE=minimal ;;
+        *)          GATE_POSTURE=balanced ;;
+    esac
+
+    # The posture BODY comes from the verdict library, so there is exactly one
+    # definition of what each posture means — shared by this script, the
+    # /initialize-project command, and tests/contract/test_gate_policy.sh.
+    # shellcheck disable=SC1090
+    GATE_BODY="$( . "$GATE_LIB"; loom_gate_posture_body "$GATE_POSTURE" )"
+    if [ -z "$GATE_BODY" ]; then
+        echo -e "${YELLOW}⚠${NC}  could not render posture '$GATE_POSTURE' — leaving the gate policy at its shipped defaults"
+    else
+        # Preserve the shipped commentary (it is where the policy is EXPLAINED)
+        # and replace only the active `<op> = <verdict>` lines.
+        GATE_TMP="$(mktemp)"
+        if [ -f "$GATE_CONF" ]; then
+            # NOTE the `-` and digits in the character class: operation ids contain
+            # hyphens (git.cherry-pick, git.history-rewrite). Without them those two
+            # lines survived the strip and, because FIRST occurrence wins, silently
+            # overrode the posture that had just been chosen.
+            grep -vE '^[[:space:]]*(git|gh)\.[a-z0-9.-]+[[:space:]]*=' "$GATE_CONF" > "$GATE_TMP"
+        fi
+        {
+            printf '\n# posture: %s (chosen at project initialization on %s)\n' \
+                "$GATE_POSTURE" "$(date '+%Y-%m-%d')"
+            printf '# Edit any single line below to override the posture for one operation.\n\n'
+            printf '%s\n' "$GATE_BODY"
+        } >> "$GATE_TMP"
+        mv "$GATE_TMP" "$GATE_CONF"
+        echo -e "${GREEN}✓${NC} Approval posture set: ${GATE_POSTURE} → $GATE_CONF"
+        # Surface any line the floor refused, with its typed reason. Never fatal.
+        GATE_REFUSALS="$( export LOOM_GATE_POLICY_CONF="$GATE_CONF"; . "$GATE_LIB"; loom_gate_policy_refusals )"
+        if [ -n "$GATE_REFUSALS" ]; then
+            echo -e "${YELLOW}⚠${NC}  the following lines were refused (the floor is not tunable):"
+            printf '    %s\n' "$GATE_REFUSALS"
+        fi
+    fi
+fi
+echo ""
+
 # Root package.json is FRAMEWORK-OWNED — do NOT rebrand it to the product.
 # The root package declares the framework's own jest/devDeps/version; bump-version.sh
 # stamps it by matching "version" (not "name"), and collectCoverageFrom targets
@@ -226,6 +353,19 @@ fi
 echo -e "${GREEN}✓${NC} Framework updates: run /update-framework (fetch-only; upstream in .logic-loom/config/framework-upstream.conf)"
 
 # ====================================
+# GitHub CLI telemetry — DETECT AND INFORM (never write)
+# ====================================
+# gh telemetry is opt-OUT and LogicLoom leans on gh heavily, so surface it once
+# here. This is READ-ONLY and INFORMATIONAL: the harness does not touch
+# ~/.config/gh/config.yml and does not touch any shell rc file. gh's config is
+# the user's layer (START_HERE.md § "Where do my personal preferences go?").
+# `|| true` because an informational check must never fail the bootstrap — and
+# init-project.sh runs under `set -e`.
+if [ -f "$SCRIPT_DIR/.logic-loom/scripts/bash/check-gh-telemetry.sh" ]; then
+    bash "$SCRIPT_DIR/.logic-loom/scripts/bash/check-gh-telemetry.sh" || true
+fi
+
+# ====================================
 # Docker MCP Toolkit Installation
 # ====================================
 echo ""
@@ -365,7 +505,7 @@ echo ""
 # harness you are using.)
 echo ""
 echo -e "${BLUE}Removing maintainer-only template-release CI...${NC}"
-for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml; do
+for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml .github/workflows/branch-topology-guard.yml; do
     if [ -f "$wf" ]; then
         rm -f "$wf"
         echo -e "${GREEN}✓${NC} Removed $wf (LogicLoom template-release CI, not for your project)"
@@ -455,7 +595,9 @@ if command -v claude &> /dev/null; then
     echo -e "  1. Open in Claude Code: ${YELLOW}claude code .${NC}"
     echo -e "  2. Create PRD: ${YELLOW}/create-prd${NC}"
     echo -e "  3. Initialize project: ${YELLOW}/initialize-project${NC}"
-    echo -e "  4. Start first feature: ${YELLOW}/specify${NC}"
+    echo -e "  4. Start first feature — pick the pack that fits:"
+    echo -e "       ${YELLOW}/swarm explore <topic>${NC}     scope is still unclear"
+    echo -e "       ${YELLOW}/specification <feature>${NC}   requirements are already settled"
 else
     echo -e "  1. Install Claude Code (see instructions above)"
     echo -e "  2. Run: ${YELLOW}claude login${NC}"
