@@ -178,7 +178,16 @@ while IFS= read -r srcfile; do
   [ -n "$srcfile" ] || continue
   awk -v SRC="${srcfile#$ROOT/}" '
   function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
-  BEGIN { ins = 0; fence = 0 }
+  # SEP / SEPLEN: the id/title separator " <em dash> ". Its LENGTH is MEASURED,
+  # never hardcoded, because awk implementations disagree about the unit. A
+  # byte-oriented awk (BSD/onetrue awk, mawk, gawk under LC_ALL=C) reports
+  # length(SEP) == 5 (space + 3 UTF-8 bytes + space); gawk in ANY multibyte
+  # locale — including LANG=C.UTF-8, the default on GitHub-hosted Linux runners
+  # — reports 3, because index()/substr() there count CHARACTERS. A literal
+  # `p + 5` overshoots by two characters on such a host and eats the front of
+  # every title. The collector (build-backlog-index.sh, parse_item_file) measures
+  # the same way for the same reason — fix both or neither.
+  BEGIN { ins = 0; fence = 0; SEP = " \342\200\224 "; SEPLEN = length(SEP) }
   {
     line = $0
     if (line ~ /^[[:space:]]*(```|~~~)/) { fence = 1 - fence; next }
@@ -189,10 +198,10 @@ while IFS= read -r srcfile; do
 
     box  = substr(line, 4, 1)
     rest = substr(line, 7)
-    p = index(rest, " \342\200\224 ")
+    p = index(rest, SEP)                     # " <em dash> "
     if (p == 0) { printf("BAD\t%s\t%d\tno \342\200\224 separator between id and title\t%s\n", SRC, NR, line); next }
     id    = trim(substr(rest, 1, p - 1))
-    after = substr(rest, p + 5)
+    after = substr(rest, p + SEPLEN)         # past " <em dash> " — see SEPLEN above
 
     if (id !~ /^[A-Z][A-Z0-9]*-[0-9][0-9][0-9][0-9][0-9]*$/) {
       printf("BAD\t%s\t%d\tmalformed id \x27%s\x27 (want PREFIX-NNNN, 4+ digits)\t%s\n", SRC, NR, id, line); next

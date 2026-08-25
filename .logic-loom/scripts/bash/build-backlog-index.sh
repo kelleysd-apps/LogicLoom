@@ -428,7 +428,17 @@ parse_item_file() { # $1 = absolute file  $2 = repo-relative path  $3 = level
   awk -v FILE="$2" -v LEVEL="$3" '
     function trim(s) { sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); return s }
     function err(msg) { printf("!ERR\t%s: %s\n", FILE, msg) }
-    BEGIN { ins = 0; fence = 0; heading = "" }
+    # SEP / SEPLEN: the id/title separator " <em dash> ". Its LENGTH is measured,
+    # never hardcoded, because awk implementations disagree about the unit.
+    # A byte-oriented awk (BSD/onetrue awk, mawk, gawk under LC_ALL=C) reports
+    # length(SEP) == 5 (space + 3 UTF-8 bytes + space); gawk in ANY multibyte
+    # locale — including LANG=C.UTF-8, the default on GitHub-hosted Linux
+    # runners — reports 3, because index()/substr() there count CHARACTERS.
+    # The old literal `p + 5` silently sliced two characters off the front of
+    # every title on such a host (id, status and file stayed correct, which is
+    # why only the title-bearing assertion caught it). length(SEP) is right
+    # under both, in any locale.
+    BEGIN { ins = 0; fence = 0; heading = ""; SEP = " \342\200\224 "; SEPLEN = length(SEP) }
     {
       line = $0
       if (line ~ /^[[:space:]]*(```|~~~)/) { fence = 1 - fence; next }
@@ -439,12 +449,12 @@ parse_item_file() { # $1 = absolute file  $2 = repo-relative path  $3 = level
       if (line !~ /^- \[[ x]\] /) next
 
       rest = substr(line, 7)
-      p = index(rest, " \342\200\224 ")           # " <em dash> "
+      p = index(rest, SEP)                        # " <em dash> "
       if (p == 0) {
         err(sprintf("line %d: no \xe2\x80\x94 separator between id and title: %s", NR, line)); next
       }
       id = trim(substr(rest, 1, p - 1))
-      after = substr(rest, p + 5)                 # 1 space + 3-byte em dash + 1 space
+      after = substr(rest, p + SEPLEN)            # past " <em dash> " — see SEPLEN above
 
       if (id !~ /^[A-Z][A-Z0-9]*-[0-9][0-9][0-9][0-9][0-9]*$/) {
         err(sprintf("line %d: malformed id \x27%s\x27 (want PREFIX-NNNN, 4+ digits)", NR, id)); next

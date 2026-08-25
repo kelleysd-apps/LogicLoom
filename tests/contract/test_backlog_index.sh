@@ -230,6 +230,19 @@ for banned in owner estimate points percent priority updated_at created_at; do
 done
 assert "no pre-computed rollup/aggregation at top level" \
   "! jq -e 'has(\"counts\") or has(\"summary\") or has(\"totals\")' '$IDX' >/dev/null 2>&1"
+# The schema assertions above prove a `title` KEY exists; nothing proved its
+# VALUE. That gap hid a real defect for a full release cycle: on a host where
+# awk counts CHARACTERS rather than BYTES (gawk in any UTF-8 locale — the
+# default on GitHub-hosted Linux runners), the parser sliced the first two
+# characters off every Level-0 title while leaving id, status, source and level
+# correct. Nothing here noticed; the only assertion that bit was a message
+# string on the duplicate-id FATAL path, which is a bizarre place to learn that
+# the index's titles are wrong. So the value is pinned EXACTLY, for both Level-0
+# streams, on the ordinary success path.
+assert "a backlog item's title round-trips EXACTLY (not off by a character)" \
+  "[ \"\$(jq -r '.items[] | select(.id==\"LOOM-0001\") | .title' '$IDX')\" = 'Open item' ]"
+assert "a todos item's title round-trips EXACTLY (same parser, other stream)" \
+  "[ \"\$(jq -r '.items[] | select(.id==\"LOOM-0007\") | .title' '$IDX')\" = 'Active, blocked on a DEFERRED item in the other file' ]"
 echo ""
 
 # ── 3. Scope rules: fences and section boundaries ────────────────────────────
@@ -373,10 +386,21 @@ echo ""
 # Same technique the project-identity suite uses: shasum manifest of the whole
 # fixture tree before and after, with the output path itself excluded.
 echo "10. Writes nothing but its output path"
+# THE PRECONDITION IS ASSERTED, NOT ASSUMED. This manifest is only evidence if
+# the hashes are real. With a bare `shasum ... 2>/dev/null` and no fallback, a
+# host that ships only `sha256sum` (common on slim Linux images) produced an
+# EMPTY hash for every file — before and after matched trivially and the
+# assertion below passed while proving nothing. Mirror the collector's own
+# shasum -> sha256sum fallback, and fail loudly if neither exists.
+SHATOOL=""
+if command -v shasum >/dev/null 2>&1; then SHATOOL="shasum -a 256"
+elif command -v sha256sum >/dev/null 2>&1; then SHATOOL="sha256sum"; fi
+assert "a sha256 tool exists (without one, the manifest below proves nothing)" \
+  "[ -n \"\$SHATOOL\" ]"
 manifest() { # $1 = dir  $2 = repo-relative path to exclude
   ( cd "$1" && find . -type f 2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do
       case "${f#./}" in "$2") continue ;; esac
-      printf '%s  ' "$f"; shasum -a 256 "$f" 2>/dev/null | awk '{print $1}'
+      printf '%s  ' "$f"; $SHATOOL "$f" 2>/dev/null | awk '{print $1}'
     done )
 }
 FX2="$TMP/fx2"
