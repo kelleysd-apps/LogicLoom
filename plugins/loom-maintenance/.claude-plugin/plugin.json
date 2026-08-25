@@ -1,7 +1,7 @@
 {
   "name": "loom-maintenance",
-  "version": "1.0.0",
-  "description": "Framework maintenance plugin -- update framework, sync upstream, MCP server setup, and project initialization.",
+  "version": "1.1.0",
+  "description": "Framework maintenance plugin -- update framework, sync upstream, MCP server setup, project initialization, opt-in environment scaffolding, and the /promote-dev -> /promote-staging -> /promote-prod promotion lifecycle (gates and confirms; deploys nothing).",
   "author": "kelleysd-apps",
   "license": "MIT",
   "keywords": [

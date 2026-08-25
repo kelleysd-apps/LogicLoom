@@ -174,10 +174,40 @@ touch any shell rc file — not even if the user asks in passing.** That setting
 the user's, on their machine, outside this repo. Report it and let them run the
 command themselves.
 
+### Step 4f: Remove Maintainer-Only Template-Release CI
+
+The template ships four workflows that release + guard **the LogicLoom template
+itself**, not the customer's project. Remove all four now:
+
+```bash
+rm -f .github/workflows/promote-to-main.yml        # maintainer release workflow (not for your project)
+rm -f .github/workflows/release-tag.yml            # maintainer auto-tag-on-release-merge (not for your project)
+rm -f .github/workflows/leak-guard.yml             # maintainer identity-marker backstop (not for your project)
+rm -f .github/workflows/branch-topology-guard.yml  # maintainer release-branch-only gate on main (your main takes feature branches)
+```
+
+**Keep `.github/workflows/plugin-tests.yml`** — it validates the harness the
+customer is actually using.
+
+`branch-topology-guard.yml` is the one that BITES if it is left behind. It fails
+**every** pull request into `main` whose head branch is not `release/vX.Y.Z`. In
+this repo's release topology that is correct; in a normal project, where `main`
+receives ordinary feature branches, it rejects every PR the customer opens. The
+other three merely no-op or fail harmlessly. Removing it is not optional cleanup.
+
+Idempotent (Principle IV): `rm -f` on an already-removed file is a no-op, so
+re-running this command is safe.
+
+This step is the SAME removal performed by `init-project.sh` (the shell path) and
+documented in the `project-initialization` skill. All three paths must list the
+same four workflows — `tests/contract/test_shipped_gates_vs_strip.sh` asserts it.
+
+State in the Step 6 report which files were removed and why.
+
 ### Step 5: Validate Compliance
 Run `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Step 6: Report
 Show: VISION.md scaffolded/seeded (or skipped if author-filled), the approval
-posture chosen (and any refused lines), customizations applied, agents created,
-MCP servers recommended, next steps.
+posture chosen (and any refused lines), the maintainer-only CI workflows removed,
+customizations applied, agents created, MCP servers recommended, next steps.

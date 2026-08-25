@@ -46,11 +46,16 @@
 # bash 3.2 safe: no associative arrays, no mapfile, no ${var,,}.
 set -uo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 assert() {
   TOTAL=$((TOTAL + 1)); local desc="$1"; local condition="$2"
   if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
   else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+# skip <desc> <reason> — NOT counted in PASS/FAIL/TOTAL. See tests/lib/tree-provenance.sh.
+skip() {
+  SKIP=$((SKIP + 1))
+  echo "  ⏭  SKIP: $1 — $2"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -58,6 +63,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
 cd "$ROOT"
+
+# shellcheck source=../lib/tree-provenance.sh
+source "$ROOT/tests/lib/tree-provenance.sh"
+if ! loom_require_consistent_tree "$ROOT"; then
+  echo "════════════════════════════════"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  exit 1
+fi
+TREE_KIND="$(loom_tree_kind "$ROOT")"
 
 COLLECTOR="$ROOT/.logic-loom/scripts/bash/build-backlog-index.sh"
 LINTER="$ROOT/.logic-loom/scripts/bash/lint-backlog.sh"
@@ -665,12 +679,24 @@ assert "real repo collects with no fatal defect (exit 0)" "[ $REAL_RC -eq 0 ]"
 assert "real repo produces valid JSON" "jq -e . '$TMP/real.json' >/dev/null 2>&1"
 REAL_N="$(jq -r '.items | length' "$TMP/real.json" 2>/dev/null || echo 0)"
 echo "     (collected $REAL_N item(s) from the real repo)"
+if [ "$TREE_KIND" = "sanitized" ]; then
+  # The shipped .logic-loom/memory/todos.md and backlog.md are EMPTY STUBS by
+  # design (template-strip-manifest.txt `stub:` entries) — a fresh sanitized
+  # clone has no items in either stream until a customer starts using it. That
+  # is the whole point of the stub, not a defect, so "at least one" and "both
+  # streams populated" cannot hold here.
+  skip "real backlog collects at least one item" \
+    "todos.md/backlog.md are empty stubs by design — sanitized tree"
+  skip "the real repo collects items from BOTH Level 0 streams" \
+    "todos.md/backlog.md are empty stubs by design — sanitized tree"
+else
 assert "real backlog collects at least one item" "[ \"$REAL_N\" -ge 1 ]"
 # Both halves of Level 0 must actually be reached in THIS repo. A parser that
 # silently stopped reading one of the two files would leave every fixture above
 # green while half the real work vanished from every consumer.
 assert "the real repo collects items from BOTH Level 0 streams" \
   "[ \"\$(jq -r '[.items[] | select(.level==\"todo\")] | length' '$TMP/real.json')\" -ge 1 ] && [ \"\$(jq -r '[.items[] | select(.level==\"backlog\")] | length' '$TMP/real.json')\" -ge 1 ]"
+fi
 assert "every real cross-stream blocker resolves inside the index" \
   "[ \"\$(jq -r '[.items[].id] as \$ids | [.items[] | .blocked_on[] | select(startswith(\"external:\") | not) | select(\$ids | index(.) == null)] | length' '$TMP/real.json')\" = '0' ]"
 assert "collector emitted no parse warnings on real sources" \
@@ -683,6 +709,6 @@ echo "     (linter findings on the real backlog: ${REAL_FINDINGS:-0} — reporte
 echo ""
 
 echo "════════════════════════════════"
-echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
 [ $FAIL -eq 0 ] && exit 0 || exit 1

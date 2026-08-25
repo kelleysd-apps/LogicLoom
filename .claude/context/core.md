@@ -1,5 +1,10 @@
 # Core Context Module
 <!-- Auto-generated from CLAUDE.md - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from CLAUDE.md), not a
+     live pipeline. Edit it directly and keep it in step with CLAUDE.md by hand.
+     Every command, skill and path named here must resolve on disk. -->
 <!-- Module: Essential instructions, constitutional principles, project overview -->
 
 ## Governance Is Hook-Enforced (No Recited Ceremony)

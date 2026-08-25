@@ -89,9 +89,15 @@ stub: .logic-loom/memory/backlog.md :: .logic-loom/templates/project-backlog-tem
 #     plugin command) + its bridge wrapper + the version-stamp helper. Customers
 #     do NOT promote LogicLoom's template from their own project, so these never
 #     ship — stripped at promote. The sanitized-tree bridge test scans
-#     .claude/commands files (the wrapper is gone, so it stays green); loom-
-#     maintenance plugin.json keeps a now-3rd entry, which no test validates
-#     against files. NOTE: .claude/commands/.bridge-manifest.json SHIPS and is a
+#     .claude/commands files (the wrapper is gone, so it stays green).
+#     loom-maintenance plugin.json USED to keep a now-orphaned `promote` entry in
+#     commands.list, on the (then-true) grounds that no test validated the
+#     inventory against files. validate-plugin-manifests.py and
+#     tests/contract/test_plugin_manifest_schema.sh now DO, and both went red on
+#     every sanitized tree. strip-harness-dev.sh therefore prunes each plugin
+#     manifest's agents/skills/commands inventory of entries whose backing file it
+#     removed — same post-strip re-derivation step as the bridge manifest below.
+#     NOTE: .claude/commands/.bridge-manifest.json SHIPS and is a
 #     DERIVED index of .claude/commands/*.md — removing the wrapper alone would
 #     leave it advertising /promote. strip-harness-dev.sh re-derives it (via
 #     sync-plugin-commands.sh prune) after this manifest is applied. ---

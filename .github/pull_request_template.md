@@ -7,12 +7,14 @@
 <!-- Which plugins are affected? -->
 
 - [ ] loom-governance (🔒 protected)
-- [ ] sdd-specification
-- [ ] loom-git
-- [ ] sdd-debug
+- [ ] loom-memory
+- [ ] loom-orchestrator-hook
 - [ ] loom-creation
+- [ ] loom-git
+- [ ] loom-maintenance
 - [ ] loom-orchestrator
-- [ ] Domain plugin(s): _____________
+- [ ] sdd-specification
+- [ ] Domain brief(s) (`plugins/loom-governance/domain-briefs/`): _____________
 - [ ] No plugin changes
 
 ## Constitutional Compliance
@@ -28,9 +30,8 @@
 ## Checklist
 
 - [ ] Contract tests pass (`bash tests/contract/plugins/test_plugin_lifecycle.sh`)
-- [ ] Plugin manifests valid JSON with required fields
-- [ ] RL metrics baseline included in new plugins
-- [ ] Deprecation headers added to superseded monolithic files
+- [ ] Plugin manifests valid JSON with required fields (`plugins/MANIFEST-SCHEMA.md`)
+- [ ] Full suite passes (`bash tests/run_all_tests.sh`)
 - [ ] CLAUDE.md and AGENTS.md updated if commands/agents changed
 - [ ] No secrets or credentials committed
 

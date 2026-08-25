@@ -133,8 +133,8 @@ product specification and exploratory work.
 ### Why a separate workspace (not the root)
 
 Sharing the root `package.json` / `tests/` with product code causes two **silent**
-collisions documented in the harness↔product-boundary exploration
-(`features/harness-product-boundary/exploration/`):
+collisions — silent because neither one fails a build; they just quietly change
+what `npm test` covers:
 
 - **jest-glob collision** — the framework's root `testMatch` glob sweeps product
   tests into `npm test`, mixing them with framework suites and forcing them under
@@ -178,31 +178,29 @@ its own runner.
 - Department folder must exist before creating agent
 - Use `.logic-loom/templates/agent-template.md` for new agents
 
-### .claude/skills/ - Skill Definitions
+### plugins/<plugin>/skills/ - Skill Definitions
+
+Skills belong to a plugin (Principle XVI). There is **no** top-level
+`.claude/skills/` directory — `constitutional-check.sh` warns if one appears.
 
 **Structure**:
 ```
-.claude/skills/
-├── sdd-workflow/               # SDD command skills
-│   ├── sdd-specification/
+plugins/
+├── loom-governance/skills/     # Governance-core skills
+│   ├── constitutional-compliance/
 │   │   └── SKILL.md
-│   ├── sdd-planning/
+│   ├── domain-detection/
 │   │   └── SKILL.md
-│   └── sdd-tasks/
-│       └── SKILL.md
-└── validation/                 # Validation skills
-    ├── constitutional-compliance/
-    │   └── SKILL.md
-    ├── domain-detection/
-    │   └── SKILL.md
-    ├── message-preflight/
-    │   └── SKILL.md
-    └── file-organization/      # NEW
+│   ├── file-organization/
+│   │   └── SKILL.md
+│   └── ...
+└── sdd-specification/skills/   # SDD waterfall pack
+    └── unified-specification/  # the plugin's only skill
         └── SKILL.md
 ```
 
 **Rules**:
-- Each skill gets its own folder
+- Each skill gets its own folder inside its owning plugin
 - Main file MUST be named `SKILL.md`
 - Supporting files allowed: `reference.md`, `examples.md`
 - Use `.logic-loom/templates/skill-template.md` for new skills
@@ -584,7 +582,7 @@ All agents MUST:
 |--------------|------|
 | Agent definition | `.claude/agents/[dept]/[agent].md` |
 | Agent memory | `.docs/agents/[dept]/[agent]/` |
-| Skill | `.claude/skills/[category]/[skill]/SKILL.md` |
+| Skill | `plugins/[plugin]/skills/[skill]/SKILL.md` |
 | Command | `.claude/commands/[command].md` |
 | Policy | `.docs/policies/[topic]-policy.md` |
 | Feature (vision/PRD/plan pack) | `features/<name>/` |
@@ -598,8 +596,8 @@ All agents MUST:
 # Create agent (use script)
 .logic-loom/scripts/bash/create-agent.sh [name] [description]
 
-# Create skill folder
-mkdir -p .claude/skills/[category]/[skill-name]
+# Create skill folder (skills live inside their owning plugin)
+mkdir -p plugins/[plugin]/skills/[skill-name]
 
 # Create feature via vision/PRD/plan workflow pack
 /create-prd [feature-name]      # bootstraps features/<name>/vision.md

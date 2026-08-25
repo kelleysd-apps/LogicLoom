@@ -133,4 +133,101 @@ else
   echo -e "${YELLOW}  warn  ${NC}sync-plugin-commands.sh absent — bridge manifest NOT re-derived"
 fi
 
-echo -e "${GREEN}Done.${NC} Next: sanitize-for-template.sh, then sanitization-audit.sh"
+# --- Prune each plugin's declared agents/skills/commands inventory ------------
+# Mirrors the bridge-manifest re-derivation immediately above, for the SAME
+# reason: a strip entry can remove a command file (e.g. plugins/loom-maintenance/
+# commands/promote.md) while `plugins/loom-maintenance/.claude-plugin/plugin.json`
+# still lists `promote` in its `commands.list`. That manifest is validated —
+# .logic-loom/scripts/python/validate-plugin-manifests.py and
+# tests/contract/test_plugin_manifest_schema.sh both require every declared
+# `agents`/`skills`/`commands` entry to have a backing file on disk — so a strip
+# that removes a file without also removing its manifest entry ships a tree that
+# fails its own manifest validator on first CI run. (This is exactly the LOOM
+# bug the strip manifest's own comment on promote.md used to describe as "no
+# test validates against files" — that comment was stale; the validator does.)
+#
+# Fixed the same way as the bridge manifest: RE-DERIVE, don't hand-edit. The
+# strip step does not learn which specific entries are release-sensitive (that
+# stays declared once, in template-strip-manifest.txt); it just prunes any
+# manifest entry whose backing file the strip already removed, using the exact
+# same on-disk convention the validator itself uses (agents/commands -> `<name>
+# .md`; skills -> a subdirectory named `<name>`). An entry is DROPPED, never
+# ADDED — this only removes references to files that are now gone; it never
+# invents a declaration for a file that happens to exist on disk. Deterministic
+# and idempotent: on a tree where nothing was stripped, every declared entry
+# still has a backing file, so no manifest is rewritten.
+if command -v python3 >/dev/null 2>&1; then
+  # NOTE: the heredoc is NOT wrapped in $( ) — bash 3.2 (the floor this repo
+  # targets) mis-parses quotes inside a heredoc nested in command substitution,
+  # and an apostrophe in a Python comment below was enough to break the whole
+  # script with "unexpected EOF". Redirect to a temp file and read it back.
+  PRUNE_LOG="$(mktemp 2>/dev/null || mktemp -t loomprune)"
+  REPO_ROOT="$REPO_ROOT" python3 - > "$PRUNE_LOG" <<'PY'
+import json
+import os
+import sys
+
+repo_root = os.environ["REPO_ROOT"]
+plugins_dir = os.path.join(repo_root, "plugins")
+if not os.path.isdir(plugins_dir):
+    sys.exit(0)
+
+
+def backing_exists(plugin_dir, kind, entry):
+    # Same convention as validate-plugin-manifests.py's _inventory_on_disk():
+    # agents/commands -> `<name>.md`; skills -> a subdirectory named `<name>`.
+    if kind == "skills":
+        return os.path.isdir(os.path.join(plugin_dir, "skills", entry))
+    return os.path.isfile(os.path.join(plugin_dir, kind, entry + ".md"))
+
+
+for name in sorted(os.listdir(plugins_dir)):
+    plugin_dir = os.path.join(plugins_dir, name)
+    manifest = os.path.join(plugin_dir, ".claude-plugin", "plugin.json")
+    if not os.path.isfile(manifest):
+        continue
+    with open(manifest, encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        continue
+
+    changed = False
+    for kind in ("agents", "skills", "commands"):
+        block = data.get(kind)
+        if not isinstance(block, dict) or "list" not in block:
+            continue
+        declared = block["list"]
+        if not isinstance(declared, list):
+            continue
+        pruned = [
+            entry for entry in declared
+            if isinstance(entry, str) and backing_exists(plugin_dir, kind, entry)
+        ]
+        if pruned != declared:
+            block["list"] = pruned
+            changed = True
+
+    if changed:
+        with open(manifest, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=2)
+            fh.write("\n")
+        print(os.path.relpath(manifest, repo_root))
+PY
+  while IFS= read -r line; do
+    [ -n "$line" ] && echo -e "${GREEN}  prune ${NC}$line (post-strip manifest inventory)"
+  done < "$PRUNE_LOG"
+  rm -f "$PRUNE_LOG"
+else
+  echo -e "${YELLOW}  warn  ${NC}python3 absent — plugin manifest inventories NOT re-derived"
+fi
+
+# Release order is  sanitize-for-template.sh -> strip-harness-dev.sh (this) ->
+# history-scrub.sh -> sanitization-audit.sh  (.github/workflows/promote-to-main.yml,
+# "Build sanitized tree from dev-main"). This message used to name
+# sanitize-for-template.sh as the NEXT step; it runs BEFORE this script, and this
+# script has just deleted it from the tree, so following that advice pointed at a
+# file that no longer exists. The two steps that really do come next are also
+# stripped by this pass, so they must be run from a copy preserved beforehand.
+echo -e "${GREEN}Done.${NC} Next: history-scrub.sh, then sanitization-audit.sh"
+echo -e "       (both are stripped from this tree — run them from a copy taken"
+echo -e "        BEFORE the strip; sanitize-for-template.sh already ran, before this.)"

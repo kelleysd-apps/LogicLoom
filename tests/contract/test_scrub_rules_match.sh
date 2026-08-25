@@ -26,11 +26,16 @@
 # Overridable for meta-testing: LOOM_SCRUB_RULES.
 set -uo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 assert() {
   TOTAL=$((TOTAL + 1)); local desc="$1"; local condition="$2"
   if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
   else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+# skip <desc> <reason> — NOT counted in PASS/FAIL/TOTAL. See tests/lib/tree-provenance.sh.
+skip() {
+  SKIP=$((SKIP + 1))
+  echo "  ⏭  SKIP: $1 — $2"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,6 +43,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
 cd "$ROOT"
+
+# shellcheck source=../lib/tree-provenance.sh
+source "$ROOT/tests/lib/tree-provenance.sh"
+if ! loom_require_consistent_tree "$ROOT"; then
+  echo "════════════════════════════════"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  exit 1
+fi
+TREE_KIND="$(loom_tree_kind "$ROOT")"
 
 RULES="${LOOM_SCRUB_RULES:-$ROOT/.logic-loom/scripts/bash/history-scrub-rules.json}"
 
@@ -74,12 +88,36 @@ echo "═══ History-Scrub Rules Match Something ═══"
 echo ""
 
 echo "0. Inputs present"
+if [ "$TREE_KIND" = "sanitized" ]; then
+  # history-scrub-rules.json is itself a maintainer-only strip-manifest entry
+  # (it exists to scrub OUR dev-line identity markers before promotion) — it
+  # cannot exist on a sanitized tree, and neither can anything this suite
+  # checks against it. Skip the whole body rather than a hard fail: this is
+  # the expected, by-design state of a customer/promoted checkout, not a
+  # defect. See tests/lib/tree-provenance.sh for why this is a narrow, named
+  # skip rather than a silent early-exit.
+  skip "rules file present: ${RULES#$ROOT/}" \
+    "history-scrub-rules.json is stripped — sanitized tree (maintainer-only file)"
+  skip "every rule's target file exists" \
+    "history-scrub-rules.json is stripped — sanitized tree (maintainer-only file)"
+  skip "every scrub op matches its target at least once" \
+    "history-scrub-rules.json is stripped — sanitized tree (maintainer-only file)"
+  skip "replay is live and every op kind is known" \
+    "history-scrub-rules.json is stripped — sanitized tree (maintainer-only file)"
+  skip "no stale EXCLUSIONS entry" \
+    "history-scrub-rules.json is stripped — sanitized tree (maintainer-only file)"
+  echo ""
+  echo "════════════════════════════════"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  echo "✅ ALL TESTS PASSED (nothing to check on a sanitized tree)"
+  exit 0
+fi
 assert "rules file present: ${RULES#$ROOT/}" "[ -f \"\$RULES\" ]"
 assert "python3 available (rule matcher)" "command -v python3 >/dev/null 2>&1"
 if [ ! -f "$RULES" ] || ! command -v python3 >/dev/null 2>&1; then
   echo ""
   echo "════════════════════════════════"
-  echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
   echo "❌ SOME TESTS FAILED"
   exit 1
 fi
@@ -251,6 +289,6 @@ assert "no stale EXCLUSIONS entry" "[ -z \"\$STALE\" ]"
 
 echo ""
 echo "════════════════════════════════"
-echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
 [ $FAIL -eq 0 ] && exit 0 || exit 1

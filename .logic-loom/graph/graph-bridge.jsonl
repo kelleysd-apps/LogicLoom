@@ -45,7 +45,6 @@
 {"type":"entity","name":".docs/reports/backlog-2026-08-13.md","entityType":"note","observations":["LogicLoom Living Backlog — opened 2026-08-13"]}
 {"type":"entity","name":".docs/reports/harness-parity-proposal.md","entityType":"note","observations":["LogicLoom Harness-Machinery Parity Proposal"]}
 {"type":"entity","name":".docs/reviews/LOGICLOOM_ISSUE_harness-product-boundary.md","entityType":"note","observations":["LogicLoom issue draft — Clarify the harness ↔ product boundary; support products with their own toolchain"]}
-{"type":"entity","name":".docs/workflows/sdd-overview.md","entityType":"note","observations":["sdd-overview.md"]}
 {"type":"entity","name":".logic-loom/memory/constitution.md","entityType":"note","observations":["constitution.md"]}
 {"type":"entity","name":"AGENTS.md","entityType":"note","observations":["LogicLoom Agent Registry"]}
 {"type":"entity","name":"CLAUDE.md","entityType":"note","observations":["CLAUDE.md — LogicLoom"]}
@@ -70,6 +69,7 @@
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/security.md","entityType":"code-path","observations":["security.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/testing.md","entityType":"code-path","observations":["testing.md"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","entityType":"code-path","observations":["git-safety-gate.sh"]}
+{"type":"entity","name":"plugins/loom-governance/hooks/scripts/subagent-git-guard.sh","entityType":"code-path","observations":["subagent-git-guard.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/scaffold-environments.md","entityType":"code-path","observations":["scaffold-environments.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -87,7 +87,11 @@
 {"type":"entity","name":"plugins/loom-orchestrator/skills/swarm-explore/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/team-orchestration/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
+{"type":"entity","name":"plugins/sdd-specification/README.md","entityType":"note","observations":["README.md"]}
+{"type":"entity","name":"plugins/sdd-specification/skills/unified-specification/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
+{"type":"entity","name":"plugins/sdd-specification/skills/unified-specification/SKILL.md","entityType":"note","observations":["SKILL.md"]}
 {"type":"entity","name":"specs/README.md","entityType":"note","observations":["Feature Specifications Directory"]}
+{"type":"entity","name":"tests/contract/test_bash32_floor.sh","entityType":"code-path","observations":["test_bash32_floor.sh"]}
 {"type":"entity","name":"tests/contract/test_environment_scaffolding.sh","entityType":"code-path","observations":["test_environment_scaffolding.sh"]}
 {"type":"entity","name":"tests/contract/test_freeze_scope.sh","entityType":"code-path","observations":["test_freeze_scope.sh"]}
 {"type":"entity","name":"tests/contract/test_git_adapter.sh","entityType":"code-path","observations":["test_git_adapter.sh"]}
@@ -95,8 +99,8 @@
 {"type":"entity","name":"tests/contract/test_graph_bridge.sh","entityType":"code-path","observations":["test_graph_bridge.sh"]}
 {"type":"entity","name":"tests/contract/test_model_agnostic.sh","entityType":"code-path","observations":["test_model_agnostic.sh"]}
 {"type":"entity","name":"tests/contract/test_promotion_lifecycle.sh","entityType":"code-path","observations":["test_promotion_lifecycle.sh"]}
+{"type":"entity","name":"tests/contract/test_shipped_gates_vs_strip.sh","entityType":"code-path","observations":["test_shipped_gates_vs_strip.sh"]}
 {"type":"entity","name":"tests/contract/test_spec006_integration.sh","entityType":"code-path","observations":["test_spec006_integration.sh"]}
-{"type":"entity","name":"tests/contract/test_suite_registration.sh","entityType":"code-path","observations":["test_suite_registration.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
 {"type":"entity","name":"wikilink.md","entityType":"note","observations":["wikilink"]}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","relationType":"mentions"}
@@ -112,7 +116,10 @@
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".docs/guides/unified-specification-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/unified-specification-guide.md","to":".docs/guides/git-push-guide.md","relationType":"links-to"}
-{"type":"relation","from":".docs/guides/unified-specification-guide.md","to":".docs/workflows/sdd-overview.md","relationType":"links-to"}
+{"type":"relation","from":".docs/guides/unified-specification-guide.md","to":"plugins/sdd-specification/README.md","relationType":"links-to"}
+{"type":"relation","from":".docs/guides/unified-specification-guide.md","to":"plugins/sdd-specification/skills/unified-specification/SKILL.md","relationType":"links-to"}
+{"type":"relation","from":".docs/policies/branching-strategy-policy.md","to":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/branching-strategy-policy.md","to":"plugins/loom-governance/hooks/scripts/subagent-git-guard.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/security.md","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/code-review-policy.md","to":"plugins/loom-governance/domain-briefs/testing.md","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/environment-promotion-policy.md","to":"plugins/loom-maintenance/commands/scaffold-environments.md","relationType":"mentions"}
@@ -122,9 +129,12 @@
 {"type":"relation","from":".docs/policies/file-structure-policy.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"plugins/loom-memory/scripts/memory-log.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_bash32_floor.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_promotion_lifecycle.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_shipped_gates_vs_strip.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_spec006_integration.sh","relationType":"mentions"}
-{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/contract/test_suite_registration.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/shell-idiom-policy.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/policies/todo-architecture-policy.md","to":"plugins/sdd-specification/skills/unified-specification/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/README.md","to":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","relationType":"links-to"}
 {"type":"relation","from":".docs/reports/backlog-2026-08-13.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-memory/config/memory.conf","relationType":"mentions"}
@@ -138,6 +148,8 @@
 {"type":"relation","from":"AGENTS.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
 {"type":"relation","from":"AGENTS.md","to":"plugins/loom-governance/agents/constitutional-governance-agent.md","relationType":"mentions"}
 {"type":"relation","from":"CLAUDE.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
+{"type":"relation","from":"CLAUDE.md","to":"tests/contract/test_bash32_floor.sh","relationType":"mentions"}
+{"type":"relation","from":"README.md","to":".docs/policies/environment-promotion-policy.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":".docs/policies/file-structure-policy.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"AGENTS.md","relationType":"links-to"}
@@ -145,6 +157,7 @@
 {"type":"relation","from":"README.md","to":"KNOWN_ISSUES.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"START_HERE.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"features/README.md","relationType":"links-to"}
+{"type":"relation","from":"START_HERE.md","to":".docs/policies/environment-promotion-policy.md","relationType":"links-to"}
 {"type":"relation","from":"VISION.md","to":"features/code-knowledge-graph/exploration/graph-stack-decision.md","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"wikilink.md","relationType":"links-to"}

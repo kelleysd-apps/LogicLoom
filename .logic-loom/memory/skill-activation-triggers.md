@@ -21,10 +21,7 @@ Exact matches for slash commands:
 
 | Command | Skill Path | Skill |
 |---------|------------|-------|
-| `/specify` | sdd-workflow/sdd-specification | unified-specification skill |
-| `/plan` | sdd-workflow/sdd-planning | planning-agent skill |
-| `/tasks` | sdd-workflow/sdd-tasks | task-generation skill |
-| `/debug` | sdd-workflow/sdd-debug | auto-debug skill (auto-debug-agent) |
+| `/specification` | sdd-specification/unified-specification | unified-specification skill |
 | `/finalize` | governance/finalize | finalize skill (loom-git) |
 | `/create-agent` | creation/create-agent | agent-creation skill (subagent-architect) |
 | `/create-skill` | creation/create-skill | skill-creation skill (subagent-architect) |
@@ -126,25 +123,19 @@ plugins.
 
 **Triggers**: specify, specification, requirements, feature spec, user story
 
-**Skill**: unified-specification skill (sdd-specification)
+**Skill**: unified-specification skill (sdd-specification), specification phase
 
 ### Planning Phase
 
 **Triggers**: plan, implementation plan, technical research, data model, contract
 
-**Skill**: planning-agent skill (sdd-specification)
+**Skill**: unified-specification skill (sdd-specification), planning phase
 
 ### Tasks Phase
 
 **Triggers**: tasks, task list, breakdown, dependencies, implementation tasks
 
-**Skill**: task-generation skill (sdd-specification)
-
-### Debug Phase
-
-**Triggers**: debug, troubleshoot, error, deployment issue, bug
-
-**Skill**: auto-debug skill (auto-debug-agent plugin)
+**Skill**: unified-specification skill (sdd-specification), tasks phase
 
 ---
 

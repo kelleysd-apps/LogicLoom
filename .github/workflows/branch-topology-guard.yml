@@ -41,6 +41,22 @@ name: Branch Topology Guard (PRs → main)
 # line, which is the exact failure this exists to prevent. A genuine emergency
 # uses `promote-to-main.yml` with `publish_mode: direct-push` (which still runs
 # the binding audit) rather than a hand-cut PR.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# IF YOU CLONED / FORKED LOGICLOOM AND YOUR PRs INTO `main` ARE FAILING: DELETE
+# THIS FILE. It is ours, not yours.
+# ─────────────────────────────────────────────────────────────────────────────
+#   rm .github/workflows/branch-topology-guard.yml
+#
+# It has to SHIP (a `pull_request` workflow is evaluated from the BASE branch, so
+# the copy that runs must exist on `main` — see above), which means a clone
+# inherits it. `/initialize-project` deletes it for you, along with
+# promote-to-main.yml, release-tag.yml and leak-guard.yml. If you adopted
+# LogicLoom by running `/update-framework` on an existing project instead of
+# running `/initialize-project`, nothing deleted it and your ordinary
+# feature-branch PRs into `main` will be rejected by a rule about OUR release
+# topology. Delete the four files above (keep plugin-tests.yml), or re-run
+# `/initialize-project`. Nothing else in the harness depends on this workflow.
 # =============================================================================
 
 on:

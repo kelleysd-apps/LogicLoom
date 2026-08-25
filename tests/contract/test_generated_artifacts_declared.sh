@@ -52,11 +52,16 @@
 # Overridable for meta-testing: LOOM_STRIP_MANIFEST.
 set -uo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 assert() {
   TOTAL=$((TOTAL + 1)); local desc="$1"; local condition="$2"
   if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
   else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+# skip <desc> <reason> — NOT counted in PASS/FAIL/TOTAL. See tests/lib/tree-provenance.sh.
+skip() {
+  SKIP=$((SKIP + 1))
+  echo "  ⏭  SKIP: $1 — $2"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -64,6 +69,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
 cd "$ROOT"
+
+# shellcheck source=../lib/tree-provenance.sh
+source "$ROOT/tests/lib/tree-provenance.sh"
+if ! loom_require_consistent_tree "$ROOT"; then
+  echo "════════════════════════════════"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  exit 1
+fi
+TREE_KIND="$(loom_tree_kind "$ROOT")"
 
 # Operations-log isolation: scripts this suite drives source logging.sh, which
 # otherwise appends to the shared .logic-loom/logs/operations/ file and makes
@@ -105,12 +119,38 @@ artifacts/backlog-dashboard.html"
 #     repo-agnostic (plugin-relative source paths only) and three suites assert
 #     the manifest is present (test_deprecation, test_plugin_command_bridge,
 #     test_spec006_integration).
-#   .claude/context/ — the modular context loaders (core/governance/agents/
-#     skills/workflows.md) regenerated from CLAUDE.md + AGENTS.md by
-#     load-context.sh. Documented as shipping: history-scrub-rules.json carries
-#     scrub rules for all five, i.e. they are expected in the snapshot.
+#   .claude/context/ — the five modular context loaders (core/governance/agents/
+#     skills/workflows.md). They are MAINTAINED BY HAND; there is NO generator.
+#     load-context.sh only READS and caches them (see its `load` path — it never
+#     writes .claude/context/), and each of the five now says so in its own header.
+#     They land in this file at all because each carries a legacy
+#     "<!-- Auto-generated from ... -->" line recording its ORIGIN — a one-time
+#     transcription from CLAUDE.md / AGENTS.md / the plugin SKILL.md files — and
+#     is_generated() below matches that banner form. Declaring them here is the
+#     conservative call: the detector believes the banner, so the entry must exist
+#     or assertion 1 fails; and the banner is worth keeping because a stale
+#     transcription IS the risk these files carry.
+#     They ship because a fresh clone needs them and history-scrub-rules.json
+#     carries scrub rules for all five, i.e. they are expected in the snapshot.
+#     (This reason itself had drifted — it previously asserted a load-context.sh
+#     regeneration pipeline that does not exist. See the RECOMMENDATION below.)
 ALLOW_TO_SHIP=".claude/commands/
 .claude/context/"
+
+# RECOMMENDATION (not implemented — deliberately not built on release day):
+# these reasons are free prose, so nothing checks them, and the .claude/context/
+# reason above was false for an unknown number of releases. That is the exact
+# failure mode this suite exists to catch, one level up: a DECLARATION that
+# drifted from the artifact it declares. Assertion 3 keeps an entry from going
+# stale in the sense of "covers nothing"; nothing keeps it from going stale in
+# the sense of "says something untrue".
+# The cheap next step, when there is time to do it properly, is to make the
+# claim-bearing part of each reason machine-checkable — e.g. a structured
+# `generator: <script>` field per entry, asserted to be a file that actually
+# writes to that path (and required to be `generator: none` when it does not).
+# That is a grammar change plus a parser plus fixing every existing entry; it is
+# not a release-day edit. Left here so the next person does not have to
+# rediscover the hole.
 
 # path_matches <file> <entry> — exact, directory-prefix, or glob.
 path_matches() {
@@ -165,16 +205,28 @@ echo "═══ Generated Artifacts Are Declared ═══"
 echo ""
 
 echo "0. Inputs present"
-assert "strip manifest present: ${MANIFEST#$ROOT/}" "[ -f \"\$MANIFEST\" ]"
-if [ ! -f "$MANIFEST" ]; then
+if [ "$TREE_KIND" = "sanitized" ] && [ ! -f "$MANIFEST" ]; then
+  skip "strip manifest present: ${MANIFEST#$ROOT/}" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "strip manifest has entries" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  MANIFEST_ENTRIES=""
+elif [ ! -f "$MANIFEST" ]; then
+  # maintainer/inconsistent tree with a genuinely missing manifest: still a
+  # hard failure, never a skip — loom_require_consistent_tree above only
+  # catches the mixed-markers case, not "manifest happens to be missing on an
+  # otherwise-maintainer tree" (e.g. LOOM_STRIP_MANIFEST pointed elsewhere).
+  assert "strip manifest present: ${MANIFEST#$ROOT/}" "[ -f \"\$MANIFEST\" ]"
   echo ""
   echo "════════════════════════════════"
-  echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
   echo "❌ SOME TESTS FAILED"
   exit 1
+else
+  assert "strip manifest present: ${MANIFEST#$ROOT/}" "[ -f \"\$MANIFEST\" ]"
+  MANIFEST_ENTRIES="$(manifest_entries)"
+  assert "strip manifest has entries" "[ -n \"\$MANIFEST_ENTRIES\" ]"
 fi
-MANIFEST_ENTRIES="$(manifest_entries)"
-assert "strip manifest has entries" "[ -n \"\$MANIFEST_ENTRIES\" ]"
 
 TRACKED="$(git ls-files 2>/dev/null)"
 assert "git-tracked file list is readable" "[ -n \"\$TRACKED\" ]"
@@ -265,6 +317,20 @@ assert "no stale ALLOW_TO_SHIP entry" "[ -z \"\$STALE\" ]"
 # and these assertions keep it resolvable.
 echo ""
 echo "4. Every stub: entry declares a template that exists"
+if [ "$TREE_KIND" = "sanitized" ]; then
+  skip "manifest declares at least one stub: entry" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "every stub: entry resolves to an existing template" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "VISION.md stubs from the project-vision template" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "backlog.md stubs from the project-backlog template" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "todos.md stubs from the project-todos template" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "the two Level 0 stubs use DIFFERENT templates (each states its own scope)" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+else
 STUB_LINES="$(sed 's/[[:space:]]*#.*$//' "$MANIFEST" \
   | sed 's/^[[:space:]]*//; s/[[:space:]]*$//' \
   | grep '^stub:' || true)"
@@ -303,6 +369,7 @@ assert "todos.md stubs from the project-todos template" \
   "grep -qF 'stub: .logic-loom/memory/todos.md :: .logic-loom/templates/project-todos-template.md' <<< \"\$STUB_LINES\""
 assert "the two Level 0 stubs use DIFFERENT templates (each states its own scope)" \
   "[ \"\$(grep -F '.logic-loom/memory/' <<< \"\$STUB_LINES\" | sed 's/.*:: //' | LC_ALL=C sort -u | wc -l | tr -d ' ')\" = '2' ]"
+fi
 
 # ── 5. The stripper ABORTS on an unresolvable stub: entry ────────────────────
 # Assertion 4 checks the declaration; this checks the ENFORCEMENT. Run the real
@@ -311,6 +378,10 @@ assert "the two Level 0 stubs use DIFFERENT templates (each states its own scope
 echo ""
 echo "5. strip-harness-dev.sh fails loudly on an unresolvable stub:"
 STRIPPER="$ROOT/.logic-loom/scripts/bash/strip-harness-dev.sh"
+if [ "$TREE_KIND" = "sanitized" ]; then
+  skip "strip-harness-dev.sh present" \
+    "strip-harness-dev.sh is itself stripped — sanitized tree (maintainer-only file)"
+else
 assert "strip-harness-dev.sh present" "[ -f \"\$STRIPPER\" ]"
 if [ -f "$STRIPPER" ]; then
   TMPD="$(mktemp -d 2>/dev/null || mktemp -d -t loomstub)"
@@ -335,9 +406,10 @@ if [ -f "$STRIPPER" ]; then
     "grep -q 'declares no template' <<< \"\$OUT2\""
   rm -rf "$TMPD"
 fi
+fi
 
 echo ""
 echo "════════════════════════════════"
-echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
 [ $FAIL -eq 0 ] && exit 0 || exit 1

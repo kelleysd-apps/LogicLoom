@@ -107,11 +107,47 @@ jobs:
       - name: Run Promotion Lifecycle Tests
         run: bash tests/contract/test_promotion_lifecycle.sh
 
-      # FAIL-CLOSED staleness gate for the repo's git-TRACKED generated
-      # artifacts (artifacts/backlog-dashboard.html, .logic-loom/graph/
-      # graph-bridge.jsonl). Regenerates each and fails if the committed copy
-      # differs. This is the licence for tracking a derived artifact at all —
-      # a warn-only lint is what let the manifest bug ship. Run it locally with
+      # THE CONVERSE of the freshness gate below: nothing that SHIPS may DEMAND
+      # a path template-strip-manifest.txt removes. Builds a throwaway stripped
+      # tree with the real stripper and RUNS every shipped CI step that mentions
+      # a stripped path. Both release blockers of v6.4.x were this exact shape.
+      - name: Run Shipped Gates vs Strip Tests
+        run: bash tests/contract/test_shipped_gates_vs_strip.sh
+
+      # The promote-to-main `gate` job runs sanitization-audit.sh and the release
+      # does not start if it exits 1 — but nothing invoked the audit outside that
+      # job, so its verdict was only ever learned at release time. This step runs
+      # it here (forward) AND plants a violation per check to prove each can still
+      # fail (reverse). Skips itself on a sanitized tree: the audit is stripped.
+      - name: Run Sanitization Audit Tests
+        run: bash tests/contract/test_sanitization_audit.sh
+
+      # `.docs/policies/shell-idiom-policy.md` declares bash 3.2 (stock macOS
+      # /bin/bash) the floor, and until this suite nothing checked it: eight
+      # shipped scripts used `declare -A` / `[[ -v ]]` / `mapfile`, including
+      # the three /specification quality gates and the load-context.sh command
+      # CLAUDE.md tells users to run. THIS RUNNER IS ubuntu-latest (bash 5) AND
+      # HAS NO BASH 3.2, so what it gates is the static scan for known bash-4
+      # constructs plus the gates' golden scores under bash 5 — it CANNOT prove
+      # a novel bash-4-only construct runs on 3.2. The suite prints exactly
+      # which of its sections it skipped rather than passing silently; the
+      # execution floor is proven on a macOS run.
+      - name: Run bash 3.2 Floor Tests
+        run: bash tests/contract/test_bash32_floor.sh
+
+      # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
+      # artifacts. It regenerates each and fails if the committed copy differs —
+      # the licence for tracking a derived artifact at all, since a warn-only
+      # lint is what let the manifest bug ship.
+      #
+      # WHICH artifacts is derived from the GIT INDEX, not hardcoded. On the dev
+      # line that is artifacts/backlog-dashboard.html and .logic-loom/graph/
+      # graph-bridge.jsonl. On a sanitized template clone both are stripped and
+      # untracked, so there is nothing to check and the step passes — it used to
+      # demand them unconditionally and reddened every cloner's first push. If
+      # YOU (a cloner) generate and commit either one, this starts covering yours
+      # automatically. A tracked artifact that is missing from disk still FAILS.
+      # Run it locally with
       #   ./.logic-loom/scripts/bash/check-generated-freshness.sh
       - name: Check Generated Artifact Freshness
         run: bash .logic-loom/scripts/bash/check-generated-freshness.sh

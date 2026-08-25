@@ -75,6 +75,9 @@ assert "unified-specification skill exists" "[ -f '$ROOT_DIR/plugins/sdd-specifi
 assert "deprecated sdd-specification skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-specification' ]"
 assert "deprecated sdd-planning skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-planning' ]"
 assert "deprecated sdd-tasks skill removed" "[ ! -d '$ROOT_DIR/plugins/sdd-specification/skills/sdd-tasks' ]"
+# Positive form of the same invariant: exactly ONE skill ships in this plugin.
+SPEC_SKILL_COUNT=$(find "$ROOT_DIR/plugins/sdd-specification/skills" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+assert "sdd-specification ships exactly 1 skill (found ${SPEC_SKILL_COUNT})" "[ ${SPEC_SKILL_COUNT} -eq 1 ]"
 
 echo ""
 

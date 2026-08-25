@@ -27,11 +27,16 @@
 # bash 3.2 safe: no associative arrays, no mapfile, no ${var,,}.
 set -uo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 assert() {
   TOTAL=$((TOTAL + 1)); local desc="$1"; local condition="$2"
   if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
   else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+# skip <desc> <reason> — NOT counted in PASS/FAIL/TOTAL. See tests/lib/tree-provenance.sh.
+skip() {
+  SKIP=$((SKIP + 1))
+  echo "  ⏭  SKIP: $1 — $2"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,6 +44,16 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
 cd "$ROOT"
+
+# shellcheck source=../lib/tree-provenance.sh
+source "$ROOT/tests/lib/tree-provenance.sh"
+if ! loom_require_consistent_tree "$ROOT"; then
+  echo "═══════════════════════════════════════════════════════════"
+  echo "  Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  echo "═══════════════════════════════════════════════════════════"
+  exit 1
+fi
+TREE_KIND="$(loom_tree_kind "$ROOT")"
 
 GATE="$ROOT/.logic-loom/scripts/bash/promote-gate.sh"
 RECORD="$ROOT/.logic-loom/scripts/bash/promotion-record.sh"
@@ -111,9 +126,16 @@ for c in promote-dev promote-staging promote-prod; do
   assert "command is bridged to .claude/commands/: $c" "[ -f '$ROOT/.claude/commands/$c.md' ]"
 done
 # The maintainer /promote is a DIFFERENT command and is untouched by this pack.
+if [ "$TREE_KIND" = "sanitized" ]; then
+  skip "maintainer promote.md still present" \
+    "plugins/loom-maintenance/commands/promote.md is stripped — sanitized tree (maintainer-only file)"
+  skip "maintainer promote.md is still the only stripped promote command" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+else
 assert "maintainer promote.md still present" "[ -f '$CMD_DIR/promote.md' ]"
 assert "maintainer promote.md is still the only stripped promote command" \
   "grep -qx 'plugins/loom-maintenance/commands/promote.md' '$ROOT/.logic-loom/scripts/bash/template-strip-manifest.txt'"
+fi
 for c in promote-dev promote-staging promote-prod; do
   assert "customer command NOT stripped from the template: $c" \
     "! grep -qE '(^|/)$c\\.md' '$ROOT/.logic-loom/scripts/bash/template-strip-manifest.txt'"
@@ -451,7 +473,7 @@ assert "attestation template carries the § 6.4 trap" "grep -q 'SECOND PARENT' '
 echo ""
 
 echo "═══════════════════════════════════════════════════════════"
-echo "  Results: $PASS/$TOTAL passed, $FAIL failed"
+echo "  Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 echo "═══════════════════════════════════════════════════════════"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

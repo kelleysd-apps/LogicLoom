@@ -46,6 +46,11 @@ SITES = [
     ('.logic-loom/scripts/bash/sanitize-for-template.sh', r'\*\*Framework\*\*: LogicLoom v'+S),
     ('.docs/architecture/governance-threat-model.md', r'\*\*Status:\*\* v'+S),
     ('package.json', r'"version": "'+S+r'"'),
+    # SHIPS unstripped and states the framework version it documents. Nothing
+    # updated it, so v6.4.1 would have been published inside a v6.5.0 template.
+    # (Its own '**Version**: 1.1.0' is the SCHEMA's version — a different thing,
+    # deliberately not stamped here.)
+    ('plugins/MANIFEST-SCHEMA.md', r'\*\*Applies to\*\*: LogicLoom v'+S),
 ]
 
 byfile = OrderedDict()

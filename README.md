@@ -97,7 +97,7 @@ LogicLoom's own plugins live in `plugins/` and are loaded directly — see Plugi
 | `loom-memory` | orchestration | 3-tier memory with hybrid BM25/vector search |
 | `loom-creation` | core | `/create-prd`, `/create-agent`, `/create-plugin` |
 | `loom-git` | core | `/git-push`, `/finalize` (`/code-review` is an external Claude Code command, not shipped here) |
-| `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
+| `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project`, `/scaffold-environments`, `/promote-dev`, `/promote-staging`, `/promote-prod` |
 | `sdd-specification` | SDD pack | `/specification` waterfall (keeps `sdd-` — it *is* the SDD workflow) |
 
 Domain expertise is **not** a plugin: the 7 domains (frontend, backend, database, testing, security, performance, devops) are **briefs** in `plugins/loom-governance/domain-briefs/`, injected into swarm/team workers via `get_domain_brief`.
@@ -123,13 +123,16 @@ A peer workflow pack — best for well-understood features with stable requireme
 
 | Command | Purpose |
 |---------|---------|
-| `/specification` | Unified SDD workflow (spec + plan + tasks in one command) |
-| `/specify` | Create feature specification |
-| `/plan` | Generate implementation plan |
-| `/tasks` | Generate task list |
+| `/specification` | The whole SDD waterfall in one command — spec, then plan, then tasks, as three sequential phases with quality gates |
 | `/build-team` | Sequential architect → implementor → reviewer |
 | `/fullstack-team` | Parallel full-stack team |
 | `/finalize` | Pre-commit compliance validation |
+
+> **There is no separate `/specify`, `/plan`, or `/tasks` command.** Earlier
+> versions shipped those three as standalone commands; v5.1.0 **merged** them
+> into `/specification`, which now runs all three phases itself. They were not
+> renamed and there is no one-to-one replacement — run `/specification` and you
+> get all three artifacts.
 
 Pick the layout that matches the problem shape. New exploratory work belongs in `features/`; stable, well-spec'd work can use either.
 
@@ -159,7 +162,31 @@ Pick the layout that matches the problem shape. New exploratory work belongs in 
 | `/create-agent` | Create specialized subagent |
 | `/create-skill` | Create new agent skill |
 | `/update-framework` | Check for upstream enhancements |
-| `/initialize-project` | Post-PRD project customization |
+| `/initialize-project` | Post-PRD project customization (also picks the gate-policy posture) |
+
+### Environment promotion
+
+`/promote-dev` -> `/promote-staging` -> `/promote-prod` is a promotion
+**lifecycle, not a deploy engine**. Each rung checks the declared promotion
+order and asks for confirmation whose strength
+escalates with blast radius — a prompt at dev and staging, a **typed exact
+phrase that no flag or non-interactive path bypasses** at prod. It then calls out
+to the `deploy` seam your project owns. The harness runs no cloud or CI call, no
+deploy command, no migration, seed, teardown, secret or rollback, and no git.
+The **rehearsal attestation is read at prod only** — `/promote-prod` is the only
+rung that requires one.
+
+| Command | Purpose |
+|---------|---------|
+| `/scaffold-environments` | Adopt the methodology into a new or existing project — detects what you already have, proposes a delta, writes only what you name |
+| `/promote-dev` | Gates a feature branch/worktree -> integration branch + dev environment, then prints your deploy seam's command. Prompts; skippable |
+| `/promote-staging` | Gates a promotion into the rehearsal environment, then prints the seam command that stands it up and runs the smoke pass rehearsing `/promote-prod` |
+| `/promote-prod` | Rehearsal contract + promotion order + typed exact phrase |
+
+Methodology, evidence grades, and the portable patterns:
+[.docs/policies/environment-promotion-policy.md](.docs/policies/environment-promotion-policy.md).
+Declare your environments in `.logic-loom/config/environments.conf` (ships
+commented out) and check it with `.logic-loom/scripts/bash/validate-environments.sh`.
 
 ---
 
@@ -179,10 +206,16 @@ plugins/                              # Plugin-First Architecture
 
 .logic-loom/
 +-- memory/constitution.md            # v3.3.0 (16 principles)
-+-- config/                           # governance.conf (lean/strict), models.conf (role->model)
++-- memory/todos.md  backlog.md       # Level-0 SSOT for cross-cutting non-feature work:
+                                      #   todos = being worked now; backlog = raise later.
+                                      #   Same grammar, same id space, different question.
++-- config/                           # governance.conf (lean/strict), models.conf (role->model),
+                                      #   gate-policy.conf (which ops ask vs run silent -- LIVE),
+                                      #   project.conf (identity; ships unstamped),
+                                      #   environments.conf (declaration; ships commented out),
+                                      #   architecture.conf, framework-upstream.conf
 +-- scripts/bash/                     # Workflow automation + plugin bridge
 +-- templates/                        # vision-template, prd-template, plan/sprints templates
-+-- config/                           # Quality thresholds
 
 .claude/
 +-- commands/                         # Slash commands (bridge-generated from plugins)

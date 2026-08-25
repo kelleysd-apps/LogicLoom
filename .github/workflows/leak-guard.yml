@@ -9,7 +9,28 @@ name: Leak Guard (PRs → main)
 # The marker patterns are NOT inlined here, so this public workflow file does not
 # itself publish the confidential strings. They are read from the repo variable
 # `vars.LEAK_MARKERS` — an ERE alternation (e.g. 'foo@example\.com|legacy-name|/abs/path/').
-# Configure it in repo Settings → Variables. The check FAILS CLOSED if it is unset.
+# Configure it in repo Settings → Variables.
+#
+# ── Fails closed on THREE distinct ways of learning nothing ──────────────────
+#   1. UNSET marker variable            → hard fail (nothing to scan for).
+#   2. The scan could not RUN — malformed ERE, bad pathspec, no git index, any
+#      `git grep` exit other than 0 (match) or 1 (no match) → hard fail, with
+#      git's own stderr printed. This is the case that used to pass silently:
+#      `if hits=$(git grep ... 2>/dev/null)` treats exit 128 exactly like "no
+#      match", so a stray bracket in a human-typed repo variable made the job
+#      print "clean" having scanned NOTHING.
+#   3. The scan RAN but the scanner is not actually looking at this tree → a
+#      SELF-TEST canary. Before the real scan, the guard greps for a sentinel
+#      string that is planted in this very file, so it MUST be found. Zero hits
+#      means the scan machinery is inert (wrong working directory, empty index,
+#      pathspec that matches nothing) and the job fails rather than reporting a
+#      clean tree it never read.
+#
+# Where the canary lives, and why it cannot become a false positive: it is a
+# nonsense sentinel that exists only in this workflow file, which ships in the
+# public template and is by construction non-confidential. It is not added to
+# any content file, so it cannot be mistaken for product text, and it is not
+# derived from `vars.LEAK_MARKERS`, so it can never widen what counts as a leak.
 #
 # Tamper-proof: for `pull_request` events GitHub evaluates this workflow from the
 # BASE branch (main), and repo variables are not PR-editable — so a hostile or
@@ -39,13 +60,50 @@ jobs:
           LEAK_MARKERS: ${{ vars.LEAK_MARKERS }}
         run: |
           set -euo pipefail
+
+          # The self-test sentinel. Present in exactly one tracked file: this one.
+          CANARY='LEAKGUARD-SELFTEST-CANARY-9f24c1a7'
+
+          SCAN_HITS=''
+
+          # scan <ere> <label>
+          #   stdout of the grep lands in $SCAN_HITS.
+          #   returns 0 = matched, 1 = no match.
+          #   ANY other git grep exit status is FATAL: it means the scan did not
+          #   run, which is indistinguishable from "no match" if you ignore it.
+          scan() {
+            local ere="$1" label="$2" errf rc
+            errf="$(mktemp)"
+            SCAN_HITS="$(git grep -nIE -e "$ere" -- . 2>"$errf")" && rc=0 || rc=$?
+            if [ "$rc" -gt 1 ]; then
+              echo "::error::leak-guard could not RUN its ${label} scan — git grep exited ${rc}. NOTHING WAS SCANNED; this PR is not certified. Most likely cause: a malformed ERE in the marker pattern."
+              sed 's/^/    git grep: /' "$errf" >&2
+              rm -f "$errf"
+              exit 1
+            fi
+            rm -f "$errf"
+            return "$rc"
+          }
+
+          # ── 0. Markers must be configured ──────────────────────────────────
           if [ -z "${LEAK_MARKERS:-}" ]; then
             echo "::error::vars.LEAK_MARKERS is not set — leak-guard fails closed. Set it in repo Settings → Variables to an ERE alternation of confidential markers."
             exit 1
           fi
-          if hits=$(git grep -nIE "$LEAK_MARKERS" -- . 2>/dev/null) && [ -n "$hits" ]; then
-            echo "::error::Sensitive identity marker(s) found in tracked content:"
-            printf '%s\n' "$hits" | head -30
+
+          # ── 1. Self-test: prove the scanner can see this tree ──────────────
+          if scan "$CANARY" "self-test"; then
+            echo "leak-guard: self-test ok (canary found; the scanner is reading this tree)"
+          else
+            echo "::error::leak-guard self-test FAILED — the canary planted in .github/workflows/leak-guard.yml was not found. The scan matched nothing because it is looking at nothing, not because the tree is clean. Refusing to report clean."
             exit 1
           fi
+
+          # ── 2. The real scan ───────────────────────────────────────────────
+          if scan "$LEAK_MARKERS" "marker"; then
+            echo "::error::Sensitive identity marker(s) found in tracked content:"
+            printf '%s\n' "$SCAN_HITS" | head -30 || true
+            exit 1
+          fi
+
           echo "leak-guard: clean (no sensitive identity markers)"

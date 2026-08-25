@@ -1,5 +1,10 @@
 # Governance Context Module
 <!-- Auto-generated from CLAUDE.md - Plugin-First Architecture v4.1 -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from CLAUDE.md), not a
+     live pipeline. Edit it directly and keep it in step with CLAUDE.md by hand.
+     Every command, skill and path named here must resolve on disk. -->
 <!-- Module: Constitutional principles, git operations, compliance, dangerous commands -->
 
 ## Constitutional Foundation
@@ -106,7 +111,7 @@ Verbosity is set by `LOOM_GOVERNANCE_MODE` in
 3. Implement to satisfy contracts
 4. Validate with contract tests
 
-**Enforcement**: `/plan` command generates contracts before tasks
+**Enforcement**: `/specification` (Phase 2) generates contracts before tasks
 
 **Exceptions**: Internal-only functions (must be documented)
 
@@ -282,12 +287,16 @@ mkdir "$DIR"
 **Rationale**: Ensures visual consistency, improves UX, reduces design debt
 
 **Requirements**:
-- Use design system components from `docs/design-system/`
+- Use the design system components your project defines (e.g. under
+  `<your-project>/docs/design-system/` — a project-owned convention, not a
+  harness-shipped directory)
 - Follow color palette, typography, spacing guidelines
 - Maintain accessibility standards (WCAG 2.1 AA)
 - Consistent component behavior and interactions
 
-**Reference**: `docs/design-system/design-system.md`
+**Reference**: your project's own design-system documentation. LogicLoom ships
+no design system and prescribes no location — Principle XII requires that one
+exist and be followed, not that it live at a particular path.
 
 **Enforcement**: Design review, UI testing
 
@@ -508,8 +517,11 @@ Validates:
 Use `/finalize` command for comprehensive pre-commit validation:
 
 ```bash
-# Run finalize command
-./.logic-loom/scripts/bash/finalize-feature.sh
+# Run the finalize command
+/finalize
+
+# ...or the compliance validator it runs, directly
+./.logic-loom/scripts/bash/constitutional-check.sh
 
 # Review compliance report
 # If all checks pass, manually execute suggested git commands

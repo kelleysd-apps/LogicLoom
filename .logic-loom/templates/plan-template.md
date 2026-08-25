@@ -128,10 +128,72 @@ sprints:
 Two to four sentences describing what this plan delivers and the headline
 approach. Tie back to the PRD success criteria.
 
-## Architectural notes
+## Execution Flow
+
+```
+Phase 0 — Research        → research.md
+   → Resolve every [NEEDS CLARIFICATION] from the spec, or escalate it
+   → 2-3 options per technology choice: decision, rationale, alternatives
+   → Dependency list with version constraints and licenses; risk assessment
+Phase 1 — Design artifacts
+   → data-model.md   entities, fields, types, constraints, relationships
+   → contracts/*.md  one file per endpoint or interface (request, response,
+                     errors, examples)
+   → quickstart.md   test scenarios from the user stories — happy path,
+                     error cases, edge cases. These drive TDD.
+Phase 2 — Execution planning → this file
+   → Fill Technology Stack, Architecture, and Implementation Approach below
+   → Express the work as the sprint/task DAG in the frontmatter above
+   → Task generation itself is deferred to the tasks phase
+```
+
+Update **Progress Tracking** at the foot of this file as each phase completes.
+Leave no ERROR state behind.
+
+## Technology Stack
+
+The plan's technical context. Name what is actually chosen — not a survey.
+
+- **Language / runtime**: <e.g. TypeScript 5.x on Node 22>
+- **Frameworks**: <e.g. Next.js 15 App Router>
+- **Data store**: <e.g. Postgres 16 via Prisma>
+- **Testing**: <unit / integration / contract / e2e runners>
+- **New dependencies**: <name @ version — why, and the license>
+
+Prefer an existing library, package, or reusable module over new bespoke code
+(Principle I). Where this plan adds a capability, say whether it lands as a
+reusable module or as feature-local code, and why.
+
+## Architecture
 
 Call out the load-bearing decisions: data model boundary, auth boundary,
 external services, migration order, idempotency strategy.
+
+## Implementation Approach
+
+How the sprints in the frontmatter DAG above actually get executed. One short
+paragraph per sprint; keep it in step with the `sprints:` block — the
+frontmatter is the machine-readable source of truth, this section is the
+human-readable rationale for its shape.
+
+1. **<01-foundations>** — <what lands, and why it must land first>.
+2. **<02-hardening>** — <what depends on it>.
+
+State the sequencing constraint behind each `depends_on` edge that is not
+self-evident from the task descriptions.
+
+## Dependencies & Prerequisites
+
+- **Depends on**: <system, contract, team, or prior feature this cannot ship
+  without>
+- **Prerequisites**: <migration, credential, environment, or access that must
+  exist before sprint 01 starts>
+
+## Security Considerations
+
+Authentication, authorization, input validation, secret handling, and the data
+that must never reach a log or a URL. If the feature genuinely touches none of
+these, say so explicitly and say why — do not delete the section.
 
 ## Risks and mitigations
 
@@ -147,3 +209,10 @@ traceable to a PRD line that was explicitly deferred.
 
 Brief paragraph mapping contracts to test types (unit / integration / contract
 / e2e). Must satisfy Principle II (>80% coverage, test-first).
+
+## Progress Tracking
+
+- [ ] Phase 0 — research.md complete, no unresolved [NEEDS CLARIFICATION]
+- [ ] Phase 1 — data-model.md, contracts/, quickstart.md exist and are substantive
+- [ ] Phase 2 — Technology Stack, Architecture, Implementation Approach filled in
+- [ ] Sprint DAG in the frontmatter matches the Implementation Approach above

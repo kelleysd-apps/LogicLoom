@@ -208,7 +208,7 @@ This agent delegates to consolidated worker briefs and orchestration skills:
 | `get_domain_brief devops` | Deployment/CI/CD |
 | `/swarm` | Multi-domain tasks |
 | `/create-prd` | Product requirements (PRD authoring) |
-| `/specification` | Legacy unified spec/plan/tasks waterfall |
+| `/specification` | Unified spec/plan/tasks waterfall (SDD pack) |
 
 ### Context Handoff Format
 When delegating to a specialist:

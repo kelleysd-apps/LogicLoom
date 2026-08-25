@@ -235,7 +235,7 @@ All framework capabilities MUST be organized as discrete, installable plugins.
 Plugin Structure:
   plugins/<name>/
     .claude-plugin/plugin.json   # Manifest (name, version, dependencies)
-    commands/                     # Slash commands (/specify, /debug, etc.)
+    commands/                     # Slash commands (/specification, /swarm, etc.)
     skills/                       # Skill definitions (SKILL.md)
     agents/                       # Agent definitions
     hooks/                        # Event hooks (UserPromptSubmit, PreToolUse, etc.)

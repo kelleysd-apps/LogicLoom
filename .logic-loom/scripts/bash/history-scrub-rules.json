@@ -41,15 +41,15 @@
         },
         {
           "op": "genericize",
-          "match": "> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later (now 10 skills total in this plugin).",
-          "replacement": "> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, and `cross-check` (10 skills total in this plugin).",
+          "match": "> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later (now **11** skills total in this plugin — a `project-graph` skill backs `/graph`).",
+          "replacement": "> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, `cross-check`, and `project-graph` among them (11 skills total in this plugin).",
           "note": "Strip 'were converted...in v5.0.0' / 'v6.0.0 added' / 'added later' evolution narrative; keep current skill inventory."
         },
         {
           "op": "genericize",
-          "match": "> All 4 specification agents (specification-agent, planning-agent, tasks-agent, specification-orchestrator) were converted to enhanced skills with Task Brief sections in v5.0.0. Skills: `sdd-specification`, `sdd-planning`, `sdd-tasks`, `unified-specification`. These back the SDD-waterfall workflow pack.",
-          "replacement": "> Specification work is skill-based: `sdd-specification`, `sdd-planning`, `sdd-tasks`, `unified-specification` back the SDD-waterfall workflow pack.",
-          "note": "Strip 'were converted...in v5.0.0' provenance; keep current skill inventory."
+          "match": "> All 4 specification agents (specification-agent, planning-agent, tasks-agent, specification-orchestrator) were converted to enhanced skills in v5.0.0. v5.1.0 then **merged those skills into one**: the plugin ships a single skill, `unified-specification`, backing the single `/specification` command. `sdd-specification`, `sdd-planning`, and `sdd-tasks` no longer exist as skills, and `/specify`, `/plan`, `/tasks` no longer exist as commands.",
+          "replacement": "> Specification work is skill-based: a single `unified-specification` skill backs the single `/specification` command, which runs spec, plan, and tasks as three sequential phases. There is no separate `/specify`, `/plan`, or `/tasks` command.",
+          "note": "Strip the v5.0.0 agent-conversion / v5.1.0 skill-merge provenance; keep the current inventory AND the fact that /specify, /plan, /tasks do not exist (a customer reading old material will look for them)."
         },
         {
           "op": "drop-section",
@@ -71,14 +71,14 @@
         {
           "op": "genericize",
           "match": "**Status**: v6.1.0 (authoritative)",
-          "replacement": "**Status**: v6.2.0 (authoritative)",
-          "note": "Bump stale self-version to current canonical identity (avoid conflicting v6.1 vs CLAUDE.md v6.2 narrative)."
+          "replacement": "**Status**: Authoritative",
+          "note": "Drop the doc's self-version entirely. A hardcoded number here is a shipped claim nothing keeps true \u2014 the previous replacement pinned v6.2.0 and kept shipping it after the framework moved on. Version lives in CHANGELOG.md / the CLAUDE.md footer, which bump-version.sh does maintain."
         },
         {
           "op": "genericize",
           "match": "- **Version**: v6.1.0",
-          "replacement": "- **Version**: v6.2.0",
-          "note": "Bump stale Identity version to current."
+          "replacement": "- **Version**: see the `**Framework**: logic-loom v...` footer in `CLAUDE.md`",
+          "note": "Same defect as the Status line: a version pinned inside a scrub rule is never bumped by bump-version.sh, so it ships stale. Point at the source of truth instead of asserting a number \u2014 the CLAUDE.md footer, which bump-version.sh rewrites on every release and which survives the template strip (CHANGELOG.md does NOT, so it cannot be the pointer)."
         },
         {
           "op": "genericize",
@@ -197,23 +197,6 @@
           "match": "This file should be added to `.gitignore`. The gitignore edit is **deferred\n— outside Stage 11 file ownership**. Track as a Stage 13+ cleanup item.",
           "replacement": "This file should be added to `.gitignore`.",
           "note": "Remove Stage 11/13 build-process cleanup narrative."
-        }
-      ]
-    },
-    {
-      "path": ".docs/guides/unified-specification-guide.md",
-      "ops": [
-        {
-          "op": "delete-line",
-          "match": "**Replaces**: `/specify` + `/plan` + `/tasks`",
-          "replacement": "",
-          "note": "Command-evolution provenance header line."
-        },
-        {
-          "op": "drop-section",
-          "match": "## Migration from Old Commands",
-          "replacement": "",
-          "note": "Before/After command-migration narrative. Drop heading through the trailing '---' before '## Constitutional Compliance'; collapse duplicate separators."
         }
       ]
     },
@@ -627,7 +610,7 @@
           "op": "drop-section",
           "match": "## Deprecated Commands",
           "replacement": "",
-          "note": "Deprecation-evolution table (end of file). Drop to EOF; the /specify,/plan,/tasks commands remain documented as current in the sdd-specification README."
+          "note": "Deprecation-evolution table (end of file). Drop to EOF. NOTE the premise changed: /specify, /plan and /tasks no longer exist anywhere — no command file backs them and the sdd-specification README now says so explicitly. The rule is still REQUIRED, for the opposite reason it was written: the table is dev-line-only migration provenance that redirects an agent carrying stale knowledge, and shipping it would put three non-existent commands in front of a customer who never knew them. Keep it dropped."
         }
       ]
     },
@@ -680,35 +663,6 @@
           "match": "## Version History",
           "replacement": "",
           "note": "Changelog table incl. 'FR-707 ceremony removed; ... RL metrics removed; constitution v3.1.0' (end of file). Drop to EOF."
-        }
-      ]
-    },
-    {
-      "path": "plugins/sdd-specification/README.md",
-      "ops": [
-        {
-          "op": "genericize",
-          "match": "SDD specification lifecycle plugin providing the unified `/specification` command and legacy `/specify`, `/plan`, `/tasks` commands.",
-          "replacement": "SDD specification lifecycle plugin providing specification workflow commands.",
-          "note": "Remove 'legacy' deprecation framing."
-        },
-        {
-          "op": "genericize",
-          "match": "| `/specify` | Create feature specification (legacy) |",
-          "replacement": "| `/specify` | Create feature specification |",
-          "note": "Remove '(legacy)' marker; current command."
-        },
-        {
-          "op": "genericize",
-          "match": "| `/plan` | Generate implementation plan (legacy) |",
-          "replacement": "| `/plan` | Generate implementation plan |",
-          "note": "Remove '(legacy)' marker; current command."
-        },
-        {
-          "op": "genericize",
-          "match": "| `/tasks` | Generate task list (legacy) |",
-          "replacement": "| `/tasks` | Generate task list |",
-          "note": "Remove '(legacy)' marker; current command."
         }
       ]
     },

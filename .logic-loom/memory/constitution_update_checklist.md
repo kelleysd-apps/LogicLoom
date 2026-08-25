@@ -130,11 +130,14 @@ After changing constitution, update ALL of the following:
 - [ ] Add change to version history (if maintained)
 - [ ] Add a "Changes Summary (vX.Y.Z)" block
 - [ ] Update line count if significant change
-- [ ] **Update `.logic-loom/scripts/bash/history-scrub-rules.json`** — the
-      constitution's dated `**Ratified**/**Amended**` line, each
-      `## Changes Summary (vX.Y.Z)` heading, and the footer are matched by
-      *literal* scrub ops. A version bump that leaves them stale makes the ops
-      match nothing, which `tests/contract/test_scrub_rules_match.sh` fails.
+- [ ] **MAINTAINERS ONLY — skip this if the file is not present.** Update
+      `.logic-loom/scripts/bash/history-scrub-rules.json`: the constitution's
+      dated `**Ratified**/**Amended**` line, each `## Changes Summary (vX.Y.Z)`
+      heading, and the footer are matched by *literal* scrub ops, so a version
+      bump that leaves them stale makes the ops match nothing and
+      `tests/contract/test_scrub_rules_match.sh` fails. That release plumbing is
+      stripped from the template, so a cloned project has neither the rules file
+      nor that suite — there is nothing to do and nothing is missing.
 - [ ] **Update `.logic-loom/config/architecture.conf`** (`CONSTITUTION_VERSION=`)
 - [ ] **Update `.claude/hooks/user-prompt-submit/governance-preflight.sh`**
       (`# Constitution:` header) — asserted by
@@ -191,12 +194,11 @@ For EACH agent in `plugins/*/agents/**/*.md`:
 - [ ] Update delegation triggers if Principle X changed
 - [ ] Verify no outdated principle references
 
-**Affected Agent Files** (check all 7 agents):
+**Affected Agent Files** (check all 6 agents):
 - [ ] constitutional-governance-agent.md (loom-governance)
 - [ ] team-synthesizer.md (loom-orchestrator)
 - [ ] prd-specialist.md (loom-creation)
 - [ ] subagent-architect.md (loom-creation)
-- [ ] auto-debug-agent.md (sdd-debug)
 - [ ] framework-sync-agent.md (loom-maintenance)
 - [ ] memory-context-agent.md (loom-memory)
 
@@ -281,15 +283,11 @@ In `.docs/policies/`:
 
 In `.claude/commands/`:
 
-**/specify** command:
+**/specification** command (spec, plan and tasks phases):
 - [ ] Update if specification requirements changed
 - [ ] Add new validations if required
-
-**/plan** command:
 - [ ] Update if planning process changed
 - [ ] Update multi-agent triggers if Principle X changed
-
-**/tasks** command:
 - [ ] Update if task generation requirements changed
 
 **/create-agent** command:
@@ -327,9 +325,7 @@ After all updates complete:
 ### Manual Testing
 
 - [ ] Initialize test project with `init-project.sh`
-- [ ] Create test feature with `/specify`
-- [ ] Generate test plan with `/plan`
-- [ ] Create test tasks with `/tasks`
+- [ ] Create a test feature, plan and tasks with `/specification`
 - [ ] Verify all constitutional references accurate
 
 ### Documentation Review

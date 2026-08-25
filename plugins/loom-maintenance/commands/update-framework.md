@@ -41,6 +41,27 @@ It does NOT compare downstream content against upstream, and creates no `upstrea
 Show categorized proposals: new files, enhancements, structural changes.
 Each proposal is independently accept/reject.
 
+**Before the proposal list, check for inherited maintainer-only CI.** A project
+that adopted LogicLoom via this command never ran `/initialize-project`, so
+nothing ever deleted the four workflows that release and guard the LogicLoom
+template itself. One of them actively breaks the project:
+`branch-topology-guard.yml` fails **every** PR into `main` whose head branch is
+not `release/vX.Y.Z`.
+
+```bash
+ls .github/workflows/branch-topology-guard.yml \
+   .github/workflows/promote-to-main.yml \
+   .github/workflows/release-tag.yml \
+   .github/workflows/leak-guard.yml 2>/dev/null
+```
+
+If any are present, say so plainly at the top of the proposal output — one short
+paragraph naming `branch-topology-guard.yml` as the one that will reject their
+PRs, and the exact `rm` command for all four. **Do not delete them yourself**:
+this command is proposal-based and each item is the user's call. Keep
+`plugin-tests.yml`. This is a message, not machinery — there is no state, no
+flag, and no automatic removal.
+
 ### Step 5: Apply Accepted Proposals (with user approval)
 **Principle VI**: ask before any git operation. Apply each per its `resolution`
 field (extract-proposals.sh computes it via a 3-way baseline/yours/upstream compare):

@@ -29,7 +29,8 @@ description: |
   Maximum 1024 characters. Be specific about trigger conditions.
 
   Example: "Use when creating feature specifications following SDD methodology.
-  Triggered by /specify command or user request for requirements documentation."
+  Triggered by the /specification command or a user request for requirements
+  documentation."
 allowed-tools: Read, Write, Bash, Grep, Glob
 ---
 
@@ -201,7 +202,7 @@ External system integrations (Priority 4)
 ## Skill Naming Conventions
 
 - Use kebab-case: `skill-name`
-- Be descriptive: `sdd-specification` not `spec`
+- Be descriptive: `unified-specification` not `spec`
 - Include domain: `api-contract-design` not `contracts`
 - Verb-based for actions: `validate-plan`, `detect-domain`
 - Noun-based for domains: `constitutional-compliance`, `test-first-development`

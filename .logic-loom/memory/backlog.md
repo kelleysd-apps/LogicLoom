@@ -327,6 +327,62 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       than a permanent finding a reader learns to ignore? Deciding "no" is a valid
       outcome — but it should be decided, not left ambient.
 
+- [ ] LOOM-0036 — Decide whether routing surfaces should be verified against disk — analysis done, decision deferred `status:open`
+      **Considered and deferred on 2026-08-25, with the analysis already
+      complete.** Do not re-derive this; what is left is a yes/no call, best made
+      at the START of a cycle rather than on a release day.
+      A **routing surface** is any table, trigger map, or dispatch regex that maps
+      a command/skill/agent name to behaviour. The v6.5.0 cycle found that a
+      five-month-old command consolidation (v5.1.0, commit `7b6bb69`, which merged
+      `/specify` + `/plan` + `/tasks` into `/specification` and deleted three
+      skills) had left stale references across roughly 30 files, because **nothing
+      fails when a routing surface goes stale**. Fixing them consumed most of a
+      release day.
+      **Already verified — do not rebuild it.** (a) `plugins/*/.claude-plugin/plugin.json`
+      inventory blocks, `tests/contract/test_plugin_manifest_schema.sh:246-315`,
+      checked against disk in both directions (declared-but-absent AND
+      on-disk-but-undeclared). (b) The `.claude/commands/*.md` <-> `plugins/*/commands/`
+      bridge, `tests/contract/test_plugin_command_bridge.sh:66-160, 220-240`,
+      bidirectional. (c) Seven individually named commands via a hardcoded
+      allowlist at `test_plugin_command_bridge.sh:157-163` — an allowlist, not a
+      general rule.
+      **Not verified:** `.claude/context/{agents,skills,workflows}.md`,
+      `.logic-loom/memory/{skill-activation-triggers,agent-collaboration-triggers}.md`,
+      the `AGENTS.md` pack/skill/delegation tables, `CLAUDE.md`'s four Quick
+      Command Reference tables, `constitutional-governance-agent-knowledge.md`,
+      and — most notably — two *executable* dispatch regexes with zero test
+      coverage: `load-context.sh:215,220` and `create-agent.sh:494`. Also
+      `governance-preflight.sh:171-227`, where `test_orchestration_hook.sh:133-166`
+      asserts the nudge fires but never asserts that the command it names resolves.
+      **The proposal that was analysed:** extend `test_plugin_command_bridge.sh`
+      (not a new suite — it already owns command-name truth) to extract
+      `/[a-z][a-z-]*` tokens from a declared list of routing-surface files and
+      assert each resolves to `.claude/commands/<name>.md`.
+      **Why deferred.** (1) It needs an intentional-mention allowlist from day
+      one: the repo deliberately names dead commands in prose — `AGENTS.md:199`
+      explains that `/specify` no longer exists, and `.claude/context/skills.md:310-315`
+      is a deprecated-to-current redirect table whose entire left column is dead by
+      design. Every allowlist entry is a permanent future false-negative. (2) It
+      would not catch the most likely future error: a row repointed at a command
+      that exists but is the wrong one passes, stale *descriptions* (right name,
+      wrong stated behaviour) are invisible, and bare skill/agent names without a
+      `/` prefix are too noisy to match — so the middle column of every routing
+      table stays unchecked. (3) The declared file list is itself an unverified
+      routing surface; it goes stale silently, the same failure mode moved up one
+      level. (4) Timing: this cycle was spent REMOVING checks that asserted things
+      they did not actually verify. Adding a partially-effective gate on release
+      day, against that backdrop, is the wrong moment.
+      **The honest counter-argument**, so this record is not one-sided: it WOULD
+      have caught the `/debug` row that took manual sweeping to find, and it WOULD
+      catch the next consolidation's leftovers. The reviewer's own verdict was
+      "modest value, real maintenance drag — I'd take it, scoped tight." This is a
+      judgment call on timing and scope, **not a rejection of the idea**.
+      **Alternative worth weighing next cycle:** stop hardcoding inventories in
+      prose rather than testing them — a count or list that is not written down
+      cannot go stale. That may be the better answer for the doc surfaces even if
+      a test is right for the two executable regexes, which are the strongest
+      candidates for coverage: live dispatch, zero tests today.
+
 ### Release, distribution and externalization
 
 - [ ] LOOM-0005 — Decide the plugin-externalization direction `status:blocked` `blocked_on:LOOM-0010`
@@ -357,6 +413,36 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       so a customer-facing `/promote <env>` would either collide with the
       maintainer release driver or force a manifest restructure. Documented and
       undecided. **Suggested resolution: `/deploy-promote <env>`.**
+
+- [ ] LOOM-0035 — Consolidate `/promote` and `/promote-prod` into a single production-release command named `/promote-prod` `status:open`
+      **Decided, not proposed.** The maintainer asked for this directly on
+      2026-08-25, immediately after approving the 6.5.0 release: one command to
+      promote to production/release, and it should be `/promote-prod`. What is
+      open is the design, not the decision.
+      Today there are two, and the split confuses people. `/promote` is the
+      maintainer-only template release driver (dev-main into the sanitized `main`
+      line), stripped at release so a customer never sees it. `/promote-prod` is
+      the top rung of the environment promotion lifecycle: it gates, confirms,
+      and calls the deploy seam the project owns. Both get called "promote to
+      prod" in conversation; only one publishes a release.
+      The real tension, stated so whoever picks this up does not rediscover it:
+      `/promote` is stripped from a customer's clone and `/promote-prod` ships to
+      customers. Merging them means either one command that behaves differently
+      depending on whether it runs on the maintainer's dev line or in a
+      customer's project, or a decision that the maintainer release path stops
+      being a slash command at all. That choice is unmade and is the substance of
+      the work.
+      One contract must survive whatever consolidation happens: prod requires a
+      **typed exact phrase that no flag, env var, or non-interactive path
+      bypasses**. A merge that weakens it — or that lets the maintainer path
+      inherit a lower confirmation strength — is not an acceptable answer.
+      Related to LOOM-0006, which is the other half of the same naming problem
+      (a customer-facing `/promote <env>` colliding with the stripped release
+      driver); resolving this one may resolve or reshape that one.
+      References: this cycle's 6.5.0 release verdict, and `CLAUDE.md`
+      § *Quick Command Reference — Environment promotion*, which currently
+      documents the `/promote` vs `/promote-prod` distinction explicitly and will
+      need updating.
 
 - [x] LOOM-0012 — Reconcile or remove the `loom-orchestrator` manifest inventory counts `status:done`
       The manifest declares `commands.count: 8` / `skills.count: 10`; disk has

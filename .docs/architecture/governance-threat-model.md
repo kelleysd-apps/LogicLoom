@@ -207,7 +207,7 @@ hidden; close them with the defense-in-depth stack above, not by trusting hooks.
    decision unless it is explicitly set to `false`.
 5. **Cross-check CLI mode trusts the provider sandbox, not our hooks.** The
    `cross-check` skill's opt-in Mode B (`--deep`) shells an external provider CLI
-   (`codex exec --sandbox read-only --ask-for-approval never …`) so a non-Claude
+   (`codex exec --sandbox read-only -c approval_policy='"never"' …`) so a non-Claude
    model can explore the repo read-only. That CLI runs as a **subprocess** — the
    same blind spot as residual #1 — so its read-only-ness is enforced by the
    *provider's* `--sandbox read-only` flag, NOT by LogicLoom's Bash hooks.
@@ -308,9 +308,10 @@ the same verdict functions**.
 >   then error non-blocking and the floor would silently thin. Moving the three
 >   into `.claude/hooks/` so the floor is self-contained is the durable fix
 >   (deferred). A per-plugin `hooks/hooks.json` must **never** be a second wiring
->   source. `loom-governance` ships one anyway, in an **undocumented flat-array
+>   source. `loom-governance` used to ship one, in an **undocumented flat-array
 >   shape** (`{hooks:[{event,matcher,command}]}`) that Claude Code's canonical
->   schema (object keyed by event, `hooks:[{type,command}]`) does not define.
+>   schema (object keyed by event, `hooks:[{type,command}]`) does not define; it
+>   has since been deleted (see *Disposition* below).
 >
 >   **Settled empirically 2026-08-24 (LOOM-0032) — confirmed inert, and for a
 >   blunter reason than the shape.** A per-plugin `hooks/hooks.json` is never read
@@ -334,9 +335,10 @@ the same verdict functions**.
 >   the log; a live `Stop` hook would append an `agent=unknown` line every
 >   main-agent turn forever), along with its contract assertions. The floor is
 >   unaffected: it holds because **root** wires the three guard scripts by path.
->   `loom-governance/hooks/hooks.json` is dead weight for the same reason and
->   should be removed too — it survives only because it sits on the protected
->   surface and needs a main-agent, user-approved edit. Its contract test no longer
+>   `loom-governance/hooks/hooks.json` was dead weight for the same reason and
+>   **has since been removed** (commit `773d0ae`); `plugins/loom-governance/hooks/`
+>   now contains only `scripts/`. No `hooks.json` remains anywhere in the tracked
+>   tree. Its contract test no longer
 >   asserts the file's existence; `test_plugin_lifecycle.sh` now asserts the thing
 >   that is actually load-bearing — that each guard script exists **and** is wired
 >   from `.claude/settings.json` — which is also the check that catches root wiring

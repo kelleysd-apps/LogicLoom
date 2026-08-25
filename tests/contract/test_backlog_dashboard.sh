@@ -65,11 +65,16 @@
 # bash 3.2 safe: no associative arrays, no mapfile, no ${var,,}.
 set -uo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 assert() {
   TOTAL=$((TOTAL + 1)); local desc="$1"; local condition="$2"
   if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
   else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+# skip <desc> <reason> — NOT counted in PASS/FAIL/TOTAL. See tests/lib/tree-provenance.sh.
+skip() {
+  SKIP=$((SKIP + 1))
+  echo "  ⏭  SKIP: $1 — $2"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -77,6 +82,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
 cd "$ROOT"
+
+# shellcheck source=../lib/tree-provenance.sh
+source "$ROOT/tests/lib/tree-provenance.sh"
+if ! loom_require_consistent_tree "$ROOT"; then
+  echo "════════════════════════════════"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  exit 1
+fi
+TREE_KIND="$(loom_tree_kind "$ROOT")"
 
 GEN="$ROOT/.logic-loom/scripts/bash/build-backlog-dashboard.sh"
 COLLECTOR="$ROOT/.logic-loom/scripts/bash/build-backlog-index.sh"
@@ -396,11 +410,20 @@ echo ""
 # hand-authored LogicLoom-internal pages. They were in NO strip list and shipped
 # to customers verbatim. The convention now ships; the contents do not.
 echo "12. artifacts/ is declared, and our own artifacts are stripped"
+if [ "$TREE_KIND" = "sanitized" ]; then
+  skip "strip manifest exists" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "manifest strips artifacts/ WHOLESALE (not a fragile *.html glob)" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "the manifest entry carries its reason" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+else
 assert "strip manifest exists" "[ -f '$MANIFEST' ]"
 assert "manifest strips artifacts/ WHOLESALE (not a fragile *.html glob)" \
   "grep -qE '^artifacts[[:space:]]*(#.*)?\$' '$MANIFEST'"
 assert "the manifest entry carries its reason" \
   "grep -q 'Repo-root .artifacts/.' '$MANIFEST'"
+fi
 assert "artifacts/ is documented in CLAUDE.md's directory structure" \
   "grep -q '^artifacts/' '$ROOT/CLAUDE.md'"
 assert "artifacts/ has its own section in the file-structure policy" \
@@ -425,10 +448,17 @@ assert "CLAUDE.md's directory block records the same exception" \
 # Now that the dashboard is TRACKED, the wholesale `artifacts` strip is the ONE
 # thing keeping it out of a customer's tree — it is no longer belt-and-braces.
 # The strip walks `git ls-files`, so a tracked artifact IS a strip candidate.
+if [ "$TREE_KIND" = "sanitized" ]; then
+  skip "the strip is tracked-content only (which is why a tracked artifact reaches it)" \
+    "strip-harness-dev.sh is itself stripped — sanitized tree (maintainer-only file)"
+  skip "the manifest records that the wholesale entry is now load-bearing for the dashboard" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+else
 assert "the strip is tracked-content only (which is why a tracked artifact reaches it)" \
   "grep -q 'git ls-files' '$ROOT/.logic-loom/scripts/bash/strip-harness-dev.sh'"
 assert "the manifest records that the wholesale entry is now load-bearing for the dashboard" \
   "grep -q 'artifacts/backlog-dashboard.html' '$MANIFEST'"
+fi
 assert ".gitignore does not ignore the artifacts/ directory either" \
   "! grep -qxE 'artifacts/?' '$ROOT/.gitignore'"
 echo ""
@@ -444,8 +474,18 @@ if [ -f "$COLLECTOR" ]; then
   RENDERED="$(grep -c 'class="item"' "$TMP/real.html" 2>/dev/null || echo 0)"
   echo "     (index: $REAL_N item(s); rendered: $RENDERED article(s))"
   assert "the real page was rendered" "[ -f '$TMP/real.html' ]"
+  if [ "$TREE_KIND" = "sanitized" ]; then
+    # .logic-loom/memory/todos.md and backlog.md are empty stubs by design on a
+    # sanitized tree (see the collector suite's tree-provenance note), so the
+    # real index legitimately has zero items here.
+    skip "the real index has at least one item" \
+      "todos.md/backlog.md are empty stubs by design — sanitized tree"
+    skip "every index item reached the page" \
+      "todos.md/backlog.md are empty stubs by design — sanitized tree"
+  else
   assert "the real index has at least one item" "[ \"$REAL_N\" -ge 1 ]"
   assert "every index item reached the page" "[ \"$RENDERED\" = \"$REAL_N\" ]"
+  fi
   assert "the real page has zero external references" \
     "! grep -qE 'http://|https://|//cdn' '$TMP/real.html'"
   SUM="$(grep -oE '<span class=\"count cls-count\">[0-9]+' "$TMP/real.html" | grep -oE '[0-9]+$' | awk '{s+=$1} END {print s+0}')"
@@ -656,6 +696,6 @@ fi
 echo ""
 
 echo "════════════════════════════════"
-echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
 [ $FAIL -eq 0 ] && exit 0 || exit 1

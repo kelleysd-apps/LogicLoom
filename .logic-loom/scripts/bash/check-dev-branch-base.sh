@@ -243,6 +243,18 @@ if [ "$EVENT" = "UserPromptSubmit" ] && [ "$USE_MARKER" != "no" ]; then
   : > "$_marker" 2>/dev/null || true
 fi
 
+# The dev-main/template split RUNBOOK is maintainer-only: template-strip-manifest
+# .txt removes .docs/guides/dev-main-template-split.md, so it is absent from any
+# sanitized template clone. This guard SHIPS, so it must not hand a reader a path
+# that is not there. Cite the runbook only when it exists; the policy reference
+# below it ships unconditionally and carries the same decision (§ 2.2).
+SPLIT_GUIDE=".docs/guides/dev-main-template-split.md"
+EXTRA_REF=""
+if [ -f "$ROOT/$SPLIT_GUIDE" ]; then
+  EXTRA_REF="
+             ${SPLIT_GUIDE} § Worktrees"
+fi
+
 MESSAGE=""
 IFS='' read -r -d '' MESSAGE <<MSG || true
 WRONG BASE — this checkout is sitting on the sanitized TEMPLATE line.
@@ -267,8 +279,7 @@ ${REMEDY}
   Then re-do any exploration or review already performed in this checkout; its
   conclusions are about the template, not about dev.
 
-  Reference: .docs/policies/environment-promotion-policy.md § 2.2 (LOOM-0024)
-             .docs/guides/dev-main-template-split.md § Worktrees
+  Reference: .docs/policies/environment-promotion-policy.md § 2.2 (LOOM-0024)${EXTRA_REF}
 MSG
 
 if [ "$FORMAT" = "text" ]; then

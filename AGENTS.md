@@ -165,6 +165,8 @@ cheaper-faster model".
 
 The **git-safety gate** runs as a `PreToolUse` hook and forces explicit approval on any git mutation regardless of mode (Principle VI). The dangerous-command guard and freeze-write-scope hooks likewise run independent of the mode.
 
+**Where the hooks are.** Every one is wired from `.claude/settings.json` at the repo root; that wiring, not the file's location, is what makes it load. The three constitutional guard scripts — `git-safety-gate.sh`, `subagent-git-guard.sh`, `protect-governance-files.sh` — live under `plugins/loom-governance/hooks/scripts/` and are invoked **by path** from root (they do **not** load as plugin hooks). The remaining hooks live under `.claude/hooks/`, with `governance-preflight.sh` one level down in `.claude/hooks/user-prompt-submit/`. To confirm a hook is live, grep `.claude/settings.json` for its path — file existence is not registration. Full table kept in tandem with CLAUDE.md § *LogicLoom Hooks*.
+
 The **subagent git guard** denies MUTATING git from a subagent. A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, branch/tag/stash listings, `rev-parse`, `config --get`, `worktree list`, …); write forms, `fetch`, code-executing global flags (`-c`, `--git-dir`, `--work-tree`, `--exec-path`) and command substitution are denied. The GitHub CLI (`gh`) stays **categorically** denied for subagents, reads included. Kept in tandem with CLAUDE.md § Governance; full statement in `.docs/architecture/governance-threat-model.md` § *The subagent git guarantee*.
 
 **Key Responsibilities** (via hooks):
@@ -184,17 +186,17 @@ The **subagent git guard** denies MUTATING git from a subagent. A subagent may r
 |-------|---------|-------|
 | **constitutional-governance-agent** | Primary entry point, governance enforcement | opus |
 
-### loom-orchestrator (1 agent, 10 skills)
+### loom-orchestrator (1 agent, 11 skills)
 
 | Agent | Purpose | Model |
 |-------|---------|-------|
 | **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
 
-> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later (now 10 skills total in this plugin).
+> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later (now **11** skills total in this plugin — a `project-graph` skill backs `/graph`).
 
 ### sdd-specification (0 agents — skill-based)
 
-> All 4 specification agents (specification-agent, planning-agent, tasks-agent, specification-orchestrator) were converted to enhanced skills with Task Brief sections in v5.0.0. Skills: `sdd-specification`, `sdd-planning`, `sdd-tasks`, `unified-specification`. These back the SDD-waterfall workflow pack.
+> All 4 specification agents (specification-agent, planning-agent, tasks-agent, specification-orchestrator) were converted to enhanced skills in v5.0.0. v5.1.0 then **merged those skills into one**: the plugin ships a single skill, `unified-specification`, backing the single `/specification` command. `sdd-specification`, `sdd-planning`, and `sdd-tasks` no longer exist as skills, and `/specify`, `/plan`, `/tasks` no longer exist as commands.
 
 ### loom-creation (2 agents)
 
@@ -344,9 +346,9 @@ Quick reference for delegation based on task domain:
 | Domain | Keywords | Delegate To | Type | Plugin | Pack |
 |--------|----------|-------------|------|--------|------|
 | **PRD/Product** | PRD, product, vision, personas | prd-specialist | agent | loom-creation | shared |
-| **Specification** | spec, requirements, user story | sdd-specification skill | skill | sdd-specification | SDD waterfall |
-| **Planning** | /plan, research, contracts | sdd-planning skill | skill | sdd-specification | SDD waterfall |
-| **Tasks** | /tasks, task list, breakdown | sdd-tasks skill | skill | sdd-specification | SDD waterfall |
+| **Specification** | spec, requirements, user story | unified-specification skill | skill | sdd-specification | SDD waterfall |
+| **Planning** | implementation plan, research, contracts | unified-specification skill (phase 2) | skill | sdd-specification | SDD waterfall |
+| **Tasks** | task list, breakdown | unified-specification skill (phase 3) | skill | sdd-specification | SDD waterfall |
 | **Plan review** | /plan-review, plan verdict | plan-review skill | skill | loom-orchestrator | vision/swarm |
 | **Retro** | /retro, learnings | retro skill | skill | loom-orchestrator | vision/swarm |
 | **Unified spec** | /specification | unified-specification skill | skill | sdd-specification | SDD waterfall |
@@ -368,18 +370,26 @@ Quick reference for delegation based on task domain:
 | `/retro` | retro skill | loom-orchestrator | Post-feature learning capture |
 | `/review-team` | 4 reviewers + cross-provider adversary | loom-orchestrator | security + quality + performance + behavioral evaluator + Codex adversary |
 | `/git-push` | - | loom-git | Complete git workflow (commit + push + PR) |
-| `/code-review` | - | loom-git | PR-level review |
-| `/specification` | unified-specification skill | sdd-specification | SDD waterfall pack — spec+plan+tasks |
-| `/specify` | sdd-specification skill | sdd-specification | SDD waterfall pack — create feature specification |
-| `/plan` | sdd-planning skill | sdd-specification | SDD waterfall pack — generate implementation plan |
-| `/tasks` | sdd-tasks skill | sdd-specification | SDD waterfall pack — generate task list |
+| `/code-review` | - | *(external Claude Code command — not shipped by LogicLoom)* | PR-level review |
+| `/specification` | unified-specification skill | sdd-specification | SDD waterfall pack — runs spec, plan, and tasks as three sequential phases. There is no separate `/specify`, `/plan`, or `/tasks`: v5.1.0 merged them into this one command |
 | `/build-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — sequential architect→implementor→reviewer |
 | `/fullstack-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — parallel full-stack team |
 | `/finalize` | - | loom-git | Pre-commit compliance validation (no git execution) |
 | `/create-agent` | subagent-architect | loom-creation | Create new agent |
 | `/create-plugin` | subagent-architect | loom-creation | Create new plugin |
 | `/update-framework` | framework-sync-agent | loom-maintenance | Framework updates from upstream |
-| `/initialize-project` | - | loom-maintenance | Post-PRD project customization |
+| `/initialize-project` | - | loom-maintenance | Post-PRD project customization (also picks the gate-policy posture) |
+| `/scaffold-environments` | environment-scaffolding skill | loom-maintenance | Opt-in scaffolding of the promotion methodology into a new or existing project — detect, propose a delta, write only what is named |
+| `/promote-dev` | promotion-lifecycle skill | loom-maintenance | Lowest rung — gates feature branch/worktree → integration branch + dev, then prints the project's seam command. Prompts; skippable |
+| `/promote-staging` | promotion-lifecycle skill | loom-maintenance | Middle rung — gates a promotion into the rehearsal environment, then prints the seam command that stands it up and runs the smoke pass |
+| `/promote-prod` | promotion-lifecycle skill | loom-maintenance | Top rung — rehearsal contract + promotion order + typed exact phrase no flag bypasses |
+
+The three `/promote-*` commands **gate and confirm; they deploy nothing** — no
+cloud or CI call, no deploy command, no migration, seed, teardown, secret or
+rollback, and no git. Every action is a call out to the `deploy` seam the product
+owns. Methodology: `.docs/policies/environment-promotion-policy.md`. Not to be
+confused with `/promote`, the maintainer-only template release driver, which is
+stripped from a customer's clone.
 
 ---
 
@@ -417,7 +427,7 @@ test / fix loop
 prd-specialist (Phase 0: PRD)
        ↓
 unified-specification skill (/specification)
-  → sdd-specification skill → sdd-planning skill → sdd-tasks skill
+  → phase 1 spec → phase 2 plan → phase 3 tasks (one skill, three phases)
        ↓
 [Domain-brief workers for implementation]
        ↓
@@ -470,12 +480,9 @@ plugins/
 │       ├── research/SKILL.md
 │       ├── plan-review/SKILL.md     (v6.0.0)
 │       ├── retro/SKILL.md           (v6.0.0)
-│       └── ... (9 skills total)
+│       └── ... (11 skills total)
 ├── sdd-specification/skills/
-│   ├── sdd-specification/SKILL.md
-│   ├── sdd-planning/SKILL.md
-│   ├── sdd-tasks/SKILL.md
-│   └── unified-specification/SKILL.md
+│   └── unified-specification/SKILL.md   (the only skill; spec+plan+tasks merged in v5.1.0)
 ├── loom-creation/agents/
 │   ├── prd-specialist.md
 │   └── subagent-architect.md
@@ -546,7 +553,7 @@ Security concerns? ────────────────────�
 Performance issues? ───────────────────────→ performance domain brief (via swarm/team)
 Deploying/CI-CD? ──────────────────────────→ devops domain brief (via swarm/team)
 Creating new agent? ───────────────────────→ subagent-architect (agent)
-Contract-first, well-understood feature? ──→ /specification (unified) or /specify + /plan + /tasks
+Contract-first, well-understood feature? ──→ /specification (spec + plan + tasks in one command)
 ```
 
 ---
@@ -577,6 +584,7 @@ Contract-first, well-understood feature? ──→ /specification (unified) or /
 
 | Version | Date | Changes |
 |---------|------|---------|
+| _Unreleased_ | 2026-08-24 | _(version not yet chosen — `/promote` + `bump-version.sh` stamp it at release; see CHANGELOG `[Unreleased]`)_ **User-tunable approval gating**: `gate-policy.conf` (live, `ask`/`silent` per operation, three onboarding postures, a five-operation floor that refuses to be silenced) + permission-mode awareness. **Environment promotion**: `environments.conf` declaration + validator (no deploy engine), `.docs/policies/environment-promotion-policy.md`, `/scaffold-environments`, and the `/promote-dev` → `/promote-staging` → `/promote-prod` lifecycle — gates and confirms, deploys nothing. **Backlog SSOT** split into `.logic-loom/memory/todos.md` (active) + `backlog.md` (deferred), one grammar/id space, published index + tracked offline dashboard behind a fail-closed freshness gate; `project.conf` project identity. **Governance floor**: subagent read-only git allowlist (subagents never *mutate* git, rather than never *touch* it), `gh` mutations + worktree writes gated, command-position matching, forkable-but-unremovable protected-path set, gh-telemetry detect-and-inform. **Honesty passes**: plugin `hooks.json` proven never to load (deleted, not repaired), the sandbox posture corrected to opt-in/off-by-default, `constitutional-check.sh` reports what it actually verified, and a `grep -q`-under-`pipefail` race that scored *passing* assertions as failures fixed across 204 sites |
 | 6.4.1 | 2026-08-17 | _(docs/governance; no framework version bump)_ Constitution **v3.3.0** — Project Amendments fork extension point: project mandates live as named mandates in a separate, fork-owned `.logic-loom/memory/amendments.md` (seeded from `amendments-template.md`), composed conjunctively with the 16 principles. Intended additive-only, with precedence rules resolving conflict, contradiction, and ambiguity toward the floor; reader-adjudicated rather than grammar-guaranteed, and explicitly followed-not-enforced (no loader, validator, or fail-closed behaviour). No principle body, numbering, immutability marker, or enforcement claim changed |
 | 6.4.1 | 2026-08-13 | Fixes the update path broken for v6.3.1 / v6.4.0 clones: those release PRs were squash-merged, discarding the single-parent snapshot `.sdd-sync-ref` names, so `/update-framework` exited 3 with "`.sdd-sync-ref` is NOT reachable from upstream main". Repo settings corrected (merge commits only). `extract-proposals.sh` auto-remaps the two known-bad baselines to their `main` equivalents; `release-tag.yml` now refuses to tag when the snapshot is not an ancestor of `main`; new `KNOWN_ISSUES.md` + sync-guide section keyed on the error string |
 | 6.4.0 | 2026-08-12 | Full contract-suite CI gating — every suite (including Git Safety, covering Principle VI) now gates PRs. Orchestrator + worker ladder shipped with the framework-wide model-agnostic tier-keyword convention; deterministic text-first project graph (`/graph` + `graph-bridge.jsonl`, no engine/daemon); harness↔product and harness↔user boundaries written down. Governance floor hardened: bash 3.2 fail-open closed, dangerous-command matching at command position (not prose), test-runner accounting corrected |

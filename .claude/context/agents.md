@@ -1,5 +1,10 @@
 # Agents Context Module
 <!-- Auto-generated from AGENTS.md and plugin files - Skill-Based Delegation v5.0 + Plugin-First Architecture v4.1 -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from AGENTS.md), not a
+     live pipeline. Edit it directly and keep it in step with AGENTS.md by hand.
+     Every command, skill and path named here must resolve on disk. -->
 <!-- Module: Agent/skill registry, delegation protocol, multi-agent coordination -->
 
 ## Delegation & Context Isolation Protocol
@@ -51,9 +56,7 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 
 | Domain | Keywords | Delegate To | Type |
 |--------|----------|-------------|------|
-| Specification | spec, requirements, user story | sdd-specification skill | skill |
-| Planning | /plan, research, contracts | sdd-planning skill | skill |
-| Tasks | /tasks, task breakdown | sdd-tasks skill | skill |
+| Specification | spec, requirements, user story, plan, contracts, task breakdown | unified-specification skill | skill |
 | Full pipeline | /specification | unified-specification skill | skill |
 | Multi-Domain | 2+ domains | team-orchestration skill | skill |
 | Swarm | /swarm, parallel agents | team-orchestration skill | skill |
@@ -62,7 +65,7 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 
 ---
 
-## Agent Registry (6 agents)
+## Agent Registry (6 plugin agents + 2 project agents)
 
 ### loom-governance (1)
 - **constitutional-governance-agent** — Primary entry point, governance enforcement (opus)
@@ -81,6 +84,14 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 ### loom-memory (1)
 - **memory-context-agent** — Memory search + context injection via preflight hook (haiku)
 
+### Project agents — `.claude/agents/` (2)
+
+File-based, NOT plugin agents (plugin agents lose `hooks` / `mcpServers` /
+`permissionMode`). They load at session start — restart to pick up edits.
+
+- **deep-reasoner** — Architecture decisions, hard debugging (`opus`, effort `high`) — `.claude/agents/deep-reasoner.md`
+- **fast-worker** — Boilerplate, tests, routine edits (`sonnet`, effort `medium`) — `.claude/agents/fast-worker.md`
+
 ---
 
 ## Enhanced Skills (replacing former agents)
@@ -89,11 +100,8 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 - `team-orchestration/SKILL.md` — Team coordination, swarm management, budget controls (merged from task-orchestrator + swarm-coordinator)
 - `multi-skill-workflow/SKILL.md` — Multi-domain workflow sequencing (merged from workflow-coordinator)
 
-### Specification Skills (replaced 4 agents)
-- `sdd-specification/SKILL.md` — Feature spec creation (merged from specification-agent)
-- `sdd-planning/SKILL.md` — Implementation planning (merged from planning-agent)
-- `sdd-tasks/SKILL.md` — Task decomposition (merged from tasks-agent)
-- `unified-specification/SKILL.md` — End-to-end spec pipeline (merged from specification-orchestrator)
+### Specification Skills
+- `unified-specification/SKILL.md` — End-to-end spec pipeline: spec + plan + research + data-model + contracts + quickstart + tasks, in one command (`plugins/sdd-specification/skills/unified-specification/SKILL.md`)
 
 ### Domain Briefs (replaced 7 domain plugins)
 - 7 `plugins/loom-governance/domain-briefs/<domain>.md` briefs, loaded via `get_domain_brief <domain>` and injected as isolated worker context (replaced the former `sdd-domain-*` operations skills/agents for frontend, backend, database, security, testing, performance, devops)
@@ -106,15 +114,18 @@ Coordinators use Opus 4.8; domain workers use Sonnet with an isolated brief.
 |---------|----------|--------|
 | `/create-prd` | prd-specialist (agent) | loom-creation |
 | `/specification` | unified-specification skill | sdd-specification |
-| `/specify` | sdd-specification skill | sdd-specification |
-| `/plan` | sdd-planning skill | sdd-specification |
-| `/tasks` | sdd-tasks skill | sdd-specification |
 | `/create-agent` | subagent-architect (agent) | loom-creation |
 | `/research` | team-synthesizer (agent) | loom-orchestrator |
-| `/swarm` | team-orchestration skill | loom-orchestrator |
+| `/swarm` | swarm-explore / swarm-implement / team-orchestration skills | loom-orchestrator |
 | `/build-team` | team-orchestration skill | loom-orchestrator |
-| `/fullstack-team` | team-orchestration skill | loom-orchestrator |
-| `/review-team` | team-orchestration skill | loom-orchestrator |
+| `/fullstack-team` | full-stack-feature skill | loom-orchestrator |
+| `/review-team` | review-evaluator skill | loom-orchestrator |
+| `/plan-review` | plan-review skill | loom-orchestrator |
+| `/cross-check` | cross-check skill | loom-orchestrator |
+| `/retro` | retro skill | loom-orchestrator |
+| `/graph` | project-graph skill | loom-orchestrator |
+| `/finalize` | finalize skill | loom-git |
+| `/git-push` | git-push-workflow skill | loom-git |
 | `/update-framework` | framework-sync-agent (agent) | loom-maintenance |
 
 ---
@@ -128,7 +139,7 @@ START → Analyze task keywords
   ↓ NO
 1 domain keyword? → YES → get_domain_brief <domain> (via team command / swarm)
   ↓ NO
-Specification work? → YES → appropriate spec skill
+Specification work? → YES → unified-specification skill (/specification)
   ↓ NO
 Execute directly (simple task, no domain specialization needed)
 ```

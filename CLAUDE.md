@@ -81,6 +81,12 @@ message. The hooks are the floor; the policies below are the standing intent.
 
 ### Hook enforcement (active regardless of model)
 
+All six are wired from **`.claude/settings.json` at the repo root**. Their
+scripts sit in two trees — the three git/protection guards under
+`plugins/loom-governance/hooks/scripts/`, the rest under `.claude/hooks/` — but
+location is not what makes them load; the root wiring is. Exact script paths and
+registration keys: **LogicLoom Hooks** below.
+
 | Hook | Enforces |
 |---|---|
 | `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies MUTATING git from a subagent (detected via `agent_id` in the hook payload). A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, listings, `rev-parse`, `config --get`, …); everything else — write forms, `fetch`, code-executing globals (`-c`, `--git-dir`, `--work-tree`, `--exec-path`), command substitution — is denied. Mutating git stays main-agent + direct-user-request only. `gh` remains categorically denied for subagents. |
@@ -115,6 +121,25 @@ Set via `LOOM_GOVERNANCE_MODE` or `.logic-loom/config/governance.conf`:
   message. The graceful-degradation path for weaker / non-flagship models.
 
 Hook enforcement is identical in both modes; only the model-side assist differs.
+
+### Gate policy (which operations interrupt the user)
+
+`.logic-loom/config/gate-policy.conf` is **live** and answers a question the
+verdict library deliberately does not: not "does this change the repo?" but "is
+that change worth interrupting you?". Two verdicts per operation — `ask` (an
+approval prompt) or `silent` (runs without an extra LogicLoom prompt; still
+logged, still in the transcript, still subject to the host permission mode).
+Shipped posture is `balanced`; `/initialize-project` offers `strict` (everything
+asks), `balanced`, and `minimal` (only the floor asks).
+
+**The floor is not tunable.** Five operations — push, history rewriting, repo
+admin, secret write, auth — refuse a `silent` setting with a typed reason rather
+than silently accepting it, on one test: *a wrong answer leaves the repository,
+or a credential, somewhere a revert cannot reach*. Three more are not config keys
+at all: protected-file writes, the dangerous-shell guard, and subagent git/gh.
+The file is itself on the protected-path list, so a subagent cannot rewrite the
+policy and then act under it. There is no wildcard and no "silence everything"
+line — weakening the gate costs one line per thing weakened.
 
 ---
 
@@ -217,6 +242,35 @@ For new work, prefer `/swarm explore` over individual specialist routing.
 
 ---
 
+## Quick Command Reference — Environment promotion
+
+`/promote-dev` → `/promote-staging` → `/promote-prod` is a **promotion
+lifecycle, not a deploy engine**. Each rung gates and confirms — it checks the
+declared promotion order and asks for confirmation whose strength escalates with
+blast radius (prompt at dev and staging; a **typed exact phrase that no flag, env
+var, or non-interactive path bypasses** at prod). The **rehearsal attestation is
+read at prod only**: `/promote-prod` is the sole caller that passes
+`--require-rehearsal` to `promote-gate.sh`, so dev and staging neither read nor
+require one. It then calls out to the `deploy` seam your project owns.
+The harness itself runs no cloud or CI call, no deploy command, no migration,
+seed, teardown, secret or rollback — and no git. Methodology, evidence grades,
+and the portable patterns: `.docs/policies/environment-promotion-policy.md`.
+
+| Command | Purpose | Plugin |
+|---|---|---|
+| `/scaffold-environments` | Opt-in scaffolding of the promotion methodology into a new or existing project; detects what the repo already has, proposes a delta, writes only what you name | loom-maintenance |
+| `/promote-dev` | Lowest rung — gates a feature branch/worktree into the integration branch and the dev environment, then prints the project's deploy-seam command. Prompts; skippable | loom-maintenance |
+| `/promote-staging` | Middle rung — gates a promotion into the rehearsal environment, then prints the seam command that stands it up and runs the smoke pass rehearsing `/promote-prod` | loom-maintenance |
+| `/promote-prod` | Top rung — rehearsal contract + promotion order + typed exact phrase. `--yes` is read and explicitly reported as ignored | loom-maintenance |
+
+Confirmation strength resolves **target environment's declared `confirm` →
+command default → none**, so a project can raise dev to a typed phrase or lower
+prod to a prompt. The ladder is guidance, not rails — but weakening it is
+reported loudly. (Distinct from **`/promote`**, the maintainer-only template
+release driver, which is stripped from a customer's clone.)
+
+---
+
 ## Constitution Principles
 
 **ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
@@ -290,18 +344,43 @@ precedence order: `.logic-loom/memory/constitution.md` § *Project Amendments*.
 
 ## LogicLoom Hooks
 
-Full hook inventory under `.claude/hooks/` (see the **Governance** section for
-how each maps to a principle):
+**Every hook is wired from one place: `.claude/settings.json` at the repo root.**
+That root wiring — not the file's location — is what makes a hook load. Scripts
+live in two trees, and the split is deliberate:
 
-| Hook | Purpose |
-|---|---|
-| `subagent-git-guard.sh` | Denies MUTATING git from a subagent (Principle VI); allowlisted read-only git is permitted. Mutating git is main-agent + direct-user-request only. `gh` stays categorically denied for subagents |
-| `git-safety-gate.sh` | Forces an approval prompt on main-agent git mutations (Principle VI). No autonomous git |
-| `guard-dangerous-commands.sh` | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
-| `governance-preflight.sh` | Injects domain briefs + memory context on `UserPromptSubmit` (and, in strict mode, the pre-flight recitation) |
-| `worktree-port-namespace.sh` | Computes per-worktree port/db namespaces (`PORT_BASE`, `DB_PORT`) so parallel worktrees don't collide |
-| `context-cap-warn.sh` | At 800K of 1M default context, injects reset reminder + handoff-artifact prompt to avoid "context anxiety" wrap-up bias |
-| `freeze-write-scope.sh` | Hook-level enforcement of plan-as-DAG file ownership: rejects writes outside the active task's declared `owns:` scope; default-allows when no DAG context |
+- **`plugins/loom-governance/hooks/scripts/`** — the three constitutional guard
+  scripts. They ship with the governance plugin but do **not** load as plugin
+  hooks; the repo's `plugins/` tree is not a plugin *installation* (no
+  `marketplace.json`, nothing in `~/.claude/plugins/`), so a per-plugin
+  `hooks/hooks.json` is never read. They run only because root `settings.json`
+  invokes them **by path**. Consequence: deleting the plugin's files would leave
+  the root wiring pointing at missing scripts and thin the floor silently.
+- **`.claude/hooks/`** — the repo-local hooks (plus `user-prompt-submit/`, one
+  level down).
+
+To confirm a hook is live, grep `.claude/settings.json` for its path — file
+existence alone is not registration.
+
+| Hook | Script path | Wired from `.claude/settings.json` |
+|---|---|---|
+| `subagent-git-guard.sh` | `plugins/loom-governance/hooks/scripts/` | `PreToolUse` · matcher `Bash` |
+| `git-safety-gate.sh` | `plugins/loom-governance/hooks/scripts/` | `PreToolUse` · matcher `Bash` |
+| `protect-governance-files.sh` | `plugins/loom-governance/hooks/scripts/` | `PreToolUse` · **both** matchers (`Bash`, and `Write\|Edit\|MultiEdit\|NotebookEdit`) |
+| `guard-dangerous-commands.sh` | `.claude/hooks/` | `PreToolUse` · matcher `Bash` |
+| `freeze-write-scope.sh` | `.claude/hooks/` | `PreToolUse` · matcher `Write\|Edit\|MultiEdit\|NotebookEdit` |
+| `governance-preflight.sh` | `.claude/hooks/user-prompt-submit/` | `UserPromptSubmit` |
+| `context-cap-warn.sh` | `.claude/hooks/` | `UserPromptSubmit` |
+| `worktree-port-namespace.sh` | `.claude/hooks/` | `SessionStart` |
+| `check-dev-branch-base.sh` | `.logic-loom/scripts/bash/` | `SessionStart` **and** `UserPromptSubmit` (via `--event`) |
+
+What each one enforces (Principle mapping included) is in the **Governance**
+section above; that table covers the six governance hooks, while this one lists
+all nine wired hooks — the same set plus the three non-floor hooks below.
+`check-dev-branch-base.sh` (LOOM-0024) is a detect-only branch-base advisory —
+it warns when a worktree was based on the sanitized `main` snapshot instead of
+`dev-main`, and by its own contract never runs git, never writes, and never
+blocks. It is not part of the governance floor; it is listed here only because
+`settings.json` runs it on every prompt.
 
 ---
 
@@ -343,13 +422,23 @@ All framework capabilities are **discrete installable plugins** under
 | `loom-orchestrator-hook` | core | Preflight domain detection + worker-brief recommendations |
 | `loom-creation` | core tooling | `/create-prd`, `/create-skill`, `/create-agent`, `/create-plugin` |
 | `loom-git` | core tooling | `/git-push`, `/finalize` |
-| `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project` |
+| `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project`, `/scaffold-environments`, `/promote-dev`, `/promote-staging`, `/promote-prod`, and the maintainer-only `/promote` (stripped at release) |
 | `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/cross-check`, `/plan-review`, `/review-team`, `/retro`, `/build-team`, `/fullstack-team` |
 | `sdd-specification` | SDD pack | `/specification` unified waterfall (keeps `sdd-` — it *is* the SDD workflow) |
 
 Domain expertise is no longer a plugin: the 7 domains (frontend/backend/database/
 testing/security/performance/devops) are **briefs** in
 `loom-governance/domain-briefs/`, injected via `get_domain_brief`.
+
+**This table is parsed, not just read.** `tests/contract/test_bash32_floor.sh`
+takes it as the harness's declaration of which plugins under `plugins/` are
+harness-owned, and holds exactly those to the bash 3.2 floor. A plugin **you**
+build (via `/create-plugin` or by hand) is not in this table, so your shell is
+not scanned — you choose your own runner. Listing your plugin here opts it into
+the floor. Two guards keep that from going soft: a declared plugin with no
+directory fails the suite, and so does any `loom-*` / `sdd-*` directory the
+table does **not** declare — so a harness plugin cannot be dropped from the scan
+by quietly dropping a row. Do not name your own plugin `loom-*` or `sdd-*`.
 
 ### Plugin command bridge
 
@@ -373,10 +462,27 @@ VISION.md                              # Foundational product north-star (living
   memory/
     constitution.md                    # 16 principles (v3.3.0) — upstream core, do not fork-edit
     amendments.md                      # OPTIONAL, fork-owned: project named mandates (additive only)
+    todos.md                           # Level-0 SSOT, ACTIVE half — cross-cutting non-feature work
+                                       # being worked / next up / waiting on an answer already asked for
+    backlog.md                         # Level-0 SSOT, DEFERRED half — same grammar, same id space,
+                                       # different question: "what should I bring up later".
+                                       # Split so today's item isn't buried between two you
+                                       # decided six weeks ago not to do. Grammar is normative
+                                       # in backlog.md; todos.md points at it (one parser, one id
+                                       # space, next id DERIVED via lint-backlog.sh --next-id)
     constitution_update_checklist.md
   scripts/bash/                        # Workflow automation + plugin bridge
   templates/                           # vision-template, prd-template, plan-template, ...
-  config/                              # Configuration
+  config/
+    governance.conf                    # Governance mode (lean / strict)
+    models.conf                        # Documented role→tier convention + current flagship
+    gate-policy.conf                   # LIVE — which git/gh operations ask vs run silent
+    project.conf                       # Project identity (slug / name / id_prefix). Ships UNSTAMPED
+                                       # (`__UNSET__`) so no cloner inherits our slug
+    environments.conf                  # Environment + promotion-order DECLARATION. Ships FULLY
+                                       # COMMENTED OUT — an active default would assert a topology
+                                       # a cloner does not have. Declaration only; no deploy engine
+    architecture.conf, framework-upstream.conf
   lib/                                 # Shared shell libs (policy.sh, logging.sh)
 
 plugins/                               # See registry above
@@ -451,8 +557,9 @@ lives in its own workspace**, each product-owned with its own `package.json`,
 
 Do **not** put product source at the repo root or share the root
 `package.json` / `tests/` — that trips the framework's jest-glob and coverage
-gates (the silent collisions documented in
-`features/harness-product-boundary/exploration/`). Product specs (`specs/<feature>/`)
+gates — a jest-glob collision that sweeps product tests into the framework's
+`npm test`, and a coverage collision between the framework's
+`collectCoverageFrom` scope and product code at the root. Product specs (`specs/<feature>/`)
 and feature work (`features/<name>/`) are tracked. Full rule:
 `.docs/policies/file-structure-policy.md` (§ Product Workspace).
 
@@ -594,12 +701,17 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 - `VISION.md` — **foundational** product north-star (living); the *what/why* the constitution defers to (peer to the constitution, distinct from per-feature `features/<name>/vision.md`)
 - `.docs/architecture/loom-architecture.md` — full architectural reference (LogicLoom shape)
 - `.docs/architecture/evaluator-protocol.md` — `/review-team` evaluator contract
-- `.docs/architecture/freeze-scope-protocol.md` — `/freeze` hook contract
+- `.docs/architecture/freeze-scope-protocol.md` — the `freeze-write-scope.sh` hook contract (a hook, not a command)
 - `.logic-loom/memory/constitution.md` — 16 constitutional principles (v3.3.0)
 - `.logic-loom/templates/amendments-template.md` — seed for a fork's `amendments.md` (project named mandates)
+- `.logic-loom/memory/todos.md` / `.logic-loom/memory/backlog.md` — Level-0 SSOT for cross-cutting non-feature work: active half / deferred half, one grammar, one id space
 - `.logic-loom/config/models.conf` — documented role→tier convention + current flagship
 - `.logic-loom/config/governance.conf` — governance mode (lean/strict)
-- `.docs/policies/shell-idiom-policy.md` — five shell idioms for hooks/scripts, each traced to a real failure (style guide, deliberately unenforced)
+- `.logic-loom/config/gate-policy.conf` — **live**: which git/gh operations ask and which run silent, plus the five-operation floor that refuses to be silenced
+- `.logic-loom/config/project.conf` — project identity (slug / name / `id_prefix`); ships unstamped, validated by `validate-project-identity.sh`
+- `.logic-loom/config/environments.conf` — environment + promotion-order declaration; ships commented out, validated by `validate-environments.sh`
+- `.docs/policies/environment-promotion-policy.md` — the promotion methodology behind `/promote-dev` → `/promote-staging` → `/promote-prod`; every claim carries an evidence grade (VERIFIED / RECOMMENDED / UNSOLVED)
+- `.docs/policies/shell-idiom-policy.md` — two things, with different force: **seven shell idioms** for hooks/scripts, each traced to a real failure (style guide, deliberately unenforced), and the **bash 3.2 floor**, which *is* enforced by `tests/contract/test_bash32_floor.sh` and fails CI. The floor covers **harness-owned shell only** — `.logic-loom/`, `.claude/hooks/`, `tests/`, and the plugins declared in the **Plugin Registry** table below. A plugin you add under `plugins/` is not scanned unless you list it there; `.github/workflows/` is out of scope (all `runs-on: ubuntu-latest`, bash 5)
 - `plugins/MANIFEST-SCHEMA.md` — `.claude-plugin/plugin.json` schema (Principle XVI)
 - `features/README.md` — per-feature folder convention
 - `plugins/*/skills/` — skill documentation (Plugin-First Architecture)
@@ -640,4 +752,4 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 **Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
-**Last Updated**: 2026-08-17
+**Last Updated**: 2026-08-25

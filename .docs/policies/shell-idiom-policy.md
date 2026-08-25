@@ -1,7 +1,7 @@
 # Shell Idiom Policy
 
-**Version**: 1.1.0
-**Effective Date**: 2026-08-17
+**Version**: 1.3.0
+**Effective Date**: 2026-08-25
 **Authority**: Constitution v3.3.0 — Principle VI (Git Approval), Principle IV (Idempotency), Principle VII (Observability)
 **Review Cycle**: Quarterly
 
@@ -9,19 +9,74 @@
 
 ## Purpose
 
-This is a **style guide, not a linter.** It records six shell idioms whose
-*absence* has produced real, reproducible failures — in this tree and in the
-downstream Cosmos tree that fed them back. Each rule is here because something
-broke, not because it reads nicely.
+This document records seven shell idioms whose *absence* has produced real,
+reproducible failures — in this tree and in the downstream Cosmos tree that fed
+them back. Each rule is here because something broke, not because it reads
+nicely.
 
-There is deliberately **no enforcement mechanism**. A linter over contributor
-shell style would be overbearing on preferences a fork is entitled to hold. The
-rules below are followed because the worked examples are real, and every worked
-example in §1 is a file in this repository.
+## What is enforced and what is not
 
-**Scope**: all shell under `.logic-loom/`, `plugins/`, `tests/`, `.claude/hooks/`,
-and `.github/workflows/`. Applies to `bash 3.2` (stock macOS) as the floor —
-see `tests/contract/test_suite_registration.sh` for the house bash-3.2 rules.
+Two different things live in this file, and conflating them is how a document
+starts lying about itself.
+
+| | Enforced? | By what |
+|---|---|---|
+| **The seven idioms** (§1-§7) | **No** — style guide | Nothing. Deliberately. A linter over contributor shell style would be overbearing on preferences a fork is entitled to hold. The rules are followed because the worked examples are real, and every worked example in §1 is a file in this repository. |
+| **The bash 3.2 floor** (below) | **Yes** — fails CI | `tests/contract/test_bash32_floor.sh`, run by `tests/run_all_tests.sh` and by `.github/workflows/plugin-tests.yml` |
+
+The floor is not a style preference: a `declare -A` in a harness script does not
+run at all on stock macOS `/bin/bash`, and the `/specification` quality gates
+and `load-context.sh` shipped broken for every macOS user before the gate
+existed. That is a correctness bug, not a taste. Hence the asymmetry.
+
+## Scope of the bash 3.2 floor
+
+`bash 3.2.57` (stock macOS `/bin/bash`) is the floor for **harness-owned
+shell**. Concretely, and exactly as `test_bash32_floor.sh` scans:
+
+| Path | In scope | Why |
+|---|---|---|
+| `.logic-loom/`, `.claude/hooks/`, `tests/` | **Yes**, wholesale | Framework-owned by the harness↔product boundary in CLAUDE.md — product code lives in `web/` or `apps/<name>/`, never here |
+| `plugins/<p>/` for a plugin **declared in CLAUDE.md's Plugin Registry table** | **Yes** | The harness's own bundled plugins |
+| `plugins/<p>/` for any other plugin | **No** | Your plugin, your runner, your call |
+| `.github/workflows/` | **No** | See below |
+
+**Why `plugins/` is split.** `plugins/` is the one genuinely mixed namespace: it
+holds the eight bundled harness plugins *and* whatever you build there under
+Principle XVI / `/create-plugin`. The floor exists because *the harness's* scripts
+must run on stock macOS bash — your plugin has no such obligation, and
+`declare -A` on your ubuntu/bash-5 runner is a perfectly ordinary thing to write.
+Enforcing our portability floor on your plugin code turned your first push red
+for something you legitimately did; that was a defect, and this scoping is the
+fix.
+
+**The discriminator is a declaration, not a name prefix.** A plugin is
+harness-owned iff it appears in the **Plugin Registry** table in `CLAUDE.md` —
+the harness's own published inventory of what it ships. A manifest flag was
+considered and rejected: it would have to be added to eight `plugin.json` files
+that a fork is free to copy, which makes the marker meaningless the first time
+someone scaffolds from one of ours. Listing your own plugin in that table is the
+supported way to opt **into** the floor, and it is the only reading of that edit.
+
+**The gate must not go decorative.** The risk of scoping by declaration is a
+harness plugin quietly dropped from the table and therefore from the scan.
+Section 1b of the suite is the backstop: any directory under `plugins/` named
+`loom-*` or `sdd-*` that the registry does not declare **fails the suite by
+name**. That check can only add coverage, never remove it. The corollary: if you
+name your own plugin `loom-something` you have taken our namespace, and the
+suite will treat it as ours and hold it to the floor. Name it anything else.
+
+**`.github/workflows/` is deliberately out of scope**, and this is a correction
+— an earlier version of this policy claimed the floor covered it while the gate
+never scanned it. Every workflow in this repo is `runs-on: ubuntu-latest`
+(bash 5), and a `run:` block executes nowhere else — never on a developer's
+macOS shell. The floor's entire rationale is absent there, so the *claim* was
+the wrong half, not the coverage. A workflow that **calls** a harness script is
+still covered, because the script is.
+
+Both directions are asserted, on a purpose-built synthetic tree, in section 2b
+of `tests/contract/test_bash32_floor.sh`: a harness plugin's `declare -A` is
+caught, a customer plugin's is not.
 
 ---
 
@@ -276,11 +331,75 @@ that read to EOF (`grep -c`, `sed -n '1,Np'`, `wc`) were left alone, as were
 
 ---
 
+## 7. Filter `git ls-files` for presence before you stat, read, or archive
+
+**Rule.** Never feed `git ls-files --cached` (or bare `git ls-files`) straight
+into anything that must stat, read, or archive each path. `--cached` reports the
+**index**, so a tracked file deleted but not yet committed is still listed, and
+the consumer dies on a path that is not on disk. Filter for presence first.
+
+```bash
+# WRONG — one tracked-but-deleted path and tar exits non-zero, taking the
+# whole pipeline (and whatever function wraps it) with it.
+git ls-files -z --cached --others --exclude-standard | tar --null -T - -cf -
+
+# RIGHT — drop paths that are not on disk, and only those.
+git ls-files -z --cached --others --exclude-standard \
+  | while IFS= read -r -d '' f; do
+      [ -e "$f" ] || [ -L "$f" ] || continue
+      printf '%s\0' "$f"
+    done \
+  | tar --null -T - -cf -
+```
+
+`--others --exclude-standard` still contributes untracked-but-present files —
+the filter takes nothing away from that. The `-L` test keeps dangling symlinks,
+which are on disk and which `tar` handles.
+
+**This does not apply to membership questions.** "Is this path tracked?" is
+correctly answered *yes* for a deleted-but-tracked file, and
+`check-generated-freshness.sh` depends on exactly that to keep its rot-detection
+teeth. The distinguishing test is the same shape as §1's: **does the consumer
+have to touch the path, or only name it?** Only the first needs the filter.
+Verified unaffected, and deliberately left alone:
+
+| File:line | Why it is fine |
+|---|---|
+| `.logic-loom/scripts/bash/strip-harness-dev.sh:35` | Feeds `rm -f` — an already-absent path is the desired end state |
+| `.logic-loom/scripts/bash/check-generated-freshness.sh:410` (`index_flag`) | Reads an `ls-files -v` status letter; a deletion is signal, not an error |
+| `tests/contract/test_backlog_index.sh:421`, `tests/contract/test_generated_artifacts_declared.sh:205` | Membership assertions — never open the path |
+
+**Why it is here.** `tests/contract/test_shipped_gates_vs_strip.sh` built its
+throwaway tree with the WRONG form above. Three tracked scripts were deleted
+mid-session as an intentional fix — an utterly ordinary state during exactly the
+cleanup work that suite exists to guard — `tar` could not stat them, exited
+non-zero, and the builder returned 1. The suite reported **25/27, exit 1**;
+restoring the files gave **32/32**; re-deleting gave **25/27** again. Causation
+established in both directions.
+
+There are two lessons here, not one. The failure named the *strip pipeline*
+rather than the builder, because a `2>/dev/null` on the copy stage swallowed
+`tar: …: Cannot stat`. A diagnostic silencer on the stage that can fail is how a
+five-second fix becomes a session-long hunt; capture stderr and reprint it on
+failure instead.
+
+What makes this a rule and not a one-off repair is that
+`.logic-loom/scripts/bash/leak-guard.sh:44` had already arrived at the identical
+filter independently —
+`TRACKED="$(git -C "$REPO_ROOT" ls-files | while IFS= read -r _f; do [ -e "$REPO_ROOT/$_f" ] && printf '%s\n' "$_f"; done)"`
+— so the bug was found and fixed once before, in isolation, and the second site
+was then written without that knowledge. Two spellings of one rule is precisely
+what this document is for.
+
+---
+
 ## Non-goals
 
-- **No linter.** Not shellcheck config, not a pre-commit hook, not a CI gate.
-  Adding one would be overbearing on contributor style, which is the reason this
-  is a guide.
+- **No linter for §1-§7.** Not shellcheck config, not a pre-commit hook, not a
+  CI gate. Adding one would be overbearing on contributor style, which is the
+  reason those seven rules are a guide. This does **not** extend to the bash 3.2
+  floor, which is a correctness gate and *is* enforced — see
+  [What is enforced and what is not](#what-is-enforced-and-what-is-not).
 - **No new abstraction layer.** Each rule is a spelling, not a helper library.
   Where a helper already exists (`count_matches`), use it; do not build more.
 
@@ -293,9 +412,10 @@ that read to EOF (`grep -c`, `sed -n '1,Np'`, `wc`) were left alone, as were
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
 - Backlog §3.5 (origin of this document): `.docs/reports/backlog-2026-08-13.md`
+- bash 3.2 floor gate: `tests/contract/test_bash32_floor.sh`
 
 ---
 
 **Policy Owner**: Quality Department
-**Last Reviewed**: 2026-08-17
-**Next Review**: 2026-11-17
+**Last Reviewed**: 2026-08-25
+**Next Review**: 2026-11-25

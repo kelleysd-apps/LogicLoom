@@ -143,19 +143,25 @@ sprints:
 
 ## 6. Hook architecture
 
-LogicLoom hooks live in `.claude/hooks/` and are wired in
-`.claude/settings.json`. Three categories:
+Every LogicLoom hook is wired in **`.claude/settings.json` at the repo root**.
+That wiring is what makes a hook load — not where its script sits. Scripts live
+in two trees: the constitutional guard scripts under
+`plugins/loom-governance/hooks/scripts/` (invoked by path from root; **not**
+loaded as plugin hooks — see governance-threat-model.md § *Floor housing*), and
+the rest under `.claude/hooks/`. Three categories:
 
 ### Governance-core hooks (preserved from v5.0.0)
 
 These are the durable governance core. They enforce the constitution at the
 harness boundary, independent of which workflow pack is active.
 
-| Hook | Event | Purpose | Principle |
-|------|-------|---------|-----------|
-| `user-prompt-submit` (governance-preflight) | UserPromptSubmit | Injects governance context + domain detection + memory context. Recitation depth is mode-controlled (see below) | I–XVI |
-| `git-safety-gate.sh` | PreToolUse (Bash) | Forces explicit approval on any git mutation (commit, push, branch, merge, history edit). Runs in every mode | VI |
-| `guard-dangerous-commands.sh` | PreToolUse | Gates destructive bash commands; never auto-runs git | VI, XI |
+| Hook | Script path | Event | Purpose | Principle |
+|------|------|-------|---------|-----------|
+| `governance-preflight.sh` | `.claude/hooks/user-prompt-submit/` | UserPromptSubmit | Injects governance context + domain detection + memory context. Recitation depth is mode-controlled (see below) | I–XVI |
+| `git-safety-gate.sh` | `plugins/loom-governance/hooks/scripts/` | PreToolUse (Bash) | Forces explicit approval on any git mutation (commit, push, branch, merge, history edit). Runs in every mode | VI |
+| `subagent-git-guard.sh` | `plugins/loom-governance/hooks/scripts/` | PreToolUse (Bash) | Denies MUTATING git from a subagent; an allowlisted read-only subset is permitted, `gh` is categorically denied | VI |
+| `protect-governance-files.sh` | `plugins/loom-governance/hooks/scripts/` | PreToolUse (Bash + Write\|Edit\|MultiEdit\|NotebookEdit) | Protected-surface writes → subagent deny / main ask | VI, XV |
+| `guard-dangerous-commands.sh` | `.claude/hooks/` | PreToolUse (Bash) | Gates destructive bash commands; never auto-runs git | VI, XI |
 
 **Governance mode (`LOOM_GOVERNANCE_MODE`)** — env > `.logic-loom/config/governance.conf`
 > built-in default. Hook enforcement (git-safety gate, dangerous-command guard,
@@ -170,6 +176,8 @@ assist** injected on each message:
   / non-flagship models.
 
 ### LogicLoom hooks (new in v6.0.0)
+
+All three live in `.claude/hooks/`.
 
 | Hook | Event | Purpose |
 |------|-------|---------|

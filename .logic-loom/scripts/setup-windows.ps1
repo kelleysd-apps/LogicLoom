@@ -278,11 +278,13 @@ Write-Host "/create-prd" -ForegroundColor Yellow
 Write-Host ""
 Write-Info "2. Customize the constitution for your project:"
 Write-Host "   " -NoNewline
-Write-Host ".specify\memory\constitution.md" -ForegroundColor Yellow
+Write-Host ".logic-loom\memory\constitution.md" -ForegroundColor Yellow
 Write-Host ""
-Write-Info "3. Create your first feature specification:"
-Write-Host "   Open Claude Code and run: " -NoNewline
-Write-Host "/specify" -ForegroundColor Yellow
+Write-Info "3. Start your first feature - pick the pack that fits:"
+Write-Host "   Scope still unclear:      " -NoNewline
+Write-Host "/swarm explore <topic>" -ForegroundColor Yellow
+Write-Host "   Requirements settled:     " -NoNewline
+Write-Host "/specification <feature>" -ForegroundColor Yellow
 Write-Host ""
 
 # Offer to launch Claude Code

@@ -21,11 +21,16 @@
 # bash 3.2 safe: no associative arrays, no mapfile, no ${var,,}.
 set -uo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 assert() {
   TOTAL=$((TOTAL + 1)); local desc="$1"; local condition="$2"
   if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
   else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+# skip <desc> <reason> — NOT counted in PASS/FAIL/TOTAL. See tests/lib/tree-provenance.sh.
+skip() {
+  SKIP=$((SKIP + 1))
+  echo "  ⏭  SKIP: $1 — $2"
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,6 +38,15 @@ if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :;
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 fi
 cd "$ROOT"
+
+# shellcheck source=../lib/tree-provenance.sh
+source "$ROOT/tests/lib/tree-provenance.sh"
+if ! loom_require_consistent_tree "$ROOT"; then
+  echo "════════════════════════════════"
+  echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
+  exit 1
+fi
+TREE_KIND="$(loom_tree_kind "$ROOT")"
 
 DETECT="$ROOT/.logic-loom/scripts/bash/detect-environment-topology.sh"
 SCAFFOLD="$ROOT/.logic-loom/scripts/bash/scaffold-environments.sh"
@@ -94,8 +108,13 @@ echo ""
 echo "2. Command name avoids the /promote collision (LOOM-0006)"
 assert "command is not named 'promote'" \
   "! grep -qE '^name:[[:space:]]*promote[[:space:]]*\$' '$CMD'"
-assert "maintainer promote.md still exists and is untouched by this pack" \
-  "[ -f '$ROOT/plugins/loom-maintenance/commands/promote.md' ]"
+if [ "$TREE_KIND" = "sanitized" ]; then
+  skip "maintainer promote.md still exists and is untouched by this pack" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
+else
+  assert "maintainer promote.md still exists and is untouched by this pack" \
+    "[ -f '$ROOT/plugins/loom-maintenance/commands/promote.md' ]"
+fi
 assert "scaffolder is not stripped from customer copies" \
   "! grep -q 'scaffold-environments' '$ROOT/.logic-loom/scripts/bash/template-strip-manifest.txt' 2>/dev/null"
 echo ""
@@ -352,7 +371,7 @@ echo ""
 
 # ── summary ──────────────────────────────────────────────────────────────────
 echo "═══════════════════════════════════════════════════════════"
-echo "  Total: $TOTAL | Passed: $PASS | Failed: $FAIL"
+echo "  Total: $TOTAL | Passed: $PASS | Failed: $FAIL | Skipped: $SKIP"
 echo "═══════════════════════════════════════════════════════════"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

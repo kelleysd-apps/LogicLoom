@@ -362,9 +362,7 @@ Verify the skill executed correctly:
 - All agents and skills must comply with constitution
 ## Related Skills
 
-- **sdd-specification**: Uses Principle VIII (documentation sync)
-- **sdd-planning**: Validates Principles I, II, III compliance
-- **sdd-tasks**: Ensures test-first task ordering (Principle II)
+- **unified-specification**: Uses Principle VIII (documentation sync); validates Principles I, II, III compliance in its planning phase; ensures test-first task ordering (Principle II) in its tasks phase
 - **domain-detection**: Part of Principle X (agent delegation)
 
 ## References

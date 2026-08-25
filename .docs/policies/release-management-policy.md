@@ -407,7 +407,7 @@ GET /api/users?page=1&limit=20
 
 ## 🔗 Links
 
-- [Full Changelog](CHANGELOG.md)
+- [Full Changelog](https://github.com/org/repo/blob/main/CHANGELOG.md)
 - [Documentation](https://docs.example.com)
 - [Release Milestone](https://github.com/org/repo/milestone/5)
 

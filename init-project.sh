@@ -596,7 +596,9 @@ if command -v claude &> /dev/null; then
     echo -e "  1. Open in Claude Code: ${YELLOW}claude code .${NC}"
     echo -e "  2. Create PRD: ${YELLOW}/create-prd${NC}"
     echo -e "  3. Initialize project: ${YELLOW}/initialize-project${NC}"
-    echo -e "  4. Start first feature: ${YELLOW}/specify${NC}"
+    echo -e "  4. Start first feature — pick the pack that fits:"
+    echo -e "       ${YELLOW}/swarm explore <topic>${NC}     scope is still unclear"
+    echo -e "       ${YELLOW}/specification <feature>${NC}   requirements are already settled"
 else
     echo -e "  1. Install Claude Code (see instructions above)"
     echo -e "  2. Run: ${YELLOW}claude login${NC}"

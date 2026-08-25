@@ -94,6 +94,13 @@ echo "Specification agent-to-skill conversion"
 assert "deprecated sdd-specification skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-specification ]"
 assert "deprecated sdd-planning skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-planning ]"
 assert "deprecated sdd-tasks skill removed" "[ ! -d plugins/sdd-specification/skills/sdd-tasks ]"
+# Positive form of the same invariant: the plugin ships exactly ONE skill, and it
+# is unified-specification. Catches reintroduction of ANY phantom skill, not just
+# the three named above (which the [ ! -d ] checks would also pass if the whole
+# plugin were deleted).
+SPEC_SKILL_COUNT=$(find plugins/sdd-specification/skills -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')
+assert "sdd-specification ships exactly 1 skill (found ${SPEC_SKILL_COUNT})" "[ ${SPEC_SKILL_COUNT} -eq 1 ]"
+assert "that skill is unified-specification" "[ -f plugins/sdd-specification/skills/unified-specification/SKILL.md ]"
 assert "unified-specification skill has Task Brief" "grep -q '## Task Brief' plugins/sdd-specification/skills/unified-specification/SKILL.md"
 assert "specification agents directory removed" "[ ! -d plugins/sdd-specification/agents ]"
 assert "plugin.json has empty agents array" "python3 -c 'import json; d=json.load(open(\"plugins/sdd-specification/.claude-plugin/plugin.json\")); agents=d.get(\"agents\",{}); lst=agents.get(\"list\",agents) if isinstance(agents,dict) else agents; assert lst==[]'"

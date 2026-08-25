@@ -42,8 +42,13 @@ enforced-vs-followed honesty the framework applies to governance generally (see
 
 | Guarantee | Mechanism |
 |---|---|
-| No autonomous git mutation by the main agent — every `commit`/`push`/`merge`/`rebase`/branch create or delete raises an approval prompt | `.claude/hooks/git-safety-gate.sh` (Principle VI) |
-| No git command at all from a subagent | `.claude/hooks/subagent-git-guard.sh` (Principle VI) |
+| No autonomous git mutation by the main agent — every `commit`/`push`/`merge`/`rebase`/branch create or delete raises an approval prompt | `plugins/loom-governance/hooks/scripts/git-safety-gate.sh` (Principle VI) |
+| No MUTATING git from a subagent (an allowlisted read-only subset — `status`, `log`, `diff`, … — is permitted; `gh` is categorically denied) | `plugins/loom-governance/hooks/scripts/subagent-git-guard.sh` (Principle VI) |
+
+Both scripts live under the governance plugin but load only because
+`.claude/settings.json` at the repo root wires them by path as `PreToolUse` ·
+`Bash` hooks — they are **not** loaded as plugin hooks. See CLAUDE.md
+§ *LogicLoom Hooks*.
 
 That is the entire enforced surface. **The harness enforces nothing about your
 branch *names*, your branch *topology*, or where branches merge.**

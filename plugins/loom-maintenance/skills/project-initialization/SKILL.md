@@ -213,9 +213,21 @@ rm -f .github/workflows/leak-guard.yml        # maintainer identity-marker backs
 rm -f .github/workflows/branch-topology-guard.yml  # maintainer release-branch-only gate on main (your main takes feature branches)
 ```
 
+`branch-topology-guard.yml` is the one that actively BREAKS the project: it fails
+**every** PR into `main` whose head branch is not `release/vX.Y.Z`. The other
+three no-op or fail harmlessly. Removing it is not optional cleanup.
+
 State clearly in the report that these were removed and why (they would otherwise
 run — and fail/no-op — in the customer's CI and reference a release model the
 customer is not operating).
+
+This list is a TANDEM with two other paths that must stay identical:
+`init-project.sh` (the shell path) and
+`plugins/loom-maintenance/commands/initialize-project.md` (the command an agent
+executes). `tests/contract/test_shipped_gates_vs_strip.sh` § 4 fails if the three
+diverge. A project that adopted LogicLoom via `/update-framework` never ran any
+of them and keeps the guard — `branch-topology-guard.yml`'s own header, and
+`/update-framework` step 4, tell that user how to delete it.
 
 ### Step 8: Validate and Report
 
