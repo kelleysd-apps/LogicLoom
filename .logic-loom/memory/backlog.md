@@ -444,6 +444,67 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       documents the `/promote` vs `/promote-prod` distinction explicitly and will
       need updating.
 
+- [ ] LOOM-0037 — Decide how to stop a fix to `promote-to-main.yml` from taking effect one release late `status:open`
+      **From the v6.5.0 release day (2026-08-25). The original question here —
+      "what opened those three Actions-authored PRs?" — is ANSWERED. What is
+      still open is the property that answer exposed.**
+      **The answer: `workflow_dispatch` runs the workflow from the DEFAULT
+      branch.** `gh run view 32899320230 --json headBranch,headSha` returns
+      `headBranch: main`, `headSha: 3d17c399…`. Every release dispatched that
+      night executed **`main`'s copy**, which at that point was the **v6.4.1**
+      workflow — not the `dev-main` copy being promoted.
+      `git show v6.4.1:.github/workflows/promote-to-main.yml` has a step
+      `- name: Publish via PR to main` (line 196) that calls `gh pr create` under
+      the built-in `GITHUB_TOKEN`. That is what opened the three PRs. The
+      GitHub behaviour they hit is not in doubt: a PR authored by `GITHUB_TOKEN`
+      emits no `pull_request` event, so no workflow fires, and a PR with *no*
+      checks looks identical to one whose checks all passed.
+      **Corrected provenance — do not re-derive this a third time.** This item
+      was filed asserting that "`/promote`'s docs say the workflow does not open
+      the PR, but `promote-to-main.yml` now has a *Publish via PR to main* step
+      that does". That assertion was then refuted against `dev-main` at
+      `66b2e1b`, whose only publish steps are `Publish release branch (PR is
+      opened with a user token)` (`:505`, pushes `release/$TAG`, prints the PR
+      command to the job summary, and stops) and `Publish via direct push`
+      (`:542`) — docs and workflow agree there. **Both claims were right about
+      different files.** Nobody had noticed that the copy which *runs* is not the
+      copy being *built*.
+      **The consequence, which is the real finding: the version-binding gate
+      added this cycle never ran for v6.5.0.** `bump-version.sh --check` occurs
+      **0** times in the executed copy (`main@3d17c399`) and **2** times on
+      `main` now, post-merge. The v6.5.0 stamps were correct only because the
+      maintainer ran the bump by hand and verified it; the gate meant to enforce
+      that was inert. Generalised: **any change to `promote-to-main.yml` is one
+      release behind** — it cannot take effect until it has already shipped to
+      `main`. That holds for every future fix to that workflow, and it is exactly
+      the "a gate that does not actually run" class this release cycle was about.
+      **What is open is the remedy; the options are recorded, not chosen:**
+      1. **Verify after the merge, before trusting.** Treat the merge to `main`
+         as the moment a workflow change becomes live, and add a post-merge check
+         that the gates the maintainer believes are running are present in
+         `main`'s copy.
+      2. **Assert before dispatching.** Have `/promote` read `main`'s copy of
+         `promote-to-main.yml` and refuse to dispatch unless it contains the
+         gates this release expects — turning a silent one-release lag into a
+         loud precondition failure.
+      3. Some combination, or a dispatch that pins `ref` explicitly. Whoever
+         picks this up decides; the point is that no remedy is in place today.
+      **The close/reopen remediation is no longer needed from v6.6.0 onward** —
+      recorded here rather than kept as a step. `origin/main` now carries the
+      newer workflow: its publish step is `Publish release branch (PR is opened
+      with a user token)` (`:505`), and no workflow on `main` calls
+      `gh pr create` outside a job-summary `echo` (checked across all five:
+      `branch-topology-guard.yml`, `leak-guard.yml`, `plugin-tests.yml`,
+      `promote-to-main.yml`, `release-tag.yml`). The next dispatch therefore runs
+      a copy that pushes the release branch and stops, and the PR is opened by a
+      user token, which does emit `pull_request` events. The check that matters
+      stays the same either way and should remain in the procedure: not "did
+      anything fail" but "did any check **report**" — the
+      `statusCheckRollup | length` must-be-nonzero probe already printed at
+      `promote-to-main.yml:530-534`.
+      Related: LOOM-0035 (consolidating the promote commands) will rewrite this
+      procedure anyway — sequence accordingly.
+
 - [x] LOOM-0012 — Reconcile or remove the `loom-orchestrator` manifest inventory counts `status:done`
       The manifest declares `commands.count: 8` / `skills.count: 10`; disk has
       **9 and 11** (the `graph` command and skill). Harmless today, but it proves
@@ -618,6 +679,61 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       VISION edit and should happen when that section is next revised, not as a
       drive-by.
 
+### Test suite defects
+
+- [ ] LOOM-0038 — Fix three known-false assertions in the test suite — two are false greens, one silently drops 91 assertions `status:open`
+      **Found during the v6.5.0 release (2026-08-25) and deliberately left**
+      because a release PR was in flight and none of them is a product defect.
+      All three are verified against `dev-main` at `66b2e1b`; do not re-derive.
+      1. **An assertion that can never fail.**
+         `tests/contract/test_environment_scaffolding.sh:182-183` — the
+         "every skip states a reason" assertion ends in `|| true`, so its
+         expression is unconditionally true. It has never tested anything.
+      2. **A false green over six assertions.**
+         The same file's `treehash()` (`:76-81`) runs `shasum -a 256` with
+         `2>/dev/null` on the per-file hash and a bare `shasum` on the roll-up.
+         On a host without `shasum` both sides yield the **empty string**, so the
+         six "tree is byte-identical" assertions compare empty to empty and
+         **pass**. A missing tool must fail the assertion, not empty it — assert
+         the hash is non-empty first, and use the same `shasum`/`sha256sum`
+         fallback the backlog collector already uses.
+      3. **91 assertions count as zero.**
+         `tests/run_all_tests.sh:38` parses a suite's summary with
+         `grep -E "Results:|pass.*fail"`, but
+         `test_environment_scaffolding.sh:411` prints
+         `Total: N | Passed: N | Failed: N | Skipped: N`. No match, so the
+         fallback at `:49-52` finds no `^ℹ pass` line either and the suite
+         contributes **0** to the headline totals. Either the suite emits a
+         `Results:` line or the aggregator learns this format — and the
+         aggregator should treat a suite that emits **no parseable summary** as
+         a failure rather than a zero.
+      All three are instances of the same pattern — a check whose stated
+      precondition is not its real precondition — which is worth reading before
+      the next release, not just fixing here.
+
+### Workflow packs
+
+- [ ] LOOM-0039 — Direction: restore the MULTI-command SDD (`/specify`, `/plan`, `/tasks`) and retire the merged `/specification` `status:open`
+      **A direction decision awaiting a plan — not a task ready to execute.**
+      Do not start implementing off this item; it needs a plan first.
+      **Stated by the maintainer on 2026-08-25:** the demand is for the *three*
+      SDD commands, not the merged one. `/specification` is the thing that was
+      intended to be removed — which inverts what the v5.1.0 consolidation
+      (commit `7b6bb69`) actually did when it merged `/specify` + `/plan` +
+      `/tasks` into `/specification` and deleted the three skills.
+      **There is a starting point — this is not archaeology.** This cycle's
+      repair work already recovered the three phases' logic inline into
+      `plugins/sdd-specification/skills/unified-specification/SKILL.md` from
+      `7b6bb69^`. That recovered material *is* the substance the three separate
+      commands need; the work is splitting and re-surfacing it, not
+      reconstructing it from a deleted commit.
+      **What a plan has to settle**, at minimum: whether the three commands are
+      independently invocable or a phased sequence with state between them; what
+      happens to `/specification` (removed, or kept as an alias that runs all
+      three); the plugin's identity, since `sdd-specification` is named for the
+      merged command; and the routing surfaces that will go stale on the rename —
+      which is the same class of debt LOOM-0036 is about.
+
 ---
 
 ## Provenance
@@ -667,6 +783,17 @@ deliberately did not do: the harness's own worktree-base guard, the opt-in
 scaffolding a customer would adopt, the missing typed-phrase confirmation in
 `/promote`, and whether this repository's own release line belongs in
 `environments.conf`.
+
+LOOM-0037 … LOOM-0039 were minted on 2026-08-25, immediately after the v6.5.0
+release, from what that release day surfaced and deliberately did not fix: the
+Actions-authored release PR that arrives with zero checks, three known-false
+assertions in the test suite, and the maintainer's stated direction that the SDD
+pack should go back to three commands. LOOM-0037's filing premise was checked
+against the tree, and the check itself turned out to be looking at a different
+file than the one that runs; the item now records the resolved answer — a
+dispatched workflow executes `main`'s copy, so a fix to it lands one release
+late — rather than the original question. The correction is in the item, not in
+this section.
 
 **Next id to mint: derived, not stored.** It is (highest id present in
 `todos.md` or `backlog.md`) + 1 — today `LOOM-0030`, but do not trust that
