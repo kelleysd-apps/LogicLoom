@@ -22,5 +22,5 @@ Then open Claude Code in the repo and pick a workflow pack (none is privileged):
 
 See `START_HERE.md` for the full walkthrough and `CLAUDE.md` for governance.
 
-**Framework**: LogicLoom v6.4.1 · **Constitution**: v3.3.0 (16 principles) ·
+**Framework**: LogicLoom v6.5.0 · **Constitution**: v3.3.0 (16 principles) ·
 **Architecture**: governance core + interchangeable workflow packs
