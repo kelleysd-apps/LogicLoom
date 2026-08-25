@@ -6,8 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
 eval $(get_feature_paths)
 check_feature_branch "$CURRENT_BRANCH" || exit 1
-if [[ ! -d "$FEATURE_DIR" ]]; then echo "ERROR: Feature directory not found: $FEATURE_DIR"; echo "Run /specify first."; exit 1; fi
-if [[ ! -f "$IMPL_PLAN" ]]; then echo "ERROR: plan.md not found in $FEATURE_DIR"; echo "Run /plan first."; exit 1; fi
+if [[ ! -d "$FEATURE_DIR" ]]; then echo "ERROR: Feature directory not found: $FEATURE_DIR"; echo "Run /specification first — its spec phase creates the feature directory."; exit 1; fi
+if [[ ! -f "$IMPL_PLAN" ]]; then echo "ERROR: plan.md not found in $FEATURE_DIR"; echo "Run /specification --phase plan (or /specification --resume) to produce plan.md."; exit 1; fi
 if $JSON_MODE; then
   docs=(); [[ -f "$RESEARCH" ]] && docs+=("research.md"); [[ -f "$DATA_MODEL" ]] && docs+=("data-model.md"); ([[ -d "$CONTRACTS_DIR" ]] && [[ -n "$(ls -A "$CONTRACTS_DIR" 2>/dev/null)" ]]) && docs+=("contracts/"); [[ -f "$QUICKSTART" ]] && docs+=("quickstart.md");
   json_docs=$(printf '"%s",' "${docs[@]}"); json_docs="[${json_docs%,}]"; printf '{"FEATURE_DIR":"%s","AVAILABLE_DOCS":%s}\n' "$FEATURE_DIR" "$json_docs"

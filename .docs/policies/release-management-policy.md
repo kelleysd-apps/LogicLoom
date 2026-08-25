@@ -2,7 +2,7 @@
 
 **Version**: 1.0.0
 **Effective Date**: TBD
-**Authority**: Constitution v3.2.0 - Principle VIII (Documentation Synchronization)
+**Authority**: Constitution v3.3.0 - Principle VIII (Documentation Synchronization)
 **Review Cycle**: Quarterly
 
 ---
@@ -407,7 +407,7 @@ GET /api/users?page=1&limit=20
 
 ## 🔗 Links
 
-- [Full Changelog](CHANGELOG.md)
+- [Full Changelog](https://github.com/org/repo/blob/main/CHANGELOG.md)
 - [Documentation](https://docs.example.com)
 - [Release Milestone](https://github.com/org/repo/milestone/5)
 
@@ -629,7 +629,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Pre-Release
 
-- [ ] All features merged to develop/main
+- [ ] All features merged to the branch you release from
 - [ ] Version number determined
 - [ ] CHANGELOG.md updated
 - [ ] Documentation updated
@@ -690,9 +690,8 @@ git merge --no-ff hotfix/critical-bug
 git tag -a v1.2.1 -m "Hotfix v1.2.1 - Critical bug fix"
 git push origin v1.2.1
 
-# 7. Merge to develop
-git checkout develop
-git merge --no-ff hotfix/critical-bug
+# 7. Forward-port to your integration branch, if you run one (see the
+#    Branching Strategy Policy — no such branch is required or assumed)
 
 # 8. Deploy immediately
 deploy-to-production v1.2.1
@@ -752,7 +751,7 @@ git branch -d hotfix/critical-bug
 
 ## References
 
-- Constitution v3.2.0: `.logic-loom/memory/constitution.md`
+- Constitution v3.3.0: `.logic-loom/memory/constitution.md`
 - Semantic Versioning: https://semver.org/
 - Keep a Changelog: https://keepachangelog.com/
 - Conventional Commits: https://www.conventionalcommits.org/

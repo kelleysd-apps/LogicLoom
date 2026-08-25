@@ -1,5 +1,10 @@
 # Skills Context Module
 <!-- Auto-generated from plugin skill files -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from the plugin SKILL.md
+     files), not a live pipeline. Edit it directly and keep it in step with the
+     plugins by hand. Every command, skill and path named here must resolve. -->
 <!-- Module: Skill definitions, procedural workflows, trigger keywords -->
 
 ## Available Skills
@@ -10,130 +15,66 @@ Skills are procedural workflows that guide systematic execution of complex tasks
 
 ## Integration Skills
 
-### mcp-toolkit
+### mcp-server-setup
 
-**Location**: `.claude/skills/integration/mcp-toolkit/SKILL.md`
+**Location**: `plugins/loom-maintenance/skills/mcp-server-setup/SKILL.md`
 
-**Purpose**: Docker MCP Toolkit integration for extended capabilities (browser automation, image generation, external APIs)
+**Purpose**: MCP server selection and configuration via the Docker MCP Toolkit
+(primary) or direct installation (fallback). LogicLoom ships no marketplace MCP
+of its own — discovery is Anthropic's Claude Code Plugin Marketplace plus the
+Docker MCP Toolkit gateway.
 
 **When to Use**:
-- Need browser automation (screenshots, testing, scraping)
-- Generate or edit images
-- Web research with Gemini
-- Analyze media files (videos, images)
+- Extending the session with browser automation, media, or external APIs
+- After `/initialize-project`, when the project needs servers configured
+- Storing MCP credentials (`.env` + `env:VAR_NAME` references — never committed)
 
-**Available MCP Tools**:
-- `mcp-find` - Search 310+ server catalog
-- `mcp-add` - Add server to session
-- `mcp-config-set` - Configure server API keys
-- `mcp-exec` - Execute any MCP tool
+**Docker MCP Toolkit tools**:
+- `mcp-find` - Search the 310+ server catalog
+- `mcp-add` - Add a server to the session
+- `mcp-config-set` - Configure server credentials
+- `mcp-exec` - Execute a tool from any enabled server
+- `code-mode` - Combine multiple MCP tools in JavaScript
 
-**Currently Enabled Servers**:
-- `gemini` - Image/video generation, web search, media analysis
-- `browsermcp` - Browser automation (Playwright)
+**Verifier**: `.logic-loom/scripts/bash/verify-mcp-toolkit.sh`
 
-**Usage Pattern**:
-1. Check if capability exists in enabled servers
-2. If not available, use `mcp-find` to search catalog
-3. Enable server: `docker mcp server enable <name>`
-4. Add to session: Use `mcp-add` tool
-5. Configure: Use `mcp-config-set` for API keys
-6. Execute: Use MCP tool directly
-
-**Trigger Keywords**: browser automation, screenshot, image generation, web research, media analysis
+**Trigger Keywords**: set up MCP servers, configure MCP, add MCP server, what MCP servers are available
 
 ---
 
 ## SDD Workflow Skills
 
-### sdd-specification
+### unified-specification
 
-**Location**: `plugins/sdd-specification/skills/sdd-specification/SKILL.md`
+**Location**: `plugins/sdd-specification/skills/unified-specification/SKILL.md`
 
-**Purpose**: Feature specification creation workflow (Phase 1 - /specify command)
+**Command**: `/specification` (`plugins/sdd-specification/commands/specification.md`)
 
-**When to Use**:
-- Starting new feature development
-- Need to document requirements and user stories
-- Create acceptance criteria for feature
-
-**Workflow Steps**:
-1. Gather feature context and objectives
-2. Define user stories and scenarios
-3. Document functional and non-functional requirements
-4. Create acceptance criteria
-5. Identify constraints and dependencies
-6. Generate spec.md at `specs/###-feature-name/spec.md`
-
-**Delegates To**: `sdd-specification` skill
-
-**Outputs**: spec.md with user stories, acceptance criteria, constraints
-
-**Trigger Keywords**: /specify, create spec, feature specification, requirements
-
----
-
-### sdd-planning
-
-**Location**: `plugins/sdd-specification/skills/sdd-planning/SKILL.md`
-
-**Purpose**: Implementation planning workflow (Phase 2 - /plan command)
+**Purpose**: The whole SDD waterfall in one skill — specification, planning and
+task generation, with a quality gate between each phase. This is the ONLY
+specification skill — the earlier one-skill-per-phase arrangement, and the three
+per-phase commands that drove it, no longer exist.
 
 **When to Use**:
-- After feature spec is complete
-- Need technical research and design
-- Design API contracts and data models
+- Requirements are well understood and stable (otherwise use the swarm pack)
+- A feature needs spec + contracts + data model + tasks as one coherent set
 
 **Workflow Steps**:
-1. **Phase 0 - Research**: Technology stack selection, library evaluation, resolve unknowns
-2. **Constitution Check Gate**: Validate research completeness
-3. **Phase 1 - Design**: API contracts (OpenAPI/GraphQL), data models, test scenarios
-4. **Constitution Check Gate**: Validate design quality
-5. **Readiness Validation**: Ensure ready for task generation
+1. **Phase 1 — Specification**: user stories, acceptance criteria, constraints → `spec.md`
+2. **Quality gate**: spec completeness ≥ 90%
+3. **Phase 2 — Planning**: technical research, API contracts, data model, test scenarios → `plan.md`, `research.md`, `data-model.md`, `contracts/`, `quickstart.md`
+4. **Quality gate**: plan quality ≥ 85%
+5. **Phase 3 — Tasks**: dependency-ordered breakdown with `[P]` parallel markers → `tasks.md`
 
-**Delegates To**: `sdd-planning` skill
+**Outputs**: seven artifacts under the feature's spec directory
+(`specs/<feature>/`), plus `.workflow-state.json` for resume.
 
-**Outputs**:
-- plan.md - Implementation approach
-- research.md - Technical decisions and library choices
-- data-model.md - Entity definitions with fields/relationships
-- contracts/ - API contract schemas (OpenAPI/GraphQL)
-- quickstart.md - Test scenarios and integration tests
+**Validators**: `.logic-loom/scripts/bash/validate-spec.sh`,
+`.logic-loom/scripts/bash/validate-plan.sh`,
+`.logic-loom/scripts/bash/validate-tasks.sh`
 
-**Trigger Keywords**: /plan, implementation plan, technical research, contract design, data modeling
-
-**Quality Validation**: Includes a quality verification gate that blocks progression if plan quality insufficient
-
----
-
-### sdd-tasks
-
-**Location**: `plugins/sdd-specification/skills/sdd-tasks/SKILL.md`
-
-**Purpose**: Task generation workflow (Phase 3 - /tasks command)
-
-**When to Use**:
-- After implementation plan is complete
-- Need task breakdown with dependencies
-- Ready to start implementation
-
-**Workflow Steps**:
-1. Verify plan artifacts exist (plan.md, contracts/, data-model.md)
-2. Extract tasks from plan and contracts
-3. Identify dependencies between tasks
-4. Mark parallel-executable tasks with [P]
-5. Order tasks by dependencies
-6. Generate tasks.md
-
-**Delegates To**: `sdd-tasks` skill
-
-**Outputs**: tasks.md with dependency-ordered task list
-
-**Trigger Keywords**: /tasks, task generation, task breakdown, implementation tasks
-
----
-
-## Technical Skills
+**Trigger Keywords**: /specification, create spec, feature specification,
+requirements, implementation plan, contract design, task breakdown
 
 ---
 
@@ -156,13 +97,13 @@ registry** — one markdown brief per domain — loaded on demand:
 
 | Domain | Trigger keywords | Brief |
 |--------|------------------|-------|
-| Frontend | UI, component, React, CSS, responsive, styling | `domain-briefs/frontend.md` |
-| Backend | API, endpoint, service, auth, server, middleware | `domain-briefs/backend.md` |
-| Database | schema, migration, query, SQL, RLS, index | `domain-briefs/database.md` |
-| Testing | test, E2E, integration, mock, QA, coverage | `domain-briefs/testing.md` |
-| Security | security, XSS, encryption, vulnerability, OWASP | `domain-briefs/security.md` |
-| Performance | optimize, cache, benchmark, speed, latency | `domain-briefs/performance.md` |
-| DevOps | deploy, CI/CD, Docker, infrastructure, Vercel | `domain-briefs/devops.md` |
+| Frontend | UI, component, React, CSS, responsive, styling | `plugins/loom-governance/domain-briefs/frontend.md` |
+| Backend | API, endpoint, service, auth, server, middleware | `plugins/loom-governance/domain-briefs/backend.md` |
+| Database | schema, migration, query, SQL, RLS, index | `plugins/loom-governance/domain-briefs/database.md` |
+| Testing | test, E2E, integration, mock, QA, coverage | `plugins/loom-governance/domain-briefs/testing.md` |
+| Security | security, XSS, encryption, vulnerability, OWASP | `plugins/loom-governance/domain-briefs/security.md` |
+| Performance | optimize, cache, benchmark, speed, latency | `plugins/loom-governance/domain-briefs/performance.md` |
+| DevOps | deploy, CI/CD, Docker, infrastructure, Vercel | `plugins/loom-governance/domain-briefs/devops.md` |
 
 **Usage**: when domain work is detected, load the matching brief and inject it as
 the worker's context (e.g. via a `/swarm` worker or team command), keeping that
@@ -210,7 +151,43 @@ worker's context isolated per Principle X.
 
 ### Skill Index
 
-Skills are organized within their respective plugins at `plugins/*/skills/`.
+Skills live inside their parent plugin at `plugins/<plugin>/skills/<name>/SKILL.md`.
+The complete installed set (32):
+
+| Skill | Plugin |
+|---|---|
+| `create-agent` | loom-creation |
+| `create-plugin` | loom-creation |
+| `create-prd` | loom-creation |
+| `create-skill` | loom-creation |
+| `create-template` | loom-creation |
+| `finalize` | loom-git |
+| `git-push-workflow` | loom-git |
+| `constitutional-compliance` | loom-governance |
+| `domain-detection` | loom-governance |
+| `file-organization` | loom-governance |
+| `governance-preflight` | loom-governance |
+| `message-preflight` | loom-governance |
+| `qa-validation` | loom-governance |
+| `environment-scaffolding` | loom-maintenance |
+| `framework-updater` | loom-maintenance |
+| `mcp-server-setup` | loom-maintenance |
+| `project-initialization` | loom-maintenance |
+| `promotion-lifecycle` | loom-maintenance |
+| `context-injection` | loom-memory |
+| `orchestration-guidance` | loom-orchestrator-hook |
+| `cross-check` | loom-orchestrator |
+| `full-stack-feature` | loom-orchestrator |
+| `migration-workflow` | loom-orchestrator |
+| `multi-skill-workflow` | loom-orchestrator |
+| `plan-review` | loom-orchestrator |
+| `project-graph` | loom-orchestrator |
+| `retro` | loom-orchestrator |
+| `review-evaluator` | loom-orchestrator |
+| `swarm-explore` | loom-orchestrator |
+| `swarm-implement` | loom-orchestrator |
+| `team-orchestration` | loom-orchestrator |
+| `unified-specification` | sdd-specification |
 
 ### Manual Skill Loading
 
@@ -221,7 +198,7 @@ Load skill context when needed:
 ./.logic-loom/scripts/bash/load-context.sh load skills
 
 # Load based on request analysis
-./.logic-loom/scripts/bash/load-context.sh analyze "debug deployment error"
+./.logic-loom/scripts/bash/load-context.sh analyze "add an API endpoint"
 ```
 
 ### Skill Registration
@@ -238,18 +215,21 @@ New skills should be created within their parent plugin:
 ### Direct Invocation (Commands)
 
 ```bash
-/specify    # Invokes sdd-specification skill
-/plan       # Invokes sdd-planning skill
-/tasks      # Invokes sdd-tasks skill
-/debug      # Invokes debug skill
+/specification   # Invokes unified-specification skill
+/swarm explore   # Invokes swarm-explore skill
+/swarm implement # Invokes swarm-implement skill
+/plan-review     # Invokes plan-review skill
+/cross-check     # Invokes cross-check skill
+/finalize        # Invokes finalize skill
+/git-push        # Invokes git-push-workflow skill
 ```
 
 ### Automatic Invocation (Trigger Keywords)
 
 Skills with trigger keywords are automatically invoked when keywords detected:
 
-- "deployment failed" → debug
-- "optimize performance" → loads `domain-briefs/performance.md` via `get_domain_brief performance`
+- "optimize performance" → loads `plugins/loom-governance/domain-briefs/performance.md` via `get_domain_brief performance`
+- "deploy", "CI/CD", "Docker" → loads `plugins/loom-governance/domain-briefs/devops.md` via `get_domain_brief devops`
 
 Note: domain detection and delegation hints run automatically in the
 `UserPromptSubmit` preflight hook — there is no skill to invoke per message.
@@ -257,7 +237,7 @@ Note: domain detection and delegation hints run automatically in the
 ### Explicit Invocation (Skill Reference)
 
 ```
-"Follow the debug skill to investigate this 500 error"
+"Follow the constitutional-compliance skill to check this change"
 ```
 
 ---

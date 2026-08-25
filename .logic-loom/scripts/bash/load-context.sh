@@ -32,23 +32,39 @@ mkdir -p "$CACHE_DIR"
 # Context Module Registry
 # ==============================================================================
 
-# Available context modules
-declare -A CONTEXT_MODULES=(
-    ["core"]="core.md"
-    ["agents"]="agents.md"
-    ["skills"]="skills.md"
-    ["workflows"]="workflows.md"
-    ["governance"]="governance.md"
-)
+# Available context modules.
+#
+# bash 3.2 (stock macOS `/bin/bash`) has no associative arrays and this repo
+# declares 3.2 the floor for `.logic-loom/scripts/` — see
+# `.docs/policies/shell-idiom-policy.md`. `case` lookups plus an explicit
+# MODULE_LIST carry the same meaning, and MODULE_LIST also pins the listing
+# order that `${!CONTEXT_MODULES[@]}` left to bash's hash function.
+MODULE_LIST="core agents skills workflows governance"
 
-# Module descriptions
-declare -A MODULE_DESCRIPTIONS=(
-    ["core"]="Essential instructions, constitutional principles, project overview"
-    ["agents"]="Available agents, delegation protocol, agent registry"
-    ["skills"]="Skill definitions, triggers, procedural workflows"
-    ["workflows"]="SDD commands, feature workflow, testing approach"
-    ["governance"]="Git operations, quality gates, compliance requirements"
-)
+# File name for a module. Exits non-zero for an unknown module — this is the
+# existence test the old `[[ -v CONTEXT_MODULES[$module] ]]` performed.
+module_file() {
+    case "$1" in
+        core)       printf '%s' "core.md" ;;
+        agents)     printf '%s' "agents.md" ;;
+        skills)     printf '%s' "skills.md" ;;
+        workflows)  printf '%s' "workflows.md" ;;
+        governance) printf '%s' "governance.md" ;;
+        *)          return 1 ;;
+    esac
+}
+
+# Human description for a module.
+module_description() {
+    case "$1" in
+        core)       printf '%s' "Essential instructions, constitutional principles, project overview" ;;
+        agents)     printf '%s' "Available agents, delegation protocol, agent registry" ;;
+        skills)     printf '%s' "Skill definitions, triggers, procedural workflows" ;;
+        workflows)  printf '%s' "SDD commands, feature workflow, testing approach" ;;
+        governance) printf '%s' "Git operations, quality gates, compliance requirements" ;;
+        *)          return 1 ;;
+    esac
+}
 
 # ==============================================================================
 # Cache Management
@@ -134,10 +150,11 @@ load_module() {
     local use_cache="${2:-true}"
 
     # Check if module exists
-    if [[ ! -v "CONTEXT_MODULES[$module]" ]]; then
+    local module_name=""
+    if ! module_name="$(module_file "$module")"; then
         log_error "Unknown context module" "{\"module\":\"$module\"}"
         echo "Error: Unknown module: $module"
-        echo "Available modules: ${!CONTEXT_MODULES[@]}"
+        echo "Available modules: $MODULE_LIST"
         return 1
     fi
 
@@ -149,19 +166,19 @@ load_module() {
     fi
 
     # Load from file
-    local module_file="${CONTEXT_DIR}/${CONTEXT_MODULES[$module]}"
+    local module_path="${CONTEXT_DIR}/${module_name}"
 
-    if [[ ! -f "$module_file" ]]; then
-        log_error "Module file not found" "{\"module\":\"$module\",\"file\":\"$module_file\"}"
-        echo "Error: Module file not found: $module_file"
+    if [[ ! -f "$module_path" ]]; then
+        log_error "Module file not found" "{\"module\":\"$module\",\"file\":\"$module_path\"}"
+        echo "Error: Module file not found: $module_path"
         return 1
     fi
 
-    log_info "Loading context module" "{\"module\":\"$module\",\"file\":\"$module_file\"}"
+    log_info "Loading context module" "{\"module\":\"$module\",\"file\":\"$module_path\"}"
 
     # Read and cache content
     local content
-    content=$(cat "$module_file")
+    content=$(cat "$module_path")
 
     # Write to cache
     if [[ "$use_cache" == "true" ]]; then
@@ -176,7 +193,11 @@ load_module() {
 
 # Load multiple modules
 load_modules() {
-    local modules=("$@")
+    local modules
+    modules=("$@")
+    if [[ ${#modules[@]} -eq 0 ]]; then
+        return 0
+    fi
 
     log_info "Loading multiple context modules" "{\"modules\":[$(printf '"%s",' "${modules[@]}" | sed 's/,$//')]}"
 
@@ -201,29 +222,30 @@ analyze_request() {
 
     log_debug "Analyzing request for context needs" "{\"request_length\":${#request}}"
 
-    local -a required_modules=()
+    local -a required_modules
+    required_modules=()
 
     # Always include core
-    required_modules+=("core")
+    required_modules[${#required_modules[@]}]="core"
 
     # Check for agent-related keywords
     if echo "$request" | grep -iE "agent|delegate|specialist|orchestrat" &>/dev/null; then
-        required_modules+=("agents")
+        required_modules[${#required_modules[@]}]="agents"
     fi
 
     # Check for workflow keywords
-    if echo "$request" | grep -iE "/specify|/plan|/tasks|/finalize|workflow|feature" &>/dev/null; then
-        required_modules+=("workflows")
+    if echo "$request" | grep -iE "/specification|/plan-review|/finalize|workflow|feature" &>/dev/null; then
+        required_modules[${#required_modules[@]}]="workflows"
     fi
 
     # Check for skill keywords
-    if echo "$request" | grep -iE "skill|procedure|/debug|/create-" &>/dev/null; then
-        required_modules+=("skills")
+    if echo "$request" | grep -iE "skill|procedure|/create-" &>/dev/null; then
+        required_modules[${#required_modules[@]}]="skills"
     fi
 
     # Check for governance keywords
     if echo "$request" | grep -iE "git|commit|push|constitutional|principle|compliance" &>/dev/null; then
-        required_modules+=("governance")
+        required_modules[${#required_modules[@]}]="governance"
     fi
 
     # Return unique modules
@@ -242,8 +264,19 @@ load_context_for_request() {
     echo ""
 
     # Analyze and load required modules
+    # bash 3.2 has no `mapfile`; read the lines into the array by hand.
     local -a modules
-    mapfile -t modules < <(analyze_request "$request")
+    modules=()
+    local _line
+    while IFS= read -r _line; do
+        [[ -n "$_line" ]] || continue
+        modules[${#modules[@]}]="$_line"
+    done < <(analyze_request "$request")
+
+    if [[ ${#modules[@]} -eq 0 ]]; then
+        echo "No context modules required."
+        return 0
+    fi
 
     echo "Required modules: ${modules[*]}"
     echo ""
@@ -267,9 +300,11 @@ list_modules() {
     echo "=========================================="
     echo ""
 
-    for module in "${!CONTEXT_MODULES[@]}"; do
-        local file="${CONTEXT_MODULES[$module]}"
-        local desc="${MODULE_DESCRIPTIONS[$module]}"
+    for module in $MODULE_LIST; do
+        local file
+        file="$(module_file "$module")"
+        local desc
+        desc="$(module_description "$module")"
         local module_path="$CONTEXT_DIR/$file"
         local size="N/A"
 
@@ -340,7 +375,7 @@ main() {
             echo "  clear-cache [module]       Clear cache (all or specific module)"
             echo "  help                       Show this help message"
             echo ""
-            echo "Available modules: ${!CONTEXT_MODULES[@]}"
+            echo "Available modules: $MODULE_LIST"
             ;;
     esac
 }

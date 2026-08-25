@@ -1,12 +1,17 @@
 # Governance Context Module
 <!-- Auto-generated from CLAUDE.md -->
+<!-- MAINTAINED BY HAND — there is no generator. load-context.sh only READS and
+     caches .claude/context/*.md; nothing writes them. The "Auto-generated" line
+     above records this file's ORIGIN (transcribed once from CLAUDE.md), not a
+     live pipeline. Edit it directly and keep it in step with CLAUDE.md by hand.
+     Every command, skill and path named here must resolve on disk. -->
 <!-- Module: Constitutional principles, git operations, compliance, dangerous commands -->
 
 ## Constitutional Foundation
 
 **The constitution at `.logic-loom/memory/constitution.md` is the SINGLE SOURCE OF TRUTH.**
 
-The constitution (v3.2.0) contains **16 enforceable principles**:
+The constitution (v3.3.0) contains **16 enforceable principles**:
 - **3 Immutable Principles** (I-III): Library-First, Test-First, Contract-First
 - **6 Quality & Safety Principles** (IV-IX): Idempotency, Progressive Enhancement, Git Approval, Observability, Documentation Sync, Dependency Management
 - **7 Workflow & Delegation Principles** (X-XVI): Delegation & Context Isolation, Input Validation, Design System, Access Control, AI Model Selection, File Organization, Plugin-First Architecture
@@ -106,7 +111,7 @@ Verbosity is set by `LOOM_GOVERNANCE_MODE` in
 3. Implement to satisfy contracts
 4. Validate with contract tests
 
-**Enforcement**: `/plan` command generates contracts before tasks
+**Enforcement**: `/specification` (Phase 2) generates contracts before tasks
 
 **Exceptions**: Internal-only functions (must be documented)
 
@@ -282,12 +287,16 @@ mkdir "$DIR"
 **Rationale**: Ensures visual consistency, improves UX, reduces design debt
 
 **Requirements**:
-- Use design system components from `docs/design-system/`
+- Use the design system components your project defines (e.g. under
+  `<your-project>/docs/design-system/` — a project-owned convention, not a
+  harness-shipped directory)
 - Follow color palette, typography, spacing guidelines
 - Maintain accessibility standards (WCAG 2.1 AA)
 - Consistent component behavior and interactions
 
-**Reference**: `docs/design-system/design-system.md`
+**Reference**: your project's own design-system documentation. LogicLoom ships
+no design system and prescribes no location — Principle XII requires that one
+exist and be followed, not that it live at a particular path.
 
 **Enforcement**: Design review, UI testing
 
@@ -346,15 +355,20 @@ the current Opus flagship; see `.logic-loom/config/models.conf`)
 
 **Rule**: All framework capabilities must be organized as discrete installable plugins
 
-**Rationale**: Ensures modularity, extensibility, and marketplace-ready distribution
+**Rationale**: Ensures modularity and extensibility. LogicLoom's own plugins are
+**bundled in-repo** under `plugins/` — it does not run a plugin marketplace.
+Third-party discovery is delegated to Anthropic's Claude Code Plugin Marketplace
+and the Docker MCP Toolkit.
 
 **Requirements**:
 - All new features implemented as plugins at `plugins/`
 - Each plugin has `plugin.json` manifest, agents, skills, commands
+- Every plugin declares `loom-governance` as a dependency; `loom-governance` is
+  protected and cannot be disabled
 - Plugin command bridge syncs commands to `.claude/commands/`
-- Plugin governance validation via marketplace tools
 
-**Enforcement**: Plugin validation, marketplace governance checks
+**Enforcement**: In-repo plugin manifest validation (contract tests + CI); the
+governance-file protection hook guards the core plugin surface
 
 ---
 
@@ -503,8 +517,11 @@ Validates:
 Use `/finalize` command for comprehensive pre-commit validation:
 
 ```bash
-# Run finalize command
-./.logic-loom/scripts/bash/finalize-feature.sh
+# Run the finalize command
+/finalize
+
+# ...or the compliance validator it runs, directly
+./.logic-loom/scripts/bash/constitutional-check.sh
 
 # Review compliance report
 # If all checks pass, manually execute suggested git commands
@@ -557,7 +574,7 @@ Load governance context when needed:
 **Module Version**: 2.0.0
 **Constitutional Authority**: All 16 Principles (I-XVI)
 **Source Documents**:
-- `.logic-loom/memory/constitution.md` (v3.2.0)
+- `.logic-loom/memory/constitution.md` (v3.3.0)
 - `.logic-loom/memory/constitution_update_checklist.md`
 - `.logic-loom/config/governance.conf` (LOOM_GOVERNANCE_MODE)
 - CLAUDE.md "Constitutional Foundation" and "Git Operations" sections

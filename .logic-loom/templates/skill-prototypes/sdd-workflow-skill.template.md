@@ -31,7 +31,7 @@ governance:
 ## SDD Workflow Position
 
 ```
-/specify -> /plan -> /tasks -> {{POSITION_IN_FLOW}}
+/specification --phase spec -> --phase plan -> --phase tasks -> {{POSITION_IN_FLOW}}
 ```
 
 ## Constitutional Compliance

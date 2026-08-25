@@ -1,0 +1,96 @@
+# LOOM-SCAFFOLD-MARKER: environment-promotion
+#
+# rehearsal-<ENV>.conf — THE REHEARSAL ATTESTATION.
+#
+# WHO WRITES THIS FILE: your rehearsal/staging deploy seam, at the end of a
+# rehearsal run. Not the harness. LogicLoom never writes it, never runs a
+# rehearsal, and never calls a CI API to find out whether one happened.
+#
+# WHO READS IT: `.logic-loom/scripts/bash/promote-gate.sh`, and only when a
+# promotion stage asks for the rehearsal contract (`/promote-prod` does).
+#
+# WHERE IT LIVES: <state-dir>/rehearsal-<ENV>.conf, where <ENV> is the
+# environment named by the production block's `promotes_from`, and <state-dir>
+# is $LOOM_PROMOTION_STATE_DIR, else .logic-loom/state/.
+#
+# GRAMMAR: `key = value`, one per line, `#` starts a comment. Parsed as text,
+# never sourced, never evaluated — the same posture as environments.conf.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THE HONEST SPLIT — verified vs. taken on trust
+# ─────────────────────────────────────────────────────────────────────────────
+# VERIFIED BY THE HARNESS: that this file exists and is readable; that `status`
+# is `success`; that `completed_at` parses and falls inside the staleness bound;
+# that `rehearsed_commit` is present; and that the commit being promoted is
+# either exactly `rehearsed_commit` or is listed in `covers_commits`.
+#
+# TAKEN ON TRUST: that a rehearsal actually ran, that it actually passed, and
+# that `rehearsed_commit` really is an ANCESTOR of what is being promoted. The
+# harness runs no git and calls no CI API. It cannot check ancestry. It checks
+# that you DECLARED an answer, and the declaration is only as good as the seam
+# that wrote it.
+#
+# THIS IS THE WHOLE CONTRACT. If that trust is not good enough for your blast
+# radius, the fix is a stronger seam — one that computes ancestry with git and
+# refuses to write this file when it cannot — not a stronger harness.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THE § 6.4 TRAP — read this before writing `rehearsed_commit`
+# ─────────────────────────────────────────────────────────────────────────────
+# If your staging branch is periodically rebuilt from production and then merged
+# with the integration branch, it is NEVER a pure mirror of either. The commit
+# that was actually rehearsed is the MERGE'S SECOND PARENT, not the merge head.
+#
+# A seam that writes the merge head here writes a PLAUSIBLE WRONG ANSWER, and
+# the gate will accept it — an ancestry check usually returns a believable
+# result rather than an error, which is exactly what makes this trap quiet.
+#
+# If your seam cannot unambiguously identify the rehearsed commit, it must write
+#   status = failure
+# and say why. Never guess at a parent (policy § 4.2, § 6.4).
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# FIELDS
+# ─────────────────────────────────────────────────────────────────────────────
+
+# The environment that was rehearsed. Must match the production block's
+# `promotes_from`.
+environment      = __ENV_NAME__
+
+# success | failure. Anything that is not exactly `success` refuses the
+# production promotion, with no override. Write `failure` — with a `note` — for
+# any run that did not complete, including one whose result you could not
+# determine. There is no third state.
+status           = failure
+
+# ISO-8601 UTC, e.g. 2026-08-22T14:03:00Z. An unparseable value REFUSES the
+# promotion rather than being treated as recent (policy § 4.2).
+completed_at     =
+
+# The commit this rehearsal ACTUALLY exercised. See the § 6.4 trap above.
+rehearsed_commit =
+
+# OPTIONAL, space-separated. Commits your seam ASSERTS are descendants of
+# `rehearsed_commit` — i.e. commits it is willing to have promoted on the
+# strength of this rehearsal. Leave it empty and the gate accepts only an exact
+# match on `rehearsed_commit`, which is the conservative default.
+#
+# Every sha listed here is a claim your seam is making with git in hand. Do not
+# widen it by hand to get a promotion through; that is the same instinct as
+# widening a seed allowlist, and it fails the same way.
+covers_commits   =
+
+# Free text carried into the refusal message on a failure. Say what broke and
+# where to look. A failed rehearsal with no note is a red verdict nobody can act
+# on.
+note             =
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AFTER A FAILED PRODUCTION PROMOTION — do not tidy up
+# ─────────────────────────────────────────────────────────────────────────────
+# Policy § 4.5: teardown of the rehearsal environment belongs in the PRODUCTION
+# release pipeline, gated on every deploy step succeeding. On a production
+# failure, teardown is intentionally SKIPPED. The surviving rehearsal
+# environment is the diagnostic diff between "the rehearsal passed" and
+# "production failed" — the single most useful artifact the failure produced.
+# The instinct to clean up the mess destroys it.

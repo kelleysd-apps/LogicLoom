@@ -13,16 +13,21 @@
    → Identify: actors, actions, data, constraints
 3. For each unclear aspect:
    → Mark with [NEEDS CLARIFICATION: specific question]
-4. Fill User Scenarios & Testing section
+4. Fill Overview and Scope
+   → Overview: one paragraph on WHAT and WHY
+   → Scope: what is in, and explicitly what is out
+5. Fill User Scenarios & Testing section
    → If no clear user flow: ERROR "Cannot determine user scenarios"
-5. Generate Functional Requirements
+6. Generate Functional Requirements
    → Each requirement must be testable
    → Mark ambiguous requirements
-6. Identify Key Entities (if data involved)
-7. Run Review Checklist
+7. Identify Key Entities (if data involved)
+8. Fill Acceptance Criteria, Non-Functional Requirements,
+   Dependencies, Risks, and Success Metrics
+9. Run Review Checklist
    → If any [NEEDS CLARIFICATION]: WARN "Spec has uncertainties"
    → If implementation details found: ERROR "Remove tech details"
-8. Return: SUCCESS (spec ready for planning)
+10. Return: SUCCESS (spec ready for planning)
 ```
 
 ---
@@ -51,6 +56,20 @@ When creating this spec from a user prompt:
    - Security/compliance needs
 
 ---
+
+## Overview *(mandatory)*
+[One paragraph: what this feature is and why it exists, in the language a
+business stakeholder would use. No tech stack, no APIs, no code structure.]
+
+## Scope *(mandatory)*
+
+**In scope**
+- [Capability this feature delivers]
+- [Capability this feature delivers]
+
+**Out of scope**
+- [Adjacent thing a reader would reasonably assume is included, and is not]
+- [Deferred capability, with the reason it is deferred]
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -81,6 +100,39 @@ When creating this spec from a user prompt:
 ### Key Entities *(include if feature involves data)*
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
+
+## Acceptance Criteria *(mandatory)*
+Observable, testable conditions that decide whether this feature is done.
+One per line; each must be checkable by someone who did not build it.
+
+- [ ] [Condition, e.g. "A signed-in user with an expired session is returned to
+      the sign-in page rather than a blank screen"]
+- [ ] [Condition]
+
+## Non-Functional Requirements
+Performance, availability, accessibility, security, and compliance targets.
+Give numbers where a number is what makes it testable.
+
+- **Performance**: [e.g. "p95 under 200ms for the primary flow"]
+- **Security/Privacy**: [e.g. "no personal data in URLs or logs"]
+- **Accessibility**: [e.g. "keyboard-navigable, WCAG 2.1 AA"]
+
+## Dependencies & Assumptions
+
+**Depends on**
+- [System, team, contract, or prior feature this cannot ship without]
+
+**Assumes**
+- [Assumption that, if wrong, changes the shape of this feature]
+
+## Risks
+- **[Risk]** — [impact if it happens] — [what reduces it]
+
+## Success Metrics
+How we will know, after shipping, that this worked.
+
+- [Metric with a baseline and a target, e.g. "session-expiry support tickets
+  drop from ~30/wk to under 5/wk within one month"]
 
 ---
 

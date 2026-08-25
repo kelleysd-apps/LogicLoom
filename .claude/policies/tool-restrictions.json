@@ -68,15 +68,6 @@
           ]
         },
         {
-          "pattern": "git.*push.*--force",
-          "reason": "Force push can overwrite remote history",
-          "alternatives": [
-            "Use --force-with-lease for safer force push",
-            "Check remote first: git fetch && git status",
-            "Coordinate with team before force pushing"
-          ]
-        },
-        {
           "pattern": "git.*reset.*--hard.*origin/main",
           "reason": "Destructive operation on main branch",
           "alternatives": [
@@ -92,6 +83,11 @@
       "description": "Git operations requiring user approval (Constitutional Principle VI)",
       "action": "require_approval",
       "patterns": [
+        {
+          "pattern": "git.*push.*--force",
+          "reason": "Force push can overwrite remote history — requires explicit user approval (covers --force and --force-with-lease). Previously a hard block, which left the user no approval path: if the user asks for it, the hook must gate it, not refuse it.",
+          "approval_function": "request_git_approval"
+        },
         {
           "pattern": "git.*checkout.*-b",
           "reason": "Branch creation requires approval",

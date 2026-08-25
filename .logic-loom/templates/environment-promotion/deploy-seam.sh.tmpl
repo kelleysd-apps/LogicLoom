@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# LOOM-SCAFFOLD-MARKER: environment-promotion
+#
+# deploy-__ENV_NAME__.sh — THE DEPLOY SEAM for the '__ENV_NAME__' environment.
+#
+# THIS FILE IS YOURS. It was scaffolded as an empty placeholder and then handed
+# over completely. LogicLoom:
+#   - never invokes it (no hook, command, or script in the harness calls this);
+#   - never inspects it;
+#   - never updates it (/update-framework will not touch it);
+#   - has no opinion about what a deploy is on your stack.
+#
+# It exists so that `.logic-loom/config/environments.conf` can POINT at the
+# thing that does the work without the harness having to know what that is.
+# `validate-environments.sh` reports whether this path exists. That is the
+# entire extent of the harness's involvement.
+#
+# WHY IT IS EMPTY: the harness ships no cloud adapter, no CI integration, no
+# migration runner, no seed script, no teardown job, and no rollback mechanism
+# — deliberately (environment-promotion-policy.md § 8 and § 10). Anything it
+# guessed here would be wrong for most stacks and, worse, plausible.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# WHAT TO PUT HERE — the portable patterns, as a checklist
+# ─────────────────────────────────────────────────────────────────────────────
+# Full reasoning for each: .docs/policies/environment-promotion-policy.md, and
+# the repo-local checklist at __CHECKLIST_PATH__.
+#
+#  [ ] MIGRATE BEFORE DEPLOY, STRUCTURALLY (§ 4.1). Express the ordering as a
+#      dependency edge in your CI graph — the migrate job GATES the deploy job —
+#      not as step order inside one script and not as a comment. A documented
+#      ordering survives until someone reorders steps in a hurry; a dependency
+#      edge cannot be skipped without editing the graph, which is reviewable.
+#
+#  [ ] FAIL CLOSED, WITH A TYPED REASON (§ 4.2). If this script cannot evaluate
+#      something it needs — an unreachable API, an unset variable, an ambiguous
+#      answer — it must EXIT NON-ZERO and print (a) why it could not evaluate
+#      and (b) which override exists, if any. Never pass optimistically. Never
+#      fail silently either: a red build nobody can act on is its own defect.
+#
+#  [ ] CONFIRMATION SCALED TO BLAST RADIUS (§ 4.3). This environment is declared
+#      `confirm = __CONFIRM__`. Implement that here — the harness prompts for
+#      nothing. If it is `typed:<PHRASE>`, NO automation flag may bypass it; an
+#      override at production scale belongs on one specific CHECK, never on the
+#      confirmation step.
+#
+#  [ ] SECRETS NAMED PER ENVIRONMENT (§ 4.6). A bare secret name that encodes
+#      neither environment nor mode is how a test-mode payment credential ends
+#      up silently serving production traffic — a real, verified incident found
+#      only by a human diffing key digests. Prefer platform-level
+#      environment-scoped secrets where your CI has them; naming discipline is
+#      the fallback, not the goal. Put NO secret VALUE in this file.
+#
+#  [ ] DECIDE WHAT AN UNSET BINDING MEANS (§ 5.3). If a config knob is missing,
+#      does this deploy fall back to production, fall back to a lesser
+#      environment, or refuse to start? All three are defensible; only the
+#      undecided case is a bug. Write the decision down. For anything that
+#      WRITES data, "fall back to production" is how a test run mutates real
+#      records.
+#
+#  [ ] MIGRATIONS ARE RE-RUNNABLE (Principle IV, § 5.2). Every migration must be
+#      safely re-runnable, and no migration may ever be applied out-of-band.
+#
+# __REHEARSAL_NOTE__
+# ─────────────────────────────────────────────────────────────────────────────
+
+set -euo pipefail
+
+echo "deploy-__ENV_NAME__.sh: NOT IMPLEMENTED — this is a scaffolded seam, not a deployment." >&2
+echo "" >&2
+echo "REASON: LogicLoom scaffolded this file as an empty placeholder and ships no deploy" >&2
+echo "        machinery of any kind. Nothing has been deployed and nothing was changed." >&2
+echo "" >&2
+echo "REMEDY: implement this script for the '__ENV_NAME__' environment (branch '__BRANCH__')," >&2
+echo "        or remove the 'deploy' line from its block in" >&2
+echo "        .logic-loom/config/environments.conf if this environment has no deploy step." >&2
+echo "" >&2
+echo "It exits non-zero on purpose: a placeholder that exited 0 would report a deployment" >&2
+echo "that did not happen, which is the exact failure mode § 4.2 exists to prevent." >&2
+exit 1

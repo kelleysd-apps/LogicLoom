@@ -8,6 +8,22 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
+# Operations-log isolation: policy.sh logs every blocked/approval command via
+# logging.sh, which defaults to the shared .logic-loom/logs/operations/ file.
+# Point it at a temp dir (same idiom as LOOM_CHECKPOINT_DIR in
+# test-git-safety.sh) so the suite is not stateful across runs and does not
+# pollute the working tree.
+LOOM_LOG_DIR="$(mktemp -d "${TMPDIR:-/tmp}/loom-logs.XXXXXX")"
+export LOOM_LOG_DIR
+cleanup_test_logs() {
+    if [ -n "${LOOM_LOG_DIR:-}" ] && [ -d "$LOOM_LOG_DIR" ]; then
+        case "$LOOM_LOG_DIR" in
+            */loom-logs.*) rm -rf "$LOOM_LOG_DIR" ;;
+        esac
+    fi
+}
+trap cleanup_test_logs EXIT
+
 # Test utilities
 TESTS_RUN=0
 TESTS_PASSED=0
@@ -47,7 +63,7 @@ assert_contains() {
 
     TESTS_RUN=$((TESTS_RUN + 1))
 
-    if echo "$haystack" | grep -q "$needle"; then
+    if grep -q -- "$needle" <<< "$haystack"; then
         TESTS_PASSED=$((TESTS_PASSED + 1))
         echo -e "${GREEN}✓${NC} $message"
         return 0
@@ -224,8 +240,10 @@ test_parse_policy_json() {
     source "$policy_lib" 2>/dev/null || true
 
     if type load_policy &>/dev/null; then
-        load_policy 2>/dev/null || true
-        assert_equals "0" "$?" "Policy JSON loaded successfully"
+        # `|| true` would make $? unconditionally 0 — capture the real status.
+        local rc=0
+        load_policy >/dev/null 2>&1 || rc=$?
+        assert_equals "0" "$rc" "Policy JSON loaded successfully"
     else
         echo -e "${YELLOW}⊘${NC} Function load_policy not implemented"
     fi

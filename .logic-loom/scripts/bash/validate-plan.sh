@@ -4,6 +4,20 @@
 # Validates implementation plan files for completeness and alignment
 # with constitutional principles (Library-First, Test-First, Contract-First)
 
+#
+# EXIT CODES (contract -- the caller MUST be able to tell these apart)
+#
+#   0  validated; document PASSED
+#   1  validated; document FAILED a required check
+#   2  validated; document has warnings and --strict was given
+#   3  SCRIPT ERROR -- bad arguments, or the file is missing/unreadable.
+#      Nothing was validated. No JSON is emitted on this path.
+#
+# 0/1/2 always emit the full report (JSON in --json mode) INCLUDING the real
+# score, so a failing document is diagnosable. 3 emits an error on stderr only.
+# Never conflate 3 with 1: "the document is bad" and "the gate never ran" are
+# different facts, and a gate that reports the second as the first is not a gate.
+
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -53,7 +67,22 @@ while [[ $# -gt 0 ]]; do
             echo "  --strict            Enable strict validation"
             echo "  --file, -f FILE     Plan file to validate"
             echo "  --help, -h          Show this help message"
+            echo ""
+            echo "Exit codes:"
+            echo "  0  validated, passed"
+            echo "  1  validated, FAILED a required check (report still printed)"
+            echo "  2  validated, warnings under --strict"
+            echo "  3  script error (bad option, missing/unreadable file)"
             exit 0
+            ;;
+        -*)
+            # An unrecognised FLAG is a script error, not a filename.
+            # Falling through to the positional case below turned
+            # `--jsonn` into a file named "--jsonn" and then into a
+            # "file not found" -- loud, but misleadingly so.
+            echo "ERROR: unknown option: $1" >&2
+            echo "Run '$0 --help' for usage." >&2
+            exit 3
             ;;
         *)
             PLAN_FILE="$1"
@@ -72,14 +101,59 @@ else
 fi
 
 # Validate file exists
+# Missing or unreadable input is a SCRIPT ERROR (3), never a validation
+# failure (1). Silently scoring an absent file zero would be the same
+# defect this contract exists to prevent, pointed the other way.
 if [ ! -f "$PLAN_FILE" ]; then
     echo "ERROR: Plan file not found: $PLAN_FILE" >&2
-    exit 1
+    exit 3
+fi
+if [ ! -r "$PLAN_FILE" ]; then
+    echo "ERROR: file is not readable: $PLAN_FILE" >&2
+    exit 3
 fi
 
-# Initialize validation results
-declare -A CHECKS
-declare -A RESULTS
+# Validation results.
+#
+# bash 3.2 (stock macOS `/bin/bash`) has no associative arrays, and this repo
+# declares 3.2 the floor for `.logic-loom/scripts/` — see
+# `.docs/policies/shell-idiom-policy.md`. Two parallel indexed arrays plus a
+# linear lookup give the same map semantics. As a bonus they iterate in
+# INSERTION order; `${!CHECKS[@]}` on bash 4 iterated in hash order, so the
+# JSON `checks` object and the detail listing are now stable across bash
+# versions instead of merely stable per-version.
+CHECK_NAMES=()
+CHECK_DESCS=()
+CHECK_RESULTS=()
+
+# Index of a check name, or -1. Always exits 0 so `set -e` stays out of it.
+_check_index() {
+    local want="$1" i=0 n=${#CHECK_NAMES[@]}
+    while [ "$i" -lt "$n" ]; do
+        if [ "${CHECK_NAMES[$i]}" = "$want" ]; then printf '%s' "$i"; return 0; fi
+        i=$((i + 1))
+    done
+    printf '%s' "-1"
+    return 0
+}
+
+# Description for a check name ("" when unknown, matching the old
+# unset-associative-array read).
+check_desc() {
+    local i
+    i=$(_check_index "$1")
+    [ "$i" -ge 0 ] && printf '%s' "${CHECK_DESCS[$i]}"
+    return 0
+}
+
+# Result (PASS/FAIL/WARN) for a check name, "" when unknown.
+check_result() {
+    local i
+    i=$(_check_index "$1")
+    [ "$i" -ge 0 ] && printf '%s' "${CHECK_RESULTS[$i]}"
+    return 0
+}
+
 TOTAL_CHECKS=0
 PASSED_CHECKS=0
 FAILED_CHECKS=0
@@ -161,23 +235,35 @@ run_check() {
     local description="$4"
 
     TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
-    CHECKS["$check_name"]="$description"
+
+    # Append; the new entry is always the last index.
+    local idx=${#CHECK_NAMES[@]}
+    CHECK_NAMES[$idx]="$check_name"
+    CHECK_DESCS[$idx]="$description"
+    CHECK_RESULTS[$idx]=""
 
     if $check_func; then
-        RESULTS["$check_name"]="PASS"
+        CHECK_RESULTS[$idx]="PASS"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
-        return 0
     else
         if [ "$severity" = "required" ]; then
-            RESULTS["$check_name"]="FAIL"
+            CHECK_RESULTS[$idx]="FAIL"
             FAILED_CHECKS=$((FAILED_CHECKS + 1))
-            return 1
         else
-            RESULTS["$check_name"]="WARN"
+            CHECK_RESULTS[$idx]="WARN"
             WARNING_CHECKS=$((WARNING_CHECKS + 1))
-            return 0
         fi
     fi
+
+    # ALWAYS returns 0, deliberately. A failed check is a RESULT, not a script
+    # error: it is recorded in FAILED_CHECKS and reported by the output block
+    # below. run_check is called BARE at top level under `set -e`, so returning
+    # 1 for a failed required check killed the script mid-run before it emitted
+    # a single byte -- the gate scored documents that PASSED and said NOTHING
+    # about documents that FAILED. Pass/fail is signalled by the exit code at
+    # the bottom of this file (see EXIT CODES in the header). No caller reads
+    # this return value.
+    return 0
 }
 
 # Execute validation checks - Plan Content
@@ -230,14 +316,14 @@ if $JSON_MODE; then
     echo "  \"checks\": {"
 
     first=true
-    for check in "${!CHECKS[@]}"; do
+    for check in "${CHECK_NAMES[@]}"; do
         if [ "$first" = true ]; then
             first=false
         else
             echo ","
         fi
-        result="${RESULTS[$check]}"
-        description="${CHECKS[$check]}"
+        result="$(check_result "$check")"
+        description="$(check_desc "$check")"
         echo -n "    \"$check\": {\"result\": \"$result\", \"description\": \"$description\"}"
     done
     echo ""
@@ -270,9 +356,9 @@ else
 
         echo "  Content Checks:"
         for check in file_not_empty has_title has_architecture has_tech_stack has_implementation_steps; do
-            if [ -n "${RESULTS[$check]}" ]; then
-                result="${RESULTS[$check]}"
-                description="${CHECKS[$check]}"
+            if [ -n "$(check_result "$check")" ]; then
+                result="$(check_result "$check")"
+                description="$(check_desc "$check")"
                 if [ "$result" = "PASS" ]; then
                     echo -e "    ${GREEN}✅ PASS${NC}: $description"
                 elif [ "$result" = "FAIL" ]; then
@@ -286,9 +372,9 @@ else
         echo ""
         echo "  Constitutional Principle Checks:"
         for check in mentions_library_first mentions_testing mentions_contracts; do
-            if [ -n "${RESULTS[$check]}" ]; then
-                result="${RESULTS[$check]}"
-                description="${CHECKS[$check]}"
+            if [ -n "$(check_result "$check")" ]; then
+                result="$(check_result "$check")"
+                description="$(check_desc "$check")"
                 if [ "$result" = "PASS" ]; then
                     echo -e "    ${GREEN}✅ PASS${NC}: $description"
                 else
@@ -300,9 +386,9 @@ else
         echo ""
         echo "  Artifact Checks:"
         for check in research_exists data_model_exists contracts_exist quickstart_exists; do
-            if [ -n "${RESULTS[$check]}" ]; then
-                result="${RESULTS[$check]}"
-                description="${CHECKS[$check]}"
+            if [ -n "$(check_result "$check")" ]; then
+                result="$(check_result "$check")"
+                description="$(check_desc "$check")"
                 if [ "$result" = "PASS" ]; then
                     echo -e "    ${GREEN}✅ PASS${NC}: $description"
                 else
@@ -317,28 +403,28 @@ else
     if [ $FAILED_CHECKS -gt 0 ] || [ $WARNING_CHECKS -gt 0 ]; then
         echo -e "${YELLOW}Recommendations:${NC}"
 
-        if [ "${RESULTS[mentions_library_first]}" != "PASS" ]; then
+        if [ "$(check_result mentions_library_first)" != "PASS" ]; then
             echo "  • Address Principle I: Library-First Architecture"
             echo "    Plan should explain how features will be implemented as reusable libraries"
         fi
-        if [ "${RESULTS[mentions_testing]}" != "PASS" ]; then
+        if [ "$(check_result mentions_testing)" != "PASS" ]; then
             echo "  • Address Principle II: Test-First Development"
             echo "    Plan should include testing strategy and TDD approach"
         fi
-        if [ "${RESULTS[mentions_contracts]}" != "PASS" ]; then
+        if [ "$(check_result mentions_contracts)" != "PASS" ]; then
             echo "  • Address Principle III: Contract-First Design"
             echo "    Plan should define API contracts and interfaces"
         fi
-        if [ "${RESULTS[data_model_exists]}" != "PASS" ]; then
+        if [ "$(check_result data_model_exists)" != "PASS" ]; then
             echo "  • Create data-model.md to define entities and relationships"
         fi
-        if [ "${RESULTS[contracts_exist]}" != "PASS" ]; then
+        if [ "$(check_result contracts_exist)" != "PASS" ]; then
             echo "  • Create contracts/ directory with API contract specifications"
         fi
-        if [ "${RESULTS[research_exists]}" != "PASS" ]; then
+        if [ "$(check_result research_exists)" != "PASS" ]; then
             echo "  • Create research.md to document technical decisions"
         fi
-        if [ "${RESULTS[quickstart_exists]}" != "PASS" ]; then
+        if [ "$(check_result quickstart_exists)" != "PASS" ]; then
             echo "  • Create quickstart.md with test scenarios and examples"
         fi
     fi

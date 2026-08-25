@@ -4,7 +4,7 @@
 # Feature: 005-agent-architecture-refactor
 set -euo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 
 assert() {
   TOTAL=$((TOTAL + 1))
@@ -14,6 +14,12 @@ assert() {
   else
     echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1))
   fi
+}
+
+# A skip is NOT a pass. It is counted separately and never folded into PASS/TOTAL,
+# so an unrunnable precondition can never masquerade as a satisfied assertion.
+skip() {
+  echo "  ⏭️  SKIP: $1 — $2"; SKIP=$((SKIP + 1))
 }
 
 SYNC_REF_FILE=".sdd-sync-ref"
@@ -28,8 +34,11 @@ echo "Sync reference tracking"
 assert ".sdd-sync-ref exists" "[ -f $SYNC_REF_FILE ]"
 assert ".sdd-sync-ref contains a commit hash" \
   "grep -qE '^[0-9a-f]{7,40}$' $SYNC_REF_FILE"
+# The sync-ref is upstream bookkeeping that MUST travel with the clone — if it
+# were ignored, every cloner would lose their update baseline. A missing
+# .gitignore trivially satisfies this, which is correct: nothing is ignored.
 assert ".sdd-sync-ref is not in .gitignore" \
-  "! grep -q 'sdd-sync-ref' .gitignore 2>/dev/null || true"
+  "! grep -q 'sdd-sync-ref' .gitignore 2>/dev/null"
 
 # ── Extract Proposals Script ──
 echo ""
@@ -42,9 +51,33 @@ HELP_EXIT=0
 bash "$EXTRACT_SCRIPT" --help >/dev/null 2>&1 || HELP_EXIT=$?
 assert "extract-proposals.sh responds to --help" "[ $HELP_EXIT -eq 0 ]"
 
-# Test with dry-run (no upstream remote needed)
-DRY_OUTPUT=$(bash "$EXTRACT_SCRIPT" --dry-run 2>&1 || echo "")
-assert "extract-proposals.sh supports --dry-run" "echo '$DRY_OUTPUT' | grep -qi 'dry\|no upstream\|sync-ref' || true"
+# Test with dry-run.
+# NOTE: --dry-run performs a live `git fetch` of the configured upstream. Output
+# is captured to a file (not interpolated into the eval'd assert condition) so
+# arbitrary command output can never break or rewrite the assertion.
+DRY_OUT_FILE=$(mktemp "${TMPDIR:-/tmp}/loom-dryrun.XXXXXX")
+trap 'rm -f "$DRY_OUT_FILE"' EXIT
+DRY_EXIT=0
+bash "$EXTRACT_SCRIPT" --dry-run >"$DRY_OUT_FILE" 2>&1 || DRY_EXIT=$?
+
+# Invariant 1 (network-independent): --dry-run is a distinct mode that reports
+# status. It must NEVER fall through to the default branch and emit proposals.
+assert "extract-proposals.sh --dry-run emits no proposal JSON" \
+  "! grep -q '\"id\": \"EP-' \"\$DRY_OUT_FILE\""
+
+# Invariant 2: on a successful dry run the report names the upstream it fetched
+# AND the sync-ref baseline it compared against — the two facts the mode exists
+# to surface. Requires network + a configured upstream; if the fetch could not
+# run we SKIP loudly rather than assert something that passes on anything.
+if [ "$DRY_EXIT" -eq 0 ]; then
+  assert "extract-proposals.sh --dry-run names the fetch-only upstream" \
+    "grep -q '^Upstream (fetch-only, no remote): http' \"\$DRY_OUT_FILE\""
+  assert "extract-proposals.sh --dry-run reports the sync-ref baseline" \
+    "grep -qE '^(Current sync-ref: [0-9a-f]{7,40}|No \.sdd-sync-ref yet)' \"\$DRY_OUT_FILE\""
+else
+  skip "extract-proposals.sh --dry-run status report" \
+    "dry-run exited $DRY_EXIT (upstream unconfigured or fetch failed); cannot assert on its report"
+fi
 
 # ── Skill Definition Tests ──
 echo ""
@@ -68,8 +101,10 @@ assert "extract-proposals.sh outputs release_tag field" \
   "grep -q 'release_tag' $EXTRACT_SCRIPT"
 assert "SKILL.md references release tag grouping" \
   "grep -qi 'release.tag\|per.release\|group.*by.*release' $SKILL_FILE"
-assert "Help text mentions release tags" \
-  "bash $EXTRACT_SCRIPT --help 2>&1 | grep -qi 'release\|tag'"
+# 'release|tag' matched almost any help text. The contract is that --help
+# documents the release_tag field callers group proposals by, so assert that.
+assert "Help text documents the release_tag field" \
+  "bash \"\$EXTRACT_SCRIPT\" --help 2>&1 | grep -q 'release_tag'"
 
 # ── Update Command ──
 echo ""
@@ -81,6 +116,6 @@ assert "update-framework references proposal-based flow" \
 
 echo ""
 echo "════════════════════════════════"
-echo " Results: $PASS/$TOTAL passed, $FAIL failed"
+echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"
 exit $FAIL

@@ -7,6 +7,14 @@
 # POSIX-ish shell with bash can run it.
 set -uo pipefail
 
+# Operations-log isolation. MUST be set BEFORE the lib is sourced: logging.sh
+# resolves LOG_FILE from LOOM_LOG_DIR once, at source time, so the suite would
+# otherwise keep appending to the shared .logic-loom/logs/operations/ file.
+# Same idiom as LOOM_CHECKPOINT_DIR in .logic-loom/tests/test-git-safety.sh;
+# exported so subshells/subprocesses inherit it. Removed by the EXIT trap below.
+LOOM_LOG_DIR="$(mktemp -d)"
+export LOOM_LOG_DIR
+
 LIB=".logic-loom/lib/governance-verdicts.sh"
 PASS=0; FAIL=0; TOTAL=0
 
@@ -22,18 +30,126 @@ check() { # desc  expected  actual
 echo "═══ Governance Verdict Conformance (golden fixtures) ═══"
 echo ""
 
-echo "subagent-git-deny (any git from a subagent → deny)"
+echo "subagent-git (§7.3 read-only ALLOWLIST; everything else → deny)"
 check "subagent + git push → deny"        deny  "$(loom_verdict_subagent_git 'git push origin main' 'a8e')"
-check "subagent + git status → deny"       deny  "$(loom_verdict_subagent_git 'git status' 'a8e')"
 check "subagent + /usr/bin/git clean → deny" deny "$(loom_verdict_subagent_git 'cd /tmp && /usr/bin/git clean -fd' 'a8e')"
 check "subagent + non-git → allow"         allow "$(loom_verdict_subagent_git 'ls -la' 'a8e')"
 check "subagent + 'github' substring → allow" allow "$(loom_verdict_subagent_git 'echo github gitignore digit' 'a8e')"
 check "main agent + git push → allow (not this guard)" allow "$(loom_verdict_subagent_git 'git push' '')"
+# §7.3: read-only git from a subagent is legitimate exploration and is ALLOWED.
+# (Supersedes the pre-§7.3 fixture "subagent + git status → deny".) The guarantee
+# is now "a subagent never MUTATES git" — the allowlist below is the whole of it.
+check "subagent + git status → allow"      allow "$(loom_verdict_subagent_git 'git status' 'a8e')"
+check "subagent + git log --grep=push → allow" allow "$(loom_verdict_subagent_git 'git log --grep=push' 'a8e')"
+check "subagent + git diff HEAD → allow"   allow "$(loom_verdict_subagent_git 'git diff HEAD' 'a8e')"
+check "subagent + git branch -a → allow"   allow "$(loom_verdict_subagent_git 'git branch -a' 'a8e')"
+check "subagent + git worktree list → allow" allow "$(loom_verdict_subagent_git 'git worktree list' 'a8e')"
+check "subagent + git stash list → allow"  allow "$(loom_verdict_subagent_git 'git stash list' 'a8e')"
+check "subagent + git config --get → allow" allow "$(loom_verdict_subagent_git 'git config --get user.name' 'a8e')"
+check "subagent + git -C /tmp/x status → allow" allow "$(loom_verdict_subagent_git 'git -C /tmp/x status' 'a8e')"
+check "subagent + git reflog show → allow" allow "$(loom_verdict_subagent_git 'git reflog show' 'a8e')"
+# Write forms of read/write subcommands stay denied.
+check "subagent + git branch newfeature → deny" deny "$(loom_verdict_subagent_git 'git branch newfeature' 'a8e')"
+check "subagent + git tag v1 → deny"       deny  "$(loom_verdict_subagent_git 'git tag v1' 'a8e')"
+check "subagent + bare git stash → deny"   deny  "$(loom_verdict_subagent_git 'git stash' 'a8e')"
+check "subagent + git remote add → deny"   deny  "$(loom_verdict_subagent_git 'git remote add o u' 'a8e')"
+check "subagent + git worktree add → deny" deny  "$(loom_verdict_subagent_git 'git worktree add ../w b' 'a8e')"
+check "subagent + git config key value → deny" deny "$(loom_verdict_subagent_git 'git config user.name bob' 'a8e')"
+check "subagent + git fetch → deny (writes refs)" deny "$(loom_verdict_subagent_git 'git fetch' 'a8e')"
+check "subagent + git reflog expire → deny" deny "$(loom_verdict_subagent_git 'git reflog expire --all' 'a8e')"
+check "subagent + git notes add → deny"    deny  "$(loom_verdict_subagent_git 'git notes add' 'a8e')"
+check "subagent + git bisect start → deny" deny  "$(loom_verdict_subagent_git 'git bisect start' 'a8e')"
+check "subagent + git submodule update → deny" deny "$(loom_verdict_subagent_git 'git submodule update' 'a8e')"
+# Code-execution / repo-redirection globals: `git -c core.fsmonitor=<cmd> status`
+# EXECUTES <cmd>, so a "read" subcommand is no protection.
+check "subagent + git -c core.fsmonitor → deny" deny "$(loom_verdict_subagent_git 'git -c core.fsmonitor=evil status' 'a8e')"
+check "subagent + git -c core.pager=!sh → deny" deny "$(loom_verdict_subagent_git 'git -c core.pager=!sh log' 'a8e')"
+check "subagent + git --git-dir → deny"    deny  "$(loom_verdict_subagent_git 'git --git-dir=/other status' 'a8e')"
+check "subagent + git --work-tree → deny"  deny  "$(loom_verdict_subagent_git 'git --work-tree=/tmp status' 'a8e')"
+# Smuggling: command substitution in the same command line.
+check "subagent + git status \$(rm -rf) → deny" deny "$(loom_verdict_subagent_git 'git status $(rm -rf /tmp/x)' 'a8e')"
+check "subagent + git log --format=\$(id) → deny" deny "$(loom_verdict_subagent_git 'git log --format=$(id)' 'a8e')"
+
+# ── Upstream review G1: git's ENVIRONMENT is a complete bypass of the global-flag
+# allowlist. Rule implemented: ANY leading assignment on the subagent read path
+# is denied (categorical, not a GIT_* enumeration).
+check "subagent + GIT_EXTERNAL_DIFF=… git diff → deny" deny "$(loom_verdict_subagent_git 'GIT_EXTERNAL_DIFF=/tmp/evil git diff' 'a8e')"
+check "subagent + GIT_SSH_COMMAND=… git → deny"  deny "$(loom_verdict_subagent_git 'GIT_SSH_COMMAND=/tmp/evil git log' 'a8e')"
+check "subagent + GIT_PAGER=… git log → deny"    deny "$(loom_verdict_subagent_git 'GIT_PAGER=/tmp/evil git log' 'a8e')"
+check "subagent + GIT_EDITOR=… git status → deny" deny "$(loom_verdict_subagent_git 'GIT_EDITOR=/tmp/evil git status' 'a8e')"
+check "subagent + GIT_DIR=… git status → deny"   deny "$(loom_verdict_subagent_git 'GIT_DIR=/other git status' 'a8e')"
+check "subagent + GIT_WORK_TREE=… git status → deny" deny "$(loom_verdict_subagent_git 'GIT_WORK_TREE=/tmp git status' 'a8e')"
+check "subagent + GIT_CONFIG=… git config --get → deny" deny "$(loom_verdict_subagent_git 'GIT_CONFIG=/tmp/x git config --get user.name' 'a8e')"
+check "subagent + GIT_CONFIG_GLOBAL=… git log → deny" deny "$(loom_verdict_subagent_git 'GIT_CONFIG_GLOBAL=/tmp/x git log' 'a8e')"
+check "subagent + GIT_ALTERNATE_OBJECT_DIRECTORIES=… → deny" deny "$(loom_verdict_subagent_git 'GIT_ALTERNATE_OBJECT_DIRECTORIES=/tmp git cat-file -p HEAD' 'a8e')"
+check "subagent + LD_PRELOAD=… git status → deny" deny "$(loom_verdict_subagent_git 'LD_PRELOAD=/tmp/e.so git status' 'a8e')"
+check "subagent + DYLD_INSERT_LIBRARIES=… → deny" deny "$(loom_verdict_subagent_git 'DYLD_INSERT_LIBRARIES=/tmp/e.dylib git status' 'a8e')"
+check "subagent + PATH=… git status → deny"      deny "$(loom_verdict_subagent_git 'PATH=/tmp/evil git status' 'a8e')"
+check "subagent + IFS=… git status → deny"       deny "$(loom_verdict_subagent_git 'IFS=. git status' 'a8e')"
+check "subagent + BASH_ENV=… git status → deny"  deny "$(loom_verdict_subagent_git 'BASH_ENV=/tmp/e git status' 'a8e')"
+check "subagent + env GIT_DIR=/x git status → deny" deny "$(loom_verdict_subagent_git 'env GIT_DIR=/x git status' 'a8e')"
+check "subagent + cd x && GIT_PAGER=… git log → deny" deny "$(loom_verdict_subagent_git 'cd /r && GIT_PAGER=/tmp/e git log' 'a8e')"
+# `env` with no assignment is still just a prefix word — unchanged.
+check "subagent + env git status → allow"        allow "$(loom_verdict_subagent_git 'env git status' 'a8e')"
+
+# ── Upstream review G2: file-writing / program-running args AFTER the subcommand,
+# in both `--flag=value` and `--flag value` spelling, plus bundled short flags.
+check "subagent + git log --output=f → deny"     deny "$(loom_verdict_subagent_git 'git log --output=/tmp/f' 'a8e')"
+check "subagent + git log --output f → deny"     deny "$(loom_verdict_subagent_git 'git log --output /tmp/f' 'a8e')"
+check "subagent + git show --output=f → deny"    deny "$(loom_verdict_subagent_git 'git show --output=/tmp/f' 'a8e')"
+check "subagent + git diff --ext-diff → deny"    deny "$(loom_verdict_subagent_git 'git diff --ext-diff' 'a8e')"
+check "subagent + git blame --textconv → deny"   deny "$(loom_verdict_subagent_git 'git blame --textconv f' 'a8e')"
+check "subagent + git grep -O <cmd> → deny"      deny "$(loom_verdict_subagent_git 'git grep -O /tmp/evil pat' 'a8e')"
+check "subagent + git grep -nO <cmd> → deny (bundled)" deny "$(loom_verdict_subagent_git 'git grep -nO /tmp/evil pat' 'a8e')"
+check "subagent + git grep --open-files-in-pager= → deny" deny "$(loom_verdict_subagent_git 'git grep --open-files-in-pager=/tmp/evil pat' 'a8e')"
+check "subagent + git log --upload-pack=… → deny" deny "$(loom_verdict_subagent_git 'git log --upload-pack=/tmp/evil' 'a8e')"
+# Short flags that merely LOOK dangerous stay allowed (no over-denial):
+check "subagent + git grep -c pat → allow"       allow "$(loom_verdict_subagent_git 'git grep -c pat' 'a8e')"
+check "subagent + git log -c HEAD → allow"       allow "$(loom_verdict_subagent_git 'git log -c HEAD' 'a8e')"
+check "subagent + git -C /Opt/x status → allow"  allow "$(loom_verdict_subagent_git 'git -C /Opt/x status' 'a8e')"
+
+# ── Upstream review G3: reads that escape the repo or hit the network.
+check "subagent + git blame --contents /etc/passwd → deny" deny "$(loom_verdict_subagent_git 'git blame --contents /etc/passwd HEAD -- f' 'a8e')"
+check "subagent + git blame --contents=… → deny" deny "$(loom_verdict_subagent_git 'git blame --contents=/etc/passwd HEAD' 'a8e')"
+check "subagent + git ls-remote → deny (network)" deny "$(loom_verdict_subagent_git 'git ls-remote origin' 'a8e')"
+check "subagent + git ls-remote --heads → deny"  deny "$(loom_verdict_subagent_git 'git ls-remote --heads https://x/y' 'a8e')"
+check "subagent + git submodule status → deny"   deny "$(loom_verdict_subagent_git 'git submodule status --recursive' 'a8e')"
+check "subagent + git submodule summary → deny"  deny "$(loom_verdict_subagent_git 'git submodule summary' 'a8e')"
+# Plain blame (no --contents) is still a legitimate read.
+check "subagent + git blame f → allow"           allow "$(loom_verdict_subagent_git 'git blame f' 'a8e')"
+
+# ── Upstream review G4: end-of-options / flag-shaped names. Documented behavior.
+check "subagent + git branch -- newname → deny"  deny "$(loom_verdict_subagent_git 'git branch -- newname' 'a8e')"
+check "subagent + git branch --list newname → deny (conservative)" deny "$(loom_verdict_subagent_git 'git branch --list newname' 'a8e')"
+check "subagent + git branch --list → allow"     allow "$(loom_verdict_subagent_git 'git branch --list' 'a8e')"
+check "subagent + git tag --list v1 → allow (pattern)" allow "$(loom_verdict_subagent_git 'git tag --list v1' 'a8e')"
+check "subagent + git tag -- v1 → deny"          deny "$(loom_verdict_subagent_git 'git tag -- v1' 'a8e')"
+
+# ── ALLOW regression sample (must be unchanged by the G1-G4 hardening).
+check "subagent + git status → allow (regression)" allow "$(loom_verdict_subagent_git 'git status' 'a8e')"
+check "subagent + git log --oneline -20 → allow" allow "$(loom_verdict_subagent_git 'git log --oneline -20' 'a8e')"
+check "subagent + git -C /tmp/x status → allow (regression)" allow "$(loom_verdict_subagent_git 'git -C /tmp/x status' 'a8e')"
+check "subagent + git --no-pager log → allow"    allow "$(loom_verdict_subagent_git 'git --no-pager log' 'a8e')"
+check "subagent + git config --get → allow (regression)" allow "$(loom_verdict_subagent_git 'git config --get user.name' 'a8e')"
+
+# ── Main-agent verdicts are UNCHANGED by the subagent hardening.
+check "main + GIT_DIR=/x git status → allow (unchanged)" allow "$(loom_verdict_git_mutation 'GIT_DIR=/x git status')"
+check "main + git status → allow (unchanged)"    allow "$(loom_verdict_git_mutation 'git status')"
+# GATE POLICY (2026-08): `git commit` moved ask -> silent. It is local, fully
+# revertible, and the most frequent operation there is; prompting for it is what
+# taught people to click through prompts. Configurable per
+# .logic-loom/config/gate-policy.conf; see tests/contract/test_gate_policy.sh for
+# the full ~38-operation table under default / silenced / floor-attack / missing /
+# corrupt config.
+check "main + git commit -m x → allow (gate: silent)" allow "$(loom_verdict_git_mutation 'git commit -m x')"
+check "main + git push → ask (unchanged)"        ask   "$(loom_verdict_git_mutation 'git push')"
+check "main + gh pr merge 1 → ask (unchanged)"   ask   "$(loom_verdict_gh_mutation 'gh pr merge 1')"
+check "main + gh pr list → allow (unchanged)"    allow "$(loom_verdict_gh_mutation 'gh pr list')"
 
 echo ""
 echo "git-mutation gate (main-agent mutating git → ask)"
 check "git push → ask"            ask   "$(loom_verdict_git_mutation 'git push origin main')"
-check "git commit → ask"          ask   "$(loom_verdict_git_mutation 'git commit -m x')"
+check "git commit → allow (gate: silent)" allow "$(loom_verdict_git_mutation 'git commit -m x')"
 check "git -C /r push → ask"      ask   "$(loom_verdict_git_mutation 'git -C /r push')"
 check "git branch -d x → ask"     ask   "$(loom_verdict_git_mutation 'git branch -d feature')"
 check "git remote add → ask"      ask   "$(loom_verdict_git_mutation 'git remote add o url')"
@@ -48,6 +164,53 @@ check "git update-ref → ask"      ask   "$(loom_verdict_git_mutation 'git upda
 check "git symbolic-ref → ask"    ask   "$(loom_verdict_git_mutation 'git symbolic-ref HEAD refs/heads/x')"
 check "git filter-branch → ask"   ask   "$(loom_verdict_git_mutation 'git filter-branch --force')"
 check "git fast-import → ask"     ask   "$(loom_verdict_git_mutation 'git fast-import < dump')"
+# gh gate additions: `git worktree add/remove/prune` was ungated for the main agent.
+check "git worktree add → ask"    ask   "$(loom_verdict_git_mutation 'git worktree add ../wt br')"
+check "git worktree remove → ask" ask   "$(loom_verdict_git_mutation 'git worktree remove ../wt')"
+check "git worktree prune → ask"  ask   "$(loom_verdict_git_mutation 'git worktree prune')"
+check "git worktree list → allow" allow "$(loom_verdict_git_mutation 'git worktree list')"
+check "bare git worktree → allow" allow "$(loom_verdict_git_mutation 'git worktree')"
+
+echo ""
+echo "gh gate (main-agent consequential gh → ask; read-only gh → allow)"
+check "gh pr create → ask"     ask   "$(loom_verdict_gh_mutation 'gh pr create --title t')"
+check "gh pr merge → ask"      ask   "$(loom_verdict_gh_mutation 'gh pr merge 12 --squash')"
+check "gh pr review → ask"     ask   "$(loom_verdict_gh_mutation 'gh pr review 12 --approve')"
+check "gh workflow run → ask"  ask   "$(loom_verdict_gh_mutation 'gh workflow run promote-to-main.yml')"
+# GATE POLICY: rerun/cancel act on a run that already exists; dispatching is
+# gh.workflow.write, which still asks.
+check "gh run cancel → allow (gate: silent)" allow "$(loom_verdict_gh_mutation 'gh run cancel 55')"
+check "gh release create → ask" ask  "$(loom_verdict_gh_mutation 'gh release create v1.0.0')"
+check "gh repo delete → ask"   ask   "$(loom_verdict_gh_mutation 'gh repo delete o/r --yes')"
+# GATE POLICY: issue traffic is cheap, visible and reversible -> silent.
+check "gh issue create → allow (gate: silent)" allow "$(loom_verdict_gh_mutation 'gh issue create --title t')"
+check "gh alias set → ask"     ask   "$(loom_verdict_gh_mutation 'gh alias set pm "pr merge"')"
+check "gh secret set → ask"    ask   "$(loom_verdict_gh_mutation 'gh secret set TOKEN --body v')"
+check "gh auth login → ask"    ask   "$(loom_verdict_gh_mutation 'gh auth login')"
+# The laundering vector: merges a PR without the word "merge" anywhere useful.
+check "gh api -X PUT .../merge → ask" ask "$(loom_verdict_gh_mutation 'gh api -X PUT repos/o/r/pulls/9/merge')"
+check "gh api --method POST → ask"    ask "$(loom_verdict_gh_mutation 'gh api --method POST repos/o/r/issues')"
+check "gh pr list → allow"     allow "$(loom_verdict_gh_mutation 'gh pr list')"
+check "gh pr view → allow"     allow "$(loom_verdict_gh_mutation 'gh pr view 12')"
+check "gh pr checks → allow"   allow "$(loom_verdict_gh_mutation 'gh pr checks 12')"
+check "gh run watch → allow"   allow "$(loom_verdict_gh_mutation 'gh run watch 55')"
+check "gh repo view → allow"   allow "$(loom_verdict_gh_mutation 'gh repo view o/r')"
+check "gh workflow view → allow" allow "$(loom_verdict_gh_mutation 'gh workflow view ci.yml')"
+check "gh api (no method) → allow"    allow "$(loom_verdict_gh_mutation 'gh api repos/o/r/pulls')"
+check "gh api -X GET → allow"         allow "$(loom_verdict_gh_mutation 'gh api -X GET repos/o/r/pulls')"
+check "gh auth status → allow" allow "$(loom_verdict_gh_mutation 'gh auth status')"
+check "gh label list → allow"  allow "$(loom_verdict_gh_mutation 'gh label list')"
+check "gh in prose → allow"    allow "$(loom_verdict_gh_mutation 'echo \"run gh pr merge later\"')"
+check "'github' substring → allow" allow "$(loom_verdict_gh_mutation 'ls github/ghost')"
+check "cd && gh pr merge → ask"    ask "$(loom_verdict_gh_mutation 'cd /r && gh pr merge 12')"
+
+echo ""
+echo "subagent-gh-deny (any gh from a subagent → deny)"
+check "subagent + gh pr merge → deny" deny "$(loom_verdict_subagent_gh 'gh pr merge 12' 'a8e')"
+check "subagent + gh pr list → deny"  deny "$(loom_verdict_subagent_gh 'gh pr list' 'a8e')"
+check "subagent + non-gh → allow"     allow "$(loom_verdict_subagent_gh 'ls -la' 'a8e')"
+check "subagent + 'github' word → allow" allow "$(loom_verdict_subagent_gh 'ls github/ghost' 'a8e')"
+check "main agent + gh pr merge → allow (not this guard)" allow "$(loom_verdict_subagent_gh 'gh pr merge 12' '')"
 
 echo ""
 echo "governance-file protection (subagent deny / main ask / else allow)"
@@ -63,6 +226,82 @@ check "normal src file + subagent → allow"     allow "$(loom_verdict_protected
 check "verdict lib + subagent → deny" deny "$(loom_verdict_protected_path '.logic-loom/lib/governance-verdicts.sh' 'a8e')"
 check "verdict lib + main → ask"      ask  "$(loom_verdict_protected_path '.logic-loom/lib/governance-verdicts.sh' '')"
 check "policy.sh + subagent → deny"   deny "$(loom_verdict_protected_path '.logic-loom/lib/policy.sh' 'a8e')"
+
+echo ""
+echo "protected-path FLOOR vs ADDITIVE config (§3.1 — security-critical invariant)"
+# The protected set is config-EXTENSIBLE so a fork that renames directories does
+# not get a silently broken guard. The invariant that makes that safe: config can
+# only ADD. If config could REPLACE the set, the first move is to drop
+# governance.conf and this lib from it and then rewrite every hook — a
+# privilege-escalation hole, not a portability win. These fixtures pin it.
+#
+# Each case re-sources the lib in a SUBSHELL with LOOM_GOVERNANCE_CONF pointed at
+# a fixture, so no state leaks between cases and the outer suite is unaffected.
+PROT_TMP="$(mktemp -d)"
+# LOOM_LOG_DIR is set at the top of this file (logging.sh bakes LOG_FILE at
+# source time, so it has to be exported before anything sources the libs); it is
+# cleaned up by the SAME trap here, because a second `trap ... EXIT` would
+# replace this one rather than add to it.
+trap 'rm -rf "$PROT_TMP" "$LOOM_LOG_DIR"' EXIT
+
+protq() { # conf_path rel_path -> protected|not
+  ( export LOOM_GOVERNANCE_CONF="$1"
+    # shellcheck disable=SC1090
+    . "$LIB"
+    if loom_path_is_protected "$2"; then echo protected; else echo not; fi )
+}
+
+PROT_MISSING="$PROT_TMP/absent/governance.conf"
+printf 'mode = lean\nprotected_paths =\n' > "$PROT_TMP/empty.conf"
+# Every removal the syntax makes possible: empty value, negation prefixes,
+# plausible override/reset/remove key names, re-declaration, injection shapes.
+cat > "$PROT_TMP/removal.conf" <<'PROTEOF'
+mode = lean
+protected_paths =
+protected_paths = -.claude/hooks
+protected_paths = !.logic-loom/memory/constitution.md
+protected_paths_override = src
+protected_paths_replace = src
+protected_paths_reset = true
+protected_paths_remove = .logic-loom/lib/governance-verdicts.sh
+LOOM_PROTECTED_PATHS = src
+protected_paths = .claude/hooks -> /dev/null
+protected_paths = $(rm -rf /)
+protected_paths = ;unset -f loom_path_is_protected
+PROTEOF
+printf 'mode = lean\nprotected_paths = .specify/hooks\nprotected_paths = tools/policy/*\n' > "$PROT_TMP/add.conf"
+printf '[oops\nprotected_paths\nprotected_pathsX = src\nprotected_paths = /etc/passwd\nprotected_paths = *\nprotected_paths = ../../etc\nprotected_paths = ok/kept\n' > "$PROT_TMP/malformed.conf"
+
+# The floor holds with NO config, with an EMPTY key, with a removal attempt, and
+# with a malformed file. Four representative floor members × four config states.
+for _cf in "$PROT_MISSING:no-config" "$PROT_TMP/empty.conf:empty-key" \
+           "$PROT_TMP/removal.conf:removal-attempt" "$PROT_TMP/malformed.conf:malformed"; do
+  _p="${_cf%%:*}"; _n="${_cf##*:}"
+  check "floor: .claude/hooks/x.sh ($_n)"      protected "$(protq "$_p" '.claude/hooks/x.sh')"
+  check "floor: settings.json ($_n)"           protected "$(protq "$_p" '.claude/settings.json')"
+  check "floor: constitution.md ($_n)"         protected "$(protq "$_p" '.logic-loom/memory/constitution.md')"
+  check "floor: governance.conf ITSELF ($_n)"  protected "$(protq "$_p" '.logic-loom/config/governance.conf')"
+  check "floor: gate-policy.conf ($_n)"        protected "$(protq "$_p" '.logic-loom/config/gate-policy.conf')"
+  check "floor: verdict lib ITSELF ($_n)"      protected "$(protq "$_p" '.logic-loom/lib/governance-verdicts.sh')"
+  check "floor: policy.sh ($_n)"               protected "$(protq "$_p" '.logic-loom/lib/policy.sh')"
+  check "floor: loom-governance hooks ($_n)"   protected "$(protq "$_p" 'plugins/loom-governance/hooks/scripts/x.sh')"
+  check "not protected: README.md ($_n)"       not       "$(protq "$_p" 'README.md')"
+done
+# A removal attempt must also leave the VERDICT unchanged, not merely the predicate.
+check "removal attempt: hooks + subagent → deny" deny "$( export LOOM_GOVERNANCE_CONF="$PROT_TMP/removal.conf"; . "$LIB"; loom_verdict_protected_path '.claude/hooks/x.sh' 'a8e')"
+check "removal attempt: conf + main → ask"       ask  "$( export LOOM_GOVERNANCE_CONF="$PROT_TMP/removal.conf"; . "$LIB"; loom_verdict_protected_path '.logic-loom/config/governance.conf' '')"
+# Config ADDS: the fork-friendliness the item exists for.
+check "config adds .specify/hooks"           protected "$(protq "$PROT_TMP/add.conf" '.specify/hooks')"
+check "config adds beneath .specify/hooks"   protected "$(protq "$PROT_TMP/add.conf" '.specify/hooks/pre.sh')"
+check 'config dir/* spelling == dir'         protected "$(protq "$PROT_TMP/add.conf" 'tools/policy/a.json')"
+check "config addition is segment-anchored"  not       "$(protq "$PROT_TMP/add.conf" 'tools/policyX')"
+check "addition absent without config"       not       "$(protq "$PROT_MISSING" '.specify/hooks')"
+check "addition never protects README.md"    not       "$(protq "$PROT_TMP/add.conf" 'README.md')"
+# Malformed entries are skipped INDIVIDUALLY; valid ones on the same file survive.
+check "malformed: glob entry ignored"        not       "$(protq "$PROT_TMP/malformed.conf" 'anything/at/all')"
+check "malformed: absolute entry ignored"    not       "$(protq "$PROT_TMP/malformed.conf" '/etc/passwd')"
+check "malformed: key-lookalike ignored"     not       "$(protq "$PROT_TMP/malformed.conf" 'src')"
+check "malformed: valid entry still kept"    protected "$(protq "$PROT_TMP/malformed.conf" 'ok/kept/f.txt')"
 
 echo ""
 echo "freeze write-scope (freeze-hit deny / no-owns allow / owns-hit allow / else deny)"

@@ -85,13 +85,21 @@ neighbouring modules, reason about cross-file invariants), a governed Claude
 subagent shells the provider CLI in a **read-only sandbox**:
 
 ```bash
-codex exec --sandbox read-only --ask-for-approval never "<adversarial prompt>"
+codex exec --sandbox read-only -c approval_policy='"never"' "<adversarial prompt>"
 ```
 
 `--sandbox read-only` lets Codex navigate and reason over the repo but blocks all
-writes and command side effects; `--ask-for-approval never` keeps it
+writes and command side effects; `-c approval_policy='"never"'` keeps it
 non-interactive. The subagent captures stdout and converts it to the findings
 schema.
+
+> **Do not pass `--ask-for-approval` here.** That flag exists on the interactive
+> `codex` entry point, not on `codex exec` — verified against codex-cli 0.144.1,
+> where `codex exec --sandbox read-only --ask-for-approval never …` exits **2**
+> with `error: unexpected argument '--ask-for-approval' found` and the review
+> never runs. Set the approval policy through `-c approval_policy='"never"'`
+> instead. Provider CLI flags are fast-moving external facts — check
+> `codex exec --help` against the installed version before changing this line.
 
 > **New trust assumption (documented in
 > `.docs/architecture/governance-threat-model.md`).** In Mode B the external CLI
@@ -103,7 +111,7 @@ schema.
 > run the provider CLI in a write-capable sandbox (`workspace-write`,
 > `danger-full-access`) from this slot.
 
-If the CLI is not installed, degrade to Mode A automatically (and note it).
+If the CLI is not installed, degrade to Mode A automatically (and note it). Do the same on a **non-zero exit** from the CLI — an argument error, an auth failure, or a crash is not a finding, and Mode B must never surface a raw CLI error as the review result. Fail open: fall back to Mode A, or write an `unavailable` report naming the exit code and the first line of stderr.
 
 ## Generalized provider selection
 
@@ -122,6 +130,15 @@ default in the "Advisory cross-provider models" section of
 `.logic-loom/config/models.conf` — **OpenAI `gpt-5.5`**, **Gemini
 `gemini-3.1-pro-preview`**. Pick the provider whose lineage is *most decorrelated* from
 the generator — for Claude-authored code, Codex/GPT is the strong default.
+
+> **Grounding rule — fail closed.** The model names, endpoints, and request
+> shapes in the table above are fast-moving external facts that nothing here
+> validates. Verify them against **live provider documentation** rather than
+> recalling them; when you cannot verify, **fail closed — say you are unsure**
+> and name what you could not confirm, rather than asserting a stale detail.
+> This constrains what the *governed Claude agent* may assert about the
+> provider — it grants the external model nothing and builds no checker. Full
+> rule: the GROUNDING RULE block in `.logic-loom/config/models.conf`.
 
 ## Procedure
 

@@ -45,7 +45,7 @@ Two modes apply via `LOOM_GOVERNANCE_MODE`: **lean** (default — hooks enforce 
 ### How to reason about a message
 
 ```
-1. Constitution — work under the 16 principles (v3.2.0).
+1. Constitution — work under the 16 principles (v3.3.0).
    Load-bearing: II (Test-First, IMMUTABLE), VI (Git Approval, hook-enforced),
    X (Agent Delegation), XVI (Plugin-First).
 
@@ -208,7 +208,7 @@ This agent delegates to consolidated worker briefs and orchestration skills:
 | `get_domain_brief devops` | Deployment/CI/CD |
 | `/swarm` | Multi-domain tasks |
 | `/create-prd` | Product requirements (PRD authoring) |
-| `/specification` | Legacy unified spec/plan/tasks waterfall |
+| `/specification` | Unified spec/plan/tasks waterfall (SDD pack) |
 
 ### Context Handoff Format
 When delegating to a specialist:
@@ -287,5 +287,5 @@ To enable this agent as the default entry point:
 ---
 
 **Agent Version**: 1.0.0
-**Constitution**: v3.2.0 (16 Principles)
+**Constitution**: v3.3.0 (16 Principles)
 **Review Schedule**: Quarterly

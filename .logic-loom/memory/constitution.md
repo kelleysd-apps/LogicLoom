@@ -1,4 +1,4 @@
-# LogicLoom Constitution v3.2.0
+# LogicLoom Constitution v3.3.0
 
 **Status**: RATIFIED
 
@@ -211,7 +211,7 @@ All framework capabilities MUST be organized as discrete, installable plugins.
 Plugin Structure:
   plugins/<name>/
     .claude-plugin/plugin.json   # Manifest (name, version, dependencies)
-    commands/                     # Slash commands (/specify, /debug, etc.)
+    commands/                     # Slash commands (/specification, /swarm, etc.)
     skills/                       # Skill definitions (SKILL.md)
     agents/                       # Agent definitions
     hooks/                        # Event hooks (UserPromptSubmit, PreToolUse, etc.)
@@ -250,7 +250,191 @@ No workflow pack is privileged; governance is the only protected layer.
 
 Immutable principles (I–III) cannot be amended or overridden.
 
+The Amendment Process above governs changes to **this file**, which is upstream
+core. A fork that needs its own mandates does not use it — see Project
+Amendments, below.
+
+---
+
+## Project Amendments (the fork extension point)
+
+A fork MAY add project-specific mandates **without editing this Constitution**.
+Amendments live in a separate, fork-owned file:
+
+```
+.logic-loom/memory/amendments.md
+```
+
+Seeded from `.logic-loom/templates/amendments-template.md`. Upstream never ships
+`amendments.md`, so `/update-framework` has no upstream counterpart to propose
+against it: a fork's mandates survive every framework update, and this
+Constitution stays byte-identical to upstream instead of becoming a permanent
+`conflict-review` file. That is the reason the extension point is a separate file
+rather than in-line project markers.
+
+### What this mechanism is not: there is no loader (settled, not pending)
+
+Read this before relying on a mandate. `amendments.md` is a **convention, not a
+runtime** — and that is a **decision, not an unfinished task**. Wiring
+`amendments.md` into `governance-preflight.sh` (or any other loader) was
+considered and **declined** (2026-08-24); there is no loader on the roadmap, and
+a reader should not wait for one. The rationale: a loader would make mandates
+*look* enforced without making them enforced — the hook floor still would not
+consult a mandate, so the only thing gained is a stronger impression of
+enforcement than the mechanism can support, which is exactly the phantom-gate
+failure this document exists to avoid. Mandates are policy; policy is followed,
+and the floor is what is enforced.
+
+Exactly what a fork gets: a file upstream never overwrites, a grammar for named
+mandates, and the composition/precedence rules below — all binding on any agent
+that reads them. Exactly what a fork does **not** get: any injection, any
+validation, any warning, and any change in hook behaviour. Concretely:
+
+- **No loader.** Nothing injects `amendments.md` into any agent's context. No
+  hook, no preflight, no context module reads it. Mandates are honoured only
+  because `CLAUDE.md` and `AGENTS.md` instruct agents to read the file — and only
+  by agents that actually do.
+- **No validator.** Nothing checks that a mandate is well-formed, that it names a
+  real principle, or that it is additive rather than relaxing.
+- **No fail-closed behaviour.** A fork that never reads the file simply gets no
+  mandates, silently. Nothing errors, warns, or blocks, and nothing will tell it.
+- **No enforcement.** The hook floor (`git-safety-gate.sh`,
+  `subagent-git-guard.sh`, `protect-governance-files.sh`, `freeze-write-scope.sh`)
+  is unchanged by any mandate and never consults one.
+
+In the vocabulary of `.docs/architecture/governance-threat-model.md`, a mandate is
+**followed**, never **enforced**. Treat it the way you treat any other written
+policy: it works when it is read and interpreted correctly, and it does nothing at
+all when it is not.
+
+### The only unit: a named mandate
+
+The only **normative** unit in `amendments.md` is a named mandate. One shape, no
+variants:
+
+```
+### Mandate: <SHORT-NAME>
+
+**Constrains**: <principle numeral(s), or "—" for an area this Constitution is silent on>
+**Rule**: <the additional requirement — MUST / MUST NOT>
+**Rationale**: <why this project needs it>
+```
+
+Named mandates are the **single** extension surface. There is deliberately no
+second mechanism: no in-line `> **PROJECT**:` markers in this file, no
+per-principle override blocks, no project section appended to a principle body.
+Anything else in `amendments.md` — the file header, explanatory prose, the
+amendment log — is documentation and carries no governance force. Anything
+outside `amendments.md` is not an amendment at all.
+
+### Composition: intended additive, adjudicated toward the floor
+
+Effective governance = **this Constitution AND every named mandate**, composed as
+a conjunction.
+
+The upstream constitutional floor remains **normatively supreme**. Project
+mandates are intended to add obligations only; any conflicting or relaxing effect
+is invalid. Because mandates are natural-language, model-interpreted policy, this
+invariant depends on correct loading, interpretation, and conflict adjudication
+rather than on the mandate grammar alone.
+
+Be precise about what the grammar does and does not do. The mandate shape has no
+`Overrides`, `Disables`, `Exempts`, `Waives`, or `Relaxes` field — `Constrains` is
+the only relational field. That constrains **field names, not meaning**. `Rule` is
+unrestricted natural language, so a mandate can weaken a principle semantically
+while staying entirely inside the grammar: by redefining a term the principle
+depends on, by broadening what counts as approval or as a test, by constraining
+the *enforcement* rather than the behaviour, or by writing a rule under which
+compliance is vacuous. The absence of a relaxing verb makes weakening
+**conspicuous**, not impossible.
+
+The rules below are therefore adjudication rules, applied by whoever — or
+whatever — reads the file. They are not a structural guarantee.
+
+1. A mandate MAY **tighten** any principle (I–XVI), the immutable three included.
+   "Coverage minimum: 95%" is a legal tightening of Principle II.
+2. A mandate MAY govern an area this Constitution is silent on.
+3. A mandate MUST NOT relax, disable, exempt from, waive, or override any
+   principle — whether it says so outright or achieves it by redefinition,
+   reinterpretation, scope-narrowing, or any other wording.
+4. If a mandate reads as relaxing a principle — by any wording — the **principle
+   prevails and the mandate is void in that respect**. Conflict always resolves
+   toward the floor, never away from it.
+5. A mandate is policy, not enforcement. It cannot disable, weaken, or rewire a
+   hook; a hook change is a governance-surface edit gated by
+   `protect-governance-files.sh`, and is not an amendment at all.
+
+### Tightening that neuters: the vacuous-precondition class
+
+A mandate can defeat a principle's purpose without logically contradicting it.
+"No code may be written until X" is formally a tightening even when X is
+unachievable, circular, or under no one's control; "every test must be approved by
+a party that does not exist" formally tightens Principle II while making it
+impossible to satisfy. Such a rule does not relax I–III — it disables the activity
+the principle exists to govern.
+
+Treat it as a violation of rule 3. A mandate whose effect is that a principle can
+never be satisfied, or that the work the principle governs can never begin, is
+**void in that respect**, on the same footing as an openly relaxing mandate. The
+test is effect, not form: ask what a compliant project can still do, not whether
+the wording added a condition.
+
+### Precedence and adjudication
+
+Order of authority, highest first:
+
+1. **Immutable Principles I–III** — never amendable, never overridable, by any
+   mandate or any other document.
+2. **Principles IV–XVI** (this Constitution).
+3. **Named mandates** in `amendments.md`.
+4. **`VISION.md`** — direction only. Never an authority on *how*.
+
+Applied cases:
+
+- **Mandate vs. this Constitution.** The Constitution prevails. The mandate is
+  void in the conflicting respect only; the rest of it stands.
+- **Mandate vs. mandate.** Both apply — the composition is a conjunction, so the
+  **stricter obligation governs** and satisfying both is required. Where two
+  mandates genuinely cannot both be satisfied (a real contradiction, not merely a
+  tighter and a looser bound), neither wins by seniority or file order: **both
+  are void in the contradicting respect** and the Constitution's own requirement
+  stands unmodified. Fix the contradiction in `amendments.md`; do not resolve it
+  silently at read time.
+- **Mandate vs. `VISION.md`.** They do not compete. `VISION.md` is direction
+  (*what/why*); a mandate is floor (*how*). Where a mandate blocks something
+  `VISION.md` calls for, the **mandate prevails** — direction never relaxes the
+  floor. The remedy is to amend or remove the mandate deliberately, not to
+  disregard it because the vision wants the work.
+- **Ambiguous mandate.** A mandate whose effect on a principle is unclear — one
+  reading tightens, another relaxes — is read under the **tightening
+  interpretation**. If no tightening reading exists, the mandate is void in that
+  respect. Ambiguity is never resolved in the direction of less obligation.
+  Surface it to the maintainer rather than acting on a guess.
+- **Partial invalidity.** Validity is assessed per-effect, not per-mandate. A
+  mandate that is a legal tightening in one respect and a relaxation in another
+  keeps the valid part and loses the invalid part. The invalid part does not taint
+  the rest, and the valid part does not rescue the invalid part.
+
+### Relationship to `VISION.md`
+
+`VISION.md` sets *what/why* (direction); `amendments.md` adds to *how* (the
+floor). A mandate is not a third governance channel alongside this Constitution
+and `VISION.md` — it is an extension of the *same* floor the Preamble's
+governance-vs-direction clause describes, sitting directly under this
+Constitution. Neither `VISION.md` nor `amendments.md` is a governance authority
+over this Constitution, and neither can relax it.
+
+### Protection status
+
+`amendments.md` is fork content and is **not** on the hook-protected governance
+surface. A fork that wants it protected must add it to its own protected paths.
+Be honest about what that means: an unprotected `amendments.md` can be edited by
+any agent with write access, and because nothing validates the file, a mandate
+weakened or deleted there produces no signal at all. What actually keeps the floor
+intact is that the hooks never consult mandates — not that a mandate is incapable
+of saying something wrong.
+
 ---
 
 
-*LogicLoom Constitution v3.2.0. Governance is the durable core; workflow packs are interchangeable.*
+*LogicLoom Constitution v3.3.0. Governance is the durable core; workflow packs are interchangeable.*
