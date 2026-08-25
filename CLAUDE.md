@@ -247,12 +247,21 @@ A fork adds project-specific mandates in **`.logic-loom/memory/amendments.md`**
 survive `/update-framework` and the constitution stays byte-identical to upstream
 instead of becoming a permanent `conflict-review` file.
 
-**Followed, not enforced — and nothing loads it.** No hook, preflight, or context
-module reads `amendments.md`; nothing validates a mandate; nothing fails closed. A
-fork that does not read the file gets no mandates and gets no warning. Mandates
-work only because this file and `AGENTS.md` tell agents to read them. Read
-`.logic-loom/memory/amendments.md` when it exists and treat its mandates as
-binding alongside the principles.
+**Followed, not enforced — and nothing loads it. That is settled, not pending.**
+No hook, preflight, or context module reads `amendments.md`; nothing validates a
+mandate; nothing fails closed. A fork that does not read the file gets no
+mandates and gets no warning. Mandates work only because this file and
+`AGENTS.md` tell agents to read them. Read `.logic-loom/memory/amendments.md`
+when it exists and treat its mandates as binding alongside the principles.
+
+Wiring `amendments.md` into `governance-preflight.sh` was **considered and
+declined** (2026-08-24) — there is no loader coming, so do not read the absence
+as unfinished work. A loader would make mandates *look* enforced without making
+them enforced: the hook floor would still never consult a mandate, so the only
+thing gained is a stronger impression of enforcement than the mechanism can
+support. What a fork gets is a file upstream never overwrites, a mandate grammar,
+and composition rules binding on any agent that reads them. What it does not get
+is injection, validation, a warning, or any change in hook behaviour.
 
 The only normative unit is a **named mandate**: `### Mandate: <NAME>` with
 `Constrains:` / `Rule:` / `Rationale:`. There is no second surface — no in-line

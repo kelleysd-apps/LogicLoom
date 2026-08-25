@@ -296,10 +296,23 @@ Constitution stays byte-identical to upstream instead of becoming a permanent
 `conflict-review` file. That is the reason the extension point is a separate file
 rather than in-line project markers.
 
-### What this mechanism is not: there is no loader
+### What this mechanism is not: there is no loader (settled, not pending)
 
 Read this before relying on a mandate. `amendments.md` is a **convention, not a
-runtime**:
+runtime** — and that is a **decision, not an unfinished task**. Wiring
+`amendments.md` into `governance-preflight.sh` (or any other loader) was
+considered and **declined** (2026-08-24); there is no loader on the roadmap, and
+a reader should not wait for one. The rationale: a loader would make mandates
+*look* enforced without making them enforced — the hook floor still would not
+consult a mandate, so the only thing gained is a stronger impression of
+enforcement than the mechanism can support, which is exactly the phantom-gate
+failure this document exists to avoid. Mandates are policy; policy is followed,
+and the floor is what is enforced.
+
+Exactly what a fork gets: a file upstream never overwrites, a grammar for named
+mandates, and the composition/precedence rules below — all binding on any agent
+that reads them. Exactly what a fork does **not** get: any injection, any
+validation, any warning, and any change in hook behaviour. Concretely:
 
 - **No loader.** Nothing injects `amendments.md` into any agent's context. No
   hook, no preflight, no context module reads it. Mandates are honoured only

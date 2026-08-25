@@ -80,6 +80,7 @@
 {"type":"entity","name":"plugins/loom-orchestrator-hook/config/domains.conf","entityType":"code-path","observations":["domains.conf"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/graph.md","entityType":"code-path","observations":["graph.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/research.md","entityType":"code-path","observations":["research.md"]}
+{"type":"entity","name":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/retro/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -98,6 +99,7 @@
 {"type":"entity","name":"tests/contract/test_suite_registration.sh","entityType":"code-path","observations":["test_suite_registration.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
 {"type":"entity","name":"wikilink.md","entityType":"note","observations":["wikilink"]}
+{"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/team-orchestration/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/freeze-scope-protocol.md","to":"tests/contract/test_freeze_scope.sh","relationType":"mentions"}

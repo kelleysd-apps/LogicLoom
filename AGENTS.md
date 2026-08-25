@@ -74,11 +74,19 @@ A project may layer its own mandates on top of the principles above. They live i
 `.logic-loom/templates/amendments-template.md`), never inside the constitution
 itself — so upstream framework updates never collide with them.
 
-Nothing loads that file. No hook, preflight, or context module reads it; nothing
-validates a mandate; nothing fails closed. A project that does not read it gets no
-mandates and no warning. So: **read `amendments.md` if it exists** and treat its
-mandates as binding alongside the principles. Mandates are followed policy, never
-host enforcement.
+Nothing loads that file, and that is **settled, not pending**. No hook,
+preflight, or context module reads it; nothing validates a mandate; nothing fails
+closed. A project that does not read it gets no mandates and no warning. So:
+**read `amendments.md` if it exists** and treat its mandates as binding alongside
+the principles. Mandates are followed policy, never host enforcement.
+
+Wiring the file into a loader was **considered and declined** (2026-08-24) — no
+loader is coming, so do not read its absence as unfinished work. A loader would
+make mandates *look* enforced without making them enforced: no floor mechanism,
+on any host, consults a mandate. What a project gets is a file upstream never
+overwrites, a mandate grammar, and the composition rules below, binding on any
+agent that reads them. What it does not get is injection, validation, a warning,
+or any change in enforcement behaviour.
 
 The only normative unit is a **named mandate**: `### Mandate: <NAME>` with
 `Constrains:` / `Rule:` / `Rationale:`. Composition is a conjunction — **effective

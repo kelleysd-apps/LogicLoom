@@ -142,7 +142,7 @@ harness-dev-specific, so it carries a `stub:` entry in
       Repo precedent supports MINOR **2:1**, with the 3.0.0 bump the outlier.
       *(protected)* *(constitutional)*
 
-- [ ] LOOM-0002 — Inject `amendments.md` into the governance preflight `status:open`
+- [x] LOOM-0002 — Inject `amendments.md` into the governance preflight `status:done`
       The amendments mechanism is **declared but not wired**. No hook, no
       preflight, no context module reads `.logic-loom/memory/amendments.md`;
       nothing validates a mandate; nothing fails closed. A fork that does not read
@@ -376,7 +376,7 @@ and completed. Its id did not change on the way across.
       cite the implementation. Decide whether the phrase belongs at the dispatch
       step, at the PR-open step, or both.
 
-- [ ] LOOM-0030 — Write the evaluator hard-gate contract before hardening anything `status:open`
+- [x] LOOM-0030 — Write the evaluator hard-gate contract before hardening anything `status:done`
       `.docs/architecture/evaluator-protocol.md` is still stamped v0.1 and
       specifies no gate semantics at all — the only two uses of "gate" defer
       gating to `/plan-review`. VISION thread #16 asks to harden a contract that

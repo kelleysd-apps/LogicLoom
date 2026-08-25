@@ -301,9 +301,16 @@ is the record that the question was real. Anything not marked `✅ RESOLVED` or
    `.logic-loom/config/core-paths.manifest` does not exist and
    `extract-proposals.sh` has no denylist→info-only filter, so "never touch user
    files" is still incidental rather than declared for every other user path;
-   (b) nothing *injects* core ∪ amendments — no loader, preflight hook, or
-   context module reads `amendments.md`, so mandates are followed only because
-   `CLAUDE.md`/`AGENTS.md` tell agents to read it; (c) the additive-only property is stated and adjudicated, not structural — the
+   (b) ~~nothing *injects* core ∪ amendments~~ — **settled 2026-08-24
+   (LOOM-0002), no longer counted as an open gap.** The maintainer **declined**
+   to wire `amendments.md` into `governance-preflight.sh`: no loader, preflight
+   hook, or context module reads it, and none is coming. Mandates are followed
+   because `CLAUDE.md`/`AGENTS.md` tell agents to read the file, and that is the
+   intended end state — a loader would make mandates *look* enforced without
+   moving any hook verdict. Recorded as a decision (not a TODO) in constitution
+   § *Project Amendments*, `CLAUDE.md`, `AGENTS.md`, and the threat model's
+   enforced-vs-followed section. The thread stays OPEN on (a) and (c) only;
+   (c) the additive-only property is stated and adjudicated, not structural — the
    grammar has no relaxing verb, but `Rule` is free natural language, so a
    semantically weakening mandate can still be written, and there is no lint
    asserting anything.
@@ -431,14 +438,33 @@ is the record that the question was real. Anything not marked `✅ RESOLVED` or
     claim we already have one. Threat-model residual #4 has been rewritten to
     match; see `.docs/architecture/governance-threat-model.md`.
 
-16. **Evaluator-protocol maturation.** Harden `/review-team`'s behavioral
-    evaluator contract (chrome-devtools MCP) and its hard-gate semantics.
+16. ✅ **RESOLVED (2026-08-24, v6.4.1) — Evaluator-protocol maturation.** Harden
+    `/review-team`'s behavioral evaluator contract (chrome-devtools MCP) and its
+    hard-gate semantics.
 
     **Re-verified 2026-08-24 — still open, and understated.**
     `.docs/architecture/evaluator-protocol.md` is still stamped **v0.1 (Loom
     migration, Stage 8)** and defines no gate semantics at all: the word "gate"
     appears twice, both times to say gating is `/plan-review`'s job. There is no
     hard-gate contract to harden yet — one has to be written.
+
+    **Fix:** the premise was answered by a maintainer decision rather than by
+    building the contract this thread assumed (LOOM-0030): **the evaluator is
+    advisory only — it reports findings, it never gates, blocks, or fails a
+    workflow, and a `fail` verdict is information, not a stop.** There is no hard
+    gate to harden, and none is planned. That disposition is now written into
+    `.docs/architecture/evaluator-protocol.md` (bumped **v0.1 → v0.2**) as a
+    first-class section: it states the non-blocking rule, ties it to the
+    identical advisory / read-only / never-git / fail-open posture already
+    binding `/cross-check` and `/research` so the three read as one policy, ties
+    it to Principle VI's shape (humans approve, tools inform), spells out that
+    nothing in the harness turns an evaluator verdict into an exit code or a
+    refusal, and states the tradeoff without dressing it up — an advisory
+    evaluator can be ignored, and an ignored finding looks like no finding; the
+    mitigation (findings surfaced, report written to disk, human decides) makes
+    the loss auditable, not prevented. Marked RESOLVED rather than WITHDRAWN
+    because a decision was taken and landed in the doc — the thread's *answer*
+    is "no gate", which is work, not abandonment.
 
 17. ⛔ **WITHDRAWN (2026-08-24) — the runtime does this natively; nothing left to
     build.** *Original thread:* **Tool registration-vs-exposure separation.**

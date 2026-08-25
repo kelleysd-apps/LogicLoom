@@ -391,6 +391,22 @@ conformant adapter ships today**, so the cell is "followed-only" until one passe
 the golden fixture. `subagent-mut-deny` is "followed" everywhere but Claude Code
 because `agent_id` is a Claude-internal signal no other host emits.
 
+**Project mandates (`amendments.md`) are `followed` in every column, by
+decision — including Claude Code.** They deliberately have no row above, because
+a mandate is not an enforcement surface on any host: nothing loads
+`.logic-loom/memory/amendments.md`, nothing validates a mandate, nothing fails
+closed, and no floor hook consults one. Wiring it into `governance-preflight.sh`
+was **considered and declined (2026-08-24)** — this is a settled position, not a
+missing adapter, and it should not be read as a gap awaiting Phase 3. The reason
+is the same one that produced the fail-open rule elsewhere in this document: a
+loader would raise the *appearance* of enforcement without moving a single
+verdict, since the hook floor would still never consult a mandate. That is a
+phantom gate. A fork gets a file upstream never overwrites, a mandate grammar,
+and reader-adjudicated composition rules; it does not get injection, validation,
+warning, or any change to `deny`/`ask`/`allow`. See
+`.logic-loom/memory/constitution.md` § *Project Amendments* → *What this
+mechanism is not: there is no loader*.
+
 **Blunt truth.** Governance does NOT "degrade gracefully" onto other hosts —
 enforcement is **binary present/absent by host**. Off Claude Code it is the
 model-followed policy plus whatever conformant adapter someone writes. What is

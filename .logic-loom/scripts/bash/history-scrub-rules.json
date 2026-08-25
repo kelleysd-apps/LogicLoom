@@ -147,9 +147,9 @@
       "ops": [
         {
           "op": "genericize",
-          "match": "**Status**: v0.1 (Loom migration, Stage 8)",
-          "replacement": "**Status**: v0.1",
-          "note": "Keep protocol version; remove OUR migration/build-stage reference."
+          "match": "**Supersedes**: v0.1 (Loom migration, Stage 8), which left gate semantics",
+          "replacement": "**Supersedes**: v0.1, which left gate semantics",
+          "note": "Keep protocol version + supersession; remove OUR migration/build-stage reference. (Was on the **Status** line until the doc went v0.2.)"
         },
         {
           "op": "drop-section",
