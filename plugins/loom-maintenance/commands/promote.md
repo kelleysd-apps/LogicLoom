@@ -110,7 +110,49 @@ gh pr checks <pr>
   themselves with a MERGE COMMIT** (never squash/rebase — it keeps `.sdd-sync-ref`
   + `v*` tags reachable for `/update-framework`). On merge,
   `.github/workflows/release-tag.yml` **auto-applies the `$TAG` tag** to the
-  sanitized snapshot — no manual tagging needed.
+  sanitized snapshot **and creates a DRAFT GitHub Release** from the CHANGELOG
+  section — no manual tagging, and the Release is staged but not published.
+  Tell them step 7 runs after the merge.
+
+### 7. After the merge — assert the Release exists (same spirit as 6a)
+
+The failure this guards is the one that actually happened: from **v6.2.0 to
+v6.5.0 the release path pushed five tags and published zero Releases**
+(6.3.0, 6.3.1, 6.4.0, 6.4.1, 6.5.0). Nothing went red — the step did not exist,
+and no command asserted it had run. **A tag is not a release.** Treat a missing
+Release exactly like a rollup count of `0`: a failure state, not a quiet pass.
+
+Run this once `release-tag.yml` has finished for the merge commit:
+
+```
+gh release view "$TAG" --json url,isDraft,name,tagName
+```
+
+- **Command fails / no such release → FAILURE STATE. Do not hand off clean.**
+  Read the workflow run: `gh run list --workflow=release-tag.yml --limit 1 --json databaseId,conclusion,url`
+  then `gh run view <id> --log-failed`. The step names its own cause and remedy
+  in the error — a missing `Source-dev-main:` trailer, an unfetchable dev-main
+  commit, or no `## [X.Y.Z]` section in the CHANGELOG at that commit. Report
+  it verbatim. The remedy is always the same shape: create the Release by hand
+  from the CHANGELOG section, then re-run the workflow (it finds the Release and
+  no-ops).
+- **`isDraft: true` → correct and expected.** CI stages the Release; it never
+  publishes one. Report the **URL** and tell the maintainer to proofread the
+  rendered notes and hit **Publish** — that is the step that flips "Latest" and
+  notifies watchers, and it stays human on purpose.
+- **`isDraft: false`** → someone already published it. Report that plainly
+  rather than implying this command did it.
+- Report in the hand-off: Release **URL**, **`isDraft`** state, and `tagName`
+  matching `$TAG`. A hand-off that does not name all three has not verified the
+  release, only the tag.
+
+**One-release lag, state it out loud.** `release-tag.yml` is triggered by
+`push:`, so GitHub runs the copy of the file **at the pushed commit**. The draft
+Release step therefore first runs for **v6.6.0**. For any release whose snapshot
+predates it — v6.5.0 included — step 7 will find nothing, and that is expected,
+not a fault. v6.5.0 was published by hand; v6.3.0 through v6.4.1 stay
+unpublished by decision (writing notes after the fact is guesswork presented as a
+record).
 
 ## Notes
 - **Do not** enable repo Settings → Actions → General → *Allow GitHub Actions to

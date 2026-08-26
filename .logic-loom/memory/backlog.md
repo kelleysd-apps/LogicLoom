@@ -436,6 +436,30 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       **typed exact phrase that no flag, env var, or non-interactive path
       bypasses**. A merge that weakens it — or that lets the maintainer path
       inherit a lower confirmation strength — is not an acceptable answer.
+      A second contract, added 2026-08-25 with evidence: the consolidated
+      `/promote-prod` **must own GitHub Release publication**, not just tagging.
+      Evidence — the release path created a git tag and stopped. Tags exist for
+      **v6.3.0, v6.3.1, v6.4.0, v6.4.1 and v6.5.0; GitHub Releases exist for
+      none of them.** The Releases page showed **v6.2.0 as "Latest" across five
+      consecutive releases**, and nothing went red, because no step created a
+      Release and no command asserted one existed. v6.5.0 was published by hand
+      on 2026-08-25; the four back-releases stay unpublished by decision
+      (writing notes after the fact is guesswork presented as a record).
+      The mechanism now lives in `.github/workflows/release-tag.yml`, which
+      creates a **draft** Release from the matching `## [X.Y.Z]` CHANGELOG
+      section — read from the dev-main commit named by the snapshot's
+      `Source-dev-main:` trailer, because `CHANGELOG.md` is in the strip
+      manifest and does not exist in the sanitized tree the workflow runs on.
+      `/promote` step 7 verifies it and fails the hand-off when it is missing.
+      What consolidation must preserve: the mechanism stays in the **workflow**
+      (a step that runs only when someone invokes the right command is exactly
+      how this drifted for five releases), the Release is created as a **draft**
+      and **published by a human**, and creation is **idempotent**. What
+      consolidation must add: `/promote-prod` today only *checks* for a Release
+      — it cannot drive the harness release path at all, since `/promote` is
+      stripped from a customer's clone and `/promote-prod` ships to customers.
+      That asymmetry is the same one this item already names, now with a
+      concrete capability riding on it.
       Related to LOOM-0006, which is the other half of the same naming problem
       (a customer-facing `/promote <env>` colliding with the stripped release
       driver); resolving this one may resolve or reshape that one.

@@ -107,6 +107,11 @@ jobs:
       - name: Run Promotion Lifecycle Tests
         run: bash tests/contract/test_promotion_lifecycle.sh
 
+      # A tag is not a release: pins that release-tag.yml creates a draft
+      # GitHub Release and that /promote's hand-off asserts it exists.
+      - name: Run Release Publication Tests
+        run: bash tests/contract/test_release_publication.sh
+
       # THE CONVERSE of the freshness gate below: nothing that SHIPS may DEMAND
       # a path template-strip-manifest.txt removes. Builds a throwaway stripped
       # tree with the real stripper and RUNS every shipped CI step that mentions
