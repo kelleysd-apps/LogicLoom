@@ -164,18 +164,49 @@ emit_rel() { # $1=from $2=to $3=relationType
   jq -cn --arg f "$1" --arg t "$2" --arg r "$3" \
     '{type:"relation",from:$f,to:$t,relationType:$r}'
 }
+# The path-normalising program, held in a variable and fed to `python3 -c`.
+#
+# IT USED TO BE A HEREDOC INSIDE THE COMMAND SUBSTITUTION IN resolve(), AND THAT
+# IS WHAT BROKE CI. The construct was:
+#
+#     clean="$(cd "$ROOT" && python3 - "$clean" <<'PY' 2>/dev/null || true
+#     ...program...
+#     PY
+#     )"
+#
+# bash 3.2 parses a command substitution lazily, at EXPANSION time, with a parser
+# that accepts a `|| true` sitting between the `<<'PY'` operator and the heredoc
+# body. bash 5.2 (ubuntu-latest ships 5.2.21) rewrote that: a command
+# substitution is parsed as a complete unit, the heredoc is consumed where it is
+# introduced, and the orphaned `|| true)` is then a hard
+#     syntax error near unexpected token `||'
+# reported AT EXPANSION TIME — so resolve() returned 1, `set -e` killed the
+# builder, and the whole thing surfaced only as an empty output file.
+#
+# Three properties made it survive every check we had:
+#   * `bash -n` is CLEAN on 3.2 AND on 5.2 — a syntax-only pass does not parse
+#     the body of a command substitution, so no static check could see it. The
+#     bash 3.2 floor suite could not have caught it either: this is the mirror
+#     case, a construct 3.2 accepts and 5.2 rejects.
+#   * The macOS dev box is bash 3.2.57, where it genuinely works.
+#   * resolve() is only reached by a note containing a markdown `.md` link, and
+#     the first such note is the 26th in sort order — so 25 files processed
+#     cleanly before the first failure, which is why the crash looked data-shaped.
+#
+# The fix is not to move the `|| true`. It is to have NO HEREDOC INSIDE A COMMAND
+# SUBSTITUTION at all: that pairing is the fragile thing, and `python3 -c` with
+# the program in a variable is immune to how any bash parses it.
+PY_NORMPATH='import os,sys
+p=os.path.normpath(sys.argv[1])
+print("" if p.startswith("..") or os.path.isabs(p) else p)'
+
 # resolve a link/path relative to a note's dir, canonicalize .. , return repo-rel or empty
 resolve() { # $1=note-repo-rel  $2=raw-target
   local base_dir tgt clean
   base_dir="$(dirname "$1")"; tgt="$2"
   case "$tgt" in /*) clean="${tgt#/}" ;; *) clean="$base_dir/$tgt" ;; esac
   # normalize with python (portable, no realpath dependency); must stay inside repo
-  clean="$(cd "$ROOT" 2>/dev/null && python3 - "$clean" <<'PY' 2>/dev/null || true
-import os,sys
-p=os.path.normpath(sys.argv[1])
-print("" if p.startswith("..") or os.path.isabs(p) else p)
-PY
-)"
+  clean="$(cd "$ROOT" 2>/dev/null && python3 -c "$PY_NORMPATH" "$clean" 2>/dev/null || true)"
   printf '%s' "$clean"
 }
 
