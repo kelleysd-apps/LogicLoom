@@ -42,19 +42,29 @@ Two rules, both required, and neither optional for a conforming collector:
 2. **Fenced code blocks are skipped**, everywhere, including inside `## Items`.
 
 Without these, the illustrative lines in this very section would be collected as
-real items. `LOOM-0042` through `LOOM-0046` below are **examples inside fences and
-are not minted ids** — they are free to be minted later as ordinary items.
+real items. Every illustrative id in this file uses the **reserved `ACME-`
+prefix**: `ACME-…` ids are **examples inside fences and are never minted**. The
+reservation is mechanical, not a convention — `lint-backlog.sh --next-id` emits
+the declared `id_prefix` from `.logic-loom/config/project.conf` (`LOOM`), so the
+counter cannot produce an `ACME-` id, and a real item written with one is an
+authoring finding (class `prefix-mismatch`). The shipped stub
+`.logic-loom/templates/project-backlog-template.md` uses the same prefix for the
+same reason — keep the two in step.
+
+Do **not** illustrate the grammar with an id from the project's own sequence. An
+example numbered in the live range says the id is free while the counter is free
+to mint it, and the file then contradicts itself the day it does.
 
 ### The line
 
 ```
-- [ ] LOOM-0042 — Short imperative title `status:open`
+- [ ] ACME-0042 — Short imperative title `status:open`
 ```
 
 With an optional dependency tag and an optional indented body:
 
 ```
-- [ ] LOOM-0043 — Wire the collector into CI `status:blocked` `blocked_on:LOOM-0042`
+- [ ] ACME-0043 — Wire the collector into CI `status:blocked` `blocked_on:ACME-0042`
       Free prose. Any length. Indented at least two spaces. Belongs to the
       item above until the next `- [` at column zero.
 ```
@@ -134,7 +144,7 @@ expressible in it.
   item, then never touch it.
 - **Allocated monotonically**: next id = (highest id ever present in this file) + 1.
   Ids are **never reused**, including after an item is deleted. If you delete a
-  done item, its id stays burned — leave a `<!-- burned: LOOM-0031 -->` comment
+  done item, its id stays burned — leave a `<!-- burned: ACME-0031 -->` comment
   or simply never reissue.
 - **Immutable once minted.** Editing a title, status, body, or file position does
   not change the id. This is the whole point: a content-hash id churns on every
@@ -189,13 +199,13 @@ never an ambiguity.
 
 | Kind | Form | Meaning |
 |---|---|---|
-| id reference | `LOOM-0002` | Blocked by **another item in this index**. Must resolve to a real id. |
+| id reference | `ACME-0002` | Blocked by **another item in this index**. Must resolve to a real id. |
 | external blocker | `external:<reason>` | Blocked by something **outside this index** — free text. |
 
 ```
-- [ ] LOOM-0044 — Depends on another item `status:blocked` `blocked_on:LOOM-0042`
-- [ ] LOOM-0045 — Depends on a person `status:blocked` `blocked_on:external:maintainer decision on the proposal`
-- [ ] LOOM-0046 — Both at once `status:blocked` `blocked_on:LOOM-0042,external:upstream release`
+- [ ] ACME-0044 — Depends on another item `status:blocked` `blocked_on:ACME-0042`
+- [ ] ACME-0045 — Depends on a person `status:blocked` `blocked_on:external:maintainer decision on the proposal`
+- [ ] ACME-0046 — Both at once `status:blocked` `blocked_on:ACME-0042,external:upstream release`
 ```
 
 The two kinds are distinguished by the literal prefix `external:` **and nothing
@@ -460,6 +470,18 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       stripped from a customer's clone and `/promote-prod` ships to customers.
       That asymmetry is the same one this item already names, now with a
       concrete capability riding on it.
+      **In scope of this item (2026-08-25 decision).** Three known defects in the
+      release path are folded into this consolidation rather than done as
+      separate work, and are filed so nothing is lost: **LOOM-0040** (pin the
+      dispatch to the ref under test), **LOOM-0041** (a release preflight that
+      asserts main's workflow copies carry the expected gates), and **LOOM-0042**
+      (GitHub Release publication owned end to end). None of them is blocked on
+      this item — they are scoped into it.
+      **The shape of the consolidated command.** `/promote-prod` is the single
+      production-release command, and it runs the whole cycle: preflight → bump →
+      verify stamps → dispatch **pinned to the tested ref** → watch → verify the
+      PR's checks actually **reported** → hand off for human merge → confirm the
+      draft Release.
       Related to LOOM-0006, which is the other half of the same naming problem
       (a customer-facing `/promote <env>` colliding with the stripped release
       driver); resolving this one may resolve or reshape that one.
@@ -529,6 +551,75 @@ wiring is tracked as LOOM-0017 in `todos.md`.
       Related: LOOM-0035 (consolidating the promote commands) will rewrite this
       procedure anyway — sequence accordingly.
 
+- [ ] LOOM-0040 — Pin the release dispatch to the ref under test (`gh workflow run --ref dev-main`) `status:open`
+      **Scoped into LOOM-0035** — the consolidated `/promote-prod` is the vehicle;
+      this is not separate work and is not blocked on anything. Filed on
+      2026-08-25 so the fix is not lost inside the larger consolidation.
+      `promote-to-main.yml` is `workflow_dispatch`. Dispatching it without
+      `--ref` makes GitHub run the copy of the workflow that lives on the
+      **default branch** (`main`) — not the branch being promoted. Confirmed
+      during the v6.5.0 release: `gh run view 32899320230` reported
+      `headBranch: main`, `headSha: 3d17c399`, i.e. main's **v6.4.1** copy.
+      Two verified consequences, both from that run:
+      - The version-binding gate added in v6.5.0 **never ran**:
+        `bump-version.sh --check` occurs **0×** in the copy that executed and
+        **2×** on `main` now. The stamps were right only because the maintainer
+        bumped by hand.
+      - Main's older copy still had a `Publish via PR to main` step opening the
+        PR under `GITHUB_TOKEN`. A `GITHUB_TOKEN`-authored PR emits no
+        `pull_request` event, so no checks fire — which is why three PRs arrived
+        with **zero checks** and each needed a close/reopen under a user token.
+      The fix is one flag: `gh workflow run … --ref dev-main`.
+      `gh workflow run --help` documents `-r, --ref`, and `promote-to-main.yml`
+      exists on `dev-main` (verified). Historical note so nobody "fixes" it the
+      wrong way: the workflow file must **also** remain on the default branch —
+      that is what makes it dispatchable at all.
+      Relationship to LOOM-0037: that item records the general property (a change
+      to `promote-to-main.yml` takes effect one release late) and leaves the
+      remedy open. This item is the concrete remedy for the **dispatch** half of
+      it; LOOM-0041 covers the half pinning cannot reach.
+
+- [ ] LOOM-0041 — Add a release preflight that asserts main's workflow copies carry the expected gates `status:open`
+      **Scoped into LOOM-0035** — the consolidated `/promote-prod` owns this
+      preflight. Decided, not blocked; filed 2026-08-25 so it is not lost.
+      Pinning the dispatch ref (LOOM-0040) fixes `promote-to-main.yml`. It does
+      **not** fix `release-tag.yml`, which is `push:`-triggered: GitHub runs the
+      workflow file **at the pushed commit**, so a change to it lands *with* a
+      release rather than before it, and therefore first takes effect one release
+      later. There is no ref to pin. The only remedy is to make it **visible**.
+      What to build: before dispatching, assert that the copy of each release
+      workflow that will actually run contains the steps this release expects —
+      e.g. `bump-version.sh --check` and the draft-Release step — and **fail
+      loudly, naming what is missing**.
+      Why it matters, with evidence: without such an assertion a gate can be
+      inert and nothing says so. That is exactly what happened in v6.5.0 —
+      `bump-version.sh --check` occurred **0×** in the executed copy
+      (`main@3d17c399`) versus **2×** on `main` now, and the run reported
+      `headBranch: main` (`gh run view 32899320230`). Nothing went red.
+      Relationship to LOOM-0037: this is remedy option 2 in that item ("assert
+      before dispatching"), generalised to every release workflow rather than
+      just `promote-to-main.yml`.
+
+- [ ] LOOM-0042 — Make GitHub Release publication belong to the consolidated production-release command `status:open`
+      **Scoped into LOOM-0035** — decided, not an open question, and not blocked.
+      Filed 2026-08-25 to keep the capability explicit rather than buried.
+      Shipped in v6.5.0 (`5c8b25f`): `release-tag.yml` now creates a **draft**
+      GitHub Release from the matching CHANGELOG section, and `/promote` verifies
+      it exists. `/promote-prod` today can only *verify* — it cannot drive
+      publication, because `/promote` is stripped from a customer's clone while
+      `/promote-prod` ships, and there is no route between them until LOOM-0035
+      lands. The consolidated command must own this **end to end**.
+      Evidence for why it matters: **no GitHub Release was published between
+      v6.2.0 and v6.5.0** — five versions with tags and no Release entry —
+      because `release-tag.yml` created only the tag and nothing enforced the
+      rest. v6.3.0–v6.4.1 are deliberately left unpublished: writing release
+      notes months after the fact is reconstruction presented as a record.
+      Constraints carried over from LOOM-0035 and not up for renegotiation: the
+      mechanism stays in the **workflow** (a step that runs only when someone
+      invokes the right command is how this drifted for five releases), the
+      Release is created as a **draft** and **published by a human**, and
+      creation is **idempotent**.
+
 - [x] LOOM-0012 — Reconcile or remove the `loom-orchestrator` manifest inventory counts `status:done`
       The manifest declares `commands.count: 8` / `skills.count: 10`; disk has
       **9 and 11** (the `graph` command and skill). Harmless today, but it proves
@@ -582,7 +673,7 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
 
 - [ ] LOOM-0020 — Consider an append-only tombstone registry for burned ids `status:open`
       The grammar says ids are never reused, including after deletion, and
-      suggests a `<!-- burned: LOOM-0031 -->` comment. Nothing enforces that: once
+      suggests a `<!-- burned: ACME-0031 -->` comment. Nothing enforces that: once
       a done item is deleted, its id vanishes from the file and the "next id =
       highest present + 1" rule can hand it out again.
       Deferred because **no id has been deleted yet** — every minted id is still
