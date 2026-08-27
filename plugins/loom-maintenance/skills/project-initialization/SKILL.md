@@ -130,6 +130,91 @@ relax any of these.
 rewrite the approval policy and then act under it — and a human edit to it
 prompts once. Say so; it is the reassurance that makes the knob safe to use.
 
+### Step 1d: Memory Backend and the Distillation Routine
+
+Two questions, asked once, in this order.
+
+**Question 1 — "Where should durable cross-session memory be written?"**
+Write the answer to `.logic-loom/config/memory-backend.conf`, key `memory_backend`.
+
+| `memory_backend` | One line |
+|---|---|
+| `repo` | `.brain/memory/` — in-tree and versioned, so lessons travel with the code, survive a machine change, and are readable by any tool with filesystem access. Stripped at template release, so a cloner never inherits anyone's lessons. **Recommended, and the shipped default.** This project's own vault: self-contained, no link to anyone else's. |
+| `project` | `$HOME/.claude/projects/<slug>/memory/` — per machine, outside the repo, never committed, invisible to anything that is not Claude Code. Where `/retro` wrote historically. |
+
+The question exists because the destination used to be hardcoded, in prose,
+inside the `/retro` skill: a fine default and a bad contract, because nothing
+could point it anywhere else without editing the skill, and the store it fed
+was per-machine and invisible outside Claude Code. Now it is a setting with
+one resolver and one answer.
+
+The shipped `.logic-loom/config/memory-backend.conf` states
+`memory_backend = repo` EXPLICITLY, and resolution is a pure function of
+`(env, conf)` — the resolver never probes the filesystem to pick a default.
+Both of those are deliberate, and were the outcome of rejecting the obvious
+alternative: a default that looks for a pre-existing store and quietly holds
+there. That would resolve differently in a worktree than in the main checkout
+of the same project (the `project` slug is derived from the checkout path), and
+it would turn a reviewable one-line config diff into a filesystem side effect
+with no diff anywhere.
+
+Migration is therefore DETECTION, not resolution. When memory resolves to
+`repo` while `$HOME/.claude/projects/<slug>/memory/` still holds files from
+before this change, `check-brain-signals.sh` reports the count and both paths
+in the preflight advisory, every session, until the user moves them or sets
+`memory_backend = project`. It never blocks and never moves anyone's files.
+Answering this question is one of the two things that clears it.
+
+```bash
+# Idempotency (Principle IV): an explicit choice is already recorded.
+grep -m1 -E '^[[:space:]]*memory_backend[[:space:]]*=' .logic-loom/config/memory-backend.conf
+
+# Set the answer in place. Every comment in the file is its schema — preserve them.
+
+# Confirm. Read-only; never writes, never runs git; exits 0 even on a bad value.
+bash .logic-loom/scripts/bash/resolve-memory-backend.sh --explain
+```
+
+The resolver is fail-SAFE, not fail-closed: an unrecognised backend warns on
+stderr and falls back to the default (`repo`) rather than aborting the write. Losing a
+retrospective's lessons to a config typo is worse than writing them to the
+default store and saying so out loud.
+
+`memory-backend.conf` and `brain.conf` govern behaviour and are on the
+governance guard's protected-path list, added additively via
+`protected_paths` in `.logic-loom/config/governance.conf`. A subagent's write
+to either file is DENIED; a main-agent edit prompts for approval. Writing the
+user's answer into `memory-backend.conf` in this step will therefore prompt —
+that is correct and expected, not a case to route around.
+
+**Question 2 — "Run the distillation routine on a schedule, or invoke `/distill` by hand?"**
+This question does two things, and neither is scaffolding.
+
+- **By hand** (or declines entirely): scaffold NOTHING. `.brain/` keeps its
+  single `README.md`, no `raw/`, `wiki/`, `index/` or `memory/` directory is
+  created, `check-brain-record.sh` runs in CI and passes vacuously, and the
+  preflight advisory stays silent. A layer is created the first time there is
+  something to put in it — the same treatment `web/` and `artifacts/` already
+  get.
+- **Schedule**: **print** the contents of
+  `.logic-loom/templates/distill-schedule-prompt.md` and tell the user to
+  install it themselves via `/schedule` or their own cron. **Do not install
+  it.** `~/.claude/scheduled-tasks/` is the USER'S tree, and the harness ↔
+  user boundary in CLAUDE.md forbids the harness writing there —
+  `init-project.sh`'s existing footprint discipline (it creates `web/`,
+  removes maintainer CI, and touches nothing user-level) is the precedent.
+  ```bash
+  cat .logic-loom/templates/distill-schedule-prompt.md
+  ```
+
+The routine is opt-in at the point of value, not at the point of setup. A
+customer with no distillation habit adopts it the first time captures pile up
+and one line of advisory text mentions the command exists — not because
+initialization made them answer a question about a workflow they have not
+started yet. Honest limit: nothing in the repo can verify a schedule exists;
+the age of the newest `.brain/DISTILL-LOG.md` entry is the only evidence, and
+the advisory reports it honestly.
+
 ### Step 2: Customize Constitution
 
 File: `.logic-loom/memory/constitution.md`
@@ -243,6 +328,8 @@ Constitution: [old] → [new version]
 Principles customized: [count]
 Agents created: [count]
 Approval posture: [strict|balanced|minimal]  (refused lines: [none|list])
+Memory backend: [repo|project]
+Distillation: [by hand|schedule prompt printed]
 Files modified: [list]
 Validation: PASS/FAIL
 
@@ -270,3 +357,5 @@ Next Steps:
 - **MCP setup**: `plugins/loom-maintenance/skills/mcp-server-setup/SKILL.md`
 - **Constitution**: `.logic-loom/memory/constitution.md`
 - **Gate policy**: `.logic-loom/config/gate-policy.conf` — the ask/silent split, its floor, and the permission-mode keying
+- **Memory backend**: `.logic-loom/config/memory-backend.conf` — where `/retro` writes durable cross-session memory (`repo`/`project`)
+- **Brain config**: `.logic-loom/config/brain.conf` — the distillation routine's settings

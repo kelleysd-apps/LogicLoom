@@ -122,6 +122,45 @@ by editing one line in `gate-policy.conf`, and editing that file will itself
 prompt for approval (it is on the protected-file floor, so a subagent cannot
 rewrite the approval policy and then act under it).
 
+### Step 1.8: Memory Backend and the Distillation Routine
+
+Ask two questions, once, in order. Full detail lives in the
+`project-initialization` skill; this is the short version.
+
+1. **Where should durable cross-session memory be written?** Offer two named
+   backends — `repo` (`.brain/memory/`, in-tree and versioned, so lessons
+   travel with the code and survive a machine change; stripped at template
+   release, **recommended, and the shipped default**) and `project`
+   (`$HOME/.claude/projects/<slug>/memory/`, per machine, outside the repo,
+   never committed — where `/retro` wrote historically). Write the choice
+   to `.logic-loom/config/memory-backend.conf`, key `memory_backend`.
+   Idempotency (Principle IV): if `memory_backend` is already set
+   explicitly, skip — that key is exactly what this step writes. With no
+   explicit setting the resolver defaults to `repo`; it never probes the
+   filesystem to decide. A store left behind at
+   `$HOME/.claude/projects/<slug>/memory/` from before this change is
+   reported by the preflight advisory (`check-brain-signals.sh`) until the
+   user moves it or answers `project` — nothing moves anyone's files.
+   Confirm with the read-only resolver, which never writes:
+   ```bash
+   bash .logic-loom/scripts/bash/resolve-memory-backend.sh --explain
+   ```
+   `memory-backend.conf` and `brain.conf` are on the governance guard's
+   protected-path list — a subagent's write is DENIED and a main-agent edit
+   prompts for approval. Writing the answer here will prompt; expect that,
+   don't route around it.
+2. **Run distillation on a schedule, or by hand?** By hand (or declined):
+   scaffold nothing — `.brain/` keeps just its `README.md` until there is
+   something to put in it. Schedule: **print**
+   `.logic-loom/templates/distill-schedule-prompt.md` and tell the user to
+   install it themselves via `/schedule` or their own cron — **do not
+   install it**; `~/.claude/scheduled-tasks/` is the user's tree, and the
+   harness-user boundary forbids writing there.
+
+This is opt-in at the point of value, not the point of setup — do not turn it
+into a workflow decision the user has to make before they have anything to
+distill.
+
 ### Step 2: Customize Constitution
 Read PRD goals and constraints. Update `.logic-loom/memory/constitution.md` principles as needed.
 
@@ -209,5 +248,7 @@ Run `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Step 6: Report
 Show: VISION.md scaffolded/seeded (or skipped if author-filled), the approval
-posture chosen (and any refused lines), the maintainer-only CI workflows removed,
-customizations applied, agents created, MCP servers recommended, next steps.
+posture chosen (and any refused lines), the memory backend chosen and whether
+distillation is by hand or a schedule prompt was printed, the maintainer-only
+CI workflows removed, customizations applied, agents created, MCP servers
+recommended, next steps.

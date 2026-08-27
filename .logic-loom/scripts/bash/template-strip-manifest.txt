@@ -157,6 +157,45 @@ CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.
 #     — a different concern from shipping, and neither substitutes for the other.
 artifacts
 
+# --- Project brain: the CONVENTION ships (README + layer names + the
+#     frontmatter contract), the CONTENTS are ours end to end. Same class as
+#     .docs/reports and artifacts/ above.
+#
+#     WHY EACH LINE, since a missing one ships the file verbatim:
+#       .brain/raw    — captures: our research output, our review verdicts, our
+#                       forensics. Instance documents, never a customer's.
+#       .brain/wiki   — our distillations. A wiki page cites raw sources that
+#                       the line above removes, so shipping it would leave every
+#                       `sources:` entry dangling.
+#       .brain/index  — pointer entries naming OUR primaries at OUR paths.
+#       .brain/memory — only exists under `memory_backend = repo`, and then it
+#                       holds our retrospective lessons. Listed even though the
+#                       shipped default (`project`) never creates it: an entry
+#                       that matches nothing is free, and a customer inheriting
+#                       our lessons is not.
+#       DISTILL-LOG.md— our run record. Its promoted-form entries name wiki
+#                       pages stripped above; shipping it would hand a cloner a
+#                       log whose every claim fails check 4 of the integrity
+#                       gate on their first CI run.
+#
+#     The README is STUBBED rather than stripped, because check-brain-record.sh
+#     and the /distill skill both point at it as the contract, and those SHIP.
+#     A cloner gets `.brain/` holding exactly one file, and creates a layer the
+#     first time they have something to put in it — the same treatment `web/`
+#     and `artifacts/` get.
+#
+#     The gate itself (.logic-loom/scripts/bash/check-brain-record.sh) is NOT
+#     stripped and is deliberately VACUOUS on a `.brain/` holding only the
+#     README: it runs green in a cloner's CI from day one and starts covering
+#     THEIR record the first time they have one. A live gate, not a dead one.
+#     tests/contract/test_shipped_gates_vs_strip.sh is what keeps that true. ---
+.brain/raw
+.brain/wiki
+.brain/index
+.brain/memory
+.brain/DISTILL-LOG.md
+stub: .brain/README.md :: .logic-loom/templates/brain-readme-template.md
+
 # --- GENERATED project-graph index (derived, repo-specific) ---
 #     .logic-loom/graph/graph-bridge.jsonl is a DERIVED index of THIS repo's
 #     markdown corpus, produced by build-graph-bridge.sh (/graph build, /finalize).

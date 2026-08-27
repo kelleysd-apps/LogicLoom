@@ -41,8 +41,8 @@
         },
         {
           "op": "genericize",
-          "match": "> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later (now **11** skills total in this plugin — a `project-graph` skill backs `/graph`).",
-          "replacement": "> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, `cross-check`, and `project-graph` among them (11 skills total in this plugin).",
+          "match": "> **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later, and a `distillation-pass` skill (backs `/distill`, promotes `.brain/raw/` captures into `.brain/wiki/`) was added after that — a `project-graph` skill backs `/graph` (now **12** skills total in this plugin).",
+          "replacement": "> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, `cross-check`, `distillation-pass`, and `project-graph` among them (12 skills total in this plugin).",
           "note": "Strip 'were converted...in v5.0.0' / 'v6.0.0 added' / 'added later' evolution narrative; keep current skill inventory."
         },
         {

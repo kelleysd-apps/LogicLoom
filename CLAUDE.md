@@ -215,6 +215,7 @@ See `features/README.md` for the full convention.
 | **`/cross-check [target]`** | Governed cross-provider adversarial review (Codex/GPT default; Gemini pluggable). Non-Claude lineage tears apart a diff/plan/claims/file scope; advisory + read-only, never git. Canonical path for all cross-check reviews | loom-orchestrator |
 | **`/git-push`** | Commit + push + PR creation with explicit user approval at each gate | loom-git |
 | **`/retro <feature>`** | Sprint retrospective; writes action items to loom-memory | loom-orchestrator |
+| **`/distill`** | Promotes `.brain/raw/` captures into `.brain/wiki/` pages; appends one dated entry to `.brain/DISTILL-LOG.md` on every run, including a zero-op run. A prompt, not an engine — no runner, no scheduler shipped, never runs git | loom-orchestrator |
 
 ---
 
@@ -423,7 +424,7 @@ All framework capabilities are **discrete installable plugins** under
 | `loom-creation` | core tooling | `/create-prd`, `/create-skill`, `/create-agent`, `/create-plugin` |
 | `loom-git` | core tooling | `/git-push`, `/finalize` |
 | `loom-maintenance` | core tooling | `/update-framework`, `/initialize-project`, `/scaffold-environments`, `/promote-dev`, `/promote-staging`, `/promote-prod`, and the maintainer-only `/promote` (stripped at release) |
-| `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/cross-check`, `/plan-review`, `/review-team`, `/retro`, `/build-team`, `/fullstack-team` |
+| `loom-orchestrator` | swarm pack | `/swarm` (explore/implement/freeform), `/research`, `/cross-check`, `/plan-review`, `/review-team`, `/retro`, `/distill`, `/build-team`, `/fullstack-team` |
 | `sdd-specification` | SDD pack | `/specification` unified waterfall (keeps `sdd-` — it *is* the SDD workflow) |
 
 Domain expertise is no longer a plugin: the 7 domains (frontend/backend/database/
@@ -482,6 +483,10 @@ VISION.md                              # Foundational product north-star (living
     environments.conf                  # Environment + promotion-order DECLARATION. Ships FULLY
                                        # COMMENTED OUT — an active default would assert a topology
                                        # a cloner does not have. Declaration only; no deploy engine
+    memory-backend.conf                # LIVE — one key, memory_backend = repo | project.
+                                       # PROTECTED (declared via protected_paths in governance.conf)
+    brain.conf                         # Advisory thresholds for the .brain/ liveness/load signal.
+                                       # PROTECTED, same as memory-backend.conf above
     architecture.conf, framework-upstream.conf
   lib/                                 # Shared shell libs (policy.sh, logging.sh)
 
@@ -494,6 +499,15 @@ plugins/                               # See registry above
 
 features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
 specs/                                 # SDD pack: waterfall specs
+
+.brain/                                # Project knowledge layer: raw/ (immutable captures), wiki/
+                                       # (concepts/ + decisions/, cited sources), index/ (human
+                                       # pointers), memory/ (durable memory; the default backend),
+                                       # DISTILL-LOG.md. Ships holding only README.md; created on
+                                       # first use, same treatment as artifacts/ and web/. Stripped
+                                       # at template release except the README, which is stubbed.
+                                       # Contract: `.brain/README.md`. See "Project knowledge layer"
+                                       # below for the promotion path and the three-signal table
 
 artifacts/                             # Standalone deliverables: who/what/why/where —
                                        # vision, research, forensics, docs. NEVER a plan
@@ -527,6 +541,9 @@ See **Harness ↔ product boundary** under File Creation Rules.
 | `constitutional-check.sh` | 16-principle compliance validator |
 | `sync-plugin-commands.sh` | Plugin → `.claude/commands/` bridge |
 | `load-context.sh` | Modular context loading |
+| `resolve-memory-backend.sh` | Resolves `memory_backend` (`repo` default / `project`) to a path (`--path` / `--backend` / `--ensure` / `--explain`). A pure function of env + config — it never probes the filesystem to pick a default. Fail-SAFE: a bad value warns on stderr and falls back to `repo` rather than aborting a write. Runs no git; writes nothing unless `--ensure` |
+| `check-brain-signals.sh` | ADVISORY only — `.brain/` liveness + load, plus the stranded-legacy-memory migration notice. Never blocks, never writes, never runs git. Not a hook and not part of the governance floor |
+| `check-brain-record.sh` | CI, beside `check-generated-freshness.sh` — record-integrity gate for `.brain/`. FAIL-CLOSED but vacuously green on an absent or README-only `.brain/`. Reads frontmatter and file existence only, never a wiki page's body |
 
 Pre-commit compliance check:
 ```bash
@@ -625,6 +642,91 @@ User-facing version: `START_HERE.md` § *Where do my personal preferences go?*
 
 ---
 
+## Project Knowledge Layer (`.brain/`)
+
+Not part of the governance floor — no hook enforces this section; it is a
+documented convention plus one CI gate, listed here because it lives next to
+task/memory material, not because it is enforced the way the Governance
+section is.
+
+`.brain/` is where project knowledge accumulates: captures land in `raw/`
+(immutable, never deleted), `/distill` promotes them into cited `wiki/` pages
+(`concepts/` + `decisions/`), `index/` holds human-authored pointers, and
+`memory/` holds durable memory under the default backend. The boundary test for
+what belongs there: a file lives OUTSIDE `.brain/` when something RESOLVES its
+exact path (a hook parses it, a script reads it as data, a workflow pack
+requires it there); everything else — research output, review verdicts,
+reports, distilled concepts — belongs inside. Contract: `.brain/README.md`.
+
+`.brain/` **is this project's own vault** — same structure and the same
+raw/distilled discipline, scoped to one project and self-contained. It has no
+link to and no dependency on any external or personal vault; an outside store
+reads `.brain/`, never the other way round.
+
+Where memory itself is stored is a separate, related choice —
+`.logic-loom/config/memory-backend.conf` (`memory_backend = repo | project`),
+resolved by `resolve-memory-backend.sh`. **`repo` is the shipped default**:
+`.brain/memory/`, in-tree, versioned, stripped at release — lessons travel
+with the code, survive a machine change, and are readable by any tool with
+filesystem access. `project` is the previous default,
+`$HOME/.claude/projects/<slug>/memory/`: per-machine, outside the repo, never
+committed, invisible to anything that is not Claude Code. A third backend
+naming an external absolute path was **deleted**, not deprecated — it made a
+one-machine directory a product feature and inverted the direction of the
+relationship. `/retro` and both loom-memory search backends
+(`keyword-backend.sh`, `bm25-search.sh`) resolve the setting rather than
+assuming it, so retrieval follows the write target; the BM25 index directory
+is keyed to the resolved backend so a change cannot serve stale hits from the
+previous store.
+
+**The default changed, and nothing is stranded silently.** Resolution is a
+pure function of `(env, conf)` — the resolver never probes the filesystem to
+pick a default, because the `project` slug is derived from the checkout path
+and a probe would resolve differently in a worktree than in the main checkout
+of the same project. Instead, when memory resolves to `repo` while
+`$HOME/.claude/projects/<slug>/memory/` still holds files,
+`check-brain-signals.sh` reports the count and both paths in the preflight
+advisory until you move them or set `memory_backend = project`. Detection, by
+something a human reads; never a decision a script makes, and never a file the
+harness moves.
+
+Three signals watch the routine, deliberately at different strengths — only
+the first blocks anything, because a fail-closed gate must assert something
+the change in front of it caused:
+
+| Signal | Question | Mechanism | Strength |
+|---|---|---|---|
+| Record integrity | Does the routine's own record hold together? | `check-brain-record.sh` (CI) | FAIL-CLOSED |
+| Liveness | Did the pass run recently? | preflight advisory | never blocks |
+| Load | Is there a backlog? | preflight advisory | never blocks |
+
+The advisory thresholds (`load_max_unprocessed`, `load_max_age_days`,
+`liveness_max_age_days`, `advisory_enabled`) live in
+`.logic-loom/config/brain.conf` and are silent when there are no unprocessed
+captures and no run log — an unadopted routine makes no noise. The advisory
+reaches the model through the *existing* `UserPromptSubmit` preflight
+injection, riding the loom-memory search output `governance-preflight.sh`
+already injects as `additionalContext` — not by editing the hook itself, since
+`.claude/hooks/` sits on the governance protected-path list and the cheapest
+change to a governance surface is none. `check-brain-signals.sh` is **not** a
+hook and is not part of the governance floor.
+
+**Protected**: `memory-backend.conf` and `brain.conf` govern behaviour, so both
+are on `.logic-loom/config/governance.conf`'s `protected_paths` list. A
+subagent is DENIED writes to either; a main-agent edit prompts for approval.
+Expect the prompt when `/initialize-project` records your memory-backend
+answer — that is the guard working, not a fault to route around.
+
+**Capture is wired.** `/cross-check` writes its report to
+`.brain/raw/reviews/<id>-<slug>/` and `/research` writes its final report as a
+single self-contained capture at `.brain/raw/research/<id>-<slug>.md`, both
+carrying `status: unprocessed` frontmatter so the record gate and `/distill`
+can see them. `/research`'s working intermediates (vote JSONs, per-researcher
+drafts) stay in the gitignored `.docs/research/<id>-<slug>/` — the same rule
+`.gitignore` already states: **track only what a human opens**.
+
+---
+
 ## AI Model Selection (Principle XIV)
 
 Agents/commands select a tier via frontmatter keywords
@@ -710,6 +812,9 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 - `.logic-loom/config/gate-policy.conf` — **live**: which git/gh operations ask and which run silent, plus the five-operation floor that refuses to be silenced
 - `.logic-loom/config/project.conf` — project identity (slug / name / `id_prefix`); ships unstamped, validated by `validate-project-identity.sh`
 - `.logic-loom/config/environments.conf` — environment + promotion-order declaration; ships commented out, validated by `validate-environments.sh`
+- `.brain/README.md` — the `.brain/` project knowledge layer contract (raw/wiki/index/memory, the boundary test for what belongs there)
+- `.logic-loom/config/memory-backend.conf` — LIVE: `memory_backend = repo` (default) `| project`, resolved by `resolve-memory-backend.sh`. On `protected_paths` — see "Project Knowledge Layer" above
+- `.logic-loom/config/brain.conf` — advisory thresholds for the `.brain/` liveness/load/migration signals. Also on `protected_paths`
 - `.docs/policies/environment-promotion-policy.md` — the promotion methodology behind `/promote-dev` → `/promote-staging` → `/promote-prod`; every claim carries an evidence grade (VERIFIED / RECOMMENDED / UNSOLVED)
 - `.docs/policies/shell-idiom-policy.md` — two things, with different force: **seven shell idioms** for hooks/scripts, each traced to a real failure (style guide, deliberately unenforced), and the **bash 3.2 floor**, which *is* enforced by `tests/contract/test_bash32_floor.sh` and fails CI. The floor covers **harness-owned shell only** — `.logic-loom/`, `.claude/hooks/`, `tests/`, and the plugins declared in the **Plugin Registry** table below. A plugin you add under `plugins/` is not scanned unless you list it there; `.github/workflows/` is out of scope (all `runs-on: ubuntu-latest`, bash 5)
 - `plugins/MANIFEST-SCHEMA.md` — `.claude-plugin/plugin.json` schema (Principle XVI)

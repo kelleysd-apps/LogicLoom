@@ -38,7 +38,8 @@ Procedure.
 - `--focus <area>` (optional): bias the adversary (e.g. `security`,
   `concurrency`).
 - `--out <path>` (optional): override the default
-  `.docs/cross-check/...` artifact location.
+  `.brain/raw/reviews/...` capture location. A caller-supplied `--out` is not
+  a capture and needs no capture frontmatter.
 
 ### Step 3: Gate (fail-open)
 If the provider's key (`OPENAI_API_KEY` / `GEMINI_API_KEY`) is missing in `.env`

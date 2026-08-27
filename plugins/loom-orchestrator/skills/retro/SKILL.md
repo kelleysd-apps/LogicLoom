@@ -120,19 +120,55 @@ one line each; feature-specific trivia stays in `retro.md` only.
    didn't / action-items per the Task Brief rubric.
 7. **Write retro.md**: Write `features/<feature-name>/retro.md` using the
    schema below. Overwrite any previous retro at that path (idempotent).
-8. **Write memory entry**: Compute the memory directory:
-   `$HOME/.claude/projects/<project-slug>/memory/` where `<project-slug>` is
-   the CWD path with `/` replaced by `-` (the convention Claude Code uses —
-   e.g. a project at `/Users/<you>/<your-project>` becomes
-   `-Users-<you>-<your-project>`). Determine the slug
-   via Bash:
-   `slug=$(pwd | sed 's|/|-|g')` and target
-   `$HOME/.claude/projects/${slug}/memory/retro_<feature>_<YYYY-MM-DD>.md`.
-   If that exact path already exists (same feature, same day), skip the
-   write and announce the skip — do NOT append or rewrite. Otherwise, write
-   the action-items section (only the action-items, not the full retro) to
-   that path with a one-line header that names the feature and date so the
-   memory backend can index it.
+8. **Write memory entry**: **Resolve the memory directory — do NOT hardcode a
+   path.** Run:
+
+   ```bash
+   MEMDIR="$(bash .logic-loom/scripts/bash/resolve-memory-backend.sh --ensure)"
+   ```
+
+   That prints an absolute directory and creates it. The destination is the
+   project's choice, recorded in `.logic-loom/config/memory-backend.conf`:
+
+   | `memory_backend` | Resolves to |
+   |---|---|
+   | `repo` | `<repo>/.brain/memory/` — in-tree and versioned; travels with the code, survives a machine change, stripped at template release. **THE DEFAULT.** |
+   | `project` | `$HOME/.claude/projects/<slug>/memory/` — per-machine, outside the repo, never committed. `<slug>` is the repo path with `/` replaced by `-`, the convention Claude Code uses. |
+
+   The default is now `repo` (`.brain/memory/`), because a retrospective's
+   lessons are project knowledge: they should travel with the code, survive a
+   machine change, be reviewable in a diff, and be readable by any tool with
+   filesystem access. `.brain/memory/` is stripped at template release, so a
+   cloner never inherits anyone's lessons.
+
+   Resolution is a pure function of `(env, conf)` — with no explicit setting
+   it returns `repo`, always, and it never probes the filesystem to decide.
+   Nothing is stranded silently: when memory resolves to `repo` while the
+   previous location `$HOME/.claude/projects/<slug>/memory/` still holds
+   files, the preflight advisory (`check-brain-signals.sh`) reports the count
+   and both paths until the user moves them or sets `memory_backend =
+   project`. That is detection a human reads, not a decision this script makes.
+
+   Practical note for this step: the resolver writes only to stderr, and
+   `--ensure` prints the path on stdout, so the command substitution above is
+   never affected by a warning. Do not treat a stderr line as a failure — only
+   a non-zero exit is one.
+
+   **Why this stopped being a literal path.** It was hardcoded here, so
+   nothing could point it anywhere else without editing the skill, and the
+   store it fed was per-machine and invisible to anything that is not Claude
+   Code. The resolver is the single answer.
+
+   The resolver is fail-safe: a malformed config warns on stderr and falls back
+   to the default (`repo`) rather than aborting the write. If it exits non-zero (only
+   possible when `mkdir` itself fails), report the failure and skip the memory
+   write — still write `retro.md`, which is the durable artifact.
+
+   Target `${MEMDIR}/retro_<feature>_<YYYY-MM-DD>.md`. If that exact path
+   already exists (same feature, same day), skip the write and announce the
+   skip — do NOT append or rewrite. Otherwise, write the action-items section
+   (only the action-items, not the full retro) to that path with a one-line
+   header that names the feature and date so the memory backend can index it.
 9. **Promote domain Field Notes**: For each lesson that is domain-general
    (most are distilled from the harvested `## Fix recipes`), determine its
    domain (frontend / backend / database / testing / security / performance /
@@ -245,11 +281,15 @@ is safe. Memory entries are dated and named `retro_<feature>_<YYYY-MM-DD>.md`;
 a second invocation on the same day for the same feature detects the existing
 file and skips the memory write rather than duplicating it.
 
-**Memory write target:**
-`$HOME/.claude/projects/<slug>/memory/retro_<feature>_<YYYY-MM-DD>.md` where
-`<slug>` is derived via `pwd | sed 's|/|-|g'` (matches the convention used by
-`MEMORY.md`). The memory file contains only the action-items section plus a
-one-line header; the full retro stays in the feature directory.
+**Memory write target:** resolved, never hardcoded —
+`$(bash .logic-loom/scripts/bash/resolve-memory-backend.sh --ensure)/retro_<feature>_<YYYY-MM-DD>.md`.
+Under the shipped default (`memory_backend = repo`) that is
+`<repo>/.brain/memory/`, in-tree and stripped at template release. See
+`.logic-loom/config/memory-backend.conf` for the `repo` / `project` choice
+and its rationale. Inspect the resolution with
+`resolve-memory-backend.sh --explain`. The memory file contains only the
+action-items section plus a one-line header; the full retro stays in the feature
+directory.
 
 **Domain Field Notes target:** `plugins/loom-governance/domain-briefs/<domain>.md`,
 appended under the trailing `## Field Notes` section (created after `## Task

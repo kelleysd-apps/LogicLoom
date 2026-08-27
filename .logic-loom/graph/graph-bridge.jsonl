@@ -17,6 +17,7 @@
 {"type":"entity","name":".docs/architecture/orchestrator-worker-ladder.md","entityType":"note","observations":["Orchestrator + Worker Ladder"]}
 {"type":"entity","name":".docs/archive/feature-003/implementation-plan.md","entityType":"note","observations":["Feature 003: Upstream Sync Implementation Plan"]}
 {"type":"entity","name":".docs/archive/feature-003/upstream-sync-report.md","entityType":"note","observations":["Feature 003: Upstream Sync Report"]}
+{"type":"entity","name":".docs/design/brain-spec.md","entityType":"note","observations":["`.brain/` — design specification"]}
 {"type":"entity","name":".docs/design/marketplace-mcp-middleware.md","entityType":"note","observations":["Plugin Marketplace — MCP Middleware Design"]}
 {"type":"entity","name":".docs/governance/browser-automation-examples.md","entityType":"note","observations":["Browser Automation Examples"]}
 {"type":"entity","name":".docs/governance/browser-mcp-setup.md","entityType":"note","observations":["Browser MCP Integration Setup Guide"]}
@@ -81,6 +82,7 @@
 {"type":"entity","name":"plugins/loom-orchestrator/commands/graph.md","entityType":"code-path","observations":["graph.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/commands/research.md","entityType":"code-path","observations":["research.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
+{"type":"entity","name":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/project-graph/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/retro/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -103,6 +105,7 @@
 {"type":"entity","name":"tests/contract/test_spec006_integration.sh","entityType":"code-path","observations":["test_spec006_integration.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
 {"type":"entity","name":"wikilink.md","entityType":"note","observations":["wikilink"]}
+{"type":"entity","name":"wikilinks.md","entityType":"note","observations":["wikilinks"]}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/evaluator-protocol.md","to":"plugins/loom-orchestrator/skills/team-orchestration/SKILL.md","relationType":"mentions"}
@@ -112,6 +115,10 @@
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"plugins/loom-orchestrator/commands/research.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"tests/contract/test_model_agnostic.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/orchestration-hook-enforcement.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
+{"type":"relation","from":".docs/design/brain-spec.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
+{"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":".docs/design/brain-spec.md","to":"wikilinks.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".docs/guides/unified-specification-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}

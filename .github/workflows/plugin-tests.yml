@@ -140,6 +140,15 @@ jobs:
       - name: Run bash 3.2 Floor Tests
         run: bash tests/contract/test_bash32_floor.sh
 
+      # The `.brain/` layer: memory-backend resolution, the fail-closed record
+      # gate, and the advisory's SILENCE rules. Every one of the gate's five
+      # checks is exercised BOTH ways here — passing on a good tree and actually
+      # failing on a planted violation — because a gate nobody has seen fail is
+      # a gate nobody knows works. It also pins that the gate exits 0 on a tree
+      # with no `.brain/` at all, which is what a cloner who never opts in has.
+      - name: Run Brain Record Tests
+        run: bash tests/contract/test_brain_record.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only
@@ -156,6 +165,23 @@ jobs:
       #   ./.logic-loom/scripts/bash/check-generated-freshness.sh
       - name: Check Generated Artifact Freshness
         run: bash .logic-loom/scripts/bash/check-generated-freshness.sh
+
+      # FAIL-CLOSED record-integrity gate for `.brain/`. Every /distill write is
+      # a CLAIM about another file — a capture says it was promoted into a wiki
+      # page, the run log says a page was written — and a claim nothing verifies
+      # is the exact defect class this repo spent a release cycle removing.
+      #
+      # It is HERE, next to the freshness gate, because CLAUDE.md and the design
+      # record both said it ran in CI and it did not: the suite that TESTS it was
+      # wired, the gate itself was not. A doc claim nothing backs is the same
+      # defect one level up.
+      #
+      # It is VACUOUS and green on an absent or README-only `.brain/`, which is
+      # what a cloner who never opts in has, so this never reddens a first push.
+      #   Run it locally with
+      #     bash .logic-loom/scripts/bash/check-brain-record.sh
+      - name: Check Brain Record Integrity
+        run: bash .logic-loom/scripts/bash/check-brain-record.sh
 
       - name: Run Git Safety Tests
         run: bash .logic-loom/tests/test-git-safety.sh

@@ -129,11 +129,16 @@ If a required key is missing for a selected judge, stop and tell the user. Refer
 
 ### Step 0d: Initialize Research Directory
 
+Working intermediates and the durable final report live in two different
+places from here on — the split matters and is not incidental:
+
 ```bash
 RESEARCH_ID=$(date +%Y%m%d-%H%M%S)
 TOPIC_SLUG=$(echo "$TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | cut -c1-40)
 RESEARCH_DIR=".docs/research/${RESEARCH_ID}-${TOPIC_SLUG}"
+CAPTURE_PATH=".brain/raw/research/${RESEARCH_ID}-${TOPIC_SLUG}.md"
 mkdir -p "$RESEARCH_DIR"
+mkdir -p ".brain/raw/research"
 
 # Persist the classification decision for reproducibility
 cat > "$RESEARCH_DIR/jury.json" <<EOF
@@ -145,6 +150,12 @@ cat > "$RESEARCH_DIR/jury.json" <<EOF
 }
 EOF
 ```
+
+`$RESEARCH_DIR` stays gitignored and holds every working intermediate:
+`jury.json`, `researcher-*.md`, `claims.json`, `tribunal-votes-*.json`,
+`confidence-table.md`, `supplementary-research.md`. `$CAPTURE_PATH` is the
+one file this run commits — written in Phase 5 (Step 11) as a
+self-contained capture, not a pointer into the gitignored directory.
 
 ---
 
@@ -420,8 +431,17 @@ Use the Task tool:
     confidence-table.md, tribunal-votes-*.json, jury.json,
     supplementary-research.md if present).
 
-    Produce $RESEARCH_DIR/final-report.md with:
+    Produce $RESEARCH_DIR/final-report.md (working copy — optional, kept if
+    convenient) AND $CAPTURE_PATH (the durable capture — required) with:
 
+    0. Capture frontmatter, first line `---`, before any other content:
+       ---
+       type: capture
+       title: "<topic>"
+       date: <YYYY-MM-DD>
+       source: "/research \"<topic>\" — jury: <comma-separated judges>"
+       status: unprocessed
+       ---
     1. Executive Summary
        - Topic, classified category, judge panel composition, claim totals,
          confidence distribution.
@@ -439,14 +459,28 @@ Use the Task tool:
     7. Methodology
        - Jury-on-demand classifier + selected panel + simple-majority voting.
        - Re-research summary if triggered.
-    8. Source References
-    9. Actionable Next Steps (prioritized by status)
+    8. Confidence table
+       - Inline the contents of confidence-table.md. The capture must be
+         self-contained: the JSON that would otherwise back this table
+         (tribunal-votes-*.json) is not on any committed line, so the table
+         itself has to carry the evidence.
+    9. Source References
+    10. Actionable Next Steps (prioritized by status)
+    11. ## Provenance
+       - Name $RESEARCH_DIR as the working directory this report was
+         synthesized from, and state plainly that it is gitignored and
+         per-machine — anyone who needs the raw votes or per-researcher
+         drafts has to have run the command locally.
+
+    The capture at $CAPTURE_PATH is the durable output of this command. Treat
+    final-report.md, if you also write it, as a convenience copy only.
 ```
 
 ### Step 12: Report to User
 
 Report:
-- Research directory path
+- Capture path (`.brain/raw/research/...` — the durable output)
+- Working directory path (`.docs/research/...` — gitignored, per-machine)
 - Query category + judge panel used (from `jury.json`)
 - Researchers that ran (may be fewer than the panel if a key was missing)
 - Total claims voted on
@@ -464,7 +498,7 @@ Report:
 | `/research "<topic>"` | Classifier picks 1-3 judges based on category |
 | `/research "<topic>" --judges all` | Forces full 3-judge panel (Claude + OpenAI + Gemini) — original behavior |
 
-Existing callers that rely on the 3-judge panel can add `--judges all` to preserve the legacy aggregation. The output schema (claims.json, tribunal-votes-*.json, confidence-table.md, final-report.md) is unchanged; only the **number** of `tribunal-votes-*.json` files varies with the panel size, and `confidence-table.md` reports panel composition explicitly.
+Existing callers that rely on the 3-judge panel can add `--judges all` to preserve the legacy aggregation. The working-intermediate schema (claims.json, tribunal-votes-*.json, confidence-table.md) is unchanged; only the **number** of `tribunal-votes-*.json` files varies with the panel size, and `confidence-table.md` reports panel composition explicitly. The final report's *location* changed (durable capture at `.brain/raw/research/...` alongside an optional working copy at `final-report.md`) — its content requirements (see Step 11) are a superset of the prior single-file version, since the capture must be self-contained.
 
 ---
 
@@ -513,6 +547,8 @@ Run `/initialize-project` to configure missing keys.
 
 ## Output Files
 
+Working intermediates (gitignored, per-machine — unchanged):
+
 ```
 .docs/research/YYYYMMDD-HHMMSS-topic/
   jury.json                           # Classifier decision (category + judge panel)
@@ -525,7 +561,16 @@ Run `/initialize-project` to configure missing keys.
   tribunal-votes-3-gemini.json        # Gemini votes (only if gemini in panel)
   confidence-table.md                 # Simple-majority status per claim
   supplementary-research.md           # Re-research (if triggered)
-  final-report.md                     # Final report
+  final-report.md                     # Working copy of the final report (optional)
+```
+
+Durable output (tracked — the deliverable of this command):
+
+```
+.brain/raw/research/YYYYMMDD-HHMMSS-topic.md   # self-contained capture:
+                                                # report + confidence table +
+                                                # panel composition + Provenance,
+                                                # capture frontmatter, status: unprocessed
 ```
 
 ---
@@ -533,5 +578,20 @@ Run `/initialize-project` to configure missing keys.
 ## Constitutional Compliance
 
 - **Principle X (Agent Delegation)**: All research and voting work is dispatched via the Task tool to general-purpose subagents; this command coordinates only.
-- **Principle VI (Git Approval)**: This command writes only to `.docs/research/...` and never invokes git.
+- **Principle VI (Git Approval)**: This command writes to `.docs/research/...` (working intermediates) and to `.brain/raw/research/...` (the final-report capture), and never invokes git.
 - **Principle VII (Observability)**: `jury.json` records the classification decision and panel composition for every run, enabling post-hoc audit of the jury-on-demand heuristic.
+
+## The cost of the split
+
+`.docs/research/` is gitignored, so no research output has ever been
+committed by this command. The capture at `.brain/raw/research/` changes
+that: it is tracked. The size is small and the cadence is low — one markdown
+report per run, on the order of tens of KB (comparable tracked reports in
+`.docs/reports/` run about 25 KB each), and `/research` is an on-demand
+command invoked a handful of times a quarter, not per-commit or per-PR. That
+puts the tracked cost well under a megabyte a year. The vote JSONs and
+per-researcher drafts stay untracked deliberately, following the rule
+already stated in this repo's `.gitignore`: **track only what a human
+opens.** `.brain/raw` is also a wholesale entry in
+`.logic-loom/scripts/bash/template-strip-manifest.txt`, so none of this —
+capture included — reaches the published template.

@@ -26,6 +26,7 @@
   "skills": {
     "list": [
       "cross-check",
+      "distillation-pass",
       "full-stack-feature",
       "migration-workflow",
       "multi-skill-workflow",
@@ -42,6 +43,7 @@
     "list": [
       "build-team",
       "cross-check",
+      "distill",
       "fullstack-team",
       "graph",
       "plan-review",
