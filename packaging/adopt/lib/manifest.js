@@ -74,23 +74,47 @@ function load(file) {
 // Glob semantics deliberately match the manifest's stated model: "globs match
 // against `git ls-files` output". Only `*` (no `/`) and a trailing `/` are used
 // in the file today; anything else is treated literally rather than guessed at.
-function globToRegExp(glob) {
+// `recursive` (the default) also matches everything beneath the glob, which is
+// what "a directory entry is recursive" means in the manifest header. Passing
+// false gives the EXACT-ENTRY form, which isExcluded needs to tell
+// `features/README.md` (the glob-matched entry itself) from `features/wip/x.md`
+// (something beneath it). Built here rather than by rewriting a compiled
+// regex's `.source`, which quietly failed on the escaped `\/`.
+function globToRegExp(glob, recursive) {
   let out = '^';
   for (const ch of glob) {
     if (ch === '*') out += '[^/]*';
     else if ('\\^$.|?+()[]{}'.indexOf(ch) !== -1) out += '\\' + ch;
     else out += ch;
   }
-  // A directory entry is recursive (manifest header, `include:`).
-  out += '(/.*)?$';
+  out += recursive === false ? '$' : '(/.*)?$';
   return new RegExp(out);
 }
 
 // Does an exclude entry cover this repo-relative path?
-function isExcluded(parsed, relPath) {
+//
+// THE TRAILING SLASH IS SEMANTIC, and dropping it is a real bug rather than a
+// tidy-up. The manifest carries `exclude: features/*/` beside
+// `include: features/README.md`. Stripping the slash turns that pattern into
+// `features/*`, which matches `features/README.md` — so the per-feature content
+// exclusion silently swallows the two files the manifest goes out of its way to
+// ship, and `features/README.md` is cited by name from CLAUDE.md's See Also list.
+//
+// So a pattern ending in `/` matches DIRECTORIES and their contents only. That
+// needs a fact a path string does not carry, hence `isDir`. A caller that cannot
+// say passes `undefined`, and the pattern then matches only paths strictly
+// BENEATH the glob — never the glob-matched entry itself. Failing toward "not
+// excluded" is the right direction here: an exclude that fires by accident drops
+// a file the manifest promised to ship, silently.
+function isExcluded(parsed, relPath, isDir) {
   for (const e of parsed.excludes) {
-    const pat = e.path.replace(/\/$/, '');
-    if (globToRegExp(pat).test(relPath)) return e;
+    const dirOnly = /\/$/.test(e.path);
+    const pat = e.path.replace(/\/+$/, '');
+    if (!globToRegExp(pat).test(relPath)) continue;
+    if (!dirOnly) return e;
+    // Exactly the glob-matched entry: excluded only if we know it is a directory.
+    if (globToRegExp(pat, false).test(relPath)) { if (isDir === true) return e; continue; }
+    return e; // strictly beneath it
   }
   return null;
 }

@@ -34,9 +34,13 @@
 // `doctor` without forcing a second package; the usage text says so plainly
 // rather than implying a suite that does not exist.
 //
-// WHAT `init` DOES TODAY: the read-only half — detect, classify, plan. The
-// applier is NOT built. `init` therefore produces a plan and says so; it has no
-// write path at all, in any flag combination.
+// WHAT `init` DOES: it PLANS, always. Without `--apply` it writes nothing, in
+// any flag combination. With `--apply` it re-plans at write time and installs
+// only the targets named by a MANDATORY `--only=`.
+//
+// The write path is /scaffold-environments' shape, deliberately: plan first and
+// always, `--only=` mandatory with the write flag, no `--force`, a second run is
+// a no-op that says so. See lib/apply.js for the eight refusals it enforces.
 
 const fs = require('node:fs');
 const path = require('node:path');
@@ -49,8 +53,8 @@ try { PKG = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf
 // Advertised subcommands. `adopt` is handled below but deliberately absent here.
 const SUBCOMMANDS = {
   init: {
-    summary: 'Set LogicLoom up in this existing repository.',
-    detail: 'Read-only today: it detects, classifies and prints a plan. It writes nothing.'
+    summary: 'Set LogicLoom up in this repository (new or existing).',
+    detail: 'Plans by default and writes nothing. `--apply --only=<targets>` installs what you name.'
   }
 };
 
@@ -75,35 +79,64 @@ function usage() {
   L.push('');
   L.push('OPTIONS for `init`');
   L.push('  [dir]                Repository to work on (default: current directory)');
-  L.push('  --dry-run            Report what would be done and write nothing. This is the');
-  L.push('                       default and, today, the only behaviour: no applier exists.');
-  L.push('  --payload <dir>      Harness tree that would be installed');
+  L.push('  --dry-run            Report what would be done and write nothing. THIS IS THE');
+  L.push('                       DEFAULT — a plan happens on every invocation.');
+  L.push('  --apply              Write. Requires --only. Re-plans at write time and applies');
+  L.push('                       from that, never from a plan file.');
+  L.push('  --only=<a,b>         MANDATORY with --apply. What to install. There is no');
+  L.push('                       "apply everything by omission".');
+  L.push('  --plan <file>        A plan JSON you reviewed. Not an instruction set: the fresh');
+  L.push('                       plan is compared against it and any divergence REFUSES.');
+  L.push('  --payload <dir>      Harness tree to install');
   L.push('                       (default: the packaged payload/, else a dev checkout)');
   L.push('  --manifest <file>    Payload manifest (default: <pkg>/payload-manifest.txt)');
   L.push('  --json               Emit the plan as JSON on stdout instead of a report');
   L.push('  -h, --help           This text');
   L.push('');
+  L.push('--only TARGETS');
+  const applyLib = require('../lib/apply');
+  for (const t of applyLib.ALL_TARGETS) {
+    L.push(`  ${t.padEnd(20)} ${applyLib.TARGETS[t].summary}`);
+  }
+  L.push(`  ${'all'.padEnd(20)} = ${applyLib.IN_ALL.join(' + ')}.  \`hooks\` is NOT in \`all\` and must be`);
+  L.push('                       named: it changes what YOUR sessions may do in this repo,');
+  L.push('                       and nothing installs a governance floor as a side effect.');
+  L.push('');
+  L.push('  There is NO --force. If a file already exists, it stays. Move it aside');
+  L.push('  yourself if you want ours. Nothing is ever deleted, truncated or moved.');
+  L.push('');
   L.push('EXIT CODES');
-  L.push('  0  a plan was produced and an apply would be clear to proceed');
-  L.push('  1  a plan was produced but an apply is BLOCKED (see the blocking list)');
+  L.push('  0  plan produced and an apply would be clear / the apply succeeded or was a no-op');
+  L.push('  1  an apply is BLOCKED, refused, or the reviewed plan is stale');
   L.push('  2  usage error, or no subcommand given');
   L.push('  3  the plan could not be produced (unreadable manifest, git unavailable)');
+  L.push('  4  PARTIAL apply — some targets landed and some did not; the report says which');
   L.push('');
-  L.push('This command never writes to the target repository and never runs mutating git.');
+  L.push('This command never runs mutating git, and without --apply it writes nothing.');
   return L.join('\n');
 }
 
 function parseInitArgs(argv) {
-  const opts = { target: null, payload: null, manifest: null, json: false, help: false, dryRun: true };
+  const opts = { target: null, payload: null, manifest: null, json: false, help: false,
+                 dryRun: true, apply: false, only: null, planFile: null };
   const needsValue = (name, v) => (v === undefined ? { error: `option '${name}' requires a value` } : null);
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     let err = null;
     if (a === '--json') opts.json = true;
-    // `--dry-run` is the standard name. `--plan` is accepted because it is the
-    // word the design docs use; both are no-ops while no write path exists.
-    else if (a === '--dry-run' || a === '--plan') opts.dryRun = true;
+    else if (a === '--dry-run') opts.dryRun = true;
+    else if (a === '--apply') { opts.apply = true; opts.dryRun = false; }
+    else if (a === '--only') { opts.only = argv[++i]; err = needsValue(a, opts.only); }
+    else if (a.indexOf('--only=') === 0) opts.only = a.slice(7);
+    else if (a === '--plan') { opts.planFile = argv[++i]; err = needsValue(a, opts.planFile); }
+    else if (a.indexOf('--plan=') === 0) opts.planFile = a.slice(7);
+    // There is deliberately no --force. Naming it here so the refusal is a
+    // message rather than "unknown option".
+    else if (a === '--force' || a === '-f' || a.indexOf('--force=') === 0) {
+      return { error: 'there is no --force, and there will not be. If a file already exists it stays; ' +
+                      'move it aside yourself. No blocking precondition is overridable.' };
+    }
     else if (a === '-h' || a === '--help') opts.help = true;
     else if (a === '--target' || a === '--root') { opts.target = argv[++i]; err = needsValue(a, opts.target); }
     else if (a.indexOf('--target=') === 0) opts.target = a.slice(9);
@@ -138,6 +171,39 @@ function cmdInit(argv) {
 
   const planLib = require('../lib/plan');
   const renderLib = require('../lib/render');
+  const applyLib = require('../lib/apply');
+
+  // ── THE WRITE PATH ────────────────────────────────────────────────────────
+  // Reached only by an explicit `--apply`, and only with an explicit `--only=`.
+  // `--only` without `--apply` is a usage error rather than a silent no-op: it
+  // is what someone types when they believe they are installing.
+  if (opts.only !== null && !opts.apply) {
+    process.stderr.write('ERROR: --only has no meaning without --apply. Nothing was done.\n' +
+                         'Run without both to see the plan, then add --apply --only=<targets>.\n');
+    return 2;
+  }
+  if (opts.apply) {
+    const only = applyLib.parseOnly(opts.only);
+    if (only.error) { process.stderr.write('ERROR: ' + only.error + '\n'); return 2; }
+    let res;
+    try {
+      res = applyLib.apply({
+        pkgRoot: PKG_ROOT,
+        pkgName: PKG.name,
+        pkgVersion: PKG.version,
+        target: targetAbs,
+        payload: opts.payload,
+        manifest: opts.manifest,
+        planFile: opts.planFile,
+        only: only.targets
+      });
+    } catch (e) {
+      process.stderr.write('ERROR: the apply aborted before writing anything: ' + (e && e.message) + '\n');
+      return 3;
+    }
+    process.stdout.write(res.report + '\n');
+    return res.exitCode;
+  }
 
   let plan;
   try {

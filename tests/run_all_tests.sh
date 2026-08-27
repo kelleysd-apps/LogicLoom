@@ -169,6 +169,7 @@ run_suite "Init Project README" "bash tests/contract/test_init_project_readme.sh
 run_suite "Adopt Payload Manifest" "bash tests/contract/test_adopt_payload_manifest.sh"
 run_suite "Adopt Planner" "bash tests/contract/test_adopt_planner.sh"
 run_suite "Adopt Merges" "bash tests/contract/test_adopt_merges.sh"
+run_suite "Adopt Applier" "bash tests/contract/test_adopt_applier.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

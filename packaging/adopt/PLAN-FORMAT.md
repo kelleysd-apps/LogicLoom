@@ -1,8 +1,31 @@
 # `logicloom/adopt-plan@1` — the plan format
 
-**Status:** the contract between the read-only half (built) and the applier
-(**not built**). This file exists so the applier can be written against a
-specification rather than against a guess about what the planner meant.
+**Status:** the contract between the read-only half and the applier. Both are
+now built — `lib/plan.js` emits this, `lib/apply.js` consumes it. This file was
+written first so the applier could be built against a specification rather than
+against a guess about what the planner meant, and it stays normative: a change
+here is a change to both halves.
+
+**What the applier adds on top of this contract**, stated here because it is the
+part a reader of the plan format will ask about:
+
+* It **re-plans at write time**. A plan file is a review artifact, not an
+  instruction set. `--apply` rebuilds the plan against the tree as it is and
+  applies from that; `--plan <file>` is an *assertion* about what was reviewed,
+  and a material divergence (mode, `applyReady`, the blocking set, the additive
+  unit ids) refuses with the difference named.
+* Units are grouped into three **targets a user types** — `harness` (path),
+  `gitignore` (line), `hooks` (json-key). `--only=` is mandatory with `--apply`;
+  `--only=all` expands to `harness+gitignore` and **never** to `hooks`, because a
+  governance floor must not install as a side effect of the word "all".
+* The manifest's `exclude:` rows are applied **during the copy**. Nothing in the
+  plan consults them — a `path` unit is `include: .logic-loom`, and the carve-outs
+  beneath it (`.logic-loom/tests`, `update-agent-context.sh`) only exist in the
+  manifest.
+* On partial failure it **reports and stops**; there is no rollback, because a
+  rollback is a delete path and this tool refuses to have one.
+* Everything written is listed in `.logicloom-adopt-receipt.json` at the target
+  root — the marker manifest named below. Uninstall is a list the human runs.
 
 `logicloom init --json` emits exactly this shape on stdout. Nothing else is
 written, anywhere, ever — see *The one invariant* below.
@@ -123,6 +146,17 @@ NOT offer a flag that overrides it. Every blocking item is a condition under
 which a write can destroy work that has no other copy. There is no `--force`,
 because there is no case where forcing is the right answer to "your untracked
 work is in the way".
+
+**The one discount, stated because it is a deviation and must not be silent.**
+`ALREADY-ADOPTED` and `PARTIAL-ADOPTION` are the only two blocking codes the
+applier can itself CAUSE: after a successful `--only=harness`, a later
+`--only=hooks` would be blocked by the harness the first run wrote — the second
+half of an install refused because the first half worked. `lib/apply.js`
+discounts exactly those two codes, and only when `.logicloom-adopt-receipt.json`
+at the target root records a prior run of this package. It is printed every time
+it happens. It is **not** a flag, not user-settable, and it reaches nothing else;
+if a receipt were forged, the consequence is nil, because in an already-adopted
+repository every unit classifies `keep-theirs` and the apply writes nothing.
 
 The exit code carries the same information for shell callers: `0` ready, `1`
 blocked, `2` usage error, `3` the plan could not be produced.
@@ -280,6 +314,9 @@ are also listed in `defers[]` and printed as their own report section — becaus
 `CLAUDE.md`) may be absent from the buckets: not resolved, not classified.
 
 One row stands today: `CLAUDE.md`, pending the `.claude/rules/` split (PRE-7).
+**Consequence, in force now that the applier exists:** `logicloom init --apply`
+refuses against the shipped manifest, always, until that row is resolved. That is
+the manifest's own rule working, not a defect.
 
 ---
 

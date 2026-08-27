@@ -1,7 +1,7 @@
 {
   "name": "logicloom",
   "version": "0.0.0-dev",
-  "description": "LogicLoom — governed multi-agent harness for Claude Code. `logicloom adopt` plans its installation into an existing repository.",
+  "description": "LogicLoom — governed multi-agent harness for Claude Code. `logicloom init` plans its installation into a repository, and applies only what you name.",
   "bin": {
     "logicloom": "bin/logicloom.js"
   },

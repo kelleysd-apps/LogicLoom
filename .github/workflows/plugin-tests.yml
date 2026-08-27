@@ -165,10 +165,18 @@ jobs:
       - name: Run Adopt Planner Tests
         run: bash tests/contract/test_adopt_planner.sh
 
+      # The WRITE half. The planner suite pins that the read half writes
+      # nothing; this one pins that when the tool does write it writes only what
+      # was named, never over anything, never outside the repo root, and never
+      # claims an install it did not perform.
+      - name: Run Adopt Applier Tests
+        run: bash tests/contract/test_adopt_applier.sh
+
       # The two GENUINE merges of the adopt design (research § 6 PRE-7, PRE-8):
-      # .claude/settings.json and .gitignore. Both are units an applier calls,
-      # and the applier does not exist yet — this suite is what keeps them
-      # correct in the meantime. It also pins settings-hooks-fragment.json to
+      # .claude/settings.json and .gitignore. Both are units the applier calls,
+      # and this suite is what keeps them correct as standalone units — the
+      # applier suite above exercises them through the CLI. It also pins
+      # settings-hooks-fragment.json to
       # THIS repo's live hooks block, so a hook added here and not there cannot
       # ship an adopter a thinner governance floor than we run.
       - name: Run Adopt Merges Tests
