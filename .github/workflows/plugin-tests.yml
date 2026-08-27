@@ -162,6 +162,18 @@ jobs:
       - name: Run Adopt Payload Manifest Tests
         run: bash tests/contract/test_adopt_payload_manifest.sh
 
+      - name: Run Adopt Planner Tests
+        run: bash tests/contract/test_adopt_planner.sh
+
+      # The two GENUINE merges of the adopt design (research § 6 PRE-7, PRE-8):
+      # .claude/settings.json and .gitignore. Both are units an applier calls,
+      # and the applier does not exist yet — this suite is what keeps them
+      # correct in the meantime. It also pins settings-hooks-fragment.json to
+      # THIS repo's live hooks block, so a hook added here and not there cannot
+      # ship an adopter a thinner governance floor than we run.
+      - name: Run Adopt Merges Tests
+        run: bash tests/contract/test_adopt_merges.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only

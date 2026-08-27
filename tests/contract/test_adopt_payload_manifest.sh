@@ -65,13 +65,13 @@ if [ ! -f "$MANIFEST" ] && [ "$IS_TRACKED" = no ]; then
   echo "  ⏭  SKIP: no packaging/adopt/payload-manifest.txt and none tracked —"
   echo "     this is a stripped or customer tree, where packaging/ never exists."
   echo ""
-  echo "Results: $PASS passed, $FAIL failed, $TOTAL total"
+  echo "Results: $PASS/$TOTAL passed, $FAIL failed"
   exit 0
 fi
 
 assert "payload manifest exists (it is tracked, so it must be on disk)" "[ -f \"$MANIFEST\" ]"
 if [ ! -f "$MANIFEST" ]; then
-  echo ""; echo "Results: $PASS passed, $FAIL failed, $TOTAL total"; exit 1
+  echo ""; echo "Results: $PASS/$TOTAL passed, $FAIL failed"; exit 1
 fi
 
 # ── Parse ────────────────────────────────────────────────────────────────────
@@ -209,6 +209,6 @@ assert "the note warns publish-adopt.yml needs its own setup-node" \
 echo ""
 
 echo "========================================"
-echo "Results: $PASS passed, $FAIL failed, $TOTAL total"
+echo "Results: $PASS/$TOTAL passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
 exit 0

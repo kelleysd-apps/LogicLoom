@@ -1,0 +1,32 @@
+{
+  "name": "logicloom",
+  "version": "0.0.0-dev",
+  "description": "LogicLoom — governed multi-agent harness for Claude Code. `logicloom adopt` plans its installation into an existing repository.",
+  "bin": {
+    "logicloom": "bin/logicloom.js"
+  },
+  "main": "lib/plan.js",
+  "files": [
+    "bin/",
+    "lib/",
+    "merge/",
+    "payload/",
+    "payload-manifest.txt",
+    "PLAN-FORMAT.md"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "dependencies": {},
+  "scripts": {
+    "init": "node bin/logicloom.js init"
+  },
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "logicloom",
+    "claude-code",
+    "agent-harness",
+    "governance"
+  ]
+}

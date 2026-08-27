@@ -1,0 +1,280 @@
+'use strict';
+// render.js — the human-readable plan report.
+//
+// Shaped after .logic-loom/scripts/bash/detect-environment-topology.sh's report
+// format on purpose: same "here is what I found, here is what I could not
+// determine, nothing was written" posture, same habit of printing the evidence
+// beside the verdict. This CLI is a sibling of /scaffold-environments, not a new
+// shape.
+//
+// Prints. Writes no file.
+
+const UNKNOWN = 'unknown';
+
+function line(s) { return s === undefined ? '' : String(s); }
+
+function render(plan) {
+  return plan.mode.mode === 'new-project' ? renderNewProject(plan) : renderExisting(plan);
+}
+
+// ── NEW PROJECT ──────────────────────────────────────────────────────────────
+// A first-class mode, not an edge case of the other one. The CLASSIFIER is not
+// special-cased — with nothing in the directory, every unit falls out of R2 as
+// `additive` on its own. What differs is the REPORT: showing someone with an
+// empty directory a four-bucket table with three empty buckets, and a
+// precondition list about dirty files that cannot exist, is noise that hides the
+// one thing they want, which is the list of what will be created.
+function renderNewProject(plan) {
+  const L = [];
+  const p = (s) => L.push(line(s));
+
+  p('LogicLoom init — NEW PROJECT (read-only: nothing was written)');
+  p('='.repeat(78));
+  p('');
+  p(`  MODE                  : NEW PROJECT — fresh scaffold`);
+  wrap('why: ' + plan.mode.reason, 4).forEach(p);
+  p('');
+  p(`  target directory      : ${plan.target.root}`);
+  p(`  payload source        : ${plan.payload.source}`);
+  p(`  git                   : ${plan.target.isGitRepo ? plan.target.gitDetect + ', ' + (plan.target.hasCommits ? 'has commits' : 'no commits yet') : 'not a git repository'}`);
+  p(`  generator             : ${plan.generator.package}@${plan.generator.version} on node ${plan.generator.nodeVersion}`);
+  p('');
+
+  const created = plan.buckets.additive;
+  p(`  WOULD CREATE (${created.length})`);
+  const paths = created.filter((u) => u.granularity === 'path');
+  const keys = created.filter((u) => u.granularity === 'json-key');
+  const lines = created.filter((u) => u.granularity === 'line');
+  for (const u of paths) {
+    p(`    ${u.targetPath}${u.renamedFrom ? `   (from ${u.renamedFrom})` : ''}`);
+  }
+  if (keys.length) p(`    .claude/settings.json    — ${keys.length} governance hook entries`);
+  if (lines.length) p(`    .gitignore               — ${lines.length} harness ignore patterns`);
+  p('');
+
+  if (plan.counts['keep-theirs'] || plan.counts.replace || plan.counts.obsolete) {
+    // Should be impossible in this mode; if it happens, say so rather than hide it.
+    p('  UNEXPECTED for a new project — these buckets should be empty here:');
+    p(`    keep-theirs ${plan.counts['keep-theirs']}   replace ${plan.counts.replace}   obsolete ${plan.counts.obsolete}`);
+    p('');
+  }
+
+  if (plan.preconditions.blocking.length) {
+    p(`  BLOCKING (${plan.preconditions.blocking.length}) — nothing would be created until these clear`);
+    for (const b of plan.preconditions.blocking) {
+      p('');
+      p(`      [${b.code}]  ${b.path}`);
+      wrap(b.detail, 8).forEach(p);
+      wrap('remedy (YOU run this, not the tool): ' + b.remedy, 8).forEach(p);
+    }
+    p('');
+  } else {
+    p('  BLOCKING              : none');
+    p('');
+  }
+
+  if (plan.preconditions.warnings.length) {
+    p('  Worth knowing');
+    for (const w of plan.preconditions.warnings) {
+      p(`    [${w.code}]`);
+      wrap(w.detail, 6).forEach(p);
+      wrap('→ ' + w.remedy, 6).forEach(p);
+    }
+    p('');
+  }
+
+  if (plan.defers.length) {
+    p(`  DEFERRED in the payload manifest (${plan.defers.length}) — not shipped, undecided upstream`);
+    for (const d of plan.defers) p(`    - ${d.path}: ${d.question}`);
+    p('');
+  }
+
+  if (plan.errors.length) {
+    p('  ERRORS');
+    for (const e of plan.errors) wrap('- ' + e, 4).forEach(p);
+    p('');
+  }
+
+  p('  Named limits');
+  for (const n of plan.notes) wrap('- ' + n, 4).forEach(p);
+  p('');
+  p('  APPLY READY           : ' + (plan.applyReady ? 'yes' : 'NO — see BLOCKING above'));
+  p('  Nothing was written. This command has no write path.');
+  return L.join('\n');
+}
+
+// ── EXISTING PROJECT ─────────────────────────────────────────────────────────
+function renderExisting(plan) {
+  const L = [];
+  const p = (s) => L.push(line(s));
+
+  p('LogicLoom init — PLAN (read-only: nothing was written to this repository)');
+  p('='.repeat(78));
+  p('');
+  p('  MODE                  : EXISTING PROJECT — propose, do not scaffold');
+  wrap('why: ' + plan.mode.reason, 4).forEach(p);
+  p('');
+  p(`  target repository     : ${plan.target.root}`);
+  p(`  payload source        : ${plan.payload.source}`);
+  p(`                          ${plan.payload.root}`);
+  p(`  payload manifest      : ${plan.payload.manifest} (${plan.payload.manifestEntries} entries)`);
+  p(`  generator             : ${plan.generator.package}@${plan.generator.version} on node ${plan.generator.nodeVersion}`);
+  p('');
+
+  // ── already adopted ────────────────────────────────────────────────────────
+  if (plan.target.adoption.state !== 'absent') {
+    p(`  ADOPTION STATE        : ${plan.target.adoption.state.toUpperCase()}`);
+    for (const e of plan.target.adoption.evidence) p(`      - ${e.path}   (${e.why})`);
+    if (plan.target.adoption.harnessVersion !== UNKNOWN) {
+      p(`      CLAUDE.md declares logic-loom v${plan.target.adoption.harnessVersion}`);
+    }
+    p('');
+  }
+
+  // ── git facts ──────────────────────────────────────────────────────────────
+  p('  Repository state');
+  p(`    git work tree       : ${plan.target.isGitRepo ? plan.target.gitDetect : 'NOT A GIT REPO'}`);
+  p(`    commits present     : ${plan.target.hasCommits}`);
+  p(`    HEAD                : ${plan.target.headState}  (branch: ${plan.target.currentBranch})`);
+  p(`    default branch      : ${plan.target.defaultBranch}  (source: ${plan.target.defaultBranchSource})`);
+  p(`    branches (${plan.target.branches.length})`.padEnd(25) + `: ${plan.target.branches.slice(0, 12).join(', ') || '(none)'}` +
+    (plan.target.branches.length > 12 ? `, +${plan.target.branches.length - 12} more` : ''));
+  p(`    in-progress ops     : ${plan.target.inProgress.length ? plan.target.inProgress.join(', ') : 'none'}`);
+  p(`    tracked files       : ${plan.target.trackedFiles}`);
+  p('');
+
+  // ── what they already have ─────────────────────────────────────────────────
+  p('  What this repository already has');
+  const ac = plan.detect.agentConfig.filter((a) => a.kind !== 'absent');
+  if (ac.length) {
+    for (const a of ac) {
+      const extra = a.lines !== undefined ? ` (${a.lines} lines)` : a.entries !== undefined ? ` (${a.entries} entries)` : '';
+      p(`    agent config        : ${a.path}  [${a.kind}]${extra}`);
+    }
+  } else {
+    p('    agent config        : none of CLAUDE.md / AGENTS.md / .cursorrules / copilot-instructions');
+  }
+  p(`    .claude/            : ${plan.detect.claude.kind}`);
+  const sub = Object.keys(plan.detect.claude.subdirs || {});
+  if (sub.length) for (const d of sub) p(`      .claude/${d}`.padEnd(25) + `: ${plan.detect.claude.subdirs[d].entries} entries`);
+  p(`    .claude/settings.json: ${plan.detect.claude.settings.kind}` +
+    (plan.detect.claude.settings.kind !== 'absent'
+      ? `  parse=${plan.detect.claude.settings.parse} indent=${plan.detect.claude.settings.indent} hooks=[${(plan.detect.claude.settings.hookEvents || []).join(', ')}]`
+      : ''));
+  p(`    memory dirs         : ${plan.detect.memoryDirs.length ? plan.detect.memoryDirs.map((m) => m.path).join(', ') : 'none detected'}`);
+  p(`    task/backlog files  : ${plan.detect.taskFiles.length ? plan.detect.taskFiles.map((t) => t.path).join(', ') : 'none detected'}`);
+  p(`    CI                  : ${plan.detect.ci.provider}${plan.detect.ci.evidence ? '  (' + plan.detect.ci.evidence + ')' : ''}` +
+    (plan.detect.ci.workflows.length ? `  ${plan.detect.ci.workflows.length} workflow file(s)` : ''));
+  p(`    test setup          : ${(plan.detect.tests.dirs.concat(plan.detect.tests.configs)).join(', ') || 'none detected'}`);
+  p(`    .gitignore          : ${plan.detect.gitignore.kind}` +
+    (plan.detect.gitignore.kind === 'file' ? ` (${plan.detect.gitignore.lineCount} lines)` : ''));
+  p(`    .gitattributes      : ${plan.detect.gitattributes.kind}`);
+  p(`    root manifest       : ${plan.detect.rootManifest.present ? plan.detect.rootManifest.files.join(', ') + `  [${plan.detect.rootManifest.ecosystem}]` : 'none'}`);
+  p(`    product at root?    : ${plan.detect.productSourceAtRoot.answer.toUpperCase()} — ${plan.detect.productSourceAtRoot.reason}`);
+  p('');
+
+  // ── preconditions ──────────────────────────────────────────────────────────
+  p('  Preconditions for an APPLY (the plan itself is always safe and ran anyway)');
+  if (!plan.preconditions.blocking.length) {
+    p('    BLOCKING            : none');
+  } else {
+    p(`    BLOCKING            : ${plan.preconditions.blocking.length}`);
+    for (const b of plan.preconditions.blocking) {
+      p('');
+      p(`      [${b.code}]  ${b.path}`);
+      wrap(b.detail, 8).forEach(p);
+      wrap('remedy (YOU run this, not the tool): ' + b.remedy, 8).forEach(p);
+    }
+  }
+  p('');
+  if (plan.preconditions.warnings.length) {
+    p(`    warnings            : ${plan.preconditions.warnings.length}`);
+    for (const w of plan.preconditions.warnings) {
+      p(`      [${w.code}]`);
+      wrap(w.detail, 8).forEach(p);
+    }
+    p('');
+  }
+  p('    NOTE: no remedy above is `git stash`, and none ever will be. A stash is a');
+  p('    git mutation that succeeds silently and puts the work one `git stash drop`');
+  p('    from gone. Where a backup is warranted the remedy is a `cp -a` you run.');
+  p('');
+
+  // ── the four buckets ───────────────────────────────────────────────────────
+  p('  Classification (4 buckets)');
+  p(`    additive     ${String(plan.counts.additive).padStart(4)}   LogicLoom unit has no counterpart here`);
+  p(`    keep-theirs  ${String(plan.counts['keep-theirs']).padStart(4)}   both exist — YOURS WINS, ours is dropped (each printed below)`);
+  p(`    replace      ${String(plan.counts.replace).padStart(4)}   ours overwrites yours (explicitly named only; empty by design)`);
+  p(`    obsolete     ${String(plan.counts.obsolete).padStart(4)}   YOUR rule references something absent (report only, never actioned)`);
+  p('');
+
+  bucketSection(p, 'ADDITIVE — would be installed', plan.buckets.additive);
+  bucketSection(p, 'KEEP-THEIRS — ours dropped, with the reason', plan.buckets['keep-theirs']);
+  bucketSection(p, 'REPLACE — ours overwrites yours', plan.buckets.replace, 'none (empty by design)');
+
+  p(`    OBSOLETE — findings about YOUR repo (${plan.buckets.obsolete.length}) — report only, nothing is actioned`);
+  if (!plan.buckets.obsolete.length) p('      none');
+  for (const o of plan.buckets.obsolete) p(`      - ${o.source}: ${o.detail}`);
+  p('');
+
+  // ── deferred rows ──────────────────────────────────────────────────────────
+  // Printed as its own section rather than left to the blocking list, because a
+  // `defer:` is the reason a collision you can SEE in your repo may be absent
+  // from the buckets above. Without this, a reader with a 500-line CLAUDE.md
+  // reads "keep-theirs 0" and concludes the tool did not look.
+  if (plan.defers.length) {
+    p(`    DEFERRED in the payload manifest (${plan.defers.length}) — NOT classified, because`);
+    p('    the maintainer has not decided how they install. Any collision you have at');
+    p('    these paths is therefore absent from the buckets above, not resolved.');
+    for (const d of plan.defers) {
+      p(`      - ${d.path}  (payload-manifest.txt:${d.manifestLine})`);
+      wrap(d.question, 10).forEach(p);
+    }
+    p('');
+  }
+
+  // ── errors / defers / notes ────────────────────────────────────────────────
+  if (plan.errors.length) {
+    p('  ERRORS');
+    for (const e of plan.errors) wrap('- ' + e, 4).forEach(p);
+    p('');
+  }
+  if (plan.notes.length) {
+    p('  Named limits');
+    for (const n of plan.notes) wrap('- ' + n, 4).forEach(p);
+    p('');
+  }
+
+  p('  APPLY READY           : ' + (plan.applyReady ? 'yes' : 'NO — see BLOCKING above'));
+  p('  Nothing was written. This command has no write path.');
+  return L.join('\n');
+}
+
+function bucketSection(p, title, units, emptyText) {
+  p(`    ${title} (${units.length})`);
+  if (!units.length) { p('      ' + (emptyText || 'none')); p(''); return; }
+  for (const u of units) {
+    const where = u.targetPath + (u.renamedFrom ? `   (renamed from ${u.renamedFrom})` : '');
+    p(`      - [${u.granularity}] ${where}`);
+    if (u.granularity === 'json-key') p(`          key: ${u.selector.event} / matcher '${u.selector.matcher}' / ${u.selector.command}`);
+    if (u.granularity === 'line') p(`          line: ${u.value}`);
+    wrap(u.reason, 10).forEach(p);
+  }
+  p('');
+}
+
+function wrap(text, indent) {
+  const width = 78 - indent;
+  const pad = ' '.repeat(indent);
+  const words = String(text).split(/\s+/);
+  const out = [];
+  let cur = '';
+  for (const w of words) {
+    if (cur.length && cur.length + 1 + w.length > width) { out.push(pad + cur); cur = w; }
+    else cur = cur.length ? cur + ' ' + w : w;
+  }
+  if (cur.length) out.push(pad + cur);
+  return out;
+}
+
+module.exports = { render };

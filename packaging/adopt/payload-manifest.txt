@@ -225,9 +225,13 @@ exclude: .docs/reviews
 rename: AGENTS.md :: .logic-loom/AGENTS.md
 
 # --- THE TWO MERGES (PRE-7, PRE-8) -------------------------------------------
-# .claude/settings.json — the only genuine merge. Verified: 12 hook command
-# entries, all cwd-relative into .claude/ or plugins/ (which is why a nested
-# install is unsupported). Additive into the existing `hooks` object, fenced by
+# .claude/settings.json — the only genuine merge. Verified: EVERY hook command
+# entry is cwd-relative into .claude/ or plugins/ (which is why a nested install
+# is unsupported). No count is stated here on purpose — a number in prose is a
+# claim nothing verifies, and it rots the first time a hook is added or dropped.
+# The authoritative set is packaging/adopt/merge/settings-hooks-fragment.json,
+# which tests/contract/test_adopt_merges.sh holds against .claude/settings.json.
+# Additive into the existing `hooks` object, fenced by
 # a marker so a re-run is idempotent, never removing an entry the adopter added,
 # preserving their indentation (husky's `init` is the precedent for the care
 # level). Hooks compose most-restrictive, so adding ours cannot weaken theirs.

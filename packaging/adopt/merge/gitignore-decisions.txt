@@ -1,0 +1,112 @@
+# =============================================================================
+# Adopt-package MERGE 2 — .gitignore ship/drop decisions  (research § 6 PRE-8)
+# -----------------------------------------------------------------------------
+# THE TEST APPLIED TO EVERY LINE OF THIS REPO'S .gitignore
+#
+#   SHIP iff the pattern names something the HARNESS WRITES, or a Claude Code
+#   host file the harness's presence creates. Everything else — however
+#   sensible — is an OPINION ABOUT THE ADOPTER'S PROJECT, and belongs to them.
+#
+# Three lines in our .gitignore would actively damage a real adopter, verified
+# against kori-beta:
+#   .vscode/           kori TRACKS .vscode/settings.json — shared editor config
+#   package-lock.json  kori TRACKS a 464 KB lock file; untracking it breaks
+#                      reproducible Expo builds
+#   dist/ , build/     kori already ignores dist/; `build/` is tracked source in
+#                      plenty of projects. Ours is redundant at best.
+# They are the reason this is a curated block and not a copy.
+#
+# GRAMMAR
+#   ship: <pattern>            in gitignore-block.txt; harness-written
+#   drop: <pattern> :: reason  deliberately NOT shipped
+#
+#   tests/contract/test_adopt_merges.sh holds both directions: every `ship:`
+#   pattern must appear in gitignore-block.txt, every `drop:` pattern must NOT,
+#   and every non-comment line of this repo's own .gitignore must be classified
+#   here — so a new rule added upstream cannot slip into (or past) the adopter
+#   block unreviewed.
+# =============================================================================
+
+
+# --- SHIP: harness runtime output --------------------------------------------
+ship: .logic-loom/logs/operations/*.log
+ship: .logic-loom/logs/git-checkpoints/*.json
+ship: .logic-loom/logs/parallel-sessions/*
+ship: !.logic-loom/logs/README.md
+ship: .logic-loom/backlog-index.json
+ship: .logic-loom/state/
+ship: .claude/context/.cache/*
+ship: .claude/worktrees/
+ship: .loom-worktree-env
+ship: .loom-memory-index/
+ship: .sdd-memory-index/
+ship: plugins/loom-memory/working/
+ship: !plugins/loom-memory/working/.gitkeep
+ship: plugins/loom-memory/recall/
+ship: !plugins/loom-memory/recall/.gitkeep
+ship: plugins/loom-memory/.retention-last-run
+ship: .docs/memory/search-log.jsonl
+ship: vector_helper.py
+ship: .docs/governance/audit/
+ship: .docs/agents/**/decisions/*.json
+ship: .docs/agents/**/sessions/*.json
+ship: .docs/agents/**/reports/*.json
+ship: .docs/agents/shared/context-summaries/*.json
+ship: .docs/agents/audit/creation-log.json
+ship: .docs/research/
+
+# --- SHIP: Claude Code host files the harness's presence creates -------------
+ship: **/.claude/settings.local.json
+ship: **/CLAUDE.local.md
+
+# --- SHIP, RESHAPED ----------------------------------------------------------
+# Ours is a blanket python-bytecode block. Blanket is the adopter's call; the
+# harness only needs its own trees covered, so the shipped form is scoped.
+ship: .logic-loom/scripts/python/__pycache__/
+ship: plugins/loom-memory/**/__pycache__/
+
+
+# --- DROP: HOSTILE — would untrack files a real adopter tracks ---------------
+drop: .vscode/ :: kori-beta tracks .vscode/settings.json. Shared editor config is a common, deliberate choice; ignoring it silently drops it from their next commit.
+drop: package-lock.json :: kori-beta tracks a 464 KB lock file. Untracking a lock file breaks reproducible installs — for Expo/React Native the single most damaging line we could append.
+drop: dist/ :: redundant (kori already ignores it) and it is a build-system opinion. Where the build lands is the adopter's decision.
+drop: build/ :: same, and worse — `build/` is TRACKED SOURCE in some projects (Gradle, CMake, Docusaurus).
+drop: out/ :: same class as dist/ and build/.
+
+# --- DROP: the adopter's project, not the harness ----------------------------
+drop: .env :: secrets hygiene is theirs and every real project already has this. Appending it asserts a policy we were not asked for.
+drop: node_modules/ :: their package manager's business; universally present already.
+drop: coverage/ :: their test runner's output. The harness ships no coverage tool to the adopter — tests/ is excluded from the payload.
+drop: .nyc_output/ :: same.
+drop: logs/ :: far too broad. A repo-root `logs/` may be tracked fixtures. The harness's own logs are shipped, scoped, above.
+drop: *.log :: same — blanket, and not ours to assert.
+drop: npm-debug.log* :: their package manager's.
+drop: .idea/ :: same class as .vscode/ — editor config is theirs.
+drop: *.sublime-* :: same.
+drop: .DS_Store :: OS noise, universal, and belongs in a global gitignore rather than in a block we append.
+drop: Thumbs.db :: same.
+drop: *.tmp :: generic editor/OS noise, not harness output.
+drop: *.temp :: same.
+drop: *.swp :: same.
+drop: *.swo :: same.
+drop: *~ :: same.
+drop: package.json.backup :: names OUR bump-version.sh backup; that script is stripped at release and never reaches an adopter.
+drop: *.backup :: blanket, and the only producer was the line above.
+drop: *.bak :: blanket. The one harness producer was .claude/skill-index.json.bak, and skill-index.json is deprecated — plugin manifests replaced it. Dead either way.
+drop: .claude/skill-index.json.bak :: dead — no producer left in the tree; grep finds only CHANGELOG entries recording its deprecation.
+drop: retrieve-secrets.sh :: our filename for our own secret fetcher. Not in the payload, so the rule would ignore a file that never exists.
+drop: secrets/ :: how an adopter handles a secrets directory is their policy.
+drop: .secrets/ :: same.
+drop: .local/ :: generic "tool parks local state here". Not harness-written.
+drop: *.local :: blanket. The two files this repo actually needed it for are shipped by exact basename above; the wildcard adds only reach into the adopter's tree.
+drop: __pycache__/ :: shipped in scoped form instead — see SHIP, RESHAPED.
+drop: *.py[cod] :: blanket python opinion; the scoped __pycache__ rules cover what the harness produces.
+drop: *$py.class :: same.
+drop: *.pyc :: same.
+drop: *.pyo :: same.
+drop: *.egg-info/ :: python packaging opinion; the harness builds no python package.
+drop: **/.deprecated/ :: a convention of THIS repo's development, not a harness runtime path.
+
+# --- DROP: dead in the harness itself ----------------------------------------
+drop: .devloop/ :: the dev-loop pack was REMOVED in v6.2 (superseded by native /workflow, /loop, /goal). Nothing writes this.
+drop: test-checkpoint-* :: no producer anywhere in the tree — grep finds the .gitignore line and nothing else. Also test-scoped, and tests/ is excluded from the payload.

@@ -64,6 +64,7 @@
 {"type":"entity","name":"features/modular-harness/exploration/modular-harness-design.md","entityType":"note","observations":["Modular Harness Design — Cherry-Pickable Packs over a Fixed Governance Core"]}
 {"type":"entity","name":"features/modular-harness/exploration/unified-architecture.md","entityType":"note","observations":["LogicLoom — The Unified Architecture"]}
 {"type":"entity","name":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","entityType":"note","observations":["FRAMEWORK_ENHANCEMENTS_SUMMARY.md"]}
+{"type":"entity","name":"packaging/adopt/package.json","entityType":"code-path","observations":["package.json"]}
 {"type":"entity","name":"packaging/adopt/payload-manifest.txt","entityType":"code-path","observations":["payload-manifest.txt"]}
 {"type":"entity","name":"plugins/CONTRIBUTING.md","entityType":"code-path","observations":["CONTRIBUTING.md"]}
 {"type":"entity","name":"plugins/MANIFEST-SCHEMA.md","entityType":"code-path","observations":["MANIFEST-SCHEMA.md"]}
@@ -120,6 +121,7 @@
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"tests/contract/test_model_agnostic.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/orchestration-hook-enforcement.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/package.json","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"tests/contract/test_adopt_payload_manifest.sh","relationType":"mentions"}

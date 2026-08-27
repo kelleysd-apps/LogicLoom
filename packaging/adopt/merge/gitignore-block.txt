@@ -1,0 +1,63 @@
+# LogicLoom harness — runtime output and generated indexes.
+# Every pattern below names something the HARNESS writes. None of them is an
+# opinion about how your project is built, tested, or packaged.
+
+# Structured operation logs and git checkpoints
+.logic-loom/logs/operations/*.log
+.logic-loom/logs/git-checkpoints/*.json
+.logic-loom/logs/parallel-sessions/*
+!.logic-loom/logs/README.md
+
+# Backlog index — a machine intermediate with no standalone reader, regenerated
+# on demand by .logic-loom/scripts/bash/build-backlog-index.sh
+.logic-loom/backlog-index.json
+
+# Promotion ledger and rehearsal attestations (promote-gate.sh)
+.logic-loom/state/
+
+# Context loader cache
+.claude/context/.cache/*
+
+# Local git worktrees — machine-specific; would otherwise commit as a gitlink
+.claude/worktrees/
+
+# Per-worktree port namespace, written by .claude/hooks/worktree-port-namespace.sh
+.loom-worktree-env
+
+# Claude Code per-user override files: the Local settings layer and personal
+# memory. `**/` so nested workspaces are covered, not just the repo root.
+# Basenames are listed in full: gitignore matches the WHOLE basename, so
+# `*.local` does NOT cover `settings.local.json` or `CLAUDE.local.md`.
+**/.claude/settings.local.json
+**/CLAUDE.local.md
+
+# loom-memory: search indexes, working tiers, runtime log
+.loom-memory-index/
+.sdd-memory-index/
+plugins/loom-memory/working/
+!plugins/loom-memory/working/.gitkeep
+plugins/loom-memory/recall/
+!plugins/loom-memory/recall/.gitkeep
+plugins/loom-memory/.retention-last-run
+.docs/memory/search-log.jsonl
+
+# Vector-search helper, emitted at runtime by plugins/loom-memory/lib/vector-search.sh
+vector_helper.py
+
+# Governance audit logs (runtime)
+.docs/governance/audit/
+
+# /create-agent runtime record (create-agent.sh writes these)
+.docs/agents/**/decisions/*.json
+.docs/agents/**/sessions/*.json
+.docs/agents/**/reports/*.json
+.docs/agents/shared/context-summaries/*.json
+.docs/agents/audit/creation-log.json
+
+# /research working intermediates — only the final capture is tracked
+.docs/research/
+
+# Bytecode from the harness's own python scripts. Scoped to harness trees on
+# purpose: a blanket __pycache__/ rule is your project's call, not ours.
+.logic-loom/scripts/python/__pycache__/
+plugins/loom-memory/**/__pycache__/
