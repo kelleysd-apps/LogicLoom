@@ -17,6 +17,7 @@
 {"type":"entity","name":".docs/architecture/orchestrator-worker-ladder.md","entityType":"note","observations":["Orchestrator + Worker Ladder"]}
 {"type":"entity","name":".docs/archive/feature-003/implementation-plan.md","entityType":"note","observations":["Feature 003: Upstream Sync Implementation Plan"]}
 {"type":"entity","name":".docs/archive/feature-003/upstream-sync-report.md","entityType":"note","observations":["Feature 003: Upstream Sync Report"]}
+{"type":"entity","name":".docs/design/adopt-package-research.md","entityType":"note","observations":["Adopting LogicLoom into an existing project — distribution research"]}
 {"type":"entity","name":".docs/design/brain-spec.md","entityType":"note","observations":["`.brain/` — design specification"]}
 {"type":"entity","name":".docs/design/marketplace-mcp-middleware.md","entityType":"note","observations":["Plugin Marketplace — MCP Middleware Design"]}
 {"type":"entity","name":".docs/governance/browser-automation-examples.md","entityType":"note","observations":["Browser Automation Examples"]}
@@ -73,6 +74,7 @@
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/subagent-git-guard.sh","entityType":"code-path","observations":["subagent-git-guard.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/scaffold-environments.md","entityType":"code-path","observations":["scaffold-environments.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-memory/config/memory.conf","entityType":"code-path","observations":["memory.conf"]}
 {"type":"entity","name":"plugins/loom-memory/lib/bm25-search.sh","entityType":"code-path","observations":["bm25-search.sh"]}
@@ -115,6 +117,8 @@
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"plugins/loom-orchestrator/commands/research.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"tests/contract/test_model_agnostic.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/orchestration-hook-enforcement.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopt-package-research.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopt-package-research.md","to":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}
