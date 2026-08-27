@@ -23,6 +23,18 @@ name: Tag release on main
 # Maintainer-only: ships to `main` (must be there to run on main pushes) and is
 # removed from a customer project at /initialize-project — like promote-to-main.yml.
 #
+# ALREADY-PUBLISHED TAGS ARE NOT FIXABLE (LOOM-0036). v6.4.1 and v6.5.0 each ship
+# a `.sdd-sync-ref` of c6092b08 — a dev-main merge commit `main` has never held —
+# so `/update-framework` fails for anyone who cloned those tags. A published tag
+# cannot be moved without breaking every existing clone, so it is not moved. The
+# remedy is one line in the ADOPTER's checkout, writing the release's own snapshot
+# commit (which IS on main) into the baseline:
+#     v6.5.0:  echo 28ef9d81894ecef359295bf911854964925d0079 > .sdd-sync-ref
+#     v6.4.1:  echo 8b9775b41ff4e7fbcbb7a04a9c7a771c032b5c93 > .sdd-sync-ref
+# extract-proposals.sh already prints this shape of remedy on the failure path.
+# Deliberately NOT done as a remap-table entry: those rot, and one already had to
+# be added twice. The gates below make the next release correct by construction.
+#
 # DEPENDENCY: the `v*` tag namespace must NOT be covered by a tag-protection rule
 # / ruleset that excludes GITHUB_TOKEN, or the `git push origin <tag>` below will
 # be rejected. (No such ruleset exists today; add a `refs/tags/v*` bypass for
@@ -110,9 +122,56 @@ jobs:
              || git ls-remote --exit-code --tags origin "$VER" >/dev/null 2>&1; then
             echo "Tag $VER already exists — nothing to do."; exit 0
           fi
-          git tag "$VER" "$SNAP"
+          # TAG TARGET (LOOM-0036): prefer C2, the "chore: advance .sdd-sync-ref"
+          # child of the snapshot, over the snapshot C1 itself.
+          #
+          # WHY: the tag is what an adopter clones (`clone --branch vX.Y.Z`), and
+          # what they get is the TREE at that commit. C1's tree names the baseline
+          # as of BEFORE this release; C2's tree names C1 — i.e. exactly the
+          # release the adopter just cloned, so /update-framework starts with zero
+          # phantom proposals. C2 is single-parent (parent C1), so the
+          # single-parent chain this design rests on is unchanged.
+          #
+          # Fall back to C1 if C2 cannot be positively identified. That is safe,
+          # not a silent downgrade: the reachability gate below runs on whichever
+          # commit we are about to tag, and refuses an unreachable baseline either
+          # way. REL_SNAP stays C1 — the Release-notes step reads the
+          # Source-dev-main trailer, which only C1's message carries.
+          TARGET="$SNAP"
+          # `|| true` on both pipelines: the step runs under `set -euo pipefail`,
+          # where a SIGPIPE'd `git` (head closes early) or a missing blob would
+          # abort the job BEFORE the explanatory error below is ever printed.
+          C2=$(git rev-list --ancestry-path --reverse "$SNAP..HEAD" 2>/dev/null | head -1 || true)
+          if [ -n "$C2" ] \
+             && [ "$(git rev-parse "${C2}^" 2>/dev/null)" = "$(git rev-parse "$SNAP")" ] \
+             && [ "$(git log -1 --format=%s "$C2")" = "chore: advance .sdd-sync-ref to $VER" ] \
+             && [ "$(git cat-file blob "$C2:.sdd-sync-ref" 2>/dev/null | tr -d '[:space:]' || true)" = "$SNAP" ]; then
+            TARGET="$C2"
+          else
+            echo "::warning::No validated sync-ref commit after $SNAP — tagging the snapshot itself."
+          fi
+          # REACHABILITY GATE (LOOM-0036) — read the TREE, not just the commit.
+          # The gate above proves the snapshot COMMIT is in main's history. It
+          # says nothing about the `.sdd-sync-ref` VALUE inside that commit's
+          # tree, and that value is what an adopter's /update-framework resolves.
+          # v6.4.1 and v6.5.0 both passed the commit gate and both shipped
+          # c6092b08 — a dev-main merge commit that main has never contained.
+          BASE=$(git cat-file blob "$TARGET:.sdd-sync-ref" 2>/dev/null | tr -d '[:space:]' || true)
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null \
+             || ! git merge-base --is-ancestor "$BASE" HEAD; then
+            echo "::error::RELEASE BROKEN — the tree at $TARGET carries .sdd-sync-ref='${BASE:-<empty>}', which is not reachable from main."
+            echo "Every adopter of $VER would get an unresolvable baseline and" >&2
+            echo "/update-framework would fail with '.sdd-sync-ref is NOT reachable" >&2
+            echo "from upstream main'. Refusing to publish a broken tag." >&2
+            echo "FIX IT AT THE SOURCE: the compose step in promote-to-main.yml must" >&2
+            echo "stamp .sdd-sync-ref instead of inheriting dev-main's stale value." >&2
+            echo "Do NOT add a remap entry to extract-proposals.sh — that workaround" >&2
+            echo "is what this gate exists to make unnecessary." >&2
+            exit 1
+          fi
+          git tag "$VER" "$TARGET"
           git push origin "$VER"
-          echo "Tagged $VER -> $SNAP (sanitized snapshot)."
+          echo "Tagged $VER -> $TARGET (baseline .sdd-sync-ref=$BASE, snapshot $SNAP)."
 
       # =======================================================================
       # GITHUB RELEASE — created as a DRAFT, published by a human.

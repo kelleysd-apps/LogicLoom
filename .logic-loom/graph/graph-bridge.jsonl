@@ -64,6 +64,7 @@
 {"type":"entity","name":"features/modular-harness/exploration/modular-harness-design.md","entityType":"note","observations":["Modular Harness Design — Cherry-Pickable Packs over a Fixed Governance Core"]}
 {"type":"entity","name":"features/modular-harness/exploration/unified-architecture.md","entityType":"note","observations":["LogicLoom — The Unified Architecture"]}
 {"type":"entity","name":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","entityType":"note","observations":["FRAMEWORK_ENHANCEMENTS_SUMMARY.md"]}
+{"type":"entity","name":"packaging/adopt/payload-manifest.txt","entityType":"code-path","observations":["payload-manifest.txt"]}
 {"type":"entity","name":"plugins/CONTRIBUTING.md","entityType":"code-path","observations":["CONTRIBUTING.md"]}
 {"type":"entity","name":"plugins/MANIFEST-SCHEMA.md","entityType":"code-path","observations":["MANIFEST-SCHEMA.md"]}
 {"type":"entity","name":"plugins/loom-git/commands/finalize.md","entityType":"code-path","observations":["finalize.md"]}
@@ -95,6 +96,7 @@
 {"type":"entity","name":"plugins/sdd-specification/skills/unified-specification/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/sdd-specification/skills/unified-specification/SKILL.md","entityType":"note","observations":["SKILL.md"]}
 {"type":"entity","name":"specs/README.md","entityType":"note","observations":["Feature Specifications Directory"]}
+{"type":"entity","name":"tests/contract/test_adopt_payload_manifest.sh","entityType":"code-path","observations":["test_adopt_payload_manifest.sh"]}
 {"type":"entity","name":"tests/contract/test_bash32_floor.sh","entityType":"code-path","observations":["test_bash32_floor.sh"]}
 {"type":"entity","name":"tests/contract/test_environment_scaffolding.sh","entityType":"code-path","observations":["test_environment_scaffolding.sh"]}
 {"type":"entity","name":"tests/contract/test_freeze_scope.sh","entityType":"code-path","observations":["test_freeze_scope.sh"]}
@@ -118,7 +120,9 @@
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"tests/contract/test_model_agnostic.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/orchestration-hook-enforcement.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopt-package-research.md","to":"tests/contract/test_adopt_payload_manifest.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}

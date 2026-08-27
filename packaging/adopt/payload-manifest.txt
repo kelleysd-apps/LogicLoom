@@ -1,0 +1,373 @@
+# =============================================================================
+# LogicLoom — adopt-package PAYLOAD MANIFEST  (PROPOSAL, not a settled decision)
+# -----------------------------------------------------------------------------
+# WHAT THIS IS
+#   The adopt package installs a SUBSET of the harness into someone else's
+#   existing repository. Which subset is what "LogicLoom adopted" means, so it is
+#   a product decision, not a research finding. This file is the recommendation
+#   from .docs/design/adopt-package-research.md § 6 PRE-1, re-derived row by row
+#   against the repo, with the evidence inline. It is REVIEWABLE: the maintainer
+#   overrules it by editing this one file. Nothing reads it yet — the installer
+#   is not written. tests/contract/test_adopt_payload_manifest.sh is the only
+#   current consumer, and it holds the boundary to the invariants below.
+#
+#   THIS FILE IS MAINTAINER-ONLY. `packaging` is a template-strip-manifest entry,
+#   so nothing under packaging/ ever reaches a customer or an adopter.
+#
+# WHAT THE PAYLOAD IS BUILT FROM
+#   A tag on the PUBLIC `main` (research § 3, PRE-4) — i.e. an ALREADY-SANITIZED
+#   tree. Everything template-strip-manifest.txt removes is therefore already
+#   gone before this manifest is applied: .brain/ is README-only, artifacts/ and
+#   packaging/ do not exist, VISION.md / todos.md / backlog.md are stubs, the
+#   release scripts are stripped. Entries below that name an already-stripped
+#   path are DEFENSIVE — they cost nothing and they survive a change of source.
+#
+# GRAMMAR — DELIBERATELY DIVERGENT FROM template-strip-manifest.txt, AND WHY
+#   Same line-oriented shape, same `#` comments, same "globs match against
+#   `git ls-files` output" model. One deliberate difference: EVERY line carries
+#   an explicit verb. There is no bare-path form.
+#
+#   The strip manifest's bare path means REMOVE. This is an INCLUDE list, so a
+#   bare path here would mean the exact opposite in a file that otherwise looks
+#   identical, and the two get copy-pasted between. A silent inversion of the
+#   default is how the wrong thing ships. One verb per line costs six characters
+#   and makes the inversion impossible. That is the whole divergence — a second
+#   grammar was not invented, the first one was made explicit.
+#
+#     include: <path-or-glob>        Copied verbatim into the payload. A
+#                                    directory entry is recursive.
+#     exclude: <path-or-glob>        NOT shipped. Recorded rather than omitted so
+#                                    every "no" has a reason a reviewer can read.
+#     rename:  <src> :: <dst>        Shipped, installed at a different path.
+#     merge:   <path> :: <strategy>  NEVER overwritten in the adopter's repo.
+#                                    Additive, marked, idempotent.
+#     defer:   <path> :: <question>  UNDECIDED. Neither shipped nor dismissed.
+#                                    The installer must refuse to run while any
+#                                    `defer:` line stands — mirrors the strip
+#                                    manifest's `warn:` verb, which exists so a
+#                                    deferred decision cannot ship silently.
+#
+#   An `exclude:` beats an `include:` that would otherwise cover the same path.
+#   That is the only precedence rule; there is no wildcard and no "ship
+#   everything" line.
+#
+# NODE / npm FLOOR FOR THE PUBLISH WORKFLOW  (PRE-12) — READ BEFORE WRITING
+# .github/workflows/publish-adopt.yml
+#   npm trusted publishing (OIDC from GitHub Actions) requires
+#   Node >= 22.14.0 and npm CLI >= 11.5.1, and runs on GitHub-HOSTED runners only.
+#
+#   *** VERIFIED 2026-08-27 *** against the primary source,
+#   https://docs.npmjs.com/trusted-publishers, which states verbatim:
+#     "Trusted publishing requires npm CLI version 11.5.1 or later and Node
+#      version 22.14.0 or higher."
+#   and, on runners:
+#     "Self-hosted runners are not currently supported but are planned for
+#      future releases."
+#
+#   RUNNER CONSTRAINT — every workflow in this repo is `runs-on: ubuntu-latest`,
+#   a GitHub-hosted runner, so we satisfy it today. Recorded because a future
+#   maintainer moving CI to self-hosted runners would break trusted publishing
+#   with no local signal.
+#
+#   These figures WILL move. Re-check with:
+#
+#       curl -s https://docs.npmjs.com/trusted-publishers | grep -iE 'node|npm .?[0-9]+\.|self-hosted'
+#
+#   What IS verified in-repo, today: .github/workflows/plugin-tests.yml and
+#   .github/workflows/promote-to-main.yml both pin `node-version: '20'`, and root
+#   package.json declares `engines.node >= 18.0.0`. NEITHER WAS BUMPED, on
+#   purpose — neither workflow publishes, so raising their floor for an unrelated
+#   reason is churn. The consequence is the trap this note exists to close:
+#   publish-adopt.yml must carry its OWN `actions/setup-node` step with a
+#   satisfying version. It will NOT inherit one, and copying a step from either
+#   existing workflow silently gives it Node 20.
+#
+#   Also recorded at .docs/design/adopt-package-research.md § 6 PRE-12.
+#   tests/contract/test_adopt_payload_manifest.sh asserts this block still names
+#   the versions, still carries a VERIFIED date and its source URL, and still
+#   carries a re-check command — so it can be neither quietly promoted to fact
+#   nor left to quietly rot once npm moves the floor.
+# =============================================================================
+
+
+# --- THE HARNESS ITSELF ------------------------------------------------------
+# Verified present: .logic-loom/{adapters,config,lib,memory,scripts,templates},
+# plugins/ (8 plugins per the CLAUDE.md registry), .claude/{hooks,commands,
+# context}. These are what the hooks and commands resolve at runtime; every hook
+# command in .claude/settings.json is cwd-relative into one of these two trees.
+include: .logic-loom
+include: plugins
+include: .claude/hooks
+include: .claude/commands
+include: .claude/context
+
+# --- CARVE-OUTS FROM `include: .logic-loom` ----------------------------------
+# The research's PRE-1 row said ".logic-loom/  Yes" with no carve-outs, which
+# contradicts its own PRE-5. Three paths under that tree must not ship.
+#
+# update-agent-context.sh — PRE-5 calls this the sharpest edge: its
+#   update-existing branch ends in an unconditional
+#   `mv "$temp_file" "$target_file"` where $temp_file is an mktemp that branch
+#   never wrote, truncating the adopter's CLAUDE.md to zero bytes. Nothing calls
+#   it. As of this writing it is being DELETED from the repo entirely by a
+#   parallel change (`git status` shows ` D`), so this line is defensive and may
+#   match nothing — which is the correct state for it.
+exclude: .logic-loom/scripts/bash/update-agent-context.sh
+#
+# check-generated-freshness.sh — PRE-5 flagged this as "not currently stripped;
+#   needs a decision". DECIDED HERE: exclude. Verified at :320 it refuses outside
+#   a git work tree, and it regenerates artifacts/backlog-dashboard.html — an
+#   artifact the payload does not ship and the adopter has no source for. A gate
+#   that can only fail is worse than no gate.
+exclude: .logic-loom/scripts/bash/check-generated-freshness.sh
+#
+# .logic-loom/tests/ — three suites (test-git-safety.sh, test-policy-validation.sh,
+#   test_logging.sh). Same class as root tests/ below: they test the HARNESS,
+#   which the adopter did not modify. Excluded for the same reason and with the
+#   same named limit.
+exclude: .logic-loom/tests
+#
+# .logic-loom/graph/ — a derived index of THIS repo's markdown corpus. Already a
+#   strip-manifest entry, so it is gone before the payload is cut; defensive.
+exclude: .logic-loom/graph
+
+# --- .claude/ BEYOND THE THREE DIRECTORIES THE RESEARCH NAMED ----------------
+# CHANGED FROM THE RESEARCH: its PRE-1 table listed only hooks/, commands/ and
+# context/ under .claude/. The tree also holds agents/, policies/, schemas/ and
+# statusline.sh, none of which the table decided either way. Decided here.
+#
+# .claude/agents/ — deep-reasoner.md + fast-worker.md, the orchestrator/worker
+#   ladder CLAUDE.md documents. Load-bearing, not decoration:
+#   constitutional-check.sh:662 scans this directory and warns on anything that
+#   is not one of those two; create-agent.sh:17 writes into it;
+#   create-skill-command.sh:329 resolves agents out of it. SHIP.
+include: .claude/agents
+#
+# .claude/policies/tool-restrictions.json — read at runtime by
+#   .logic-loom/lib/policy.sh:15 (POLICY_FILE=...). Shipping .logic-loom/ without
+#   this file ships a library pointed at a path that does not exist. SHIP.
+include: .claude/policies
+#
+# .claude/schemas/ — git-push-state.json, workflow-state.json. Grepped
+#   .logic-loom/, plugins/, .claude/hooks/ and tests/: NOTHING resolves either
+#   file (the only `.workflow-state.json` hits are the SDD skill writing a
+#   DIFFERENT, feature-local file). Not load-bearing, but two small schema files
+#   that document shipped state shapes cost nothing and going without them is
+#   the kind of omission that surfaces as a mystery later. SHIP.
+include: .claude/schemas
+#
+# .claude/statusline.sh — reachable only via the `statusLine` key of
+#   settings.json (:85-88), and the settings merge below is HOOKS-ONLY. Shipping
+#   it would install a file nothing invokes; merging the statusLine key would
+#   overwrite an adopter's own status line, which is theirs. EXCLUDE.
+exclude: .claude/statusline.sh
+
+# --- UPDATE PATH -------------------------------------------------------------
+# The /update-framework baseline. Correct-by-construction from the release tag
+# (research § 3). Verified present at repo root, a bare 40-char SHA.
+include: .sdd-sync-ref
+
+# --- WORKSPACES THE WORKFLOW PACKS WRITE INTO --------------------------------
+# CHANGED FROM THE RESEARCH: its row said "features/, specs/ (.gitkeep only)".
+# That is wrong. `git ls-files features specs` shows FOUR tracked files that
+# belong in the payload: features/.gitkeep, features/README.md, specs/.gitkeep,
+# specs/README.md. features/README.md is cited by name from CLAUDE.md's
+# "See Also" list as the per-feature folder convention, so shipping the .gitkeep
+# alone ships a dangling reference. The per-feature CONTENT under features/ is
+# ours and is excluded below.
+include: features/.gitkeep
+include: features/README.md
+include: specs/.gitkeep
+include: specs/README.md
+exclude: features/*/
+exclude: specs/*/
+
+# --- CONTRACT DOCS THE SHIPPED SCRIPTS CITE BY PATH --------------------------
+# Verified: scaffold-environments.sh:152 resolves
+# .docs/policies/promotion-checklist.md as a real path; :319 and :427 print
+# .docs/policies/{environment-promotion,deployment}-policy.md as the reader's next
+# step; lint-backlog.sh:96 and build-backlog-dashboard.sh:9,74 cite
+# .docs/architecture/project-graph-convention.md as their normative source; the
+# shell-idiom policy is cited from five scripts. These two directories ship.
+# Everything else under .docs/ is harness-dev record and is already stripped at
+# release (.docs/design, /reports, /archive, /plans, /memory, /governance/audit).
+include: .docs/policies
+include: .docs/architecture
+#
+# CHANGED FROM THE RESEARCH: its row named only .docs/policies and
+# .docs/architecture. template-strip-manifest.txt's own "intentionally NOT
+# stripped" block records .docs/{policies,guides,references,troubleshooting} as
+# DOWNSTREAM-FACING and ships all four to template clones. An adopter is a
+# downstream reader too, so guides/ and references/ ship here on that same
+# evidence — minus dev-main-template-split.md, which is OUR release runbook and
+# is already a strip entry.
+include: .docs/guides
+exclude: .docs/guides/dev-main-template-split.md
+include: .docs/references
+#
+# .docs/agents/agent-registry.json is written by create-agent.sh:426 (a SHIPPED
+# script) — /create-agent has nowhere to record an agent without it. The
+# per-department decision logs under it are runtime record and are already
+# stripped.
+include: .docs/agents/agent-registry.json
+exclude: .docs/agents/*/*/decisions
+#
+# Harness-dev record; not downstream-facing.
+exclude: .docs/history
+exclude: .docs/reviews
+
+# --- RENAMED ON INSTALL ------------------------------------------------------
+# AGENTS.md (PRE-6): an increasingly common cross-agent convention, so the
+# adopter plausibly has their own. Ours is a registry carrying `**Version**:
+# 6.5.0`, a bump-version.sh stamp site, so it cannot be appended to theirs
+# without breaking the stamp. Install out of the way; never write repo-root
+# AGENTS.md.
+rename: AGENTS.md :: .logic-loom/AGENTS.md
+
+# --- THE TWO MERGES (PRE-7, PRE-8) -------------------------------------------
+# .claude/settings.json — the only genuine merge. Verified: 12 hook command
+# entries, all cwd-relative into .claude/ or plugins/ (which is why a nested
+# install is unsupported). Additive into the existing `hooks` object, fenced by
+# a marker so a re-run is idempotent, never removing an entry the adopter added,
+# preserving their indentation (husky's `init` is the precedent for the care
+# level). Hooks compose most-restrictive, so adding ours cannot weaken theirs.
+# HOOKS ONLY — statusLine is not merged (see .claude/statusline.sh above).
+merge: .claude/settings.json :: hooks-object-additive-marked
+#
+# .gitignore (PRE-8) — do NOT copy. The top third of ours is hostile to a real
+# project (it ignores package-lock.json, dist/, build/, coverage/, .vscode/).
+# Append ONLY the harness-specific block, inside a marked fence. Load-bearing,
+# not cosmetic: tests/contract/test_backlog_index.sh:441-453 asserts the backlog
+# index is invisible to `git status` under this ignore rule.
+merge: .gitignore :: append-marked-harness-block
+
+# --- UNDECIDED — THE INSTALLER MUST REFUSE WHILE THIS STANDS -----------------
+# CHANGED FROM THE RESEARCH: CLAUDE.md is absent from its PRE-1 table entirely,
+# which is a hole in the payload boundary rather than an omission of detail — it
+# is the harness's operating instructions. PRE-7 answers it, but not with a copy:
+# rules files without `paths:` frontmatter load at launch with the same priority
+# as .claude/CLAUDE.md, so the harness instructions install as NEW files under
+# .claude/rules/ and the adopter's own CLAUDE.md is never opened. Verified:
+# .claude/rules/ does not exist in this repo yet, so this is authorship — a
+# split-and-condense of a file far past the docs' ~200-line-per-file guidance,
+# not a scripted move. Budget it as content work.
+defer: CLAUDE.md :: split into .claude/rules/*.md per PRE-7 — not yet authored
+
+# --- EXCLUDED: THE NON-NEGOTIABLE ROW ----------------------------------------
+# .github/ — ALL FIVE WORKFLOWS, and the directory itself.
+#
+# The reason is sharper than the research states. Today the exclusion of the four
+# maintainer workflows happens ONLY inside /initialize-project (init-project.sh +
+# the project-initialization skill + initialize-project.md, held in lockstep by
+# tests/contract/test_shipped_gates_vs_strip.sh). An npm adopter
+# never runs /initialize-project — PRE-13 says plainly it must not be pointed at
+# them, since
+# it stamps project.conf, rewrites README.md and scaffolds web/ on the assumption
+# of a fresh template clone. So NOTHING DOWNSTREAM WILL EVER REMOVE THESE. The
+# payload is the only place the exclusion can happen.
+#
+# What breaks if it does not:
+#   branch-topology-guard.yml — fails EVERY pull request into `main` whose head
+#     branch is not release/vX.Y.Z. An adopter inheriting it has every PR fail on
+#     day one. This alone settles the row.
+#   plugin-tests.yml — bare `on: push` / `on: pull_request`, and it runs the
+#     harness bash contract suite. With tests/ excluded it fails immediately.
+#   promote-to-main.yml, release-tag.yml, leak-guard.yml — our release loop.
+#     Meaningless in a foreign repo, and they name our topology.
+#
+# The entry is the DIRECTORY, not a five-file list, for the same reason the strip
+# manifest's `packaging` entry is wholesale: a sixth workflow added later is then
+# already covered, with no release-day edit to remember.
+exclude: .github
+
+# --- EXCLUDED: THE HARNESS'S OWN TEST SUITE ----------------------------------
+# tests/ — verified: 0 `*.test.js`, 39 `*.sh`. It tests the HARNESS, which the
+# adopter did not modify.
+#
+# CHANGED FROM THE RESEARCH: its evidence line reads "no hook or command
+# references tests/". THAT IS FALSE, and it widens the named limit rather than
+# changing the decision. Three SHIPPED surfaces invoke the suite by path:
+#     plugins/loom-git/commands/finalize.md:30        bash tests/run_all_tests.sh
+#     plugins/loom-git/skills/finalize/SKILL.md:45    bash tests/run_all_tests.sh
+#     plugins/loom-maintenance/skills/framework-updater/SKILL.md:210
+#                                                     bash tests/run_all_tests.sh
+# plus a prose citation at .claude/context/workflows.md:169.
+#
+# RESOLVED 2026-08-27 — the call sites were fixed, not the boundary. All three
+# now guard on `[ -f tests/run_all_tests.sh ]`, run the suite when it is there,
+# and when it is not they print `harness-tests: NOT RUN` with a one-line reason
+# and instruct the reporting step to record Principle II as NOT VERIFIED. An
+# absent suite can no longer produce a "tests passed" claim.
+#
+# `/finalize` deliberately does NOT fall back to the adopter's own test command:
+# it would have to guess the runner, and a wrong guess yields either a green
+# compliance line that measured nothing or a red one indicting the harness for
+# someone else's script. constitutional-check.sh ships and does what /finalize
+# is actually for.
+#
+# NAMED LIMIT, still to be stated in the adopt output rather than papered over:
+# an adopter who later edits the harness (via /create-plugin, say) has no local
+# regression suite. Point them at cloning LogicLoom for harness development.
+#
+# NOT AN ADOPT-ONLY GAP IN THE TEMPLATE: tests/ is NOT stripped for the template
+# release (template-strip-manifest.txt:268 lists `tests/** , .logic-loom/tests/**`
+# as ship), so a template cloner on main DOES get the suite. This was adopt-only.
+exclude: tests
+
+# --- EXCLUDED: ROOT PROJECT FILES THAT ARE THE ADOPTER'S, NOT OURS -----------
+# package.json / package-lock.json — verified no runtime reader. The only hits
+#   are bump-version.sh:48 (stripped at release) and constitutional-check.sh:404,
+#   which merely DETECTS presence of any dependency manifest and skips Principle
+#   IX when there is none. An adopter has their own package.json; overwriting it
+#   is unthinkable and merging into it buys nothing.
+exclude: package.json
+exclude: package-lock.json
+#
+# Template-clone onboarding. Meaningless mid-project, and init-project.sh is
+#   actively dangerous to an adopter: :230-236 guards `mv README.md
+#   FRAMEWORK_README.md` on `[ ! -f FRAMEWORK_README.md ]` but then runs
+#   `cat > README.md` UNCONDITIONALLY, destroying their README with no backup on
+#   a re-run (PRE-13, verified by read).
+exclude: README.md
+exclude: START_HERE.md
+exclude: TEMPLATE_INIT.md
+exclude: KNOWN_ISSUES.md
+exclude: init-project.sh
+exclude: fix-line-endings.sh
+#
+# Opinionated project config, none of it load-bearing for the harness. Verified:
+#   .mcp.json is only read by verify-mcp-toolkit.sh:111-115, which reports
+#   presence and is happy without it; .env.example is only copied by the optional
+#   setup.sh:212; .editorconfig, .gitattributes and .pylintrc have NO reader
+#   anywhere in .logic-loom/, plugins/, .claude/hooks/ or tests/. All four are
+#   the adopter's call, not ours.
+exclude: .mcp.json
+exclude: .editorconfig
+exclude: .gitattributes
+exclude: .pylintrc
+exclude: .env.example
+#
+# VISION.md — ships as a STUB on the template so the constitution / CLAUDE.md /
+#   AGENTS.md references resolve on a fresh clone, and /initialize-project fills
+#   it. An adopter has their own product direction and never runs that command.
+#   build-graph-bridge.sh:140 lists it among root docs but tolerates absence.
+exclude: VISION.md
+#
+# CHANGELOG.md — the harness's own version history. Already a strip-manifest
+#   entry; defensive.
+exclude: CHANGELOG.md
+
+# --- EXCLUDED: OUR RECORD (all already stripped at release; defensive) -------
+exclude: .brain
+exclude: artifacts
+exclude: packaging
+exclude: .docs/design
+exclude: .docs/reports
+exclude: .docs/archive
+exclude: .docs/plans
+exclude: .docs/memory
+exclude: .docs/governance
+exclude: .logic-loom/plans
+exclude: .logic-loom/logs
+exclude: .loom-active-feature
+exclude: .loom-worktree-env

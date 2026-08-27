@@ -1,0 +1,214 @@
+#!/usr/bin/env bash
+# Contract Tests: adopt-package payload boundary
+#
+# packaging/adopt/payload-manifest.txt is the reviewable PROPOSAL for which
+# subset of the harness the npm adopt package installs into someone else's repo
+# (research § 6 PRE-1). The installer is not written yet; this suite is the
+# manifest's only consumer, and it exists so the boundary cannot drift or be
+# edited into something harmful before the installer arrives.
+#
+# What it pins:
+#   1. Grammar — every non-comment line carries a known verb.
+#   2. The non-negotiable exclusion: .github/ and all five workflows. An npm
+#      adopter never runs /initialize-project, so nothing downstream removes
+#      them, and branch-topology-guard.yml then fails every PR they open.
+#   3. The other required exclusions: tests/, package.json, and the
+#      template-clone onboarding files.
+#   4. The required inclusions: the harness core.
+#   5. Coherence — no path both included and excluded; every include/rename/
+#      merge SOURCE exists in the tree, so a row cannot rot silently.
+#   6. packaging/ never ships: it is a template-strip-manifest entry, and this
+#      manifest excludes it too.
+#   7. The PRE-12 Node-floor note survives, dated + sourced + re-checkable, still
+#      naming the command that would confirm it.
+#
+# bash 3.2 safe: no associative arrays, no mapfile, no [[ -v ]], no ${var,,}.
+set -uo pipefail
+
+PASS=0; FAIL=0; TOTAL=0
+assert() {
+  TOTAL=$((TOTAL + 1)); desc="$1"; condition="$2"
+  if eval "$condition"; then echo "  ✅ PASS: $desc"; PASS=$((PASS + 1))
+  else echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1)); fi
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :; else
+  ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+fi
+cd "$ROOT"
+
+MANIFEST="${LOOM_ADOPT_MANIFEST:-$ROOT/packaging/adopt/payload-manifest.txt}"
+STRIP_MANIFEST="$ROOT/.logic-loom/scripts/bash/template-strip-manifest.txt"
+
+echo "🧪 Adopt Payload Manifest Contract Tests"
+echo "========================================"
+echo ""
+echo "Manifest: $MANIFEST"
+echo ""
+
+# ── Vacuously green on a stripped tree, FAIL-CLOSED on rot ───────────────────
+# `packaging` is a template-strip-manifest entry, so this manifest does not exist
+# in any shipped tree — and plugin-tests.yml runs this suite as a CI step, which
+# tests/contract/test_shipped_gates_vs_strip.sh executes against a freshly
+# stripped tree and requires to exit 0. Same shape and same reason as
+# check-brain-record.sh, which is vacuously green on a README-only .brain/: a
+# live gate, not a dead one.
+#
+# The teeth are kept by the TRACKED test. Absent-and-untracked (a stripped tree,
+# or a clone that never had packaging/) is a legitimate skip. Absent-but-TRACKED
+# means the file was deleted out from under the boundary, and that still fails.
+IS_TRACKED=no
+if git -C "$ROOT" ls-files --error-unmatch "$MANIFEST" >/dev/null 2>&1; then IS_TRACKED=yes; fi
+
+if [ ! -f "$MANIFEST" ] && [ "$IS_TRACKED" = no ]; then
+  echo "  ⏭  SKIP: no packaging/adopt/payload-manifest.txt and none tracked —"
+  echo "     this is a stripped or customer tree, where packaging/ never exists."
+  echo ""
+  echo "Results: $PASS passed, $FAIL failed, $TOTAL total"
+  exit 0
+fi
+
+assert "payload manifest exists (it is tracked, so it must be on disk)" "[ -f \"$MANIFEST\" ]"
+if [ ! -f "$MANIFEST" ]; then
+  echo ""; echo "Results: $PASS passed, $FAIL failed, $TOTAL total"; exit 1
+fi
+
+# ── Parse ────────────────────────────────────────────────────────────────────
+# Drop comments and blanks. Every surviving line must be `<verb>: <rest>`.
+BODY="$(sed -e 's/[[:space:]]*$//' "$MANIFEST" | grep -v '^[[:space:]]*#' | grep -v '^[[:space:]]*$')"
+
+# Bare (no `::`) left-hand path for a given verb.
+paths_for() {
+  printf '%s\n' "$BODY" \
+    | grep -E "^$1:[[:space:]]" \
+    | sed -E "s/^$1:[[:space:]]*//" \
+    | sed -E 's/[[:space:]]*::.*$//' \
+    | sed -E 's/[[:space:]]*$//'
+}
+
+INCLUDES="$(paths_for include)"
+EXCLUDES="$(paths_for exclude)"
+RENAMES="$(paths_for rename)"
+MERGES="$(paths_for merge)"
+DEFERS="$(paths_for defer)"
+
+has_line() { printf '%s\n' "$1" | grep -qxF "$2"; }
+
+echo "── 1. Grammar ──"
+BAD_VERBS="$(printf '%s\n' "$BODY" | grep -vE '^(include|exclude|rename|merge|defer):[[:space:]]+[^[:space:]]' || true)"
+assert "every non-comment line uses a known verb (include|exclude|rename|merge|defer)" \
+  "[ -z \"\$(printf '%s' \"$BAD_VERBS\")\" ]"
+# rename/merge/defer each require the ` :: ` field — same reason the strip
+# manifest's `stub:` aborts without its template: the wrong default is worse
+# than a hard failure.
+for v in rename merge defer; do
+  MISSING="$(printf '%s\n' "$BODY" | grep -E "^$v:" | grep -v '::' || true)"
+  assert "every '$v:' line carries the ':: <field>' half" "[ -z \"\$(printf '%s' \"$MISSING\")\" ]"
+done
+assert "at least one include: entry" "[ -n \"$INCLUDES\" ]"
+assert "at least one exclude: entry" "[ -n \"$EXCLUDES\" ]"
+echo ""
+
+echo "── 2. The non-negotiable row: .github/ is excluded ──"
+assert "'.github' is an exclude: entry (the directory, not a file list)" \
+  "has_line \"\$EXCLUDES\" '.github'"
+# Nothing may be included from under .github/ — this is the planted-violation
+# check. Adding `include: .github` (or any path beneath it) turns this red.
+GH_INCLUDED="$(printf '%s\n' "$INCLUDES" "$RENAMES" "$MERGES" | grep -E '^\.github(/|$)' || true)"
+assert "no include:/rename:/merge: entry resolves under .github/" \
+  "[ -z \"\$(printf '%s' \"$GH_INCLUDED\")\" ]"
+# All five workflows must actually be covered by that exclusion.
+WF_UNCOVERED=""
+for wf in branch-topology-guard.yml leak-guard.yml plugin-tests.yml promote-to-main.yml release-tag.yml; do
+  p=".github/workflows/$wf"
+  [ -f "$ROOT/$p" ] || continue
+  covered=no
+  for e in $EXCLUDES; do
+    case "$p" in "$e"|"$e"/*) covered=yes ;; esac
+  done
+  [ "$covered" = yes ] || WF_UNCOVERED="$WF_UNCOVERED $wf"
+done
+assert "all five .github/workflows/*.yml are covered by an exclude: entry" \
+  "[ -z \"\$WF_UNCOVERED\" ]"
+# The manifest must state WHY, since the reason is the whole row: the exclusion
+# exists nowhere downstream because an npm adopter never runs
+# /initialize-project.
+assert "manifest records that an adopter never runs /initialize-project" \
+  "grep -qi 'never runs /initialize-project' \"$MANIFEST\""
+assert "manifest names branch-topology-guard.yml as the breaking workflow" \
+  "grep -q 'branch-topology-guard.yml' \"$MANIFEST\""
+echo ""
+
+echo "── 3. Other required exclusions ──"
+for p in tests package.json README.md START_HERE.md TEMPLATE_INIT.md \
+         KNOWN_ISSUES.md init-project.sh fix-line-endings.sh packaging; do
+  assert "'$p' is excluded" "has_line \"\$EXCLUDES\" '$p'"
+done
+echo ""
+
+echo "── 4. Required inclusions: the harness core ──"
+for p in .logic-loom plugins .claude/hooks .claude/commands .claude/context .sdd-sync-ref; do
+  assert "'$p' is included" "has_line \"\$INCLUDES\" '$p'"
+done
+echo ""
+
+echo "── 5. Coherence ──"
+# No path may be BOTH an include and an exclude at the same level. (An exclude
+# NESTED under an include is the documented carve-out form and is fine.)
+CONTRADICT=""
+for i in $INCLUDES; do
+  if has_line "$EXCLUDES" "$i"; then CONTRADICT="$CONTRADICT $i"; fi
+done
+assert "no path is both include: and exclude: at the same level" "[ -z \"\$CONTRADICT\" ]"
+
+# Every include/rename/merge SOURCE must exist in the working tree, so a row
+# cannot silently point at a path that was renamed or deleted. Globs are skipped.
+MISSING_SRC=""
+for p in $INCLUDES $RENAMES $MERGES $DEFERS; do
+  case "$p" in *[*?]*) continue ;; esac
+  [ -e "$ROOT/$p" ] || MISSING_SRC="$MISSING_SRC $p"
+done
+assert "every include:/rename:/merge:/defer: source exists in the tree" \
+  "[ -z \"\$MISSING_SRC\" ]"
+
+# A `defer:` is an unresolved decision. It must be visible, not silent: the
+# manifest has to say the installer refuses to run while one stands.
+if [ -n "$DEFERS" ]; then
+  assert "manifest states the installer refuses to run while a defer: stands" \
+    "grep -qi 'installer must refuse' \"$MANIFEST\""
+fi
+echo ""
+
+echo "── 6. packaging/ is maintainer-only on BOTH sides ──"
+assert "template-strip-manifest.txt carries the 'packaging' strip entry" \
+  "grep -qx 'packaging' \"$STRIP_MANIFEST\""
+assert "the payload manifest itself lives under packaging/" \
+  "case \"$MANIFEST\" in */packaging/*) true ;; *) false ;; esac"
+echo ""
+
+echo "── 7. PRE-12 Node floor note ──"
+assert "manifest carries a Node-floor note for the publish workflow" \
+  "grep -qi 'trusted publishing' \"$MANIFEST\""
+# The note was UNVERIFIED; it is now VERIFIED 2026-08-27 against the primary
+# source. The assertion's job is unchanged in kind: stop the note being quietly
+# PROMOTED to unsourced fact, and stop it quietly ROTTING once npm moves the
+# floor. So it now pins that the claim is dated, sourced, and re-checkable.
+assert "the Node floor carries a VERIFIED date, not a bare claim" \
+  "grep -qE 'VERIFIED [0-9]{4}-[0-9]{2}-[0-9]{2}' \"$MANIFEST\""
+assert "the exact floor figures survive" \
+  "grep -q '22.14.0' \"$MANIFEST\" && grep -q '11.5.1' \"$MANIFEST\""
+assert "the source URL is recorded" \
+  "grep -q 'docs.npmjs.com/trusted-publishers' \"$MANIFEST\""
+assert "a re-check command survives so the note cannot rot silently" \
+  "grep -q 'curl -s https://docs.npmjs.com/trusted-publishers' \"$MANIFEST\""
+assert "the GitHub-hosted-runner constraint is recorded" \
+  "grep -qi 'self-hosted' \"$MANIFEST\""
+assert "the note warns publish-adopt.yml needs its own setup-node" \
+  "grep -q 'setup-node' \"$MANIFEST\""
+echo ""
+
+echo "========================================"
+echo "Results: $PASS passed, $FAIL failed, $TOTAL total"
+[ "$FAIL" -eq 0 ] || exit 1
+exit 0

@@ -103,10 +103,13 @@ run_suite "Backlog Index" "bash tests/contract/test_backlog_index.sh"
 run_suite "Backlog Dashboard" "bash tests/contract/test_backlog_dashboard.sh"
 run_suite "Promotion Lifecycle" "bash tests/contract/test_promotion_lifecycle.sh"
 run_suite "Release Publication" "bash tests/contract/test_release_publication.sh"
+run_suite "Release Sync-Ref Reachability" "bash tests/contract/test_release_sync_ref.sh"
 run_suite "Shipped Gates vs Strip" "bash tests/contract/test_shipped_gates_vs_strip.sh"
 run_suite "Sanitization Audit" "bash tests/contract/test_sanitization_audit.sh"
 run_suite "bash 3.2 Floor" "bash tests/contract/test_bash32_floor.sh"
 run_suite "Brain Record" "bash tests/contract/test_brain_record.sh"
+run_suite "Init Project README" "bash tests/contract/test_init_project_readme.sh"
+run_suite "Adopt Payload Manifest" "bash tests/contract/test_adopt_payload_manifest.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

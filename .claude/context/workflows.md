@@ -373,7 +373,6 @@ specs/###-feature-name/                     # Per-feature documentation
 - **setup-plan.sh**: Prepare implementation planning
 - **check-task-prerequisites.sh**: Verify design artifacts exist before task generation
 - **constitutional-check.sh**: Pre-commit compliance validation, all 16 principles (no auto-git; invoked by `/finalize`)
-- **update-agent-context.sh**: Update AI assistant context files
 
 ### Validation Scripts
 

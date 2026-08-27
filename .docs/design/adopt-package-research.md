@@ -423,6 +423,39 @@ My recommendation, with the evidence for each:
 | `features/`, `specs/` (`.gitkeep` only) | **Yes** | Workflow packs write here |
 | `.docs/policies/`, `.docs/architecture/` | **Yes** | Contract docs the shipped scripts cite by path |
 
+**STATUS (2026-08-27): encoded as a reviewable proposal, not a settled decision.**
+The table above is now `packaging/adopt/payload-manifest.txt` — same rows,
+verb-per-line grammar, evidence inline, one file to edit to overrule it.
+`tests/contract/test_adopt_payload_manifest.sh` holds the boundary. Re-deriving
+each row against the repo changed six of them:
+
+1. **`tests/` — the evidence line above is wrong.** "no hook or command
+   references `tests/`" is false. Three *shipped* surfaces invoke the suite by
+   path: `plugins/loom-git/commands/finalize.md:30`,
+   `plugins/loom-git/skills/finalize/SKILL.md:45`, and
+   `plugins/loom-maintenance/skills/framework-updater/SKILL.md:210`, all
+   `bash tests/run_all_tests.sh`. The decision (exclude) stands; the named limit
+   grows — `/finalize` and `/update-framework` will point an adopter at a suite
+   that is not there. Fix the call sites or ship the suite before Phase 1 closes.
+2. **`features/`, `specs/` are not `.gitkeep` only.** Each also tracks a
+   `README.md`, and `features/README.md` is cited by name from CLAUDE.md's
+   "See Also". Ship all four files.
+3. **`.claude/agents/` was missing from the table** and is load-bearing —
+   `constitutional-check.sh:662` scans it, `create-agent.sh:17` writes into it,
+   `create-skill-command.sh:329` resolves out of it. Include.
+4. **`.claude/policies/tool-restrictions.json` was missing** and is read at
+   runtime by `.logic-loom/lib/policy.sh:15`. Include. (`.claude/schemas/` has no
+   reader — included anyway as cheap documentation; `.claude/statusline.sh` is
+   excluded, reachable only via the `statusLine` key the merge does not touch.)
+5. **`.logic-loom/` needs three carve-outs** the row omitted, contradicting PRE-5:
+   `update-agent-context.sh` (CLAUDE.md truncation — now being deleted upstream),
+   `check-generated-freshness.sh` (PRE-5's open decision, resolved: exclude — it
+   regenerates an artifact the payload never ships), and `.logic-loom/tests/`.
+6. **`CLAUDE.md` was absent from the table entirely.** PRE-7 answers it
+   (`.claude/rules/` split), but that is authorship, not a copy — `.claude/rules/`
+   does not exist yet. Recorded as a `defer:` line; the installer must refuse to
+   run while it stands.
+
 **Named limit:** dropping `tests/` means an adopter who later edits the harness
 (via `/create-plugin`, say) has no local regression suite. That is the right
 default — but say it in the adopt output, and point at cloning LogicLoom for
@@ -646,9 +679,37 @@ if you need a token for that first publish.
 
 ### PRE-12 · Confirm the CI runner satisfies the npm/Node floor
 
-`plugin-tests.yml` pins `node-version: '20'`. Trusted publishing needs **Node ≥
-22.14.0** and **npm ≥ 11.5.1**. The publish workflow needs its own
-`setup-node` with a satisfying version — do not assume the repo default carries.
+**Verified in-repo (2026-08-27):** `.github/workflows/plugin-tests.yml:16` and
+`.github/workflows/promote-to-main.yml:73` both pin `node-version: '20'`; root
+`package.json:31-34` declares `engines.node >= 18.0.0`.
+
+**VERIFIED 2026-08-27** against <https://docs.npmjs.com/trusted-publishers>, the
+primary source, which states verbatim: *"Trusted publishing requires npm CLI
+version 11.5.1 or later and Node version 22.14.0 or higher."* So the floor is
+**Node ≥ 22.14.0 / npm CLI ≥ 11.5.1**.
+
+**Also verified, and previously unrecorded — GitHub-hosted runners only.** The
+same page states: *"Self-hosted runners are not currently supported but are
+planned for future releases."* Every workflow in this repo is
+`runs-on: ubuntu-latest`, so we satisfy this today. It is recorded because a
+future move to self-hosted runners would break publishing silently — nothing
+in-repo would flag it.
+
+These figures will move. Re-check with:
+
+```
+curl -s https://docs.npmjs.com/trusted-publishers | grep -iE 'node|npm .?[0-9]+\.|self-hosted'
+```
+
+**Decision: do not bump the existing workflows.** Neither publishes, so raising
+their floor for an unrelated reason is churn. The requirement is instead recorded
+in the header of `packaging/adopt/payload-manifest.txt`, where whoever writes
+`publish-adopt.yml` will be reading the payload boundary anyway;
+`test_adopt_payload_manifest.sh` asserts that note still exists, still carries
+its VERIFIED date and source URL, and still names a re-check command — so it can
+neither be promoted to unsourced fact nor rot silently when npm moves the floor. The trap it closes:
+`publish-adopt.yml` must carry its **own** `actions/setup-node`, because copying
+a step from either existing workflow silently gives it Node 20.
 
 ### PRE-13 · Decide what the adopter runs *after* install
 

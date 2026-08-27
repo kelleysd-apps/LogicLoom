@@ -112,6 +112,13 @@ jobs:
       - name: Run Release Publication Tests
         run: bash tests/contract/test_release_publication.sh
 
+      # The baseline a release PUBLISHES must be reachable from main. v6.4.1 and
+      # v6.5.0 both shipped a dev-main SHA, breaking /update-framework for every
+      # clone of those tags. Replays compose/advance in a throwaway repo and runs
+      # release-tag.yml's own tagging body against it.
+      - name: Run Release Sync-Ref Reachability Tests
+        run: bash tests/contract/test_release_sync_ref.sh
+
       # THE CONVERSE of the freshness gate below: nothing that SHIPS may DEMAND
       # a path template-strip-manifest.txt removes. Builds a throwaway stripped
       # tree with the real stripper and RUNS every shipped CI step that mentions
@@ -148,6 +155,12 @@ jobs:
       # with no `.brain/` at all, which is what a cloner who never opts in has.
       - name: Run Brain Record Tests
         run: bash tests/contract/test_brain_record.sh
+
+      - name: Run Init Project README Tests
+        run: bash tests/contract/test_init_project_readme.sh
+
+      - name: Run Adopt Payload Manifest Tests
+        run: bash tests/contract/test_adopt_payload_manifest.sh
 
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —

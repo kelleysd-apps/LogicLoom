@@ -207,8 +207,22 @@ re-fetched next time.
 
 ```bash
 ./.logic-loom/scripts/bash/constitutional-check.sh
-bash tests/run_all_tests.sh
+
+# The harness suite ships with a clone and with the template, but not with the
+# npm adopt payload. Run it when present; do not claim a pass when it is not.
+if [ -f tests/run_all_tests.sh ]; then
+  bash tests/run_all_tests.sh
+else
+  echo "harness-tests: NOT RUN — tests/run_all_tests.sh is not present."
+  echo "harness-tests: this install did not receive the harness suite (adopt payload excludes tests/)."
+  echo "harness-tests: validate the applied enhancements by hand before accepting them."
+fi
 ```
+
+`constitutional-check.sh` ships with every install and always runs. If the
+harness suite did not run, say so in the update summary and treat the applied
+enhancements as **unvalidated by regression** — review the diff manually rather
+than reporting the update as verified.
 
 ---
 

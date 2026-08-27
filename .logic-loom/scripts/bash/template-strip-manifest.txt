@@ -217,6 +217,29 @@ stub: .brain/README.md :: .logic-loom/templates/brain-readme-template.md
 #     entry is about it never reaching a customer. Neither replaces the other.
 .logic-loom/graph
 
+# --- Adopt-package build tooling (maintainer-only; produces the payload, is
+#     never part of it) ---
+#     packaging/adopt/ is where the npm adopt package that INSTALLS LogicLoom
+#     into someone else's repo is built. It is our publish machinery — package
+#     manifest, installer, its own tests, the trusted-publisher wiring — and a
+#     customer who cloned the template has no use for a tool that installs the
+#     thing they already have. Worse, shipping it would put a second, divergent
+#     copy of the installer inside every clone, which is the source-of-truth
+#     failure this manifest exists to prevent.
+#     WHOLESALE, and deliberately not `packaging/adopt/*` or a file list: the
+#     directory does not exist yet, and the point of the wholesale form is that
+#     it covers the files before anyone writes them. This is the same reasoning
+#     the `.brain/memory` entry above records — an entry that matches nothing is
+#     free, and a maintainer tool reaching a customer is not. strip_entry()
+#     matches manifest globs against `git ls-files`, so until the directory is
+#     tracked this line strips nothing and prints nothing; the day it lands, it
+#     is already covered, with no release-day edit to remember.
+#     `packaging` rather than `packaging/adopt` on purpose: a sibling
+#     packaging/<other>/ would otherwise ship verbatim. If a customer-facing
+#     thing ever needs to live under packaging/, narrow this line THEN, with the
+#     reason written here.
+packaging
+
 # --- LogicLoom-contribution scaffolding (about contributing TO the harness, not
 #     a customer's own project) ---
 .github/ISSUE_TEMPLATE
