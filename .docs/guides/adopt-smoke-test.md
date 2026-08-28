@@ -127,13 +127,45 @@ Run each and record the result.
 
 | # | Check | Command | Expected |
 |---|---|---|---|
-| 1 | Their files are untouched | `git status --porcelain \| grep '^ M' \| grep -vE '\.gitignore\|\.claude/settings\.json'` | **empty output.** Those two are the only paths permitted to show `M` — they are the merge targets you approved. Any other `M` line is a failure. `??` lines are expected and fine |
+| 1 | Their files are untouched | **check 1's block below** | **empty output.** The two merge targets you approved are the only paths permitted to show `M`. Any other `M` line is a failure. `??` lines are expected and fine |
 | 2 | The merges did what they said | `git diff .gitignore` and `.claude/settings.json` | a fenced block appended; their existing keys and lines intact and in place |
 | 3 | Idempotency | re-run the exact same apply command, **without committing first** | **exit 0**, reports `NO-OP`, writes nothing, and prints a `DISCOUNTED` section naming the blocks its own first run caused |
-| 3b | The discount is narrow | `echo '# probe' >> .gitignore`, re-run the same apply, then `sed -i '' -e '$d' .gitignore` (GNU: `sed -i -e '$d'`) and re-run again | first re-run: **exit 1**, `DIRTY-MERGE-TARGET`, a note that the discount was *REFUSED* because the file changed. Nothing written. After removing the line: `NO-OP` once more |
+| 3b | The discount is narrow | **check 3b's block below** | first re-run: **exit 1**, `DIRTY-MERGE-TARGET`, a note that the discount was *REFUSED* because the file changed. Nothing written. After removing the probe line: `NO-OP` once more |
 | 4 | The receipt exists and is honest | `cat .logicloom-adopt-receipt.json` | lists what landed, and carries an `uninstall` procedure |
 | 5 | Plan matched apply | the two commands below | the count matches `WROTE`, and both reconciliation lists are empty |
 | 6 | The harness is functional | `bash .logic-loom/scripts/bash/constitutional-check.sh` | runs and reports |
+
+**Check 1's command.** Out of the table on purpose: a markdown table cell has to
+escape every `|` as `\|`, and both the shell pipes and the regex alternation here
+are pipes. Copied out of a cell, the escapes make the shell treat `\|` as a
+literal argument and `grep -E` treat it as a literal `|` character rather than
+alternation — so the filter silently excludes nothing and both merge targets get
+reported as failures. Run it from here instead:
+
+```bash
+git status --porcelain | grep '^ M' | grep -vE '\.gitignore|\.claude/settings\.json'
+```
+
+**Check 3b's commands.** Snapshot the file, add the probe, then restore the
+snapshot. You are deliberately modifying a file belonging to your user, so the
+undo has to be exact under *any* content — and neither obvious shortcut is:
+a blind last-line delete (`sed -i '$d'`) removes whatever happens to be last
+rather than what you added, and a content filter (`grep -v '^# probe$'`) removes
+*every* matching line, so a `.gitignore` that already contained `# probe` loses
+their line too. Both were tested; both corrupt a real file on plausible input.
+Restoring a byte copy cannot misfire:
+
+```bash
+cp .gitignore .gitignore.preprobe          # snapshot — the only reliable undo
+echo '# probe' >> .gitignore
+npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer>   # expect exit 1, DIRTY-MERGE-TARGET
+
+mv .gitignore.preprobe .gitignore          # restore; byte-identical by construction
+npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer>   # expect exit 0, NO-OP
+```
+
+If the second apply does not report `NO-OP`, your restore did not land — say so
+and stop, rather than editing `.gitignore` further to make it pass.
 
 **Check 5's commands.** `runs[].wrote[].path` lives in the receipt the apply
 wrote, `.logicloom-adopt-receipt.json`. `python3` rather than `jq`, because
@@ -172,11 +204,13 @@ print('promised but NOT written:', unwritten or 'none')
 PY
 ```
 
-Run this **after** both apply commands. If you ran only the first,
-`promised but NOT written` correctly lists the two `hooks` files
-(`.claude/settings.json` and `.claude/.logicloom-adopt-settings.json`) — `hooks`
-is deliberately not in `--only=all`, so skipping it writes nothing. Once both
-have run, **both lists should print `none`**. Anything else is a finding: report
+**Both lists should print `none` — but only if your user asked for `hooks`.**
+That is their decision from section 3, not a step you can order around: `hooks`
+is deliberately not in `--only=all`, so if they declined it, nothing is written
+for it and `promised but NOT written` correctly lists its two files
+(`.claude/settings.json` and `.claude/.logicloom-adopt-settings.json`). That is a
+pass, not a finding — say which they chose when you report it. If they did ask
+for `hooks`, run this after that apply, and both lists should be empty. Anything else is a finding: report
 it with its contents rather than judging it yourself.
 
 Two notes on the table, both of which cost an earlier tester time:
@@ -289,7 +323,11 @@ result — it looks like data.
 1. Every check above, pass or fail, with the actual output for anything that failed.
 2. **Anything the plan said that turned out not to be true.** This is the highest-value finding available and the whole reason for a real-repo test.
 3. Whether the decisions list was enough to guide your user without you inferring anything.
-4. The `.claude/rules/` result from section 5.
+4. **Confirmation that you handed section 5 off and did not attempt it.** State
+   that you stopped at the STOP, and paste the hand-off block you gave your
+   user. There is no `.claude/rules/` result for you to report — that probe
+   belongs to the fresh session in 5a, and a result invented here is worse
+   than none, because it is the one claim nobody would think to re-check.
 5. Anything you wanted to do that the tool refused, and whether the refusal was right.
 
 ## Refusals — do not work around these
