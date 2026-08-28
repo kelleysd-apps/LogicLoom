@@ -90,6 +90,15 @@ function usage() {
   L.push('  --payload <dir>      Harness tree to install');
   L.push('                       (default: the packaged payload/, else a dev checkout)');
   L.push('  --manifest <file>    Payload manifest (default: <pkg>/payload-manifest.txt)');
+  L.push('  --claude-md=<mode>   How the harness instructions reach the model. One of:');
+  const cm = require('../lib/claude-md');
+  for (const m of cm.MODES) L.push(`                         ${m.padEnd(7)} ${cm.MODE_SUMMARY[m]}`);
+  L.push(`                       Also settable as ${cm.ENV_VAR}=<mode>, so a scripted or CI`);
+  L.push('                       install needs no prompt. There is no prompt in any case:');
+  L.push('                       the plan presents the options, the flag decides, the apply');
+  L.push('                       executes exactly that. Same input, same output, every time.');
+  L.push('                       With no CLAUDE.md in the repo the question is not asked and');
+  L.push('                       `import` collapses to `rules` — this tool never creates one.');
   L.push('  --json               Emit the plan as JSON on stdout instead of a report');
   L.push('  -h, --help           This text');
   L.push('');
@@ -118,7 +127,7 @@ function usage() {
 
 function parseInitArgs(argv) {
   const opts = { target: null, payload: null, manifest: null, json: false, help: false,
-                 dryRun: true, apply: false, only: null, planFile: null };
+                 dryRun: true, apply: false, only: null, planFile: null, claudeMd: null };
   const needsValue = (name, v) => (v === undefined ? { error: `option '${name}' requires a value` } : null);
 
   for (let i = 0; i < argv.length; i++) {
@@ -129,6 +138,8 @@ function parseInitArgs(argv) {
     else if (a === '--apply') { opts.apply = true; opts.dryRun = false; }
     else if (a === '--only') { opts.only = argv[++i]; err = needsValue(a, opts.only); }
     else if (a.indexOf('--only=') === 0) opts.only = a.slice(7);
+    else if (a === '--claude-md') { opts.claudeMd = argv[++i]; err = needsValue(a, opts.claudeMd); }
+    else if (a.indexOf('--claude-md=') === 0) opts.claudeMd = a.slice(12);
     else if (a === '--plan') { opts.planFile = argv[++i]; err = needsValue(a, opts.planFile); }
     else if (a.indexOf('--plan=') === 0) opts.planFile = a.slice(7);
     // There is deliberately no --force. Naming it here so the refusal is a
@@ -169,6 +180,12 @@ function cmdInit(argv) {
     return 2;
   }
 
+  // Validated HERE so a typo is a usage error (exit 2) rather than a plan
+  // error, and so it is caught before any tree is read.
+  const claudeMdLib = require('../lib/claude-md');
+  const cmReq = claudeMdLib.requestedMode(opts.claudeMd, process.env);
+  if (cmReq.error) { process.stderr.write('ERROR: ' + cmReq.error + '\n'); return 2; }
+
   const planLib = require('../lib/plan');
   const renderLib = require('../lib/render');
   const applyLib = require('../lib/apply');
@@ -195,6 +212,7 @@ function cmdInit(argv) {
         payload: opts.payload,
         manifest: opts.manifest,
         planFile: opts.planFile,
+        claudeMd: opts.claudeMd,
         only: only.targets
       });
     } catch (e) {
@@ -213,7 +231,8 @@ function cmdInit(argv) {
       pkgVersion: PKG.version,
       target: targetAbs,
       payload: opts.payload,
-      manifest: opts.manifest
+      manifest: opts.manifest,
+      claudeMd: opts.claudeMd
     });
   } catch (e) {
     process.stderr.write('ERROR: could not produce a plan: ' + (e && e.message) + '\n');

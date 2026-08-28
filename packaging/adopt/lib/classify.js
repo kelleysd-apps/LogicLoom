@@ -135,7 +135,13 @@ function classifyUnit(unit, ctx) {
   } else {
     cp = pathCounterpart(root, unit);
     if (cp.exists === true && unit.kind === 'file' && cp.kind === 'file') {
-      const same = sameFileBytes(path.join(payloadRoot, unit.sourcePath), cp.abs);
+      // `sourceAbs` is set by units whose source is resolved against the PACKAGE
+      // root rather than the payload root (the `author:` rows). Falling back to
+      // the payload root for those would compare against a path that does not
+      // exist, which reads as "could not be compared" — a keep-theirs with a
+      // wrong reason attached.
+      const srcAbs = unit.sourceAbs || path.join(payloadRoot, unit.sourcePath);
+      const same = sameFileBytes(srcAbs, cp.abs);
       cp.identical = same;
       cp.reason = same === true ? 'byte-identical to the payload copy'
         : same === false ? 'exists with different content'

@@ -182,6 +182,14 @@ jobs:
       - name: Run Adopt Merges Tests
         run: bash tests/contract/test_adopt_merges.sh
 
+      # The authored .claude/rules/ payload and the CLAUDE.md integration mode —
+      # the half that cleared `defer: CLAUDE.md`. Two things it keeps honest that
+      # nothing else does: the ~250-line ceiling on instructions that load at
+      # CLAUDE.md priority in every adopting session, and the determinism of the
+      # mode (flag or env var, no prompt, recorded in the receipt).
+      - name: Run Adopt Rules + CLAUDE.md Mode Tests
+        run: bash tests/contract/test_adopt_rules.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only

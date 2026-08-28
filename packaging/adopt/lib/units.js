@@ -159,10 +159,44 @@ function gitignoreUnits(payloadRoot, relPath, strategy) {
   return { units, error: null };
 }
 
+// ── author units: the rules files the package carries, not the payload ──────
+// RESOLVED AGAINST THE PACKAGE ROOT, not the payload root, and that is the whole
+// reason `author:` is a separate verb (see manifest.js). In a dev checkout the
+// package root is packaging/adopt/; in a published package it is the package
+// directory. `payload/rules/x.md` is the same relative path in both, which no
+// payload-relative spelling manages.
+//
+// Granularity is `rules` — its own target, because installing the harness's
+// operating instructions is a decision the adopter makes separately from
+// installing the harness tree, and one of its modes writes into a file they own.
+function authorUnits(pkgRoot, parsed) {
+  const units = [];
+  for (const a of parsed.authors) {
+    const abs = path.join(pkgRoot, a.path);
+    units.push({
+      id: 'rules:' + a.arg,
+      kind: 'file',
+      granularity: 'rules',
+      sourcePath: a.path,
+      sourceRoot: 'package',
+      sourceAbs: abs,
+      targetPath: a.arg,
+      action: 'copy',
+      manifestLine: a.lineNo,
+      payloadPresent: exists(abs)
+    });
+  }
+  return units;
+}
+
 // ── the whole inventory ──────────────────────────────────────────────────────
-function enumerate(payloadRoot, parsed) {
+function enumerate(payloadRoot, parsed, pkgRoot) {
   const errors = [];
   let units = pathUnits(payloadRoot, parsed);
+  if (pkgRoot) units = units.concat(authorUnits(pkgRoot, parsed));
+  else if (parsed.authors.length) {
+    errors.push(`${parsed.authors.length} author: row(s) cannot be resolved — no package root was supplied`);
+  }
 
   for (const m of parsed.merges) {
     if (m.path === '.claude/settings.json') {
@@ -182,6 +216,6 @@ function enumerate(payloadRoot, parsed) {
 }
 
 module.exports = {
-  enumerate, pathUnits, settingsUnits, gitignoreUnits,
+  enumerate, pathUnits, authorUnits, settingsUnits, gitignoreUnits,
   isHarnessIgnoreLine, HARNESS_IGNORE_PREFIXES
 };

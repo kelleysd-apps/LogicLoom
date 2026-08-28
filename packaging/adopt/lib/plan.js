@@ -17,6 +17,7 @@ const manifestLib = require('./manifest');
 const unitsLib = require('./units');
 const classifyLib = require('./classify');
 const preLib = require('./preconditions');
+const claudeMdLib = require('./claude-md');
 
 const SCHEMA = 'logicloom/adopt-plan@1';
 
@@ -31,9 +32,18 @@ function resolvePayloadRoot(pkgRoot, override) {
   if (process.env.LOOM_ADOPT_PAYLOAD) {
     return { root: path.resolve(process.env.LOOM_ADOPT_PAYLOAD), source: 'LOOM_ADOPT_PAYLOAD' };
   }
+  // A PACKED PAYLOAD IS RECOGNISED BY ITS CONTENT, NOT BY ITS NAME. `payload/`
+  // also holds the authored `payload/rules/*.md` in a dev checkout, where the
+  // harness tree is NOT beneath it — the repo root two levels up is. Treating a
+  // bare-existing `payload/` as the packed tree would point every `include:` row
+  // at a directory that does not have it, and every unit would classify as an
+  // R0 payload defect. `.logic-loom/` is the marker because it is the one entry
+  // no packed payload can lack.
   const packed = path.join(pkgRoot, 'payload');
   try {
-    if (fs.statSync(packed).isDirectory()) return { root: packed, source: 'packaged payload/' };
+    if (fs.statSync(packed).isDirectory() && fs.statSync(path.join(packed, '.logic-loom')).isDirectory()) {
+      return { root: packed, source: 'packaged payload/' };
+    }
   } catch (e) { /* not packed yet */ }
   // Development fallback: packaging/adopt/ lives inside the LogicLoom repo, so
   // the repo root two levels up IS the payload source. Reported as such.
@@ -73,7 +83,7 @@ function build(opts) {
   let units = [];
   let unitErrors = [];
   if (parsed) {
-    const en = unitsLib.enumerate(payload.root, parsed);
+    const en = unitsLib.enumerate(payload.root, parsed, pkgRoot);
     units = en.units;
     unitErrors = en.errors;
   }
@@ -87,8 +97,20 @@ function build(opts) {
     errors.push(`payload defect: ${e.sourcePath} named by the manifest is not in the payload`);
   }
 
+  // ── The integration mode: how our instructions reach the model here ───────
+  // Resolved BEFORE preconditions, because under `import` the adopter's
+  // CLAUDE.md becomes a merge target and a dirty one must block.
+  const req = claudeMdLib.requestedMode(opts.claudeMd, opts.env || process.env);
+  if (req.error) errors.push(req.error);
+  const hasClaudeMd = (detected.surfaces.agentConfig || [])
+    .some((a) => a.path === 'CLAUDE.md' && a.kind === 'file');
+  const cmd = claudeMdLib.resolve(req.error ? null : req, hasClaudeMd);
+  const ruleTargets = classified
+    .filter((u) => u.granularity === 'rules')
+    .map((u) => u.targetPath).sort();
+
   // Preconditions
-  const preconditions = preLib.evaluate(detected, classified);
+  const preconditions = preLib.evaluate(detected, classified, { claudeMdMode: cmd.resolved });
 
   // The deferred manifest rows — the installer must refuse while any stands.
   const defers = parsed ? parsed.defers.map((d) => ({
@@ -187,6 +209,19 @@ function build(opts) {
       obsolete: obsolete.length,
       total: classified.length
     },
+    claudeMd: {
+      requested: cmd.requested,
+      resolved: cmd.resolved,
+      source: cmd.source,
+      asked: cmd.asked,
+      collapsed: !!cmd.collapsed,
+      reason: cmd.reason,
+      targetHasClaudeMd: hasClaudeMd,
+      ruleFiles: ruleTargets,
+      options: claudeMdLib.MODES.map((m) => ({ mode: m, summary: claudeMdLib.MODE_SUMMARY[m] })),
+      flag: claudeMdLib.FLAG,
+      env: claudeMdLib.ENV_VAR
+    },
     defers: defers,
     errors: errors,
     notes: notes,
@@ -244,6 +279,7 @@ function publicUnit(u) {
     reason: u.reason
   };
   if (u.renamedFrom) out.renamedFrom = u.renamedFrom;
+  if (u.sourceRoot) out.sourceRoot = u.sourceRoot;
   if (u.strategy) out.strategy = u.strategy;
   if (u.selector) out.selector = u.selector;
   if (u.value !== undefined) out.value = u.value;

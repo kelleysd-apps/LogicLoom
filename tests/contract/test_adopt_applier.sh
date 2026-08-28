@@ -397,7 +397,18 @@ if [ "$DEFER_ROWS" -gt 0 ]; then
   assert "...by name, so the reason is not a mystery" "grep -q 'MANIFEST-DEFER-OPEN' \"$TMP/defer.out\""
   assert "...and nothing was written" "[ \"$FP_DF\" = \"\$(fingerprint \"$DF\")\" ]"
 else
-  echo "  ℹ️  no defer: rows stand in the shipped manifest; the block cannot be exercised."
+  # THE BLOCKER IS CLEARED, so the assertion inverts rather than disappearing.
+  # An apply against the REAL manifest and the REAL payload must now run
+  # end-to-end. This is the thing the `defer:` row prevented for the whole life
+  # of this package; a silent "cannot be exercised" here would let it regress to
+  # blocked with nothing turning red.
+  assert "with no \`defer:\` row the shipped manifest applies END-TO-END (exit 0)" "[ $DF_RC -eq 0 ]"
+  assert "...and MANIFEST-DEFER-OPEN is gone from the output" "! grep -q 'MANIFEST-DEFER-OPEN' \"$TMP/defer.out\""
+  assert "...the harness tree actually landed" "[ -d \"$DF/.logic-loom\" ] && [ -d \"$DF/plugins\" ]"
+  assert "...the authored rules landed under .claude/rules/" \
+    "[ -f \"$DF/.claude/rules/logicloom-governance.md\" ]"
+  assert "...and the run wrote a real number of paths, not zero" \
+    "grep -qE 'WROTE +[1-9][0-9]+' \"$TMP/defer.out\""
 fi
 
 # ── 14. Without --apply the tool STILL writes nothing ──────────────────────

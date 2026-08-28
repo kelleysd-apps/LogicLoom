@@ -37,7 +37,11 @@ function backupRemedy(root, rel) {
   return `cp -a "${abs}" "${abs}.pre-logicloom"  # then re-run the plan`;
 }
 
-function evaluate(detected, classified) {
+// `opts.claudeMdMode` — under `import` the applier appends a fenced block to the
+// adopter's CLAUDE.md, which makes it a merge target like .gitignore. Adding it
+// to the list is what makes a DIRTY or UNTRACKED CLAUDE.md block the apply,
+// through the machinery that already exists rather than a second check.
+function evaluate(detected, classified, opts) {
   const items = [];
   const root = detected.root;
   const git = detected.git;
@@ -132,6 +136,7 @@ function evaluate(detected, classified) {
     if (targets.indexOf(c.targetPath) === -1) targets.push(c.targetPath);
   }
   for (const t of MERGE_TARGETS) if (targets.indexOf(t) === -1) targets.push(t);
+  if (opts && opts.claudeMdMode === 'import' && targets.indexOf('CLAUDE.md') === -1) targets.push('CLAUDE.md');
 
   // GROUPED BY THE STATUS ENTRY, NOT BY THE TARGET, and the reason is the
   // `cp -a` remedy. git collapses untracked directories, so one `?? .claude/`
@@ -154,7 +159,7 @@ function evaluate(detected, classified) {
   for (const [entryPath, g] of byEntry) {
     const affects = g.targets.slice(0, 8).join(', ') +
       (g.targets.length > 8 ? `, +${g.targets.length - 8} more` : '');
-    const onlyMergeTargets = g.targets.every((t) => MERGE_TARGETS.indexOf(t) !== -1);
+    const onlyMergeTargets = g.targets.every((t) => MERGE_TARGETS.indexOf(t) !== -1 || t === 'CLAUDE.md');
 
     if (g.rec.untracked) {
       items.push({

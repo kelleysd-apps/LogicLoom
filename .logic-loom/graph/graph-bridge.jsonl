@@ -19,6 +19,7 @@
 {"type":"entity","name":".docs/archive/feature-003/upstream-sync-report.md","entityType":"note","observations":["Feature 003: Upstream Sync Report"]}
 {"type":"entity","name":".docs/design/adopt-package-research.md","entityType":"note","observations":["Adopting LogicLoom into an existing project — distribution research"]}
 {"type":"entity","name":".docs/design/brain-spec.md","entityType":"note","observations":["`.brain/` — design specification"]}
+{"type":"entity","name":".docs/design/claude-md-split.md","entityType":"note","observations":["CLAUDE.md — split analysis and recommendation"]}
 {"type":"entity","name":".docs/design/marketplace-mcp-middleware.md","entityType":"note","observations":["Plugin Marketplace — MCP Middleware Design"]}
 {"type":"entity","name":".docs/governance/browser-automation-examples.md","entityType":"note","observations":["Browser Automation Examples"]}
 {"type":"entity","name":".docs/governance/browser-mcp-setup.md","entityType":"note","observations":["Browser MCP Integration Setup Guide"]}
@@ -66,6 +67,7 @@
 {"type":"entity","name":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","entityType":"note","observations":["FRAMEWORK_ENHANCEMENTS_SUMMARY.md"]}
 {"type":"entity","name":"packaging/adopt/package.json","entityType":"code-path","observations":["package.json"]}
 {"type":"entity","name":"packaging/adopt/payload-manifest.txt","entityType":"code-path","observations":["payload-manifest.txt"]}
+{"type":"entity","name":"packaging/adopt/payload/rules/logicloom-governance.md","entityType":"code-path","observations":["logicloom-governance.md"]}
 {"type":"entity","name":"plugins/CONTRIBUTING.md","entityType":"code-path","observations":["CONTRIBUTING.md"]}
 {"type":"entity","name":"plugins/MANIFEST-SCHEMA.md","entityType":"code-path","observations":["MANIFEST-SCHEMA.md"]}
 {"type":"entity","name":"plugins/loom-git/commands/finalize.md","entityType":"code-path","observations":["finalize.md"]}
@@ -129,6 +131,9 @@
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"wikilinks.md","relationType":"links-to"}
+{"type":"relation","from":".docs/design/claude-md-split.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
+{"type":"relation","from":".docs/design/claude-md-split.md","to":"packaging/adopt/payload/rules/logicloom-governance.md","relationType":"mentions"}
+{"type":"relation","from":".docs/design/claude-md-split.md","to":"tests/contract/test_adopt_payload_manifest.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".docs/guides/unified-specification-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}

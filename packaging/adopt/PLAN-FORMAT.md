@@ -14,10 +14,11 @@ part a reader of the plan format will ask about:
   applies from that; `--plan <file>` is an *assertion* about what was reviewed,
   and a material divergence (mode, `applyReady`, the blocking set, the additive
   unit ids) refuses with the difference named.
-* Units are grouped into three **targets a user types** — `harness` (path),
-  `gitignore` (line), `hooks` (json-key). `--only=` is mandatory with `--apply`;
-  `--only=all` expands to `harness+gitignore` and **never** to `hooks`, because a
-  governance floor must not install as a side effect of the word "all".
+* Units are grouped into four **targets a user types** — `harness` (path),
+  `gitignore` (line), `rules` (rules), `hooks` (json-key). `--only=` is mandatory
+  with `--apply`; `--only=all` expands to `harness+gitignore+rules` and **never**
+  to `hooks`, because a governance floor must not install as a side effect of the
+  word "all".
 * The manifest's `exclude:` rows are applied **during the copy**. Nothing in the
   plan consults them — a `path` unit is `include: .logic-loom`, and the carve-outs
   beneath it (`.logic-loom/tests`, `update-agent-context.sh`) only exist in the
@@ -58,6 +59,7 @@ any repository, including one it does not own.
 | `preconditions` | object | `{ blocking[], warnings[] }` |
 | `buckets` | object | `{ additive[], "keep-theirs"[], replace[], obsolete[] }` |
 | `counts` | object | per-bucket counts plus `total` |
+| `claudeMd` | object | **the integration mode** — how the harness's instructions reach the model here. See below |
 | `defers` | array | unresolved `defer:` rows in the payload manifest |
 | `errors` | array of string | anything that made the plan itself unsound |
 | `notes` | array of string | named limits, meant to be printed |
@@ -116,6 +118,42 @@ than the target.
 conventional second entry point, but one detecting `init` covers both cases and a
 second package doubles the publish and version surface for a convenience. If it
 is ever wanted, it is a three-line wrapper.
+
+### `claudeMd` — the integration mode
+
+```json
+{ "requested": "import", "resolved": "rules", "source": "--claude-md=import",
+  "asked": false, "collapsed": true, "reason": "…", "targetHasClaudeMd": false,
+  "ruleFiles": [".claude/rules/logicloom-governance.md", "…"],
+  "options": [{ "mode": "rules", "summary": "…" }, …],
+  "flag": "--claude-md", "env": "LOOM_ADOPT_CLAUDE_MD" }
+```
+
+`resolved` is one of `rules` (default), `import`, `none`, and it is a **pure
+function of `(requested mode, does a CLAUDE.md exist in the target)`** —
+`lib/claude-md.js`, no filesystem opinion, no heuristic, no model. The requested
+mode comes from `--claude-md=<mode>` or, failing that, `LOOM_ADOPT_CLAUDE_MD`;
+there is no prompt anywhere in this tool, so a scripted or CI install works.
+
+| `resolved` | Applier behaviour |
+|---|---|
+| `rules` | write `.claude/rules/logicloom-*.md`. The adopter's `CLAUDE.md` is never opened, read, or written |
+| `import` | the same files, **plus** one marked block appended to their `CLAUDE.md` carrying an `@` import of each. Append-only, fenced, idempotent, verified to be a pure append before the write lands |
+| `none` | write nothing loadable — no rules files, no `CLAUDE.md` edit |
+
+**`asked` is `false` when the target has no `CLAUDE.md`.** That is the
+new-project case, and it is not a question: there is nothing to reconcile, and
+this tool never creates a `CLAUDE.md`. A requested `import` then **collapses** to
+`rules` with `collapsed: true`, recorded rather than ignored. The renderer prints
+one line in that case instead of a three-option menu.
+
+Under `import`, `CLAUDE.md` joins `.gitignore` and `.claude/settings.json` as a
+merge target for preconditions, so a dirty or untracked `CLAUDE.md` **blocks**.
+
+The resolved mode is a **material fact for `--plan` divergence** (reviewing a
+`rules` plan and applying an `import` one is exactly the surprise `--plan`
+exists to prevent) and is recorded in `.logicloom-adopt-receipt.json` under
+`runs[].claudeMd`, so a re-run and an uninstall both know what happened.
 
 ### `target`
 
@@ -235,6 +273,14 @@ at the level the *decision* is made at removes the need:
 | `.logic-loom/`, `plugins/`, `.claude/agents/`, … | `path` | the path |
 | `.claude/settings.json` | `json-key` | **one hook command entry** |
 | `.gitignore` | `line` | **one pattern line** |
+| `.claude/rules/logicloom-*.md` | `rules` | **one authored rules file** |
+
+A `rules` unit carries `sourceRoot: "package"` and its `sourcePath` resolves
+against the **package** root, not the payload root — it comes from a manifest
+`author:` row, and those files are authored by the adopt package rather than
+carried in the harness tree. Everything else about it is an ordinary path unit,
+including refusal 1: an existing file at the target path is kept, never
+overwritten.
 
 At that granularity every unit has exactly one counterpart-or-not question.
 
@@ -313,10 +359,12 @@ are also listed in `defers[]` and printed as their own report section — becaus
 `defer:` is why a collision the adopter can *see* in their repo (their 500-line
 `CLAUDE.md`) may be absent from the buckets: not resolved, not classified.
 
-One row stands today: `CLAUDE.md`, pending the `.claude/rules/` split (PRE-7).
-**Consequence, in force now that the applier exists:** `logicloom init --apply`
-refuses against the shipped manifest, always, until that row is resolved. That is
-the manifest's own rule working, not a defect.
+**No row stands today.** The one that did — `CLAUDE.md`, pending the
+`.claude/rules/` split (PRE-7) — was resolved on 2026-08-27 into an
+`exclude: CLAUDE.md` (our file never ships) plus three `author:` rows and the
+`claudeMd` integration mode above. `logicloom init --apply` therefore runs
+end-to-end against the shipped manifest. Adding a new `defer:` row blocks every
+apply again, by design.
 
 ---
 

@@ -99,6 +99,7 @@ const { spawnSync } = require('node:child_process');
 const planLib = require('./plan');
 const manifestLib = require('./manifest');
 const detectLib = require('./detect');
+const claudeMdLib = require('./claude-md');
 
 const RECEIPT_SCHEMA = 'logicloom/adopt-receipt@1';
 const RECEIPT_NAME = '.logicloom-adopt-receipt.json';
@@ -117,6 +118,17 @@ const TARGETS = {
   gitignore: {
     summary: 'append the harness ignore block to .gitignore, inside a marked fence',
     granularity: 'line',
+    inAll: true
+  },
+  rules: {
+    summary: 'the harness\'s operating instructions — .claude/rules/logicloom-*.md, ' +
+             'and under --claude-md=import one marked block appended to your CLAUDE.md',
+    granularity: 'rules',
+    // IN `all`. Under the DEFAULT mode this target writes only new files into a
+    // directory nothing else owns, and a harness whose operating instructions
+    // were never installed is a pile of commands nobody knows to use. The one
+    // mode that touches a file the adopter owns — `import` — has to be TYPED,
+    // so `--only=all` on its own can never reach their CLAUDE.md.
     inAll: true
   },
   hooks: {
@@ -372,6 +384,12 @@ function planDivergence(reviewed, fresh) {
   if (reviewed.schema !== fresh.schema) diffs.push(`schema: reviewed ${reviewed.schema}, now ${fresh.schema}`);
   if (reviewed.mode.mode !== fresh.mode.mode) diffs.push(`mode: reviewed ${reviewed.mode.mode}, now ${fresh.mode.mode}`);
   if (reviewed.applyReady !== fresh.applyReady) diffs.push(`applyReady: reviewed ${reviewed.applyReady}, now ${fresh.applyReady}`);
+  // The integration mode decides whether a file the adopter owns gets written
+  // to. Reviewing a `rules` plan and applying an `import` one is exactly the
+  // surprise --plan exists to prevent.
+  const rcm = reviewed.claudeMd && reviewed.claudeMd.resolved;
+  const fcm = fresh.claudeMd && fresh.claudeMd.resolved;
+  if (rcm !== undefined && rcm !== fcm) diffs.push(`CLAUDE.md integration mode: reviewed ${rcm}, now ${fcm}`);
 
   const codes = (p) => p.preconditions.blocking.map((b) => b.code + '@' + (b.path || '')).sort();
   const a = codes(reviewed).join('|'), b = codes(fresh).join('|');
@@ -458,7 +476,8 @@ function apply(opts) {
       pkgVersion: opts.pkgVersion,
       target: root,
       payload: opts.payload,
-      manifest: opts.manifest
+      manifest: opts.manifest,
+      claudeMd: opts.claudeMd
     });
   } catch (e) {
     p(`  REFUSED — the plan could not be rebuilt at write time: ${e && e.message}`);
@@ -470,6 +489,10 @@ function apply(opts) {
   p(`  payload source        : ${fresh.payload.source}`);
   p(`  mode                  : ${fresh.mode.mode}`);
   p(`  targets requested     : ${opts.only.join(', ')}`);
+  p(`  CLAUDE.md integration : ${fresh.claudeMd.resolved}  (${fresh.claudeMd.source})`);
+  if (fresh.claudeMd.collapsed) {
+    p(`                          requested '${fresh.claudeMd.requested}' — ${fresh.claudeMd.reason}`);
+  }
   p('');
   p('  The plan was REBUILT just now against the tree as it is. A plan file is a');
   p('  review artifact, never an instruction set — acting on one would mean acting');
@@ -557,12 +580,12 @@ function apply(opts) {
     return finish(3, 'plan-error');
   }
 
-  const ctx = { rootReal, manifest, payloadRoot: fresh.payload.root };
+  const ctx = { rootReal, manifest, payloadRoot: fresh.payload.root, pkgRoot };
 
   // ── 6. Split the additive worklist by requested target.
   const wanted = {};
   for (const t of opts.only) wanted[t] = true;
-  const byGran = { path: [], line: [], 'json-key': [] };
+  const byGran = { path: [], line: [], 'json-key': [], rules: [] };
   for (const u of fresh.buckets.additive) {
     if (byGran[u.granularity]) byGran[u.granularity].push(u);
   }
@@ -574,6 +597,15 @@ function apply(opts) {
     node: fresh.generator.nodeVersion,
     payloadSource: fresh.payload.source,
     only: opts.only.slice(),
+    // RECORDED, so a re-run and an uninstall both know what happened. The
+    // resolved mode is what was executed; the requested one is what was typed,
+    // and they differ exactly when the collapse rule fired.
+    claudeMd: {
+      requested: fresh.claudeMd.requested,
+      resolved: fresh.claudeMd.resolved,
+      source: fresh.claudeMd.source,
+      collapsed: fresh.claudeMd.collapsed
+    },
     status: 'in-progress',
     wrote: [],
     skipped: [],
@@ -634,6 +666,7 @@ function apply(opts) {
     try {
       if (target === 'harness') applyHarness(byGran.path, ctx, run, result, p, opts);
       else if (target === 'gitignore') applyGitignore(byGran.line, ctx, run, result, p, opts, root, pkgRoot);
+      else if (target === 'rules') applyRules(byGran.rules, ctx, run, result, p, opts, root, fresh);
       else if (target === 'hooks') applyHooks(byGran['json-key'], ctx, run, result, p, opts, root, pkgRoot);
       flush();
     } catch (e) {
@@ -815,6 +848,102 @@ function applyGitignore(units, ctx, run, result, p, opts, root, pkgRoot) {
   }
 }
 
+// ── target: rules (the harness's operating instructions) ─────────────────────
+// THE MODE IS READ, NOT DECIDED. `fresh.claudeMd.resolved` is a pure function of
+// the flag/env and whether a CLAUDE.md exists (lib/claude-md.js). Nothing here
+// inspects the adopter's file to form an opinion, and there is no branch that
+// could produce a different result from the same inputs.
+function applyRules(units, ctx, run, result, p, opts, root, fresh) {
+  const mode = fresh.claudeMd.resolved;
+
+  if (mode === 'none') {
+    p('      MODE none — nothing loadable is installed: no .claude/rules/ files, and your');
+    p('      CLAUDE.md is not opened. The harness tree and its reference material under');
+    p('      .docs/ still install; wiring the instructions in is yours to do.');
+    run.skipped.push({ target: 'rules', path: '.claude/rules/',
+      why: 'integration mode `none` — nothing loadable installed, by explicit request' });
+    return;
+  }
+
+  // 1. The rules files. Same refusals as every other path write.
+  const installed = [];
+  if (!units.length) {
+    p('      every rules file is already present — nothing to install.');
+    run.skipped.push({ target: 'rules', path: '.claude/rules/', why: 'all rules files already present' });
+  }
+  for (const u of units) {
+    const src = u.sourceAbs || path.join(ctx.pkgRoot, u.sourcePath);
+    const dst = path.join(ctx.rootReal, u.targetPath);
+    assertWritableTarget(ctx.rootReal, dst);
+    if (detectLib.statKind(src) === 'absent') {
+      run.skipped.push({ path: u.targetPath, why: 'the package no longer carries ' + u.sourcePath });
+      result.skipped.push({ path: u.targetPath });
+      continue;
+    }
+    if (detectLib.statKind(dst) !== 'absent') {
+      run.skipped.push({ path: u.targetPath,
+        why: 'REFUSE-EXISTS: a file is already here and it is yours; move it aside yourself if you want ours' });
+      result.skipped.push({ path: u.targetPath });
+      p(`      SKIP  ${u.targetPath}  (exists — yours, kept)`);
+      continue;
+    }
+    if (opts.dryRunWrites) { p(`      WOULD ${u.targetPath}`); continue; }
+    fs.mkdirSync(path.dirname(dst), { recursive: true });
+    copyFileNew(src, dst, 0o644);
+    run.wrote.push({ target: 'rules', path: u.targetPath, kind: 'file' });
+    result.wrote.push({ path: u.targetPath, kind: 'file' });
+    installed.push(u.targetPath);
+    p(`      WROTE ${u.targetPath}`);
+  }
+
+  if (mode === 'rules') {
+    p('      MODE rules — your CLAUDE.md was NOT opened, read, or written.');
+    p('      These files load at launch at CLAUDE.md priority. Confirm with `/context`');
+    p('      → Memory files; if they do not appear, re-run with --claude-md=import.');
+    return;
+  }
+
+  // 2. MODE import — one marked block appended to THEIR CLAUDE.md.
+  const all = fresh.claudeMd.ruleFiles;
+  const target = path.join(ctx.rootReal, 'CLAUDE.md');
+  assertWritableTarget(ctx.rootReal, target);
+
+  if (detectLib.statKind(target) !== 'file') {
+    // Unreachable while resolve() collapses `import` without a CLAUDE.md, but a
+    // tree is not frozen between plan and write. Never create the file.
+    run.skipped.push({ target: 'rules', path: 'CLAUDE.md',
+      why: 'no CLAUDE.md at write time — this tool never creates one' });
+    p('      SKIP  CLAUDE.md — it is not there, and this tool never creates it.');
+    return;
+  }
+
+  const before = fs.readFileSync(target, 'utf8');
+  if (claudeMdLib.hasBlock(before)) {
+    run.skipped.push({ target: 'rules', path: 'CLAUDE.md',
+      why: 'the managed @import block is already present (no-op)' });
+    p('      NO-OP CLAUDE.md already carries the managed block.');
+    return;
+  }
+  if (opts.dryRunWrites) { p('      WOULD append the marked @import block to CLAUDE.md'); return; }
+
+  // APPEND, WITH THE APPEND SYSCALL. `appendFileSync` opens 'a', which cannot
+  // truncate — so refusal 3 holds by the same kind of mechanism as refusal 1's
+  // 'wx' flag rather than by a check a later edit could drop. Building the whole
+  // new file and writing it back would be a truncating write against a file the
+  // adopter owns; there is deliberately no such code path here.
+  const suffix = claudeMdLib.appendSuffix(before, all);
+  if (suffix === null || suffix.indexOf(claudeMdLib.BEGIN) === -1) {
+    throw new Error('REFUSE-REWRITE: the CLAUDE.md block did not come out as a pure append; nothing was written');
+  }
+  fs.appendFileSync(target, suffix, 'utf8');
+  run.wrote.push({ target: 'rules', path: 'CLAUDE.md', kind: 'merge',
+    region: 'the fenced "LogicLoom adopt — managed block"' });
+  result.wrote.push({ path: 'CLAUDE.md' });
+  p(`      MERGED CLAUDE.md — one marked block, ${all.length} @import line(s), appended at the end.`);
+  p('             Everything above it is byte-identical. Uninstall is: delete from the');
+  p('             BEGIN marker to the END marker.');
+}
+
 // ── target: hooks (json-key units, via the shipped merge) ────────────────────
 function applyHooks(units, ctx, run, result, p, opts, root, pkgRoot) {
   const script = path.join(pkgRoot, 'merge', 'merge_settings_json.py');
@@ -877,7 +1006,7 @@ function applyHooks(units, ctx, run, result, p, opts, root, pkgRoot) {
 }
 
 module.exports = {
-  apply, TARGETS, ALL_TARGETS, IN_ALL, parseOnly, planDivergence,
+  apply, applyRules, TARGETS, ALL_TARGETS, IN_ALL, parseOnly, planDivergence,
   isSecretShaped, insideRoot, assertWritableTarget, copyTree, spawnAllowed,
   SPAWN_ALLOWLIST, SELF_CAUSED, RECEIPT_SCHEMA, RECEIPT_NAME,
   readReceipt, priorRun, effectiveBlocking

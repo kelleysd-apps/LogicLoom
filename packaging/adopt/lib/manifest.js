@@ -13,6 +13,18 @@
 //   rename:  <src> :: <dst>
 //   merge:   <path> :: <strategy>
 //   defer:   <path> :: <question>
+//   author:  <pkg-relative src> :: <install path>
+//
+// `author:` IS A SIXTH VERB AND IT WAS ADDED, NOT IMPROVISED. Every other verb
+// names a path IN THE PAYLOAD — the harness tree, resolved against the payload
+// root. The three `.claude/rules/*.md` files are not in that tree: they are
+// authored by the adopt package FOR the adopter, shipped inside the package
+// beside merge/, and resolved against the PACKAGE root. Spelling them as
+// `rename:` would make units.js look for them under the payload root, where in
+// a packed release they do not live — a row that resolves in a dev checkout and
+// silently vanishes when published. A different resolution base is a different
+// verb.
+//
 // Precedence: an `exclude:` beats an `include:` covering the same path. That is
 // the only precedence rule.
 //
@@ -20,7 +32,7 @@
 
 const fs = require('node:fs');
 
-const VERBS = ['include', 'exclude', 'rename', 'merge', 'defer'];
+const VERBS = ['include', 'exclude', 'rename', 'merge', 'defer', 'author'];
 
 function parse(text) {
   const entries = [];
@@ -68,6 +80,7 @@ function load(file) {
   parsed.renames = parsed.entries.filter((e) => e.verb === 'rename');
   parsed.merges = parsed.entries.filter((e) => e.verb === 'merge');
   parsed.defers = parsed.entries.filter((e) => e.verb === 'defer');
+  parsed.authors = parsed.entries.filter((e) => e.verb === 'author');
   return parsed;
 }
 

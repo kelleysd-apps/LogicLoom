@@ -52,6 +52,8 @@ function renderNewProject(plan) {
   if (lines.length) p(`    .gitignore               — ${lines.length} harness ignore patterns`);
   p('');
 
+  claudeMdSection(p, plan);
+
   if (plan.counts['keep-theirs'] || plan.counts.replace || plan.counts.obsolete) {
     // Should be impossible in this mode; if it happens, say so rather than hide it.
     p('  UNEXPECTED for a new project — these buckets should be empty here:');
@@ -200,6 +202,8 @@ function renderExisting(plan) {
   p('    from gone. Where a backup is warranted the remedy is a `cp -a` you run.');
   p('');
 
+  claudeMdSection(p, plan);
+
   // ── the four buckets ───────────────────────────────────────────────────────
   p('  Classification (4 buckets)');
   p(`    additive     ${String(plan.counts.additive).padStart(4)}   LogicLoom unit has no counterpart here`);
@@ -250,6 +254,51 @@ function renderExisting(plan) {
   return L.join('\n');
 }
 
+// ── the integration choice, presented ONCE, here ─────────────────────────────
+// This is where the question is asked and the only place it is asked. There is
+// no prompt anywhere in this tool: the plan lays out the options, a flag or an
+// environment variable answers, and the applier executes exactly that.
+//
+// WHEN THERE IS NO CLAUDE.md THE MENU IS NOT PRINTED. One line saying so, and
+// on. A scaffold must not interrogate someone about a file that does not exist.
+function claudeMdSection(p, plan) {
+  const c = plan.claudeMd;
+  if (!c) return;
+
+  if (!c.asked) {
+    p('  CLAUDE.md INTEGRATION : not asked — ' + c.resolved);
+    wrap(c.reason, 4).forEach(p);
+    if (c.collapsed) {
+      wrap('You passed --claude-md=' + c.requested + '; it was collapsed, not ignored, ' +
+           'and the receipt records both.', 4).forEach(p);
+    }
+    p('');
+    return;
+  }
+
+  p('  CLAUDE.md INTEGRATION — YOUR CHOICE, made here, executed mechanically');
+  p('');
+  wrap('You have a CLAUDE.md. The harness has operating instructions of its own ' +
+       '(' + c.ruleFiles.length + ' files). How they reach the model is your call:', 4).forEach(p);
+  p('');
+  for (const o of c.options) {
+    const mark = o.mode === c.resolved ? '  ->' : '    ';
+    p(`  ${mark} ${o.mode.padEnd(7)} ${o.summary}`);
+  }
+  p('');
+  p(`      selected : ${c.resolved}   (from ${c.source})`);
+  wrap('Change it with `' + c.flag + '=<mode>` or `' + c.env + '=<mode>`. ' +
+       'No mode ever overwrites your CLAUDE.md; `import` appends one marked block ' +
+       'and nothing else, and re-running is a no-op.', 6).forEach(p);
+  p('');
+  if (c.resolved === 'rules') {
+    wrap('Under `rules` your CLAUDE.md is never opened, read, or written. Verify the ' +
+         'files actually load with `/context` -> Memory files; if they do not appear, ' +
+         're-run with ' + c.flag + '=import.', 6).forEach(p);
+    p('');
+  }
+}
+
 function bucketSection(p, title, units, emptyText) {
   p(`    ${title} (${units.length})`);
   if (!units.length) { p('      ' + (emptyText || 'none')); p(''); return; }
@@ -258,6 +307,7 @@ function bucketSection(p, title, units, emptyText) {
     p(`      - [${u.granularity}] ${where}`);
     if (u.granularity === 'json-key') p(`          key: ${u.selector.event} / matcher '${u.selector.matcher}' / ${u.selector.command}`);
     if (u.granularity === 'line') p(`          line: ${u.value}`);
+    if (u.sourceRoot === 'package') p(`          authored by the adopt package (${u.sourcePath}), not carved from LogicLoom's own CLAUDE.md`);
     wrap(u.reason, 10).forEach(p);
   }
   p('');

@@ -92,17 +92,18 @@ EXCLUDES="$(paths_for exclude)"
 RENAMES="$(paths_for rename)"
 MERGES="$(paths_for merge)"
 DEFERS="$(paths_for defer)"
+AUTHORS="$(paths_for author)"
 
 has_line() { printf '%s\n' "$1" | grep -qxF "$2"; }
 
 echo "── 1. Grammar ──"
-BAD_VERBS="$(printf '%s\n' "$BODY" | grep -vE '^(include|exclude|rename|merge|defer):[[:space:]]+[^[:space:]]' || true)"
-assert "every non-comment line uses a known verb (include|exclude|rename|merge|defer)" \
+BAD_VERBS="$(printf '%s\n' "$BODY" | grep -vE '^(include|exclude|rename|merge|defer|author):[[:space:]]+[^[:space:]]' || true)"
+assert "every non-comment line uses a known verb (include|exclude|rename|merge|defer|author)" \
   "[ -z \"\$(printf '%s' \"$BAD_VERBS\")\" ]"
 # rename/merge/defer each require the ` :: ` field — same reason the strip
 # manifest's `stub:` aborts without its template: the wrong default is worse
 # than a hard failure.
-for v in rename merge defer; do
+for v in rename merge defer author; do
   MISSING="$(printf '%s\n' "$BODY" | grep -E "^$v:" | grep -v '::' || true)"
   assert "every '$v:' line carries the ':: <field>' half" "[ -z \"\$(printf '%s' \"$MISSING\")\" ]"
 done
@@ -171,6 +172,37 @@ for p in $INCLUDES $RENAMES $MERGES $DEFERS; do
 done
 assert "every include:/rename:/merge:/defer: source exists in the tree" \
   "[ -z \"\$MISSING_SRC\" ]"
+
+# ── `author:` rows — the harness's operating instructions ──────────────────
+# Their sources resolve against the PACKAGE root (packaging/adopt/), not the
+# repo root, which is the whole reason they are a separate verb. Checked here on
+# that basis, so a row pointing at a path only a dev checkout has cannot pass.
+PKGDIR="$(dirname "$MANIFEST")"
+assert "the manifest carries author: rows for the .claude/rules/ files" "[ -n \"$AUTHORS\" ]"
+MISSING_AUTHOR=""
+for a in $AUTHORS; do
+  [ -f "$PKGDIR/$a" ] || MISSING_AUTHOR="$MISSING_AUTHOR $a"
+done
+assert "every author: source exists under the package root" "[ -z \"\$MISSING_AUTHOR\" ]"
+# Every author row must install under .claude/rules/ — that is the load path the
+# whole decision rests on, and an author row installing elsewhere is a different
+# decision wearing this one's clothes.
+BAD_DST="$(printf '%s\n' "$BODY" | grep -E '^author:' | sed -E 's/.*::[[:space:]]*//' | grep -v '^\.claude/rules/' || true)"
+assert "every author: row installs under .claude/rules/" "[ -z \"\$(printf '%s' \"$BAD_DST\")\" ]"
+# Our OWN CLAUDE.md never ships. The rules were authored for an adopter, not
+# carved out of ours; a `rename:`/`include:` of CLAUDE.md would undo that.
+assert "our own CLAUDE.md is excluded, never shipped" "has_line \"\$EXCLUDES\" 'CLAUDE.md'"
+CLAUDE_SHIPPED="$(printf '%s\n' "$INCLUDES" "$RENAMES" | grep -xF 'CLAUDE.md' || true)"
+assert "no include:/rename: row ships our CLAUDE.md" "[ -z \"\$(printf '%s' \"$CLAUDE_SHIPPED\")\" ]"
+# The integration modes are a product decision and must stay reviewable HERE,
+# in the file the maintainer edits to overrule the boundary.
+for m in rules import none; do
+  assert "the manifest names the '$m' integration mode" "grep -qE '^#   $m' \"$MANIFEST\""
+done
+assert "the manifest names the non-interactive selector" \
+  "grep -q 'LOOM_ADOPT_CLAUDE_MD' \"$MANIFEST\" && grep -q -- '--claude-md' \"$MANIFEST\""
+assert "the manifest records that .claude/rules/ is invisible to build-graph-bridge.sh" \
+  "grep -q 'build-graph-bridge.sh' \"$MANIFEST\""
 
 # A `defer:` is an unresolved decision. It must be visible, not silent: the
 # manifest has to say the installer refuses to run while one stands.

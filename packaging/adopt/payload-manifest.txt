@@ -46,6 +46,16 @@
 #                                    `defer:` line stands — mirrors the strip
 #                                    manifest's `warn:` verb, which exists so a
 #                                    deferred decision cannot ship silently.
+#     author:  <src> :: <dst>        AUTHORED BY THIS PACKAGE, not carried in the
+#                                    payload. `src` resolves against the PACKAGE
+#                                    root (beside merge/), never the payload root.
+#                                    That different resolution base is the whole
+#                                    reason it is a sixth verb rather than a
+#                                    `rename:` — a `rename:` source is looked for
+#                                    under the payload root, where in a packed
+#                                    release these files do not live, so the row
+#                                    would resolve in a dev checkout and vanish
+#                                    once published.
 #
 #   An `exclude:` beats an `include:` that would otherwise cover the same path.
 #   That is the only precedence rule; there is no wildcard and no "ship
@@ -245,17 +255,59 @@ merge: .claude/settings.json :: hooks-object-additive-marked
 # index is invisible to `git status` under this ignore rule.
 merge: .gitignore :: append-marked-harness-block
 
-# --- UNDECIDED — THE INSTALLER MUST REFUSE WHILE THIS STANDS -----------------
-# CHANGED FROM THE RESEARCH: CLAUDE.md is absent from its PRE-1 table entirely,
-# which is a hole in the payload boundary rather than an omission of detail — it
-# is the harness's operating instructions. PRE-7 answers it, but not with a copy:
-# rules files without `paths:` frontmatter load at launch with the same priority
-# as .claude/CLAUDE.md, so the harness instructions install as NEW files under
-# .claude/rules/ and the adopter's own CLAUDE.md is never opened. Verified:
-# .claude/rules/ does not exist in this repo yet, so this is authorship — a
-# split-and-condense of a file far past the docs' ~200-line-per-file guidance,
-# not a scripted move. Budget it as content work.
-defer: CLAUDE.md :: split into .claude/rules/*.md per PRE-7 — not yet authored
+# --- THE HARNESS'S OPERATING INSTRUCTIONS (was `defer: CLAUDE.md`; PRE-7) ----
+# RESOLVED 2026-08-27. The deferred row asked how CLAUDE.md installs. The answer
+# has two halves and they are answered in different places.
+#
+# HALF 1 — WHAT SHIPS. Not our CLAUDE.md, and not a split of it. Only ~23% of
+# that file is an obligation an adopter must have loaded; the rest is reference
+# (which already ships under .docs/) or FACTS ABOUT THIS REPO that are actively
+# WRONG in someone else's — our version stamp, our parsed plugin table, our
+# branch topology, our `.brain/` history, `/update-framework` and `.sdd-sync-ref`
+# (clone-path machinery an npm adopter never touches, exactly as PRE-13 says of
+# /initialize-project). Copy-then-subtract leaves those in until someone notices.
+# So the rules below were AUTHORED for an adopter's repo, in the second person,
+# stating only obligations that hold in any repo with the harness installed.
+# Analysis and the line-by-line classification: .docs/design/claude-md-split.md.
+#
+# ~226 lines across three files against an 860-line source. That budget is the
+# point, not a nicety: rules files without `paths:` frontmatter load at launch at
+# the same priority as .claude/CLAUDE.md, so every line is paid for on every
+# prompt of every session, and the vendor's own guidance is under 200 lines per
+# file because "longer files consume more context and reduce adherence". Shipping
+# 860 would push a typical adopter's combined instruction set to ~6.8x that
+# target and crowd their own product rules to roughly a third of what is loaded.
+#
+# NOT SHIPPED, and it is not an oversight: `.claude/rules/` is invisible to
+# build-graph-bridge.sh (zero references), so anything installed there is outside
+# the graph index. Recorded, not fixed — the fix belongs to that script.
+exclude: CLAUDE.md
+author: payload/rules/logicloom-governance.md :: .claude/rules/logicloom-governance.md
+author: payload/rules/logicloom-workflow.md :: .claude/rules/logicloom-workflow.md
+author: payload/rules/logicloom-file-rules.md :: .claude/rules/logicloom-file-rules.md
+#
+# HALF 2 — HOW THEY RELATE TO THE ADOPTER'S OWN CLAUDE.md. That is not a
+# manifest decision, because it is not ours to make: it is chosen at init time,
+# per project, and executed DETERMINISTICALLY. Three modes, in lib/claude-md.js,
+# selected by `--claude-md=<mode>` or `LOOM_ADOPT_CLAUDE_MD=<mode>` — a flag or
+# an environment variable, never a prompt, so a scripted or CI install works:
+#
+#   rules   (DEFAULT) install the three files above; their CLAUDE.md is never
+#           opened, read, or written.
+#   import  the same files PLUS one marked block appended to their CLAUDE.md
+#           carrying an `@` import of each. The hedge for the one thing the
+#           analysis could NOT verify end-to-end: project-scope `.claude/rules/`
+#           loading (§ 0, § 8). If it does not load, `rules` installs 226 lines
+#           nothing reads — a silent, total failure. `import` costs one block.
+#   none    install nothing loadable. The harness tree still installs and the
+#           reference material still reaches them under .docs/.
+#
+# The mode resolves as a pure function of (flag/env, does a CLAUDE.md exist).
+# With no CLAUDE.md the question is NOT ASKED and `import` collapses to `rules`,
+# because this tool never creates a CLAUDE.md. The resolved mode is recorded in
+# .logicloom-adopt-receipt.json, so a re-run and an uninstall both know what
+# happened. `--only=all` includes the rules target but can never reach their
+# CLAUDE.md: `import` has to be typed.
 
 # --- EXCLUDED: THE NON-NEGOTIABLE ROW ----------------------------------------
 # .github/ — ALL FIVE WORKFLOWS, and the directory itself.

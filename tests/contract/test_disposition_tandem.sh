@@ -15,6 +15,18 @@ assert() {
 }
 
 AGENTS="AGENTS.md"; CLAUDE="CLAUDE.md"
+# THE THIRD COPY. The adopt package ships its own authored governance rule to an
+# adopter's repo, so the Disposition now lives in three files, not two. It is
+# authored rather than extracted, which is exactly the condition under which
+# silent drift happens — so the tandem gate covers it too.
+#
+# Held to the SAME standard and skipped on the same terms as the adopt suites
+# beside it: `packaging` is a template-strip-manifest entry, so on a stripped or
+# customer tree the file does not exist and its absence is not a failure.
+PAYLOAD_RULE="packaging/adopt/payload/rules/logicloom-governance.md"
+CHECK_PAYLOAD=no
+if [ -f "$PAYLOAD_RULE" ]; then CHECK_PAYLOAD=yes
+elif git ls-files --error-unmatch "$PAYLOAD_RULE" >/dev/null 2>&1; then CHECK_PAYLOAD=yes; fi
 
 echo "═══ Cross-Check Disposition Tandem Coherence ═══"
 echo ""
@@ -31,6 +43,14 @@ assert "core sentence 2 in AGENTS.md" "grep -qF \"\$N2\" $AGENTS"
 assert "core sentence 2 in CLAUDE.md" "grep -qF \"\$N2\" $CLAUDE"
 assert "off-host honesty sentence in AGENTS.md" "grep -qF \"\$N3\" $AGENTS"
 assert "off-host honesty sentence in CLAUDE.md" "grep -qF \"\$N3\" $CLAUDE"
+if [ "$CHECK_PAYLOAD" = yes ]; then
+  assert "adopt payload rule exists (it is tracked, so it must be on disk)" "[ -f \"$PAYLOAD_RULE\" ]"
+  assert "core sentence 1 in the adopt payload rule" "grep -qF \"\$N1\" \"$PAYLOAD_RULE\""
+  assert "core sentence 2 in the adopt payload rule" "grep -qF \"\$N2\" \"$PAYLOAD_RULE\""
+  assert "off-host honesty sentence in the adopt payload rule" "grep -qF \"\$N3\" \"$PAYLOAD_RULE\""
+else
+  echo "  ⏭  SKIP: no adopt payload rule and none tracked — stripped or customer tree."
+fi
 
 echo ""
 echo "AGENTS.md two-tier structure"
