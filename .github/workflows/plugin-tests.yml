@@ -199,6 +199,16 @@ jobs:
       - name: Run Adopt Entry Points + Post-Install Tests
         run: bash tests/contract/test_adopt_entrypoints.sh
 
+      # The agent-driven install. Two things, and the second is the reason the
+      # first can be trusted: the plan's `decisions[]` (derived from apply.js's
+      # TARGETS and claude-md.js's MODES, so it cannot become a stale second
+      # list) and PLAN/APPLY PARITY for both merges — the plan enumerates the
+      # same gitignore-block.txt and settings-hooks-fragment.json the merges
+      # ship, held in both directions, so a plan can neither promise a line the
+      # apply will not write nor omit one it will.
+      - name: Run Adopt Agent-Drivable Install Tests
+        run: bash tests/contract/test_adopt_agent_mode.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only

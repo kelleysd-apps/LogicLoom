@@ -25,6 +25,7 @@
 {"type":"entity","name":".docs/governance/browser-mcp-setup.md","entityType":"note","observations":["Browser MCP Integration Setup Guide"]}
 {"type":"entity","name":".docs/governance/hybrid-architecture.md","entityType":"note","observations":["3-Layer Hybrid Governance Architecture"]}
 {"type":"entity","name":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","entityType":"note","observations":["Framework Synchronization Guide"]}
+{"type":"entity","name":".docs/guides/adopt-smoke-test.md","entityType":"note","observations":["Adopt e2e smoke test — brief for a coding agent"]}
 {"type":"entity","name":".docs/guides/dev-main-template-split.md","entityType":"note","observations":["dev-main → sanitized `main`: release model + setup runbook"]}
 {"type":"entity","name":".docs/guides/git-push-guide.md","entityType":"note","observations":["Git Push Guide"]}
 {"type":"entity","name":".docs/guides/unified-specification-guide.md","entityType":"note","observations":["Unified Specification Guide"]}
@@ -65,6 +66,8 @@
 {"type":"entity","name":"features/modular-harness/exploration/modular-harness-design.md","entityType":"note","observations":["Modular Harness Design — Cherry-Pickable Packs over a Fixed Governance Core"]}
 {"type":"entity","name":"features/modular-harness/exploration/unified-architecture.md","entityType":"note","observations":["LogicLoom — The Unified Architecture"]}
 {"type":"entity","name":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","entityType":"note","observations":["FRAMEWORK_ENHANCEMENTS_SUMMARY.md"]}
+{"type":"entity","name":"packaging/adopt/AGENT-INSTALL.md","entityType":"code-path","observations":["AGENT-INSTALL.md"]}
+{"type":"entity","name":"packaging/adopt/AGENT-INSTALL.md","entityType":"note","observations":["AGENT-INSTALL.md"]}
 {"type":"entity","name":"packaging/adopt/package.json","entityType":"code-path","observations":["package.json"]}
 {"type":"entity","name":"packaging/adopt/payload-manifest.txt","entityType":"code-path","observations":["payload-manifest.txt"]}
 {"type":"entity","name":"packaging/adopt/payload/rules/logicloom-governance.md","entityType":"code-path","observations":["logicloom-governance.md"]}
@@ -179,7 +182,10 @@
 {"type":"relation","from":"README.md","to":"KNOWN_ISSUES.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"START_HERE.md","relationType":"links-to"}
 {"type":"relation","from":"README.md","to":"features/README.md","relationType":"links-to"}
+{"type":"relation","from":"README.md","to":"packaging/adopt/AGENT-INSTALL.md","relationType":"links-to"}
+{"type":"relation","from":"README.md","to":"packaging/adopt/AGENT-INSTALL.md","relationType":"mentions"}
 {"type":"relation","from":"START_HERE.md","to":".docs/policies/environment-promotion-policy.md","relationType":"links-to"}
+{"type":"relation","from":"START_HERE.md","to":"packaging/adopt/AGENT-INSTALL.md","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"features/code-knowledge-graph/exploration/graph-stack-decision.md","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
 {"type":"relation","from":"VISION.md","to":"wikilink.md","relationType":"links-to"}

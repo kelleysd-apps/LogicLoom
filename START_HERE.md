@@ -54,6 +54,27 @@ appends one fenced `@import` block to your `CLAUDE.md`; `--claude-md=none`
 installs nothing loadable. The resolved mode is recorded in the receipt, and its
 uninstall step is generated from what actually happened.
 
+### Installing this with a coding agent
+
+Ask an agent to "install LogicLoom" and it should run these two commands before
+anything else:
+
+```bash
+npx logicloom init --agent-guide      # the install procedure, written for an agent
+npx logicloom init <dir> --json       # the plan as data; `decisions[]` = what to ask you
+```
+
+`--agent-guide` prints `packaging/adopt/AGENT-INSTALL.md` — which fields to read,
+which questions to put to you, how to build the apply command, and the refusals
+(no `--force`, nothing deleted or overwritten, no mutating git, a block is never
+worked around). The same pointer leads the first lines of every plan report, and
+is printed fuller when the output is piped rather than shown in a terminal.
+
+This makes the right path hard to miss; it does not make it unmissable. An agent
+that assumes it already knows how to install an npm package will read none of it
+— if yours starts running `npm i logicloom`, stop it and paste the first command
+above.
+
 ### B. The harness template itself — `git clone`
 
 ```bash

@@ -18,6 +18,7 @@ const unitsLib = require('./units');
 const classifyLib = require('./classify');
 const preLib = require('./preconditions');
 const claudeMdLib = require('./claude-md');
+const decisionsLib = require('./decisions');
 
 const SCHEMA = 'logicloom/adopt-plan@1';
 
@@ -140,7 +141,7 @@ function build(opts) {
 
   const applyReady = preconditions.blocking.length === 0 && errors.length === 0;
 
-  return {
+  const plan = {
     schema: SCHEMA,
     generatedAt: new Date().toISOString(),
     generator: {
@@ -227,6 +228,30 @@ function build(opts) {
     notes: notes,
     applyReady: applyReady
   };
+
+  // ── The agent-facing half ─────────────────────────────────────────────────
+  // Everything above serves a person reading a terminal report. These two
+  // fields serve an agent whose job is to install this and walk its user
+  // through the choices conversationally — it should not have to
+  // reverse-engineer "what must the user decide?" out of four unrelated
+  // fields. Both are ADDITIVE fields within `logicloom/adopt-plan@1`; the
+  // schema's own compatibility clause permits that, and an older applier that
+  // ignores unknown fields is unaffected.
+  //
+  // DERIVED, not authored: `decisions` reads apply.js's TARGETS and
+  // claude-md.js's MODES. It states nothing the plan did not already decide.
+  plan.decisions = decisionsLib.build(plan);
+  plan.agentGuide = {
+    file: 'AGENT-INSTALL.md',
+    command: 'npx ' + (opts.pkgName || 'logicloom') + ' init --agent-guide',
+    summary: 'The install procedure written for a coding agent: which fields to read, ' +
+             'which questions to put to the user, how to assemble the apply command, and ' +
+             'what to do when it blocks. Printed by the command above; also shipped in ' +
+             'the package.',
+    applyCommand: 'npx ' + (opts.pkgName || 'logicloom') + ' init <dir> --apply --only=<targets>'
+  };
+
+  return plan;
 }
 
 function summariseClaude(c) {
@@ -281,6 +306,7 @@ function publicUnit(u) {
   if (u.renamedFrom) out.renamedFrom = u.renamedFrom;
   if (u.sourceRoot) out.sourceRoot = u.sourceRoot;
   if (u.strategy) out.strategy = u.strategy;
+  if (u.mergeSource) out.mergeSource = u.mergeSource;
   if (u.selector) out.selector = u.selector;
   if (u.value !== undefined) out.value = u.value;
   if (u.manifestLine) out.manifestLine = u.manifestLine;

@@ -172,6 +172,7 @@ run_suite "Adopt Merges" "bash tests/contract/test_adopt_merges.sh"
 run_suite "Adopt Applier" "bash tests/contract/test_adopt_applier.sh"
 run_suite "Adopt Rules + CLAUDE.md Mode" "bash tests/contract/test_adopt_rules.sh"
 run_suite "Adopt Entry Points + Post-Install" "bash tests/contract/test_adopt_entrypoints.sh"
+run_suite "Adopt Agent-Drivable Install" "bash tests/contract/test_adopt_agent_mode.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

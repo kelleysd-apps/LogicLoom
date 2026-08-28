@@ -54,6 +54,30 @@ explicit `--only=`; there is no `--force`, and an existing file is always kept.
 `hooks` is deliberately not in `--only=all` — the governance floor changes what
 your own Claude Code sessions may do in this repo, so it has to be named.
 
+### Installing this with a coding agent
+
+If you asked an agent to "install LogicLoom", point it here. The install is
+**plan-first and non-interactive**: there is no prompt, flags decide, and the
+agent does the asking.
+
+```bash
+npx logicloom init --agent-guide      # the procedure, written for an agent
+npx logicloom init <dir> --json       # the plan as data — `decisions[]` is the
+                                      # list of questions to put to the user
+```
+
+`--agent-guide` prints [`packaging/adopt/AGENT-INSTALL.md`](packaging/adopt/AGENT-INSTALL.md):
+which plan fields to read, which questions to put to the user, how to assemble
+the apply command, and — the part that matters most — **the refusals**. This
+tool never deletes, truncates, moves or overwrites; there is no `--force`; it
+never runs mutating git. A block is information, not an obstacle to work around.
+
+The same pointer leads the first lines of every plan report, and is printed
+fuller when stdout is not a terminal. **None of that guarantees an agent finds
+it** — one that already believes it knows how to install an npm package will
+read none of it. The aim is narrower: at every point an agent plausibly looks,
+the right path is the hardest thing to miss.
+
 ### After the files are in
 
 ```bash

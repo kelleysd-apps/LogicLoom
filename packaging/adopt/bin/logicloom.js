@@ -47,6 +47,10 @@ const path = require('node:path');
 
 const PKG_ROOT = path.resolve(__dirname, '..');
 
+// The procedure written for a coding agent. Named once; `lib/plan.js` names the
+// same file in the plan's `agentGuide` field, so both routes point at one file.
+const AGENT_GUIDE = 'AGENT-INSTALL.md';
+
 let PKG = { name: 'logicloom', version: 'unknown' };
 try { PKG = JSON.parse(fs.readFileSync(path.join(PKG_ROOT, 'package.json'), 'utf8')); } catch (e) { /* dev */ }
 
@@ -100,6 +104,11 @@ function usage() {
   L.push('                       With no CLAUDE.md in the repo the question is not asked and');
   L.push('                       `import` collapses to `rules` — this tool never creates one.');
   L.push('  --json               Emit the plan as JSON on stdout instead of a report');
+  L.push('  --agent-guide        Print AGENT-INSTALL.md — the install procedure written for');
+  L.push('                       a CODING AGENT driving this on a user\'s behalf: which plan');
+  L.push('                       fields to read, which questions to put to the user, how to');
+  L.push('                       build the apply command, and what the refusals are. Writes');
+  L.push('                       nothing and reads no repository.');
   L.push('  -h, --help           This text');
   L.push('');
   L.push('--only TARGETS');
@@ -127,13 +136,15 @@ function usage() {
 
 function parseInitArgs(argv) {
   const opts = { target: null, payload: null, manifest: null, json: false, help: false,
-                 dryRun: true, apply: false, only: null, planFile: null, claudeMd: null };
+                 dryRun: true, apply: false, only: null, planFile: null, claudeMd: null,
+                 agentGuide: false };
   const needsValue = (name, v) => (v === undefined ? { error: `option '${name}' requires a value` } : null);
 
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     let err = null;
     if (a === '--json') opts.json = true;
+    else if (a === '--agent-guide' || a === '--agent-instructions') opts.agentGuide = true;
     else if (a === '--dry-run') opts.dryRun = true;
     else if (a === '--apply') { opts.apply = true; opts.dryRun = false; }
     else if (a === '--only') { opts.only = argv[++i]; err = needsValue(a, opts.only); }
@@ -170,6 +181,25 @@ function cmdInit(argv) {
   const opts = parseInitArgs(argv);
   if (opts.error) { process.stderr.write(opts.error + '\n\n' + usage() + '\n'); return 2; }
   if (opts.help) { process.stdout.write(usage() + '\n'); return 0; }
+
+  // ── the agent guide ───────────────────────────────────────────────────────
+  // An OUTPUT MODE rather than only a file, because of the chicken-and-egg: the
+  // agent's project does not have LogicLoom yet, so this cannot be a skill or a
+  // slash command, and an agent has no reason to go reading inside node_modules.
+  // `npx logicloom init --agent-guide` needs nothing installed and nothing
+  // resolved — no target, no payload, no git — so it answers before the first
+  // plan, which is when an agent needs it.
+  if (opts.agentGuide) {
+    const guide = path.join(PKG_ROOT, AGENT_GUIDE);
+    let text;
+    try { text = fs.readFileSync(guide, 'utf8'); }
+    catch (e) {
+      process.stderr.write(`ERROR: ${AGENT_GUIDE} is missing from this package (${guide}).\n`);
+      return 3;
+    }
+    process.stdout.write(text.endsWith('\n') ? text : text + '\n');
+    return 0;
+  }
 
   let targetAbs;
   try {
@@ -239,8 +269,16 @@ function cmdInit(argv) {
     return 3;
   }
 
+  // The ONLY consumer of stdout's TTY-ness, and it changes the report's header
+  // and nothing else. `--json` is unaffected in either direction: a machine that
+  // already asked for data gets exactly the bytes it asked for.
+  //
+  // `!isTTY` is read as "a program captured this", never as "no human is here":
+  // agent harnesses that allocate a pty look identical to a terminal, so the
+  // agent pointer leads the report in BOTH cases and this flag only decides how
+  // full it is. See lib/render.js agentHeader() for the argument in full.
   if (opts.json) process.stdout.write(JSON.stringify(plan, null, 2) + '\n');
-  else process.stdout.write(renderLib.render(plan) + '\n');
+  else process.stdout.write(renderLib.render(plan, { isTTY: process.stdout.isTTY === true }) + '\n');
 
   return plan.applyReady ? 0 : 1;
 }
@@ -287,4 +325,4 @@ if (require.main === module) {
   process.exitCode = main(process.argv.slice(2));
 }
 
-module.exports = { main, usage, SUBCOMMANDS, HIDDEN_ALIASES, resolveSubcommand };
+module.exports = { main, usage, SUBCOMMANDS, HIDDEN_ALIASES, resolveSubcommand, AGENT_GUIDE };

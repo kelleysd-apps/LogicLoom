@@ -912,14 +912,15 @@ function applyGitignore(units, ctx, run, result, p, opts, root, pkgRoot) {
     throw new Error(`the shipped gitignore merge is missing (${script})`);
   }
 
-  // THE PLAN'S LINE UNITS AND THE SHIPPED BLOCK ARE NOT THE SAME SET, on purpose.
-  // The units come from the payload's own .gitignore filtered by prefix;
-  // gitignore-block.txt is the CURATED list, and merge/gitignore-decisions.txt
-  // records every drop with its reason (`.devloop/` — pack removed in v6.2;
-  // `test-checkpoint-*` — no producer left; `.claude/skill-index.json.bak` —
-  // dead). The merge tool installs the block, so anything additive that is NOT
-  // in the block would never land. Reporting the unit count as "appended" would
-  // therefore be a claim about patterns that were never written — refusal 8.
+  // THE PLAN'S LINE UNITS AND THE SHIPPED BLOCK ARE THE SAME SET BY
+  // CONSTRUCTION: lib/units.js enumerates gitignore units FROM this same
+  // gitignore-block.txt. It did not always — it filtered LogicLoom's own
+  // .gitignore by prefix, which promised three patterns the block deliberately
+  // drops and missed five it ships — and that is exactly why the cross-check
+  // below stays. Refusal 8 says we never report a write we did not make; a
+  // guarantee that costs one filter to re-assert is worth re-asserting, and if
+  // `neverShipped` is ever non-empty again the report says so rather than
+  // counting patterns that never landed.
   const blockPatterns = fs.readFileSync(block, 'utf8').split('\n')
     .map((l) => l.trim()).filter((l) => l.length && l.charAt(0) !== '#');
   const willLand = units.filter((u) => blockPatterns.indexOf(u.value) !== -1);

@@ -17,7 +17,8 @@
     "merge/",
     "payload/",
     "payload-manifest.txt",
-    "PLAN-FORMAT.md"
+    "PLAN-FORMAT.md",
+    "AGENT-INSTALL.md"
   ],
   "engines": {
     "node": ">=22.14.0"

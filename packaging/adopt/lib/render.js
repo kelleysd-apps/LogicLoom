@@ -13,8 +13,15 @@ const UNKNOWN = 'unknown';
 
 function line(s) { return s === undefined ? '' : String(s); }
 
-function render(plan) {
-  return plan.mode.mode === 'new-project' ? renderNewProject(plan) : renderExisting(plan);
+// `opts.isTTY` — whether stdout is a terminal. See agentHeader() below for why
+// this changes the header and nothing else, and why the default is `false`:
+// an omitted flag should fail toward MORE agent guidance, never less.
+function render(plan, opts) {
+  const o = opts || {};
+  const isTTY = o.isTTY === true;
+  return plan.mode.mode === 'new-project'
+    ? renderNewProject(plan, isTTY)
+    : renderExisting(plan, isTTY);
 }
 
 // ── NEW PROJECT ──────────────────────────────────────────────────────────────
@@ -24,11 +31,12 @@ function render(plan) {
 // empty directory a four-bucket table with three empty buckets, and a
 // precondition list about dirty files that cannot exist, is noise that hides the
 // one thing they want, which is the list of what will be created.
-function renderNewProject(plan) {
+function renderNewProject(plan, isTTY) {
   const L = [];
   const p = (s) => L.push(line(s));
 
   p('LogicLoom init — NEW PROJECT (read-only: nothing was written)');
+  agentHeader(p, plan, isTTY);
   p('='.repeat(78));
   p('');
   p(`  MODE                  : NEW PROJECT — fresh scaffold`);
@@ -106,11 +114,12 @@ function renderNewProject(plan) {
 }
 
 // ── EXISTING PROJECT ─────────────────────────────────────────────────────────
-function renderExisting(plan) {
+function renderExisting(plan, isTTY) {
   const L = [];
   const p = (s) => L.push(line(s));
 
   p('LogicLoom init — PLAN (read-only: nothing was written to this repository)');
+  agentHeader(p, plan, isTTY);
   p('='.repeat(78));
   p('');
   p('  MODE                  : EXISTING PROJECT — propose, do not scaffold');
@@ -296,6 +305,81 @@ function claudeMdSection(p, plan) {
          'files actually load with `/context` -> Memory files; if they do not appear, ' +
          're-run with ' + c.flag + '=import.', 6).forEach(p);
     p('');
+  }
+}
+
+// ── THE AGENT POINTER — line 2, not line 249 ─────────────────────────────────
+// This used to be a two-line footer. On a real existing repository the report
+// is ~250 lines, which put the pointer at line 249: an agent that shells out,
+// reads from byte zero and starts acting never reached it, and instead parsed
+// prose formatted for a human. That is precisely how an agent misreads a plan.
+//
+// So it leads. Line 1 stays the title — a captured stream has to say what it is
+// before it says anything else — and the pointer is lines 2..n, above the `===`
+// rule and above every plan section. A human skims two lines; an agent reading
+// from the top cannot miss them.
+//
+// TTY DETECTION — an ENHANCEMENT, never the mechanism.
+// -----------------------------------------------------------------------------
+// `!process.stdout.isTTY` is a reliable signal of "this output was captured by a
+// program". It is NOT a reliable signal of the converse: several agent harnesses
+// allocate a pty, so a TTY does not mean a human is reading. Any design that put
+// the guidance ONLY in the non-TTY branch would therefore miss exactly the
+// harnesses that are hardest to detect.
+//
+// Hence: the pointer is unconditional and identically placed in both branches.
+// The non-TTY branch only makes it FULLER — the piped case has no human whose
+// terminal we are spending, so the extra lines cost nothing there and buy the
+// one thing an agent would otherwise reverse-engineer out of 39 KB of JSON:
+// what its user actually has to decide, and whether an apply is even permitted.
+// The TTY branch is deliberately two lines so the human report is not degraded
+// to achieve any of that.
+function agentHeader(p, plan, isTTY) {
+  if (!plan.agentGuide) return;
+  const guideCmd = plan.agentGuide.command;
+  // Derived from the plan's own applyCommand rather than re-spelling the package
+  // name here — one source for the invocation, same rule decisions.js follows.
+  const base = String(plan.agentGuide.applyCommand || '').split(' --apply')[0];
+  const jsonCmd = base ? base + ' --json' : guideCmd.replace('--agent-guide', '--json');
+
+  if (isTTY) {
+    p('  AGENT? Do not parse this report. `' + guideCmd + '` prints');
+    p('  the install procedure; `--json` gives this plan as data, with `decisions[]`.');
+    return;
+  }
+
+  p('  AGENT / CAPTURED OUTPUT — stdout is not a terminal, so a program is probably');
+  p('  reading this. Do NOT parse the human prose below. Use these instead:');
+  p('    the procedure     : ' + guideCmd);
+  p('    this plan as data : ' + jsonCmd + '   <- re-run with this');
+  p('    then apply        : ' + plan.agentGuide.applyCommand);
+  decisionsInline(p, plan);
+  const blocking = (plan.preconditions && plan.preconditions.blocking) || [];
+  if (plan.applyReady) {
+    p('    applyReady: yes — ask your user the decisions above. Do not answer them.');
+  } else {
+    p('    applyReady: NO — ' + blocking.length + ' blocking precondition' +
+      (blocking.length === 1 ? '' : 's') + '. Relay each remedy; do not apply.');
+  }
+}
+
+// The decisions, one line each, in the header. Not a second source of truth:
+// read straight off plan.decisions, which decisions.js derives from the target
+// and mode registries. A decision added there appears here with no edit.
+function decisionsInline(p, plan) {
+  const d = plan.decisions || [];
+  if (!d.length) return;
+  const asks = d.filter((x) => x.applicable !== false);
+  p('    decisions to put to your user (' + asks.length + ' of ' + d.length +
+    ') — REQUIRED = no omission default:');
+  for (const x of d) {
+    if (x.applicable === false) {
+      p('      - ' + x.id.padEnd(10) + ' NOT APPLICABLE here — do not ask it');
+      continue;
+    }
+    p('      - ' + x.id.padEnd(10) + (x.flag || '') +
+      (x.required ? ' [REQUIRED]' : '') +
+      (x.default && x.default.value !== undefined ? ' default=' + x.default.value : ''));
   }
 }
 

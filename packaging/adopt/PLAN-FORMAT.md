@@ -64,6 +64,13 @@ any repository, including one it does not own.
 | `errors` | array of string | anything that made the plan itself unsound |
 | `notes` | array of string | named limits, meant to be printed |
 | `applyReady` | boolean | **the gate.** See below. |
+| `decisions` | array | **what the user must actually decide**, as data. See below |
+| `agentGuide` | object | `{ file, command, summary, applyCommand }` — where the agent-facing procedure lives |
+
+`decisions` and `agentGuide` are **additive fields within `@1`**, added for
+agent-driven installs. The schema version is unchanged, which the compatibility
+clause below permits: nothing was removed, no field changed meaning, and an
+applier that ignores unknown fields is unaffected.
 
 ### `payload.source`
 
@@ -271,9 +278,21 @@ at the level the *decision* is made at removes the need:
 | Payload thing | Granularity | One unit is… |
 |---|---|---|
 | `.logic-loom/`, `plugins/`, `.claude/agents/`, … | `path` | the path |
-| `.claude/settings.json` | `json-key` | **one hook command entry** |
-| `.gitignore` | `line` | **one pattern line** |
+| `.claude/settings.json` | `json-key` | **one hook command entry of `merge/settings-hooks-fragment.json`** |
+| `.gitignore` | `line` | **one pattern line of `merge/gitignore-block.txt`** |
 | `.claude/rules/logicloom-*.md` | `rules` | **one authored rules file** |
+
+**The two merge granularities enumerate the SHIPPED MERGE ARTIFACT, not the
+payload.** A `json-key` unit comes from `merge/settings-hooks-fragment.json` and
+a `line` unit from `merge/gitignore-block.txt` — the same two files the applier
+hands to `merge_settings_json.py` and `merge-gitignore.sh`. Each such unit
+carries `mergeSource` naming its file. This is structural, not a convention: the
+planner previously derived line units by filtering LogicLoom's own `.gitignore`
+by harness-owned prefix, which promised three patterns the curated block
+deliberately drops and omitted five it ships. A plan is the artifact under
+review; it may not overstate or understate what the apply will write. `sourcePath`
+and `targetPath` remain `.gitignore` / `.claude/settings.json` — the merge target
+is still the file being merged into.
 
 A `rules` unit carries `sourceRoot: "package"` and its `sourcePath` resolves
 against the **package** root, not the payload root — it comes from a manifest
@@ -367,6 +386,75 @@ end-to-end against the shipped manifest. Adding a new `defer:` row blocks every
 apply again, by design.
 
 ---
+
+## `decisions` — the questions, as data
+
+The plan already *contains* every choice: `claudeMd` carries the integration
+mode, `buckets` carries the worklist, `preconditions` carries what blocks. A
+person reading the rendered report gets them for free, because the report is
+written to present them. An **agent** does not — it has to reverse-engineer
+"what must my user decide?" out of four unrelated fields, and every agent does
+that slightly differently. That is a contract gap, not a documentation gap.
+
+So it is stated once. Each entry:
+
+```json
+{
+  "id": "targets",
+  "question": "Which parts of LogicLoom should be installed here?",
+  "kind": "multi-select",
+  "required": true,
+  "applicable": true,
+  "notApplicableReason": null,
+  "flag": "--only",
+  "flagForm": "--only=<comma-separated values, or \"all\">",
+  "env": null,
+  "default": { "value": "all", "expandsTo": ["harness","gitignore","rules"], "why": "…" },
+  "options": [ { "value": "hooks", "summary": "…", "consequence": "…",
+                 "inDefault": false, "wouldWrite": 11, "wouldKeepYours": 0,
+                 "noOp": false } ],
+  "notes": ["…"]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `id` | stable. `targets`, `claude-md` |
+| `kind` | `multi-select` or `single-select` |
+| `required` | the flag must appear in the apply command; there is no default-by-omission |
+| `applicable` | **`false` means do not ask.** `notApplicableReason` says why — it is a case the tool has already settled |
+| `flag` / `flagForm` / `env` | **the exact flag that sets the answer.** An applier must not infer one |
+| `default` | `value` + `why`. Answering every decision with its default is a valid, complete install |
+| `options[].consequence` | the sentence a summary cannot carry — what the option does to the user's repository |
+| `options[].noOp` | nothing to do for this option here; mention it, do not ask about it |
+| `resolved` | (`claude-md` only) what the flags/env already in force resolved to |
+
+**Two properties this list commits to.** It is **derived** — target options come
+from `lib/apply.js`'s `TARGETS`, mode options from `lib/claude-md.js`'s `MODES`,
+so adding either adds an option automatically rather than requiring a second
+list to be remembered. And it introduces **no policy**: every `default` is the
+behaviour the tool already has when the flag is omitted, and every
+`applicable: false` is a collapse the tool already performs. `lib/decisions.js`
+reports; it does not choose.
+
+Today the set is two: `targets` (`--only`) and `claude-md` (`--claude-md`). The
+other flags — `--payload`, `--manifest`, `--plan`, `--json` — are operational
+and are not decisions a user is asked to make.
+
+## `agentGuide` — where the procedure lives
+
+```json
+{ "file": "AGENT-INSTALL.md", "command": "npx logicloom init --agent-guide",
+  "summary": "…", "applyCommand": "npx logicloom init <dir> --apply --only=<targets>" }
+```
+
+`AGENT-INSTALL.md` ships in the package and is printed by
+`npx logicloom init --agent-guide`, which resolves no target, reads no
+repository and writes nothing. It is an **output mode** and not only a file
+because of the chicken-and-egg: the adopting project does not have LogicLoom
+yet, so the procedure cannot be a skill or a slash command, and an agent has no
+reason to go reading inside `node_modules`. The human report prints one pointer
+line at its foot; the report itself is unchanged.
 
 ## Compatibility
 
