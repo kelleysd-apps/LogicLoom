@@ -92,7 +92,6 @@
 // Node, CommonJS, no dependencies.
 
 const fs = require('node:fs');
-const os = require('node:os');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
@@ -100,9 +99,18 @@ const planLib = require('./plan');
 const manifestLib = require('./manifest');
 const detectLib = require('./detect');
 const claudeMdLib = require('./claude-md');
+const renderLib = require('./render');
 
-const RECEIPT_SCHEMA = 'logicloom/adopt-receipt@1';
-const RECEIPT_NAME = '.logicloom-adopt-receipt.json';
+// One wrapper, shared with the plan report, so a long `detail` does not run off
+// the right edge in one output and not the other.
+function wrapInto(p, text, indent) { for (const l of renderLib.wrap(text, indent)) p(l); }
+
+const receiptLib = require('./receipt');
+const RECEIPT_SCHEMA = receiptLib.RECEIPT_SCHEMA;
+const RECEIPT_NAME = receiptLib.RECEIPT_NAME;
+const receiptPath = receiptLib.receiptPath;
+const readReceipt = receiptLib.readReceipt;
+const priorRun = receiptLib.priorRun;
 
 // ── UNINSTALL: A LIST THE HUMAN RUNS, AND WHY IT IS STILL THAT ───────────────
 // The receipt now names every path this tool wrote, which is exactly the thing
@@ -286,149 +294,23 @@ function spawnAllowed(exe, args, opts) {
   };
 }
 
-// ── REFUSAL 4: nothing is written outside the target repo root ───────────────
-function realpathOrSelf(p) {
-  try { return fs.realpathSync(p); } catch (e) { return path.resolve(p); }
-}
-
-function insideRoot(rootReal, absPath) {
-  // Resolve the deepest EXISTING ancestor, so a not-yet-created path is judged by
-  // where it would land rather than failing realpath.
-  let probe = path.resolve(absPath);
-  const unresolved = [];
-  for (;;) {
-    try { probe = fs.realpathSync(probe); break; } catch (e) { /* keep walking up */ }
-    const parent = path.dirname(probe);
-    if (parent === probe) break;
-    unresolved.unshift(path.basename(probe));
-    probe = parent;
-  }
-  const resolved = path.join(probe, ...unresolved);
-  return resolved === rootReal || resolved.indexOf(rootReal + path.sep) === 0;
-}
-
-function assertWritableTarget(rootReal, absPath) {
-  if (!insideRoot(rootReal, absPath)) {
-    throw new Error(`REFUSE-OUTSIDE-ROOT: ${absPath} is not inside the target repository ${rootReal}`);
-  }
-  // Named explicitly because it is the ONE escape that would change the user's
-  // other sessions rather than this repository.
-  const home = realpathOrSelf(os.homedir());
-  const userClaude = path.join(home, '.claude');
-  const r = path.resolve(absPath);
-  if (r === userClaude || r.indexOf(userClaude + path.sep) === 0) {
-    throw new Error('REFUSE-OUTSIDE-ROOT: this tool never writes to ~/.claude — the harness governs one repository, not your user configuration');
-  }
-}
-
-// ── REFUSAL 7: secret-shaped paths are never opened, not even to classify ────
-const SECRET_BASENAMES = [
-  '.env', '.envrc', '.npmrc', '.netrc', '.pgpass', '.htpasswd',
-  'id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519', 'credentials', 'secrets'
-];
-const SECRET_PATTERNS = [
-  /^\.env(\..+)?$/i,
-  /\.(pem|key|pfx|p12|jks|keystore|asc|gpg|kdbx)$/i,
-  /(^|[._-])(secret|secrets|credential|credentials|token|apikey|api[-_]key|private[-_]key)([._-]|$)/i
-];
-
-function isSecretShaped(relOrBase) {
-  const base = path.basename(String(relOrBase));
-  if (SECRET_BASENAMES.indexOf(base) !== -1) return true;
-  for (const re of SECRET_PATTERNS) if (re.test(base)) return true;
-  return false;
-}
-
-// ── REFUSAL 1 + 3: the only two write primitives in this file ────────────────
-// Neither can overwrite, neither can truncate. 'wx' fails with EEXIST if the
-// path is there — the refusal is enforced by the kernel, not by a check that a
-// later edit could drop.
-function copyFileNew(src, dst, mode) {
-  const data = fs.readFileSync(src);
-  const fd = fs.openSync(dst, 'wx', mode === undefined ? 0o666 : mode);
-  try { fs.writeSync(fd, data); } finally { fs.closeSync(fd); }
-  if (mode !== undefined) { try { fs.chmodSync(dst, mode); } catch (e) { /* best effort */ } }
-}
-
-function writeFileNew(dst, text) {
-  const fd = fs.openSync(dst, 'wx', 0o666);
-  try { fs.writeSync(fd, text); } finally { fs.closeSync(fd); }
-}
-
-// ── the recursive copy ───────────────────────────────────────────────────────
-// THE MANIFEST'S `exclude:` ROWS ARE APPLIED HERE, and that is load-bearing.
-// The planner's units are whole paths (`include: .logic-loom`), so nothing
-// upstream of this function has ever consulted the carve-outs beneath them. A
-// copy that ignored them would ship `.logic-loom/tests/`, `.logic-loom/graph/`,
-// `.docs/guides/dev-main-template-split.md`, and — worst — the
-// `update-agent-context.sh` the manifest excludes precisely because its
-// update-existing branch truncates the adopter's CLAUDE.md to zero bytes.
-function copyTree(srcAbs, dstAbs, rel, ctx, out) {
-  const st = fs.lstatSync(srcAbs);
-
-  if (st.isSymbolicLink()) {
-    // A symlink in the payload can point anywhere, including out of the root.
-    // Not followed, not recreated, recorded.
-    out.skipped.push({ path: rel, why: 'REFUSE-SYMLINK: payload entry is a symlink; not followed and not recreated' });
-    return;
-  }
-
-  if (manifestLib.isExcluded(ctx.manifest, rel, st.isDirectory())) {
-    out.skipped.push({ path: rel, why: 'excluded by payload-manifest.txt' });
-    return;
-  }
-  if (path.basename(rel) === '.git' || path.basename(rel) === 'node_modules') {
-    out.skipped.push({ path: rel, why: 'never copied: a repository or a dependency tree is not payload' });
-    return;
-  }
-  if (!st.isDirectory() && isSecretShaped(rel)) {
-    // REFUSAL 7 — refused BEFORE the file is read.
-    out.skipped.push({ path: rel, why: 'REFUSE-SECRET: secret-shaped filename; not read, not copied' });
-    return;
-  }
-
-  assertWritableTarget(ctx.rootReal, dstAbs);
-
-  if (st.isDirectory()) {
-    if (detectLib.statKind(dstAbs) === 'absent') {
-      fs.mkdirSync(dstAbs, { recursive: false, mode: st.mode & 0o777 });
-      out.wrote.push({ path: rel + '/', kind: 'dir' });
-    }
-    const entries = fs.readdirSync(srcAbs).sort();
-    for (const e of entries) {
-      copyTree(path.join(srcAbs, e), path.join(dstAbs, e), rel + '/' + e, ctx, out);
-    }
-    return;
-  }
-
-  if (!st.isFile()) {
-    out.skipped.push({ path: rel, why: 'not a regular file (socket/fifo/device); not copied' });
-    return;
-  }
-
-  // REFUSAL 1, re-checked at the instant of the write.
-  if (detectLib.statKind(dstAbs) !== 'absent') {
-    out.skipped.push({ path: rel, why: 'REFUSE-EXISTS: a file is already here and it is yours; move it aside yourself if you want ours' });
-    return;
-  }
-  copyFileNew(srcAbs, dstAbs, st.mode & 0o777);
-  out.wrote.push({ path: rel, kind: 'file' });
-}
+// ── REFUSAL 4 / 7 / 1 / 3: the write primitives and the payload walk ────────
+// Moved verbatim to lib/fsops.js so lib/plan.js can run the SAME traversal in
+// predict mode to resolve counts.wouldWrite. Re-exported below under their
+// original names — the refusals are unchanged and the tests that assert them
+// still address them through this module.
+const fsops = require('./fsops');
+const realpathOrSelf = fsops.realpathOrSelf;
+const insideRoot = fsops.insideRoot;
+const assertWritableTarget = fsops.assertWritableTarget;
+const isSecretShaped = fsops.isSecretShaped;
+const copyFileNew = fsops.copyFileNew;
+const copyTree = fsops.copyTree;
 
 // ── the receipt (the marker manifest PLAN-FORMAT.md describes) ───────────────
 // Everything written is identifiable later from one file, so uninstall is a list
 // the human runs. Appends a run rather than replacing, because a second run —
 // including a no-op one — is itself a fact worth keeping.
-function receiptPath(root) { return path.join(root, RECEIPT_NAME); }
-
-function readReceipt(root) {
-  try {
-    const j = JSON.parse(fs.readFileSync(receiptPath(root), 'utf8'));
-    if (j && j.schema === RECEIPT_SCHEMA && Array.isArray(j.runs)) return j;
-    return null;
-  } catch (e) { return null; }
-}
-
 function writeReceipt(root, receipt) {
   const p = receiptPath(root);
   // Recomputed on every flush, so the procedure always matches the runs above it
@@ -438,22 +320,6 @@ function writeReceipt(root, receipt) {
   // is checked on read, and a foreign file at this path is refused rather than
   // clobbered (see priorRun()).
   fs.writeFileSync(p, JSON.stringify(receipt, null, 2) + '\n', 'utf8');
-}
-
-function priorRun(root) {
-  const r = readReceipt(root);
-  if (!r) return null;
-  // Prefer the most recent run that actually WROTE something — a later no-op run
-  // is still evidence of adoption, but it is not the run whose footprint the
-  // report should name.
-  let fallback = null;
-  for (let i = r.runs.length - 1; i >= 0; i--) {
-    const run = r.runs[i];
-    if (run.status !== 'complete' && run.status !== 'partial') continue;
-    if ((run.wrote || []).length) return run;
-    if (!fallback) fallback = run;
-  }
-  return fallback;
 }
 
 // ── option parsing ───────────────────────────────────────────────────────────
@@ -505,16 +371,25 @@ function planDivergence(reviewed, fresh) {
 }
 
 // ── self-caused blocking items ───────────────────────────────────────────────
-// ALREADY-ADOPTED and PARTIAL-ADOPTION are the only two blocking codes this tool
-// can CAUSE. After a successful `--only=harness`, a later `--only=hooks` would
-// otherwise be blocked by the harness it just wrote — the second half of an
-// install refused because the first half succeeded.
+// A blocking item is DISCOUNTED when this tool's own receipt accounts for it.
+// The judgement itself lives in lib/selfcaused.js — read the top of that file
+// for the safety argument, which is the load-bearing part — and it is made by
+// the PLANNER, so `--json`, the human report and the apply cannot disagree about
+// what would stop a write. This module reads the annotation; it does not
+// second-guess it.
 //
-// They are discounted ONLY when this package's own receipt records a prior run
-// against this root. That is not a `--force`: it is not user-settable, it does
-// not apply to any other code, and it is printed. If a receipt were forged, the
-// consequence is nil — every unit in an already-adopted repo classifies
-// keep-theirs, so the apply writes nothing anyway.
+// Two families are discounted:
+//   * ALREADY-ADOPTED / PARTIAL-ADOPTION — the harness markers are our output.
+//     Without this, a `--only=harness` followed by `--only=hooks` refuses the
+//     second half of an install because the first half succeeded.
+//   * UNTRACKED-UNDER-TARGET / DIRTY-*-TARGET on a path our receipt records
+//     writing — the tree is dirty with OUR footprint. Without this, the re-run
+//     an agent makes to confirm idempotency exits 1 on the install that just
+//     succeeded, which is the opposite of what AGENT-INSTALL.md promises.
+//
+// Neither is a `--force`. Nothing here is settable, everything is printed, and
+// a file we MERGED into is cleared only by matching the content digest recorded
+// when we left it — so an adopter's edit to `.gitignore` still blocks.
 const SELF_CAUSED = ['ALREADY-ADOPTED', 'PARTIAL-ADOPTION'];
 
 // Did an earlier run of ours write at or under this path? Report-only.
@@ -529,10 +404,11 @@ function wroteUnder(prior, relPath) {
 }
 
 function effectiveBlocking(plan, prior) {
-  if (!prior) return { blocking: plan.preconditions.blocking, discounted: [] };
-  const discounted = plan.preconditions.blocking.filter((b) => SELF_CAUSED.indexOf(b.code) !== -1);
-  const blocking = plan.preconditions.blocking.filter((b) => SELF_CAUSED.indexOf(b.code) === -1);
-  return { blocking, discounted };
+  const items = plan.preconditions.blocking;
+  return {
+    blocking: items.filter((b) => b.selfCaused !== true),
+    discounted: items.filter((b) => b.selfCaused === true)
+  };
 }
 
 // ── the apply ────────────────────────────────────────────────────────────────
@@ -628,9 +504,15 @@ function apply(opts) {
   const prior = priorRun(root);
   const eff = effectiveBlocking(fresh, prior);
   if (eff.discounted.length) {
-    p('  Discounted blocking items (caused by this tool\'s own earlier run, per the receipt):');
-    for (const b of eff.discounted) p(`      [${b.code}] — a prior run at ${prior.at} wrote ${prior.wrote.length} path(s) here`);
-    p('  Nothing else is ever discounted, and this is not a flag you can set.');
+    p('  DISCOUNTED blocking items — caused by this tool\'s own earlier run, per the receipt:');
+    for (const b of eff.discounted) {
+      p(`      [${b.code}]  ${b.path}`);
+      wrapInto(p, b.selfCausedReason || 'recorded in ' + RECEIPT_NAME, 10);
+    }
+    if (prior) p(`      (the prior run at ${prior.at} wrote ${(prior.wrote || []).length} path(s) here)`);
+    p('  Nothing else is ever discounted, this is not a flag you can set, and a file');
+    p('  this tool MERGED into is discounted only while its content digest still');
+    p('  matches — edit one and the block comes back.');
     p('');
   }
   if (fresh.errors.length) {
@@ -651,7 +533,11 @@ function apply(opts) {
       // Honesty about our own footprint: after a first `--only=harness`, the
       // paths this tool wrote are untracked, and they block the next target.
       // Say so, rather than letting the user read it as their own mess.
-      if (prior && /^UNTRACKED/.test(b.code) && wroteUnder(prior, b.path)) {
+      if (b.selfCausedRefused) {
+        p('      NOTE: this tool wrote here in an earlier run, and the discount that would');
+        p('            normally clear that was REFUSED:');
+        wrapInto(p, b.selfCausedRefused, 12);
+      } else if (prior && /^UNTRACKED/.test(b.code) && wroteUnder(prior, b.path)) {
         p('      NOTE: this path was written by THIS TOOL in an earlier run (see the receipt).');
         p('            Committing it is the right next step, and then the remaining targets apply.');
       }
@@ -848,6 +734,31 @@ function apply(opts) {
   p(`      ${un.notRemovedByThis.replace(/(.{1,68})(\s|$)/g, '$1\n').split('\n').filter((x) => x.length).join('\n      ')}`);
   p('');
 
+  // ── F4: what this run just did to the preconditions ───────────────────────
+  // Applying necessarily dirties the tree with our own output, and those are
+  // the same two conditions a blocking precondition names. The applier now
+  // discounts its own footprint (lib/selfcaused.js), so a re-run is a no-op —
+  // but the adopter should hear that from the run that caused it, not discover
+  // it. Stated only where it happened: a run that merged nothing does not get
+  // told about merge digests.
+  if (run.wrote.length) {
+    const mergedNow = run.wrote.filter((w) => w.kind === 'merge').map((w) => w.path);
+    const createdNow = run.wrote.filter((w) => w.kind !== 'merge').length;
+    p('    AFTER THIS RUN — the tree is now dirty with OUR output, and that is expected');
+    if (mergedNow.length) p(`      merged into (yours, now modified) : ${mergedNow.join(', ')}`);
+    if (createdNow) p(`      created (untracked)               : ${createdNow} path(s), listed in the receipt`);
+    p('      A re-run of this same command is a NO-OP, not a refusal: the blocking');
+    p('      preconditions those two facts would raise are discounted against the');
+    p('      receipt above, and every discount is printed on the run that takes it.');
+    if (mergedNow.length) {
+      p('      One thing still blocks, correctly: EDIT a file we merged into before you');
+      p('      re-run, and its recorded content digest stops matching, so the block comes');
+      p('      back. That edit is yours and unreviewed, which is what the check is for.');
+    }
+    p('      Committing this output is the right next step either way.');
+    p('');
+  }
+
   if (run.wrote.length === 0 && run.failed.length === 0) {
     p('    NO-OP — nothing needed writing. Everything requested is already present,');
     p('    or was skipped for a reason listed above. A second run changes nothing,');
@@ -951,7 +862,13 @@ function applyGitignore(units, ctx, run, result, p, opts, root, pkgRoot) {
     run.skipped.push({ target: 'gitignore', path: '.gitignore', why: 'the managed block is already present and identical (no-op)' });
     p('      NO-OP the managed block is already present and identical.');
   } else {
-    run.wrote.push({ target: 'gitignore', path: '.gitignore', kind: 'merge', region: 'the fenced "LogicLoom adopt — managed block"' });
+    // THE DIGEST IS THE RE-RUN'S SAFETY PROPERTY, not bookkeeping. It records
+    // the exact bytes we left in a file the adopter also owns, so a later run
+    // can tell "dirty because we merged" from "dirty because they edited it
+    // afterwards" — and block on the second. See lib/selfcaused.js.
+    run.wrote.push({ target: 'gitignore', path: '.gitignore', kind: 'merge',
+      digest: fsops.sha256File(target),
+      region: 'the fenced "LogicLoom adopt — managed block"' });
     result.wrote.push({ path: '.gitignore' });
     p(`      MERGED .gitignore — the shipped harness block (${blockPatterns.length} patterns, ${willLand.length} of them new to you)`);
     p('             appended inside a marked fence. Everything above it is byte-identical.');
@@ -1051,6 +968,7 @@ function applyRules(units, ctx, run, result, p, opts, root, fresh) {
   }
   fs.appendFileSync(target, suffix, 'utf8');
   run.wrote.push({ target: 'rules', path: 'CLAUDE.md', kind: 'merge',
+    digest: fsops.sha256File(target),
     region: 'the fenced "LogicLoom adopt — managed block"' });
   result.wrote.push({ path: 'CLAUDE.md' });
   p(`      MERGED CLAUDE.md — one marked block, ${all.length} @import line(s), appended at the end.`);
@@ -1109,7 +1027,9 @@ function applyHooks(units, ctx, run, result, p, opts, root, pkgRoot) {
     run.skipped.push({ target: 'hooks', path: '.claude/settings.json', why: 'every hook group is already registered (no-op)' });
     p('      NO-OP every hook group is already registered.');
   } else {
-    run.wrote.push({ target: 'hooks', path: '.claude/settings.json', kind: 'merge', region: '.claude/.logicloom-adopt-settings.json records exactly what was inserted' });
+    run.wrote.push({ target: 'hooks', path: '.claude/settings.json', kind: 'merge',
+      digest: fsops.sha256File(target),
+      region: '.claude/.logicloom-adopt-settings.json records exactly what was inserted' });
     run.wrote.push({ target: 'hooks', path: '.claude/.logicloom-adopt-settings.json', kind: 'file' });
     result.wrote.push({ path: '.claude/settings.json' });
     p(`      MERGED .claude/settings.json — ${units.length} governance hook command(s) added additively.`);

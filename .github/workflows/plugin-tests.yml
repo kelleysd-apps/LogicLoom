@@ -209,6 +209,27 @@ jobs:
       - name: Run Adopt Agent-Drivable Install Tests
         run: bash tests/contract/test_adopt_agent_mode.sh
 
+      # RE-RUNNING A SUCCESSFUL INSTALL. An apply necessarily leaves its own
+      # output uncommitted — .gitignore merged, .claude/ untracked — which are
+      # the two conditions preconditions.js refuses on, so the confirmation
+      # re-run used to exit 1 on the install that had just succeeded. The
+      # applier now discounts the blocks its own receipt accounts for. This
+      # suite pins the narrowness that makes that safe: an ordinary file it
+      # created is unreachable by a re-run (refusal 1), but a file it MERGED
+      # into is cleared only while its recorded content digest matches — edit
+      # .gitignore afterwards and the block correctly comes back.
+      - name: Run Adopt Re-Apply + Self-Caused Precondition Tests
+        run: bash tests/contract/test_adopt_reapply.sh
+
+      # THE PLAN IS WHAT LANDS. Reconciles the plan a user approves against the
+      # receipt of what was written, in both directions, against the real
+      # payload — the check that would have caught two bookkeeping files landing
+      # without appearing in any plan unit. Also holds counts.wouldWrite equal
+      # to the apply report's WROTE, so the two numbers a reader is told to
+      # compare are the same kind of thing.
+      - name: Run Adopt Plan/Apply Reconciliation Tests
+        run: bash tests/contract/test_adopt_plan_reconciliation.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only

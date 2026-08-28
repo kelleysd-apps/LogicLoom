@@ -51,6 +51,7 @@ cd "$ROOT"
 PKG="$ROOT/packaging/adopt"
 CLI="$PKG/bin/logicloom.js"
 APPLY="$PKG/lib/apply.js"
+FSOPS="$PKG/lib/fsops.js"
 
 echo "🧪 Adopt Applier Contract Tests"
 echo "==============================="
@@ -197,10 +198,10 @@ assert "the applier source runs no mutating git verb" \
 echo ""
 echo "── refusal 3: no delete, no truncate ──"
 assert "the applier calls no unlink / rm / rmdir / truncate" \
-  "! grep -Eq 'unlinkSync|rmSync|rmdirSync|truncateSync|ftruncate' \"$APPLY\""
+  "! grep -Eq 'unlinkSync|rmSync|rmdirSync|truncateSync|ftruncate' \"$APPLY\" \"$FSOPS\""
 assert "every openSync in the applier uses the exclusive 'wx' flag (which cannot truncate)" \
-  "[ \"\$(grep -c 'openSync(' \"$APPLY\")\" -gt 0 ] && \
-   [ \"\$(grep 'openSync(' \"$APPLY\" | grep -cv \"'wx'\")\" = 0 ]"
+  "[ \"\$(cat \"$APPLY\" \"$FSOPS\" | grep -c 'openSync(')\" -gt 0 ] && \
+   [ \"\$(cat \"$APPLY\" \"$FSOPS\" | grep 'openSync(' | grep -cv \"'wx'\")\" = 0 ]"
 assert "the one writeFileSync is the receipt, and it says so" \
   "[ \"\$(grep -c 'writeFileSync' \"$APPLY\")\" = 1 ]"
 
@@ -217,7 +218,7 @@ assert "assertWritableTarget refuses ~/.claude by name" \
      try{a.assertWritableTarget(path.resolve(\"/\"),path.join(os.homedir(),\".claude\",\"settings.json\"));process.exit(1)}
      catch(e){process.exit(/REFUSE-OUTSIDE-ROOT/.test(e.message)?0:1)}'"
 assert "the harness-never-writes-to-~/.claude rule is stated in the source" \
-  "grep -q 'never writes to ~/.claude' \"$APPLY\""
+  "grep -q 'never writes to ~/.claude' \"$FSOPS\""
 
 # ── 6. REFUSAL 7: secret-shaped files ───────────────────────────────────────
 echo ""

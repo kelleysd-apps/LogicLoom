@@ -56,9 +56,10 @@ any repository, including one it does not own.
 | `mode` | object | `{ mode, reason, content[] }` — **new project or existing project.** See below |
 | `target` | object | the repository the plan is about (see below) |
 | `detect` | object | what the target already has; report-only, not an instruction |
-| `preconditions` | object | `{ blocking[], warnings[] }` |
+| `preconditions` | object | `{ blocking[], discounted[], warnings[] }` |
 | `buckets` | object | `{ additive[], "keep-theirs"[], replace[], obsolete[] }` |
-| `counts` | object | per-bucket counts plus `total` |
+| `bookkeeping` | array | **the files the TOOL writes**, which are not harness content. See below |
+| `counts` | object | per-bucket **unit** counts, plus `bookkeeping` and `wouldWrite`. See below |
 | `claudeMd` | object | **the integration mode** — how the harness's instructions reach the model here. See below |
 | `defers` | array | unresolved `defer:` rows in the payload manifest |
 | `errors` | array of string | anything that made the plan itself unsound |
@@ -67,8 +68,10 @@ any repository, including one it does not own.
 | `decisions` | array | **what the user must actually decide**, as data. See below |
 | `agentGuide` | object | `{ file, command, summary, applyCommand }` — where the agent-facing procedure lives |
 
-`decisions` and `agentGuide` are **additive fields within `@1`**, added for
-agent-driven installs. The schema version is unchanged, which the compatibility
+`decisions`, `agentGuide`, `bookkeeping`, `preconditions.discounted` and the
+`counts.additiveEntries` / `counts.bookkeeping` / `counts.wouldWrite` keys are
+**additive fields within `@1`**, added for agent-driven installs and for the two
+defects the first real-repo run surfaced. The schema version is unchanged, which the compatibility
 clause below permits: nothing was removed, no field changed meaning, and an
 applier that ignores unknown fields is unaffected.
 
@@ -183,7 +186,8 @@ treat `unknown` as "do not proceed on this fact", never as a falsy default.
 ## `applyReady` — the gate
 
 ```
-applyReady === (preconditions.blocking.length === 0 && errors.length === 0)
+applyReady === (preconditions.blocking.filter(b => !b.selfCaused).length === 0
+                && errors.length === 0)
 ```
 
 **An applier MUST NOT write anything when `applyReady` is `false`,** and MUST
@@ -192,16 +196,30 @@ which a write can destroy work that has no other copy. There is no `--force`,
 because there is no case where forcing is the right answer to "your untracked
 work is in the way".
 
-**The one discount, stated because it is a deviation and must not be silent.**
-`ALREADY-ADOPTED` and `PARTIAL-ADOPTION` are the only two blocking codes the
-applier can itself CAUSE: after a successful `--only=harness`, a later
-`--only=hooks` would be blocked by the harness the first run wrote — the second
-half of an install refused because the first half worked. `lib/apply.js`
-discounts exactly those two codes, and only when `.logicloom-adopt-receipt.json`
-at the target root records a prior run of this package. It is printed every time
-it happens. It is **not** a flag, not user-settable, and it reaches nothing else;
-if a receipt were forged, the consequence is nil, because in an already-adopted
-repository every unit classifies `keep-theirs` and the apply writes nothing.
+**The discount, stated because it is a deviation and must not be silent.**
+`preconditions.blocking` is always the COMPLETE picture of the tree — nothing is
+removed from it, ever. What is added is a per-item `selfCaused` flag, and
+`preconditions.discounted` is the subset where it is `true`. `applyReady` is
+computed over the rest. An item is `selfCaused` only when
+`.logicloom-adopt-receipt.json` at the target root accounts for it:
+
+| Code | Discounted when |
+|---|---|
+| `ALREADY-ADOPTED`, `PARTIAL-ADOPTION` | a prior run of this package is recorded here. Without this, a successful `--only=harness` would block the `--only=hooks` that completes the install. |
+| `UNTRACKED-UNDER-TARGET`, `DIRTY-TARGET-PATH`, `DIRTY-MERGE-TARGET` | the receipt records writing at or under that path, **and** every file we MERGED into beneath it still matches the content digest recorded when we left it. Without this, the re-run that confirms an install exits 1 on the install that just succeeded. |
+
+A `selfCaused` item carries `selfCausedReason`. An item where the discount was
+CONSIDERED AND REFUSED — the adopter has edited a merged file since, or the
+receipt predates digests — stays blocking and carries `selfCausedRefused` saying
+so. **That refusal is the safety property**: an ordinary file this tool created
+is unreachable by a re-run (refusal 1 opens 'wx', so an existing path is skipped
+REFUSE-EXISTS), but a merge target is a file the adopter also owns, and it is
+cleared by content or not at all.
+
+It is **not** a flag, not user-settable, reaches nothing else, and is printed
+every time it happens. A forged receipt buys nothing: in an already-adopted
+repository every unit classifies `keep-theirs`, so the apply writes nothing
+anyway, and forging a matching digest requires already knowing the exact bytes.
 
 The exit code carries the same information for shell callers: `0` ready, `1`
 blocked, `2` usage error, `3` the plan could not be produced.
@@ -242,6 +260,83 @@ backup is warranted the remedy is a `cp -a` **the human runs**, so the copy
 exists outside git's object model and outside this tool's reach.
 `tests/contract/test_adopt_planner.sh` asserts the string never appears in a
 remedy.
+
+---
+
+## `bookkeeping` — the files the TOOL writes
+
+Two files land that no manifest row names and no unit describes:
+
+```json
+{
+  "path": ".logicloom-adopt-receipt.json",
+  "owner": "tool",
+  "kind": "file",
+  "when": "every --apply run, including a no-op one",
+  "purpose": "the record of what this tool wrote here, and the uninstall procedure…",
+  "countedInWouldWrite": false
+}
+```
+
+| Path | When |
+|---|---|
+| `.logicloom-adopt-receipt.json` | every `--apply` run, including a no-op one |
+| `.claude/.logicloom-adopt-settings.json` | only when `hooks` is applied AND the settings merge inserts something |
+
+**They are in the plan because the plan is what a user approves.** Both were
+already disclosed — in the apply report and in the uninstall procedure — but
+afterwards, and a file that lands must be in the artifact that was reviewed.
+
+They are **not** additive units, deliberately: no manifest row names them, they
+are not harness content, and an adopter uninstalling has to be able to tell the
+harness from the installer's paperwork. `owner: "tool"` is that distinction, and
+the second entry appears only when it would actually be written.
+
+`countedInWouldWrite` says whether the file is inside `counts.wouldWrite.total`.
+The sidecar is; the receipt is not, because the receipt is the record OF that
+count and is written outside the unit worklist.
+
+---
+
+## `counts` — units, and the number that compares to an apply
+
+```json
+{
+  "additive": 62, "additiveEntries": 62,
+  "keep-theirs": 0, "replace": 0, "obsolete": 0, "total": 62,
+  "bookkeeping": 2,
+  "wouldWrite": { "harness": 401, "rules": 3, "gitignore": 1, "hooks": 2, "total": 407 }
+}
+```
+
+**`additive` counts UNITS, not files, and that is not a wording problem.** A unit
+is the granularity a DECISION is made at — a directory, a file, one `.gitignore`
+pattern, one settings hook command — so `additive: 62` sat next to an apply
+reporting `WROTE 407` and invited a reader to conclude one of them was wrong.
+Twelve of those 62 are whole directories expanding to hundreds of files. Both
+numbers were correct; they were not comparable.
+
+`additiveEntries` is the same number under a name that says what it counts.
+`additive` keeps its meaning for existing consumers.
+
+**`counts.wouldWrite` is the comparable number.** It resolves the units to the
+paths a write would create, broken down per `--only` target:
+
+| Key | Counts |
+|---|---|
+| `harness` | files **and** directories the copy would create |
+| `rules` | `.claude/rules/` files |
+| `gitignore` | `1` — one fenced merge, whatever the pattern count |
+| `hooks` | `2` — the settings merge and its sidecar |
+| `total` | what `--apply --only=all,hooks` reports as `WROTE`, on a tree that has not moved |
+| `resolvedFrom` | how many units of each granularity produced the above |
+| `unresolved` | anything that could not be resolved, named. `total` is `null` when the payload manifest could not be loaded |
+
+It is produced by running **the applier's own traversal** (`lib/fsops.js`
+`copyTree`) with `ctx.predictOnly`, which suppresses the two write calls and
+nothing else — same exclusion rows, same symlink and secret refusals, same
+REFUSE-EXISTS check. There is one traversal, so the promised number cannot drift
+from the copy it predicts.
 
 ---
 

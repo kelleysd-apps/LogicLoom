@@ -59,6 +59,8 @@ function renderNewProject(plan, isTTY) {
   if (keys.length) p(`    .claude/settings.json    — ${keys.length} governance hook entries`);
   if (lines.length) p(`    .gitignore               — ${lines.length} harness ignore patterns`);
   p('');
+  wouldWriteSection(p, plan);
+  bookkeepingSection(p, plan);
 
   claudeMdSection(p, plan);
 
@@ -69,19 +71,8 @@ function renderNewProject(plan, isTTY) {
     p('');
   }
 
-  if (plan.preconditions.blocking.length) {
-    p(`  BLOCKING (${plan.preconditions.blocking.length}) — nothing would be created until these clear`);
-    for (const b of plan.preconditions.blocking) {
-      p('');
-      p(`      [${b.code}]  ${b.path}`);
-      wrap(b.detail, 8).forEach(p);
-      wrap('remedy (YOU run this, not the tool): ' + b.remedy, 8).forEach(p);
-    }
-    p('');
-  } else {
-    p('  BLOCKING              : none');
-    p('');
-  }
+  preconditionSection(p, plan);
+  p('');
 
   if (plan.preconditions.warnings.length) {
     p('  Worth knowing');
@@ -186,17 +177,7 @@ function renderExisting(plan, isTTY) {
 
   // ── preconditions ──────────────────────────────────────────────────────────
   p('  Preconditions for an APPLY (the plan itself is always safe and ran anyway)');
-  if (!plan.preconditions.blocking.length) {
-    p('    BLOCKING            : none');
-  } else {
-    p(`    BLOCKING            : ${plan.preconditions.blocking.length}`);
-    for (const b of plan.preconditions.blocking) {
-      p('');
-      p(`      [${b.code}]  ${b.path}`);
-      wrap(b.detail, 8).forEach(p);
-      wrap('remedy (YOU run this, not the tool): ' + b.remedy, 8).forEach(p);
-    }
-  }
+  preconditionSection(p, plan);
   p('');
   if (plan.preconditions.warnings.length) {
     p(`    warnings            : ${plan.preconditions.warnings.length}`);
@@ -214,12 +195,14 @@ function renderExisting(plan, isTTY) {
   claudeMdSection(p, plan);
 
   // ── the four buckets ───────────────────────────────────────────────────────
-  p('  Classification (4 buckets)');
+  p('  Classification (4 buckets) — PLAN ENTRIES, not files');
   p(`    additive     ${String(plan.counts.additive).padStart(4)}   LogicLoom unit has no counterpart here`);
   p(`    keep-theirs  ${String(plan.counts['keep-theirs']).padStart(4)}   both exist — YOURS WINS, ours is dropped (each printed below)`);
   p(`    replace      ${String(plan.counts.replace).padStart(4)}   ours overwrites yours (explicitly named only; empty by design)`);
   p(`    obsolete     ${String(plan.counts.obsolete).padStart(4)}   YOUR rule references something absent (report only, never actioned)`);
   p('');
+  wouldWriteSection(p, plan);
+  bookkeepingSection(p, plan);
 
   bucketSection(p, 'ADDITIVE — would be installed', plan.buckets.additive);
   bucketSection(p, 'KEEP-THEIRS — ours dropped, with the reason', plan.buckets['keep-theirs']);
@@ -397,6 +380,94 @@ function bucketSection(p, title, units, emptyText) {
   p('');
 }
 
+// ── preconditions, with our own footprint told apart from theirs ─────────────
+// `preconditions.blocking` is the whole truth about the tree and stays whole.
+// What splits here is who CAUSED each item: an entry this tool's own receipt
+// accounts for is discounted by the applier, and printing it in the same list
+// as a real obstacle is how a successful install came to read as a failed one.
+// A discount that was CONSIDERED AND REFUSED (you edited a file we merged into)
+// stays in the standing list, with the refusal spelled out.
+function preconditionSection(p, plan) {
+  const all = plan.preconditions.blocking || [];
+  const discounted = all.filter((b) => b.selfCaused === true);
+  const standing = all.filter((b) => b.selfCaused !== true);
+
+  if (!standing.length) {
+    p('    BLOCKING            : none' + (discounted.length ? ' that would stop an apply' : ''));
+  } else {
+    p(`    BLOCKING            : ${standing.length}`);
+    for (const b of standing) {
+      p('');
+      p(`      [${b.code}]  ${b.path}`);
+      wrap(b.detail, 8).forEach(p);
+      if (b.selfCausedRefused) {
+        wrap('NOTE: this tool wrote here, and the discount that would normally clear ' +
+             'that was REFUSED — ' + b.selfCausedRefused, 8).forEach(p);
+      }
+      wrap('remedy (YOU run this, not the tool): ' + b.remedy, 8).forEach(p);
+    }
+  }
+  if (discounted.length) {
+    p('');
+    p(`    DISCOUNTED          : ${discounted.length} — caused by this tool's own earlier run,`);
+    p('                          per its receipt. The applier does not stop for these.');
+    for (const b of discounted) {
+      p(`      [${b.code}]  ${b.path}`);
+      wrap(b.selfCausedReason || '', 10).forEach(p);
+    }
+    wrap('Not a flag and not settable. A file this tool MERGED into is discounted only ' +
+         'while its recorded content digest still matches, so an edit of yours brings ' +
+         'the block back.', 6).forEach(p);
+  }
+}
+
+// ── the tool's own two files, in the artifact the user approves ──────────────
+// They are not harness content and not additive units, so they get their own
+// short list rather than being smuggled into the buckets. Without this the plan
+// promised N paths and the apply wrote N+2 — true, disclosed afterwards, and
+// still not what was reviewed.
+function bookkeepingSection(p, plan) {
+  const items = plan.bookkeeping || [];
+  if (!items.length) return;
+  p(`  BOOKKEEPING (${items.length}) — written by the TOOL, not part of the harness`);
+  for (const b of items) {
+    p(`    ${b.path}`);
+    wrap(b.purpose, 6).forEach(p);
+    wrap('written: ' + b.when, 6).forEach(p);
+  }
+  wrap('Both are named in the uninstall procedure. Removing them removes the record ' +
+       'of what was installed, so remove them last.', 4).forEach(p);
+  p('');
+}
+
+// ── the number that compares to the apply report ─────────────────────────────
+// A unit is a decision, not a file: twelve of the additive units are whole
+// directories. Printing only the unit count put `62` next to an apply reporting
+// `WROTE 407` and invited a reader to conclude one of them was wrong. This
+// resolves the units by running the applier's own traversal in predict mode, so
+// the two numbers are the same kind of thing and can be compared at a glance.
+function wouldWriteSection(p, plan) {
+  const w = plan.counts && plan.counts.wouldWrite;
+  if (!w) return;
+  p('  RESOLVED to paths — this is the number to compare against the apply report');
+  if (w.total === null) {
+    p('    could not be resolved:');
+    for (const u of w.unresolved) wrap('- ' + u, 6).forEach(p);
+    p('');
+    return;
+  }
+  p(`    harness      ${String(w.harness).padStart(4)}   files and directories created (from ${w.resolvedFrom.path} path unit(s))`);
+  p(`    rules        ${String(w.rules).padStart(4)}   .claude/rules/ files`);
+  p(`    gitignore    ${String(w.gitignore).padStart(4)}   one fenced merge, carrying ${w.resolvedFrom.line} pattern(s)`);
+  p(`    hooks        ${String(w.hooks).padStart(4)}   the settings merge and its sidecar, for ${w.resolvedFrom['json-key']} hook command(s)`);
+  p(`    TOTAL        ${String(w.total).padStart(4)}   what \`--apply --only=all,hooks\` will report as WROTE`);
+  if (w.unresolved.length) {
+    p('    not resolved:');
+    for (const u of w.unresolved) wrap('- ' + u, 6).forEach(p);
+  }
+  p('');
+}
+
 function wrap(text, indent) {
   const width = 78 - indent;
   const pad = ' '.repeat(indent);
@@ -411,4 +482,4 @@ function wrap(text, indent) {
   return out;
 }
 
-module.exports = { render };
+module.exports = { render, wrap };

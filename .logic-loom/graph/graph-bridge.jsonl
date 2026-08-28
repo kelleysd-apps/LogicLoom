@@ -49,6 +49,7 @@
 {"type":"entity","name":".docs/reports/backlog-2026-08-13.md","entityType":"note","observations":["LogicLoom Living Backlog — opened 2026-08-13"]}
 {"type":"entity","name":".docs/reports/harness-parity-proposal.md","entityType":"note","observations":["LogicLoom Harness-Machinery Parity Proposal"]}
 {"type":"entity","name":".docs/reviews/LOGICLOOM_ISSUE_harness-product-boundary.md","entityType":"note","observations":["LogicLoom issue draft — Clarify the harness ↔ product boundary; support products with their own toolchain"]}
+{"type":"entity","name":".docs/reviews/adopt-smoke-test-findings.md","entityType":"note","observations":["`logicloom init` — first real-repo smoke test: findings"]}
 {"type":"entity","name":".logic-loom/memory/constitution.md","entityType":"note","observations":["constitution.md"]}
 {"type":"entity","name":"AGENTS.md","entityType":"note","observations":["LogicLoom Agent Registry"]}
 {"type":"entity","name":"CLAUDE.md","entityType":"note","observations":["CLAUDE.md — LogicLoom"]}
@@ -170,6 +171,7 @@
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-orchestrator/skills/review-evaluator/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-orchestrator/skills/swarm-explore/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/reports/harness-parity-proposal.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":".docs/reviews/adopt-smoke-test-findings.md","to":"packaging/adopt/package.json","relationType":"mentions"}
 {"type":"relation","from":"AGENTS.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}
 {"type":"relation","from":"AGENTS.md","to":"plugins/loom-governance/agents/constitutional-governance-agent.md","relationType":"mentions"}
 {"type":"relation","from":"CLAUDE.md","to":"plugins/MANIFEST-SCHEMA.md","relationType":"mentions"}

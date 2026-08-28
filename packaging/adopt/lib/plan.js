@@ -19,6 +19,8 @@ const classifyLib = require('./classify');
 const preLib = require('./preconditions');
 const claudeMdLib = require('./claude-md');
 const decisionsLib = require('./decisions');
+const selfCausedLib = require('./selfcaused');
+const bookkeepingLib = require('./bookkeeping');
 
 const SCHEMA = 'logicloom/adopt-plan@1';
 
@@ -139,7 +141,17 @@ function build(opts) {
   notes.push('`replace` is empty by design. This tool never claims LogicLoom\'s copy of a file ' +
     'you already have is better than yours; every collision defaults to keep-theirs and is printed.');
 
-  const applyReady = preconditions.blocking.length === 0 && errors.length === 0;
+  // ── which of those blocks did WE cause? ───────────────────────────────────
+  // Annotated, never removed: `blocking` stays the complete picture of the tree,
+  // and `applyReady` is computed over the items the applier would actually stop
+  // for. The full argument for why discounting our own footprint is safe — and
+  // why the two merge targets are cleared by content digest and nothing else —
+  // is at the top of lib/selfcaused.js. Reading the receipt is a read; the
+  // planner still has no write path.
+  const discounted = selfCausedLib.annotate(targetRoot, preconditions.blocking);
+  const standing = preconditions.blocking.filter((b) => !b.selfCaused);
+
+  const applyReady = standing.length === 0 && errors.length === 0;
 
   const plan = {
     schema: SCHEMA,
@@ -195,6 +207,10 @@ function build(opts) {
     },
     preconditions: {
       blocking: preconditions.blocking,
+      // The subset of `blocking` the applier will not stop for, each carrying
+      // `selfCausedReason`. Never empty without cause: an item is here only
+      // because this tool's own receipt accounts for it.
+      discounted: discounted,
       warnings: preconditions.warnings
     },
     buckets: {
@@ -204,11 +220,21 @@ function build(opts) {
       obsolete: obsolete
     },
     counts: {
+      // PLAN ENTRIES, NOT FILES — see counts.wouldWrite for the file count.
+      // `additive: 62` beside an apply reporting `WROTE 407` is two correct
+      // numbers that are not comparable: these are units at the granularity a
+      // DECISION is made at (a dir, a file, a gitignore line, a settings key),
+      // and twelve of them are whole directories expanding to hundreds of files.
+      // `additive` is kept under its original name for compatibility;
+      // `additiveEntries` is the same number said out loud.
       additive: buckets.additive.length,
+      additiveEntries: buckets.additive.length,
       'keep-theirs': buckets['keep-theirs'].length,
       replace: buckets.replace.length,
       obsolete: obsolete.length,
-      total: classified.length
+      total: classified.length,
+      bookkeeping: 0,
+      wouldWrite: null
     },
     claudeMd: {
       requested: cmd.requested,
@@ -238,6 +264,16 @@ function build(opts) {
   // schema's own compatibility clause permits that, and an older applier that
   // ignores unknown fields is unaffected.
   //
+  // The tool's own files, and the file count that compares to the apply report.
+  // Both computed AFTER the buckets exist, because both are derived from them.
+  plan.bookkeeping = bookkeepingLib.list(plan);
+  plan.counts.bookkeeping = plan.bookkeeping.length;
+  plan.counts.wouldWrite = bookkeepingLib.predict(plan, {
+    manifest: parsed,
+    payloadRoot: payload.root,
+    targetRoot: targetRoot
+  });
+
   // DERIVED, not authored: `decisions` reads apply.js's TARGETS and
   // claude-md.js's MODES. It states nothing the plan did not already decide.
   plan.decisions = decisionsLib.build(plan);

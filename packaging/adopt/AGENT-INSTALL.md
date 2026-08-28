@@ -85,7 +85,25 @@ plan is stale · `2` usage error · `3` the plan could not be produced · `4`
 **partial** — some targets landed and some did not, and the report says which.
 On `4`, report exactly what the output says landed. Do not re-run to "finish".
 
-Re-running a successful install is a no-op that says so. That is safe.
+**Re-running a successful install is a no-op that says so.** That is safe, and
+it is worth knowing why, because the reason is also the one exception.
+
+An apply necessarily leaves the tree dirty with its own output: `.gitignore` is
+modified (it merged into it) and `.claude/` is untracked (it created it). Those
+are the same two conditions a blocking precondition names. The applier reads its
+own receipt and **discounts the blocks its own footprint caused** — each one
+printed, with its reason, on the run that takes it. So the confirmation re-run
+exits 0 and reports `NO-OP`, not `REFUSED`.
+
+The exception: if you or your user **edit a file the tool merged into**
+(`.gitignore`, `.claude/settings.json`, or `CLAUDE.md` under `--claude-md=import`)
+before re-running, the block comes back, and it is right to. The tool records a
+content digest of each merged file at the moment it leaves it; a digest that no
+longer matches means unreviewed work of theirs is sitting in a file the next
+apply would merge into again. Relay the remedy and stop, as with any other block.
+
+None of this is a `--force`. It is not settable, it applies only to paths the
+receipt accounts for, and a file the tool never wrote is never discounted.
 
 ---
 
