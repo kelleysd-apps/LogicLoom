@@ -104,6 +104,103 @@ const claudeMdLib = require('./claude-md');
 const RECEIPT_SCHEMA = 'logicloom/adopt-receipt@1';
 const RECEIPT_NAME = '.logicloom-adopt-receipt.json';
 
+// ── UNINSTALL: A LIST THE HUMAN RUNS, AND WHY IT IS STILL THAT ───────────────
+// The receipt now names every path this tool wrote, which is exactly the thing
+// research § 6 PRE-14 asked for. It is worth saying plainly why that does NOT
+// turn into a `logicloom uninstall` subcommand, because the receipt is the
+// argument someone would use FOR building one:
+//
+//  1. It would be a delete path in a tool whose refusal 3 is that it has none.
+//     The same binary cannot honestly say "if a file exists it stays, move it
+//     aside yourself" and also own a code path that removes files. A bug in the
+//     second destroys the adopter's work; a bug in the first writes nothing.
+//  2. The receipt records what we wrote, not what those files ARE NOW. By the
+//     time anyone uninstalls, `.logic-loom/memory/constitution.md` may carry
+//     their amendments, `plugins/` may hold a plugin they built, `features/`
+//     may hold their work. A path-list deleter cannot tell "our file" from "our
+//     file they then made theirs". A human reading the list can, in seconds.
+//  3. The merges are not deletable by path at all — `.gitignore` needs a fenced
+//     region cut out, `.claude/settings.json` needs specific matcher groups
+//     removed from arrays that also hold the adopter's own hooks, and under
+//     `--claude-md=import` their CLAUDE.md carries a fenced block too. That is
+//     editing, not removing, and it is the half that actually needs judgement.
+//
+// So: the receipt makes removal MECHANICAL, which is what was wanted. It does
+// not make it AUTOMATIC, which was never the same thing. The procedure below is
+// written into the receipt itself on every run and printed by the report, so an
+// adopter answers "what did this put in my repo, and how do I take it out" from
+// a file in their repo rather than from memory or from our docs.
+const GITIGNORE_FENCE_BEGIN = '# >>> LogicLoom adopt — managed block. Do not edit inside. >>>';
+const GITIGNORE_FENCE_END = '# <<< LogicLoom adopt — end managed block <<<';
+const SETTINGS_SIDECAR = '.claude/.logicloom-adopt-settings.json';
+
+// Built from what THIS repo actually holds after the run — the union of every
+// run in the receipt, not a generic recipe. Steps whose cause never happened are
+// omitted rather than printed as "if applicable".
+function uninstallProcedure(receipt) {
+  const paths = {};
+  let didGitignore = false;
+  let didSettings = false;
+  let didClaudeMd = false;
+  for (const r of receipt.runs) {
+    for (const w of r.wrote || []) {
+      if (w.kind === 'merge' && w.path === '.gitignore') { didGitignore = true; continue; }
+      if (w.kind === 'merge' && w.path === '.claude/settings.json') { didSettings = true; continue; }
+      // `--claude-md=import` appends one fenced block to a file the adopter owns.
+      // It is the third merge, and leaving it out of the procedure would be the
+      // one edit to THEIR file that uninstall forgot.
+      if (w.kind === 'merge' && w.path === 'CLAUDE.md') { didClaudeMd = true; continue; }
+      if (w.path) paths[w.path] = true;
+    }
+  }
+  const pathList = Object.keys(paths).sort();
+
+  const steps = [];
+  if (pathList.length) {
+    steps.push(
+      'Remove the paths this tool wrote. They are listed under runs[].wrote[].path ' +
+      'in this file (' + pathList.length + ' entr' + (pathList.length === 1 ? 'y' : 'ies') + '). ' +
+      'READ THE LIST FIRST: anything you have since edited or added underneath one of ' +
+      'these directories is yours, and removing the directory takes it with you.'
+    );
+  }
+  if (didGitignore) {
+    steps.push(
+      'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" ' +
+      'through "' + GITIGNORE_FENCE_END + '", inclusive. Everything outside the fence ' +
+      'is byte-identical to what you had before.'
+    );
+  }
+  if (didSettings) {
+    steps.push(
+      'In .claude/settings.json, remove the hook matcher groups recorded in ' +
+      SETTINGS_SIDECAR + '. Nothing else in that file was touched: the merge is ' +
+      'per-key-path and appends to the hooks arrays only, so your own hooks are ' +
+      'still in it and must stay. Then delete ' + SETTINGS_SIDECAR + ' itself.'
+    );
+  }
+  if (didClaudeMd) {
+    steps.push(
+      'In CLAUDE.md — YOUR file — delete the fenced block from "' + claudeMdLib.BEGIN +
+      '" through "' + claudeMdLib.END + '", inclusive. It was appended at the end and ' +
+      'nothing above it was changed. This block exists only because ' +
+      '--claude-md=import was used; the default mode never opens your CLAUDE.md.'
+    );
+  }
+  steps.push('Delete ' + RECEIPT_NAME + ' last — it is the record of everything above.');
+
+  return {
+    position: 'a list you run, not a command this tool ships',
+    why: 'This tool refuses to delete, truncate or move anything (refusal 3). An ' +
+         'uninstall subcommand would be exactly the delete path it refuses to have, ' +
+         'and by the time you run it some of these files are yours, not ours.',
+    steps: steps,
+    notRemovedByThis: 'Nothing under .brain/, features/, specs/ or artifacts/ that YOU ' +
+      'created is named above; this tool never wrote it. Content you added inside a ' +
+      'directory we created is likewise yours — check before you remove the directory.'
+  };
+}
+
 // ── Targets ──────────────────────────────────────────────────────────────────
 // A target is a NAME THE USER TYPES. It groups units by the decision the user is
 // actually making, which is not the same as the granularity the classifier works
@@ -334,6 +431,9 @@ function readReceipt(root) {
 
 function writeReceipt(root, receipt) {
   const p = receiptPath(root);
+  // Recomputed on every flush, so the procedure always matches the runs above it
+  // — including a flush that happens mid-run because the process was killed.
+  receipt.uninstall = uninstallProcedure(receipt);
   // The one place a 'w' flag is used, and it is against OUR OWN file: the schema
   // is checked on read, and a foreign file at this path is refused rather than
   // clobbered (see priorRun()).
@@ -730,9 +830,22 @@ function apply(opts) {
   }
 
   p(`    receipt        : ${RECEIPT_NAME} — every path above, identifiable later.`);
-  p('    UNINSTALL is a list you run, not a command this tool ships. The receipt');
-  p('    holds the paths; remove them yourself, and undo the two merges by');
-  p('    deleting their fenced/recorded regions.');
+  p('');
+  p('    UNINSTALL is a list you run, not a command this tool ships — this tool');
+  p('    refuses to delete, truncate or move anything, and an uninstall subcommand');
+  p('    would be exactly the delete path it refuses to have. The procedure below');
+  p(`    is also written into ${RECEIPT_NAME} under "uninstall", so you`);
+  p('    never have to remember it or come back to this output:');
+  const un = uninstallProcedure(receipt);
+  let stepNo = 0;
+  for (const s of un.steps) {
+    stepNo += 1;
+    const wrapped = String(s).replace(/(.{1,66})(\s|$)/g, '$1\n').split('\n').filter((x) => x.length);
+    p(`      ${stepNo}. ${wrapped[0]}`);
+    for (const cont of wrapped.slice(1)) p(`         ${cont}`);
+  }
+  p('');
+  p(`      ${un.notRemovedByThis.replace(/(.{1,68})(\s|$)/g, '$1\n').split('\n').filter((x) => x.length).join('\n      ')}`);
   p('');
 
   if (run.wrote.length === 0 && run.failed.length === 0) {
@@ -1009,5 +1122,6 @@ module.exports = {
   apply, applyRules, TARGETS, ALL_TARGETS, IN_ALL, parseOnly, planDivergence,
   isSecretShaped, insideRoot, assertWritableTarget, copyTree, spawnAllowed,
   SPAWN_ALLOWLIST, SELF_CAUSED, RECEIPT_SCHEMA, RECEIPT_NAME,
-  readReceipt, priorRun, effectiveBlocking
+  readReceipt, priorRun, effectiveBlocking,
+  uninstallProcedure, GITIGNORE_FENCE_BEGIN, GITIGNORE_FENCE_END, SETTINGS_SIDECAR
 };

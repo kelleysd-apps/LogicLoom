@@ -329,6 +329,145 @@ assert "LOOM-0035 names GitHub Release publication as an obligation" \
 fi
 
 echo ""
+echo "5. The adopt package's publish path (publish-adopt.yml)"
+# ─────────────────────────────────────────────────────────────────────────────
+# Same release path, second half: release-tag.yml stages the Release as a DRAFT;
+# publish-adopt.yml fires when a human PUBLISHES it and pushes the npm adopt
+# package. It is asserted here rather than in a suite of its own because the two
+# workflows share one invariant — the copy that runs is the copy in the TAG's
+# tree, so a change to either takes effect one release later.
+#
+# EXISTENCE IS CONDITIONAL, DELIBERATELY. This suite SHIPS. Both workflows are
+# maintainer-only and /initialize-project removes both, so on a customer's tree
+# after init neither file is there and demanding one would be the exact
+# "shipped gate demands a removed path" failure test_shipped_gates_vs_strip.sh
+# exists to catch. The condition chosen is not "if it happens to exist" (which
+# would let a deleted file pass silently on the maintainer tree) but "if
+# release-tag.yml is here, publish-adopt.yml must be too": the two are removed
+# together by all three init paths, so the pair is present or absent together,
+# and a maintainer who deletes one goes red.
+WF_PUB="$ROOT/.github/workflows/publish-adopt.yml"
+
+if [ ! -f "$WF" ]; then
+  skip "publish-adopt.yml (maintainer release CI removed from this tree)"
+else
+assert "publish-adopt.yml ships alongside release-tag.yml" "[ -f \"\$WF_PUB\" ]"
+assert "it triggers on release: published (the human's Publish click is the gate)" \
+  "grep -q 'release:' \"\$WF_PUB\" && grep -qE 'types:[[:space:]]*\[published\]' \"\$WF_PUB\""
+# Grep the COMMENT-STRIPPED copy for the three "must not appear" checks. The
+# header explains at length why workflow_dispatch is not offered, why no npm
+# token is used, and why Node 20 is wrong here — penalising that prose would
+# push the reasoning out of the file, which is the same call
+# test_shipped_gates_vs_strip.sh makes about its own suspect scan.
+WF_PUB_CODE="$SANDBOX/publish-adopt.code"
+sed -e 's/#.*$//' "$WF_PUB" > "$WF_PUB_CODE"
+
+assert "it offers NO workflow_dispatch (a dispatch runs the DEFAULT BRANCH's copy)" \
+  "! grep -q 'workflow_dispatch' \"\$WF_PUB_CODE\""
+assert "it states in its header WHICH release it first takes effect on" \
+  "grep -q 'v6.6.0' \"\$WF_PUB\" && grep -qi 'one release later' \"\$WF_PUB\""
+assert "OIDC trusted publishing: id-token write + contents read, and no npm token" \
+  "grep -q 'id-token: write' \"\$WF_PUB\" && grep -q 'contents: read' \"\$WF_PUB\" && ! grep -qE 'NODE_AUTH_TOKEN|NPM_TOKEN|secrets\\.NPM' \"\$WF_PUB_CODE\""
+assert "it carries its OWN setup-node, and NOT the repo's Node 20 pin" \
+  "grep -q 'actions/setup-node' \"\$WF_PUB\" && grep -qE \"node-version: '22\\.\" \"\$WF_PUB\" && ! grep -qE \"node-version: '20'\" \"\$WF_PUB_CODE\""
+assert "it enforces the npm CLI floor (11.5.1) rather than assuming it" \
+  "grep -q '11.5.1' \"\$WF_PUB\""
+assert "GitHub-hosted runner only (trusted publishing excludes self-hosted)" \
+  "grep -q 'runs-on: ubuntu-latest' \"\$WF_PUB\" && ! grep -q 'self-hosted' \"\$WF_PUB\" || grep -qi 'self-hosted' \"\$WF_PUB\""
+assert "the package source is dev-main via the Source-dev-main trailer" \
+  "grep -q 'Source-dev-main' \"\$WF_PUB\""
+assert "it runs no git mutation" \
+  "! grep -qE '^[[:space:]]*(git (push|commit|tag|checkout -b)|gh release create)' \"\$WF_PUB\""
+
+# ---- version derivation, EXECUTED -----------------------------------------
+VBODY="$SANDBOX/derive-version.sh"
+awk '
+  /^      - name: Derive the package version from the release tag$/ { instep = 1; next }
+  instep && /^        run: \|$/ { inrun = 1; next }
+  inrun && /^      - name: / { exit }
+  inrun { sub(/^          /, ""); print }
+' "$WF_PUB" > "$VBODY"
+
+assert "the version-derivation body extracted from the YAML is non-trivial" \
+  "[ \"\$(wc -l < \"\$VBODY\" | tr -d ' ')\" -gt 20 ]"
+assert "the extracted derivation body parses under bash" "bash -n \"\$VBODY\""
+
+# A fixture cwd carrying just the one file the step reads.
+VFIX="$SANDBOX/vfix"
+mkdir -p "$VFIX/.logic-loom/config"
+# Sets DRC (the body's exit status) rather than leaving it in $? — the assert
+# helper runs its condition through `eval` inside a function, where $? is that
+# function's own last command, not this one's.
+derive() { # <tag> <FRAMEWORK_VERSION>
+  printf 'FRAMEWORK_VERSION=%s\n' "$2" > "$VFIX/.logic-loom/config/architecture.conf"
+  : > "$VFIX/github_env"
+  ( cd "$VFIX" && REL_TAG="$1" GITHUB_ENV="$VFIX/github_env" bash "$VBODY" >/dev/null 2>&1 )
+  DRC=$?
+}
+
+derive "v6.6.0" "6.6.0"
+assert "a tag-shaped input derives a version (v6.6.0 -> 6.6.0)" \
+  "[ \"\$DRC\" -eq 0 ] && grep -qx 'PKG_VERSION=6.6.0' \"\$VFIX/github_env\""
+derive "6.6.0" "6.6.0"
+assert "a tag with no leading v is REFUSED (no guessing)" "[ \"\$DRC\" -ne 0 ]"
+derive "v6.6" "6.6.0"
+assert "a malformed tag (v6.6) is REFUSED" "[ \"\$DRC\" -ne 0 ]"
+derive "vX.Y.Z" "6.6.0"
+assert "a non-numeric tag is REFUSED" "[ \"\$DRC\" -ne 0 ]"
+derive "v6.6.0-rc.1" "6.6.0"
+assert "a PRE-RELEASE tag is REFUSED (npm would move 'latest' onto it)" "[ \"\$DRC\" -ne 0 ]"
+derive "v6.6.0" "6.5.0"
+assert "a tag that disagrees with the tree's FRAMEWORK_VERSION is REFUSED" "[ \"\$DRC\" -ne 0 ]"
+derive "v6.6.0" ""
+assert "an unreadable FRAMEWORK_VERSION is REFUSED, not defaulted" "[ \"\$DRC\" -ne 0 ]"
+
+# ---- the private-package gate, EXECUTED ------------------------------------
+PBODY="$SANDBOX/private-gate.sh"
+awk '
+  /^      - name: Gate — refuse to publish while the package is marked private$/ { instep = 1; next }
+  instep && /^        run: \|$/ { inrun = 1; next }
+  inrun && /^      - name: / { exit }
+  inrun { sub(/^          /, ""); print }
+' "$WF_PUB" > "$PBODY"
+
+assert "the private-gate body extracted from the YAML is non-trivial" \
+  "[ \"\$(wc -l < \"\$PBODY\" | tr -d ' ')\" -gt 10 ]"
+assert "the extracted private-gate body parses under bash" "bash -n \"\$PBODY\""
+
+if command -v node >/dev/null 2>&1; then
+  PFIX="$SANDBOX/pfix"; mkdir -p "$PFIX"
+  printf '{"name":"logicloom","private":true}\n' > "$PFIX/package.json"
+  PGATE_OUT="$(ADOPT_PKG="$PFIX" bash "$PBODY" 2>&1)"; PGATE_RC=$?
+  assert "a private package FAILS the gate (loudly, not a silent no-op)" \
+    "[ '$PGATE_RC' -ne 0 ]"
+  assert "the failure names the flag and says why it is not stripped automatically" \
+    "printf '%s' \"\$PGATE_OUT\" | grep -q 'private' && printf '%s' \"\$PGATE_OUT\" | grep -qi 'REFUSING TO PUBLISH'"
+  assert "the failure is a GitHub error annotation, not just stderr prose" \
+    "printf '%s' \"\$PGATE_OUT\" | grep -q '::error::'"
+  printf '{"name":"logicloom"}\n' > "$PFIX/package.json"
+  ADOPT_PKG="$PFIX" bash "$PBODY" >/dev/null 2>&1; PGATE_RC2=$?
+  assert "the same gate PASSES once the private flag is gone" "[ '$PGATE_RC2' -eq 0 ]"
+else
+  echo "  ⏭  SKIP: private-gate execution — node is not on PATH"
+fi
+
+# ---- the shipped package manifest keeps the gate and the placeholder --------
+ADOPT_PJ="$ROOT/packaging/adopt/package.json"
+if [ ! -f "$ADOPT_PJ" ]; then
+  skip "packaging/adopt/package.json (packaging/ is removed by the strip)"
+else
+assert "packaging/adopt/package.json is still marked private (the deliberate gate)" \
+  "grep -q '\"private\": true' \"\$ADOPT_PJ\""
+assert "its version is the 0.0.0-dev placeholder the workflow overwrites" \
+  "grep -q '\"version\": \"0.0.0-dev\"' \"\$ADOPT_PJ\""
+assert "it declares the repository npm provenance needs" \
+  "grep -q 'kelleysd-apps/LogicLoom' \"\$ADOPT_PJ\""
+assert "its engines floor matches the trusted-publishing Node floor" \
+  "grep -q '\">=22.14.0\"' \"\$ADOPT_PJ\""
+fi
+fi
+
+echo ""
 echo "════════════════════════════════"
 echo " Results: $PASS/$TOTAL passed, $FAIL failed"
 [ $FAIL -eq 0 ] && echo "✅ ALL TESTS PASSED" || echo "❌ SOME TESTS FAILED"

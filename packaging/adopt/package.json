@@ -2,6 +2,11 @@
   "name": "logicloom",
   "version": "0.0.0-dev",
   "description": "LogicLoom — governed multi-agent harness for Claude Code. `logicloom init` plans its installation into a repository, and applies only what you name.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kelleysd-apps/LogicLoom.git",
+    "directory": "packaging/adopt"
+  },
   "bin": {
     "logicloom": "bin/logicloom.js"
   },
@@ -22,6 +27,9 @@
     "init": "node bin/logicloom.js init"
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "private": true,
   "keywords": [
     "logicloom",

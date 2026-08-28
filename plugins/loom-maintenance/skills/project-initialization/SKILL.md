@@ -31,6 +31,40 @@ Before starting, verify:
 
 ## Procedure
 
+### Step 0: Which install is this? — TEMPLATE CLONE or ADOPTED
+
+Run this before anything else. This skill was written for a **template clone**.
+It is also reachable from a repository that **adopted** LogicLoom via
+`npx logicloom init`, because the adopt payload ships `plugins/` and
+`.claude/commands/` — `/initialize-project` is in that user's palette whether or
+not anyone points them at it.
+
+```bash
+# ADOPTED if this prints; TEMPLATE CLONE if the file is absent. Read-only, no git.
+grep -l '"schema": *"logicloom/adopt-receipt@1"' .logicloom-adopt-receipt.json 2>/dev/null
+```
+
+When ADOPTED:
+
+- **Step 1 (PRD)** — usually there is none. Do not block; read the repo instead.
+- **Step 1b / 1c / 1d** — unchanged. Identity, approval posture and memory
+  backend are the whole reason an adopter runs this.
+- **Step 2 (constitution)** — put project mandates in
+  `.logic-loom/memory/amendments.md`, not `constitution.md`. The shipped
+  constitution came from the payload, and a later `npx logicloom init` upgrade
+  refuses to overwrite a file that already exists — so an edited constitution
+  silently stops tracking upstream.
+- **Step 4 (framework documents)** — their root `CLAUDE.md` is **theirs**; do
+  not edit or create it. The harness's operating instructions live wherever the
+  receipt's `runs[].claudeMd.resolved` says (`rules`, `import` or `none`), and
+  the agent registry installed as `.logic-loom/AGENTS.md`, not root `AGENTS.md`.
+- **Step 7 (remove maintainer CI)** — **skip entirely**, see that step.
+- **Step 8 (report)** — say it was an adopted repo and name what was skipped.
+
+The full disposition table, one row per step, is in
+`plugins/loom-maintenance/commands/initialize-project.md` § Step 0. Keep the two
+in agreement.
+
 ### Step 1: Analyze PRD
 
 Read `.docs/prd/prd.md` and extract:
@@ -287,6 +321,14 @@ unapproved action Principle VI exists to prevent.
 
 ### Step 7: Remove maintainer-only template-release CI
 
+**ADOPTED repositories: skip this step entirely — run nothing here.** The adopt
+payload excludes `.github/` wholesale, so nothing under `.github/workflows/` in
+an adopted repo came from LogicLoom; it is all the adopter's own CI and the
+`rm -f` lines below would delete it. That would also contradict the adopt
+applier's standing refusal that nothing is ever deleted, truncated or moved.
+There is nothing of ours there to remove, so skipping removes no protection.
+The rest of this step is for a TEMPLATE CLONE.
+
 The template ships with CI that releases + guards the **LogicLoom template itself**,
 not the customer's project. Remove it from the new project (keep `plugin-tests.yml`
 — it validates the harness the customer is using):
@@ -294,13 +336,18 @@ not the customer's project. Remove it from the new project (keep `plugin-tests.y
 ```bash
 rm -f .github/workflows/promote-to-main.yml   # maintainer release workflow (not for your project)
 rm -f .github/workflows/release-tag.yml       # maintainer auto-tag-on-release-merge (not for your project)
+rm -f .github/workflows/publish-adopt.yml     # maintainer npm publish of the adopt package (not for your project)
 rm -f .github/workflows/leak-guard.yml        # maintainer identity-marker backstop (not for your project)
 rm -f .github/workflows/branch-topology-guard.yml  # maintainer release-branch-only gate on main (your main takes feature branches)
 ```
 
 `branch-topology-guard.yml` is the one that actively BREAKS the project: it fails
 **every** PR into `main` whose head branch is not `release/vX.Y.Z`. The other
-three no-op or fail harmlessly. Removing it is not optional cleanup.
+four no-op or fail harmlessly. Removing it is not optional cleanup.
+`publish-adopt.yml` is maintainer npm-release plumbing: it fires on
+`release: published` and looks for a `Source-dev-main:` trailer and a
+`packaging/` tree only the LogicLoom maintainer repo has, so left behind it fails
+noisily on the customer's first Release.
 
 State clearly in the report that these were removed and why (they would otherwise
 run — and fail/no-op — in the customer's CI and reference a release model the

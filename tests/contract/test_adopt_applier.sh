@@ -423,6 +423,78 @@ RUN "$RO" --dry-run >/dev/null 2>&1
 assert "three planning runs (including --dry-run) changed nothing" "[ \"$FP_RO\" = \"\$(fingerprint \"$RO\")\" ]"
 assert "no receipt is written by a planning run" "[ ! -e \"$RO/.logicloom-adopt-receipt.json\" ]"
 
+# ── 15. PRE-14 — the uninstall procedure lives in the receipt ──────────────
+# The decision is that uninstall stays A LIST THE HUMAN RUNS. That decision is
+# only honest if the list is actually IN the adopter's repo: "we told you at
+# apply time" is memory, not a record. So the receipt carries it, generated from
+# what the run actually did, and these assertions hold it to that.
+#
+# They also pin the three MARKER STRINGS the procedure quotes against the tools
+# that write them. Those strings are duplicated across four files by necessity
+# (a bash merge, a python merge, a JS module, and the JS that describes them),
+# and a silent drift would produce an uninstall instruction that names a fence
+# nobody wrote — the exact class of "instruction that does not work" this cycle
+# has been removing.
+echo ""
+echo "── PRE-14: uninstall is a list, and the list is in the receipt ──"
+
+UN() { node -e '
+  const a = require(process.argv[1]);
+  const runs = JSON.parse(process.argv[2]);
+  const u = a.uninstallProcedure({ schema: a.RECEIPT_SCHEMA, runs: runs });
+  process.stdout.write(JSON.stringify(u));
+' "$APPLY" "$1"; }
+
+ALL_MERGES='[{"wrote":[{"path":".logic-loom/x","kind":"file"},{"path":".gitignore","kind":"merge"},{"path":".claude/settings.json","kind":"merge"},{"path":"CLAUDE.md","kind":"merge"}]}]'
+PATHS_ONLY='[{"wrote":[{"path":".logic-loom/x","kind":"file"}]}]'
+NOTHING='[{"wrote":[]}]'
+
+OUT_ALL="$(UN "$ALL_MERGES")"
+OUT_PATHS="$(UN "$PATHS_ONLY")"
+OUT_NONE="$(UN "$NOTHING")"
+
+assert "the procedure states the position: a list you run, not a command we ship" \
+  "printf '%s' \"\$OUT_ALL\" | grep -q 'a list you run, not a command this tool ships'"
+assert "...and gives the reason (the tool has no delete path)" \
+  "printf '%s' \"\$OUT_ALL\" | grep -q 'refuses to delete, truncate or move'"
+assert "every merge that happened gets its own step (paths + 3 merges + receipt = 5)" \
+  "[ \"\$(printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>console.log(JSON.parse(s).steps.length))')\" = 5 ]"
+assert "a merge that did NOT happen produces no step for it (paths + receipt = 2)" \
+  "[ \"\$(printf '%s' \"\$OUT_PATHS\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>console.log(JSON.parse(s).steps.length))')\" = 2 ]"
+assert "a run that wrote nothing still ends with the receipt step (1)" \
+  "[ \"\$(printf '%s' \"\$OUT_NONE\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>console.log(JSON.parse(s).steps.length))')\" = 1 ]"
+assert "the receipt is removed LAST, so the record outlives the removal" \
+  "printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const st=JSON.parse(s).steps;process.exit(/Delete \.logicloom-adopt-receipt\.json last/.test(st[st.length-1])?0:1)})'"
+assert "the procedure warns that content under our directories may now be theirs" \
+  "printf '%s' \"\$OUT_ALL\" | grep -q 'is likewise yours'"
+
+# Marker parity — each quoted string must be the one its writer actually emits.
+GI_MERGE="$PKG/merge/merge-gitignore.sh"
+SET_MERGE="$PKG/merge/merge_settings_json.py"
+CM_LIB="$PKG/lib/claude-md.js"
+assert "the .gitignore BEGIN fence quoted by the procedure is the one merge-gitignore.sh writes" \
+  "grep -qF \"\$(node -e 'process.stdout.write(require(process.argv[1]).GITIGNORE_FENCE_BEGIN)' \"\$APPLY\")\" \"\$GI_MERGE\""
+assert "...and the END fence too" \
+  "grep -qF \"\$(node -e 'process.stdout.write(require(process.argv[1]).GITIGNORE_FENCE_END)' \"\$APPLY\")\" \"\$GI_MERGE\""
+assert "the settings sidecar path quoted by the procedure is merge_settings_json.py's default" \
+  "grep -q '\.logicloom-adopt-settings\.json' \"\$SET_MERGE\""
+assert "the CLAUDE.md BEGIN marker quoted by the procedure is claude-md.js's" \
+  "printf '%s' \"\$OUT_ALL\" | grep -qF \"\$(node -e 'process.stdout.write(require(process.argv[1]).BEGIN)' \"\$CM_LIB\")\""
+assert "the CLAUDE.md step says the DEFAULT mode never opens their CLAUDE.md" \
+  "printf '%s' \"\$OUT_ALL\" | grep -q 'the default mode never opens your CLAUDE.md'"
+
+# And the whole thing must actually reach disk on a real apply. Asserted against
+# the `new` target from section 2, which is a REAL --apply, not a synthetic
+# receipt — so this cannot pass on a code path that never runs. Stated as a hard
+# assertion rather than an `if`, because a conditional here would go quietly
+# green the day the fixture is renamed.
+NEW_RECEIPT="$TMP/new/.logicloom-adopt-receipt.json"
+assert "the real apply in section 2 left a receipt on disk" "[ -f \"$NEW_RECEIPT\" ]"
+assert "...and that on-disk receipt carries the generated uninstall procedure" \
+  "node -e 'const j=require(process.argv[1]); process.exit(j.uninstall && Array.isArray(j.uninstall.steps) && j.uninstall.steps.length ? 0 : 1)' \"$NEW_RECEIPT\""
+assert "...whose last step is deleting the receipt itself" \
+  "node -e 'const j=require(process.argv[1]); const s=j.uninstall.steps; process.exit(/Delete \.logicloom-adopt-receipt\.json last/.test(s[s.length-1])?0:1)' \"$NEW_RECEIPT\""
+
 echo ""
 echo "Results: $PASS passed, $FAIL failed, $TOTAL total"
 [ "$FAIL" -eq 0 ] || exit 1

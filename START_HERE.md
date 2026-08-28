@@ -8,13 +8,85 @@ This guide walks new users through their first feature using the **swarm pack** 
 
 ## 1. Install and bootstrap
 
+There are **three ways in**. They differ only in how the files arrive;
+everything after this section is identical.
+
+| You have | Way in |
+|---|---|
+| An empty directory (new project) | `logicloom init` |
+| An existing repository | `logicloom init` in it — plan first, then apply only what you name |
+| You want the harness template itself | `git clone` (below) |
+
+### A. New project, or an existing repository — `logicloom init`
+
+**`npx logicloom` does not resolve yet.** The package is `private: true` and
+unpublished, so that command fails for everyone. Run it from a LogicLoom
+checkout instead — which is also the only form that currently has a payload to
+install (a packed tarball does not; the payload is assembled at release time and
+that step is not built):
+
+```bash
+git clone <this-repo> ~/src/LogicLoom            # once — the payload source
+
+cd /path/to/your/project
+npx ~/src/LogicLoom/packaging/adopt init .                        # PLAN. Writes nothing.
+npx ~/src/LogicLoom/packaging/adopt init . --apply --only=all     # then write
+npx ~/src/LogicLoom/packaging/adopt init . --apply --only=hooks   # governance floor, opt-in
+```
+
+Node **22.14.0+**. Every invocation plans; writing requires `--apply` **and** an
+explicit `--only=`. There is no `--force`: a file that already exists is yours
+and stays. `hooks` is not in `--only=all` on purpose — it registers the
+governance floor in `.claude/settings.json`, which changes what your own Claude
+Code sessions may do in this repo, and nothing installs that as a side effect.
+
+In an existing repo the tool refuses to write over uncommitted work; commit or
+copy aside first, exactly as its output tells you. It never runs mutating git.
+
+**Only additive, fenced merges touch a file you own.** `.gitignore` gets a
+fenced block appended; `.claude/settings.json` gets our hook groups appended to
+its arrays, per key path, never overwriting one of yours.
+
+In the **default** `rules` mode your `CLAUDE.md` is never opened at all — the
+harness's operating instructions install as new files under `.claude/rules/`,
+which Claude Code loads alongside your own. `--claude-md=import` additionally
+appends one fenced `@import` block to your `CLAUDE.md`; `--claude-md=none`
+installs nothing loadable. The resolved mode is recorded in the receipt, and its
+uninstall step is generated from what actually happened.
+
+### B. The harness template itself — `git clone`
+
 ```bash
 git clone <your-repo-url> logic-loom
 cd logic-loom
 bash init-project.sh
 ```
 
-`init-project.sh` checks for Node.js, Git, and Claude Code, then provisions `.logic-loom/` and `.claude/` hooks. Missing dependencies print platform-specific install instructions.
+`init-project.sh` checks for Node.js, Git, and Claude Code, then provisions `.logic-loom/` and `.claude/` hooks. Missing dependencies print platform-specific install instructions. This is also how you get the harness's own test suite — `logicloom init` deliberately does not install `tests/`, so an adopted repo can run LogicLoom but cannot regression-test LogicLoom.
+
+### What went in, and how to take it out
+
+`logicloom init --apply` leaves **`.logicloom-adopt-receipt.json`** at your repo
+root. It lists every path written, every skip with its reason, and the
+**uninstall procedure** under its `uninstall` key — so the answer to "what did
+this put in my repo, and how do I remove it" is a file in your repo, not
+something to remember.
+
+Uninstall is a list you run, not a command we ship. The tool refuses to delete,
+truncate or move anything; an `uninstall` subcommand would be precisely the
+delete path it refuses to have, and by the time you run one, some of those files
+are yours — you edited the constitution, added a plugin, wrote a feature. The
+receipt makes removal mechanical. It does not make it automatic, which was never
+the same thing.
+
+### First command after the files are in
+
+Launch `claude`, then run **`/initialize-project`**. It stamps your project
+identity, asks once for an approval posture, and sets the memory backend. It
+detects which install this is by reading the adopt receipt, and in an adopted
+repository it skips the template-clone-only steps — in particular it does **not**
+delete anything under your `.github/workflows/`, does not edit your `CLAUDE.md`,
+and does not create a `VISION.md` you did not ask for.
 
 ### What lives in `.logic-loom/`
 

@@ -190,6 +190,15 @@ jobs:
       - name: Run Adopt Rules + CLAUDE.md Mode Tests
         run: bash tests/contract/test_adopt_rules.sh
 
+      # The ENTRY POINTS (PRE-13/PRE-14). Holds README.md and START_HERE.md to
+      # the three ways in, fails while `npx logicloom` is documented without the
+      # not-published-yet caveat — and fails the other way once the package IS
+      # published and the caveat goes stale — and pins that /initialize-project
+      # detects the adopt receipt and skips its `rm -f .github/workflows/*.yml`
+      # step in an adopted repo, where that CI is the adopter's own.
+      - name: Run Adopt Entry Points + Post-Install Tests
+        run: bash tests/contract/test_adopt_entrypoints.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only

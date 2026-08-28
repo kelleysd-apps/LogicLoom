@@ -9,8 +9,8 @@
 #
 # What it pins:
 #   1. Grammar — every non-comment line carries a known verb.
-#   2. The non-negotiable exclusion: .github/ and all five workflows. An npm
-#      adopter never runs /initialize-project, so nothing downstream removes
+#   2. The non-negotiable exclusion: .github/ and all five workflows. No
+#      adopt-side path removes them, so nothing downstream removes
 #      them, and branch-topology-guard.yml then fails every PR they open.
 #   3. The other required exclusions: tests/, package.json, and the
 #      template-clone onboarding files.
@@ -132,11 +132,24 @@ for wf in branch-topology-guard.yml leak-guard.yml plugin-tests.yml promote-to-m
 done
 assert "all five .github/workflows/*.yml are covered by an exclude: entry" \
   "[ -z \"\$WF_UNCOVERED\" ]"
-# The manifest must state WHY, since the reason is the whole row: the exclusion
-# exists nowhere downstream because an npm adopter never runs
-# /initialize-project.
-assert "manifest records that an adopter never runs /initialize-project" \
-  "grep -qi 'never runs /initialize-project' \"$MANIFEST\""
+# The manifest must state WHY, since the reason is the whole row: nothing on the
+# adopt side removes these, so the payload is the only place the exclusion can
+# happen.
+#
+# CHANGED with PRE-13. The old assertion pinned the phrase "never runs
+# /initialize-project" — a claim that turned out to be FALSE (this payload ships
+# plugins/ and .claude/commands/, so the command IS in an adopter's palette) and
+# that a passing test was helping keep in the file. The row's reason is the
+# absence of a downstream REMOVER, not the absence of a downstream RUNNER.
+assert "manifest records that no adopt-side path removes the maintainer workflows" \
+  "grep -qi 'NO ADOPT-SIDE PATH REMOVES' \"$MANIFEST\""
+# And it must not quietly regain the false claim.
+assert "manifest does not assert an adopter never runs /initialize-project" \
+  "! grep -q 'An npm adopter\$' \"$MANIFEST\""
+# The skip is only SAFE because .github/ is excluded here; the manifest has to
+# say so, because that is the coupling a future editor would otherwise break.
+assert "manifest records that /initialize-project SKIPS its CI removal when adopted" \
+  "grep -qi 'SKIPS its CI-removal step' \"$MANIFEST\""
 assert "manifest names branch-topology-guard.yml as the breaking workflow" \
   "grep -q 'branch-topology-guard.yml' \"$MANIFEST\""
 echo ""

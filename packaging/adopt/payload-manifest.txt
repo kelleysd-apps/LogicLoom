@@ -312,15 +312,21 @@ author: payload/rules/logicloom-file-rules.md :: .claude/rules/logicloom-file-ru
 # --- EXCLUDED: THE NON-NEGOTIABLE ROW ----------------------------------------
 # .github/ — ALL FIVE WORKFLOWS, and the directory itself.
 #
-# The reason is sharper than the research states. Today the exclusion of the four
-# maintainer workflows happens ONLY inside /initialize-project (init-project.sh +
+# The reason is sharper than the research states. The exclusion of the maintainer
+# workflows otherwise happens ONLY inside /initialize-project (init-project.sh +
 # the project-initialization skill + initialize-project.md, held in lockstep by
-# tests/contract/test_shipped_gates_vs_strip.sh). An npm adopter
-# never runs /initialize-project — PRE-13 says plainly it must not be pointed at
-# them, since
-# it stamps project.conf, rewrites README.md and scaffolds web/ on the assumption
-# of a fresh template clone. So NOTHING DOWNSTREAM WILL EVER REMOVE THESE. The
-# payload is the only place the exclusion can happen.
+# tests/contract/test_shipped_gates_vs_strip.sh), and NO ADOPT-SIDE PATH REMOVES
+# THEM. The payload is the only place the exclusion can happen.
+#
+# UPDATED 2026-08-27 (PRE-13 resolved). The research's line was "an adopter never
+# runs /initialize-project, so nothing downstream will ever remove these". The
+# first half is FALSE and was never enforceable: this payload ships plugins/ and
+# .claude/commands/, so /initialize-project IS in an adopter's palette. What is
+# true is the CONSEQUENCE, and it now runs the other way — /initialize-project
+# detects the adopt receipt and SKIPS its CI-removal step outright, because with
+# .github/ excluded here every workflow in an adopted repo is the adopter's own
+# and `rm -f` against it would delete their work. So this row is not merely still
+# load-bearing; the skip is only safe BECAUSE of it.
 #
 # What breaks if it does not:
 #   branch-topology-guard.yml — fails EVERY pull request into `main` whose head
