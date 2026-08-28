@@ -449,10 +449,22 @@ UN() { node -e '
 ALL_MERGES='[{"wrote":[{"path":".logic-loom/x","kind":"file"},{"path":".gitignore","kind":"merge"},{"path":".claude/settings.json","kind":"merge"},{"path":"CLAUDE.md","kind":"merge"}]}]'
 PATHS_ONLY='[{"wrote":[{"path":".logic-loom/x","kind":"file"}]}]'
 NOTHING='[{"wrote":[]}]'
+# Sidecar + a small directory tree, used below for defect D (sidecar must
+# survive step 1) and defect B2 (files/dirs split, child-before-parent order).
+SIDECAR_AND_DIRS='[{"wrote":[
+  {"path":".logic-loom/x","kind":"file"},
+  {"path":".claude/.logicloom-adopt-settings.json","kind":"file"},
+  {"path":".claude/agents/","kind":"dir"},
+  {"path":".claude/agents/foo/","kind":"dir"},
+  {"path":"plugins/","kind":"dir"},
+  {"path":".gitignore","kind":"merge"},
+  {"path":".claude/settings.json","kind":"merge"}
+]}]'
 
 OUT_ALL="$(UN "$ALL_MERGES")"
 OUT_PATHS="$(UN "$PATHS_ONLY")"
 OUT_NONE="$(UN "$NOTHING")"
+OUT_SD="$(UN "$SIDECAR_AND_DIRS")"
 
 assert "the procedure states the position: a list you run, not a command we ship" \
   "printf '%s' \"\$OUT_ALL\" | grep -q 'a list you run, not a command this tool ships'"
@@ -468,6 +480,140 @@ assert "the receipt is removed LAST, so the record outlives the removal" \
   "printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const st=JSON.parse(s).steps;process.exit(/Delete \.logicloom-adopt-receipt\.json last/.test(st[st.length-1])?0:1)})'"
 assert "the procedure warns that content under our directories may now be theirs" \
   "printf '%s' \"\$OUT_ALL\" | grep -q 'is likewise yours'"
+
+# ── DEFECT 1 (DATA LOSS): step 1 must point at the FILTERED list, not the raw
+# receipt field — the raw field also carries the two merges, and a script that
+# deletes-by-path from it takes the adopter's .gitignore and .claude/settings.json
+# with it. `uninstall.remove.files` / `uninstall.remove.dirsIfEmpty` are the
+# already-filtered lists; step 1 must name them, and must never point at
+# runs[].wrote[].path.
+echo ""
+echo "── defect 1: uninstall.remove.{files,dirsIfEmpty} are filtered, and step 1 points at them, never at runs[].wrote[].path ──"
+
+WROTE_NONMERGE_COUNT_ALL="$(printf '%s' "$ALL_MERGES" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const runs=JSON.parse(s);let n=0;for(const r of runs)for(const w of (r.wrote||[]))if(w.kind!=="merge")n++;console.log(n)})')"
+REMOVE_LEN_ALL="$(printf '%s' "$OUT_ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const rm=JSON.parse(s).remove;console.log(rm.files.length+rm.dirsIfEmpty.length)})')"
+assert "uninstall.remove is an object with files[] and dirsIfEmpty[] arrays" \
+  "printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const rm=JSON.parse(s).remove;process.exit(rm&&!Array.isArray(rm)&&Array.isArray(rm.files)&&Array.isArray(rm.dirsIfEmpty)?0:1)})'"
+assert "uninstall.remove.files.length + .dirsIfEmpty.length equals the count of non-merge runs[].wrote[] entries" \
+  "[ \"\$REMOVE_LEN_ALL\" = \"\$WROTE_NONMERGE_COUNT_ALL\" ]"
+assert "uninstall.remove.files does NOT contain .gitignore" \
+  "! printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.indexOf(\".gitignore\")!==-1?0:1))'"
+assert "uninstall.remove.files does NOT contain .claude/settings.json" \
+  "! printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.indexOf(\".claude/settings.json\")!==-1?0:1))'"
+STEP1_ALL="$(printf '%s' "$OUT_ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).steps[0]))')"
+assert "step 1 does NOT contain the substring runs[].wrote[].path" \
+  "! printf '%s' \"\$STEP1_ALL\" | grep -qF 'runs[].wrote[].path'"
+assert "step 1 DOES point at uninstall.remove.files" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qF 'uninstall.remove.files'"
+assert "step 1 DOES point at uninstall.remove.dirsIfEmpty" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qF 'uninstall.remove.dirsIfEmpty'"
+assert "step 1 names .gitignore as not-to-delete when the gitignore merge occurred" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qF '.gitignore'"
+assert "step 1 names .claude/settings.json as not-to-delete when the settings merge occurred" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qF '.claude/settings.json'"
+
+# The same claims, but on a run where NO merge happened at all (PATHS_ONLY) — step
+# 1 must still avoid runs[].wrote[].path, and must not falsely name a merge path
+# that never occurred.
+STEP1_PATHS="$(printf '%s' "$OUT_PATHS" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).steps[0]))')"
+assert "with no merge in the receipt, step 1 still avoids runs[].wrote[].path" \
+  "! printf '%s' \"\$STEP1_PATHS\" | grep -qF 'runs[].wrote[].path'"
+assert "with no merge in the receipt, remove.files+dirsIfEmpty length equals ALL wrote entries (none were merges to filter)" \
+  "[ \"\$(printf '%s' \"\$OUT_PATHS\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const rm=JSON.parse(s).remove;console.log(rm.files.length+rm.dirsIfEmpty.length)})')\" = 1 ]"
+
+# ── DEFECT D (DATA LOSS): the settings sidecar is its own step's dependency —
+# deleting it in step 1 destroys the only record telling our hook matcher groups
+# apart from the adopter's own, before the settings step ever gets to read it.
+echo ""
+echo "── defect D: the settings sidecar survives step 1, and is deleted only in the settings step, last ──"
+assert "the sidecar DOES appear in the fixture's wrote[] (sanity check on the fixture itself)" \
+  "printf '%s' \"\$SIDECAR_AND_DIRS\" | grep -qF '.claude/.logicloom-adopt-settings.json'"
+assert "uninstall.remove.files does NOT contain the settings sidecar" \
+  "! printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.indexOf(\".claude/.logicloom-adopt-settings.json\")!==-1?0:1))'"
+assert "uninstall.remove.dirsIfEmpty does NOT contain the settings sidecar" \
+  "! printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.dirsIfEmpty.indexOf(\".claude/.logicloom-adopt-settings.json\")!==-1?0:1))'"
+SD_SETTINGS_STEP="$(printf '%s' "$OUT_SD" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.claude\/settings\.json/.test(x))[0])})')"
+assert "the settings step mentions the sidecar by name" \
+  "printf '%s' \"\$SD_SETTINGS_STEP\" | grep -qF '.claude/.logicloom-adopt-settings.json'"
+assert "the settings step states the sidecar is deleted there, last — not in step 1" \
+  "printf '%s' \"\$SD_SETTINGS_STEP\" | grep -qi 'last'"
+
+# ── DEFECT B2: a flat 110-entry list that reads as \"delete these\" — split into
+# files (straight delete) and dirsIfEmpty (non-recursive rmdir, child-before-
+# parent), so a dumb script cannot recursively delete an adopter's own content
+# nested inside one of our directories.
+echo ""
+echo "── defect B2: files vs dirsIfEmpty split, non-recursive removal, child-before-parent order ──"
+assert "no entry in remove.files ends with '/'" \
+  "printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(p=>p.endsWith(\"/\"))?1:0))'"
+assert "remove.dirsIfEmpty holds exactly the 3 dir entries from the fixture" \
+  "[ \"\$(printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>console.log(JSON.parse(s).remove.dirsIfEmpty.length))')\" = 3 ]"
+assert "remove.dirsIfEmpty is ordered so no entry is a strict path-prefix of an EARLIER entry (children before parents)" \
+  "printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const d=JSON.parse(s).remove.dirsIfEmpty;let bad=false;for(let i=0;i<d.length;i++)for(let j=i+1;j<d.length;j++)if(d[j].indexOf(d[i])===0&&d[j]!==d[i])bad=true;process.exit(bad?1:0)})'"
+assert "...concretely: .claude/agents/foo/ sorts before .claude/agents/ in dirsIfEmpty" \
+  "printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const d=JSON.parse(s).remove.dirsIfEmpty;process.exit(d.indexOf(\".claude/agents/foo/\")<d.indexOf(\".claude/agents/\")?0:1)})'"
+SD_STEP1="$(printf '%s' "$OUT_SD" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).steps[0]))')"
+assert "step 1 instructs rmdir (non-recursive removal)" \
+  "printf '%s' \"\$SD_STEP1\" | grep -qi 'rmdir'"
+assert "step 1 does NOT contain the string 'rm -rf'" \
+  "! printf '%s' \"\$SD_STEP1\" | grep -qF 'rm -rf'"
+
+# ── DEFECT 2: the "byte-identical" / "nothing above it was changed" claims must
+# be made TRUE, not merely repeated, by instructing removal of the blank line the
+# merge inserts before the fence — worded conditionally so it holds when no such
+# blank line exists (empty original file, or the fence is the very first thing).
+echo ""
+echo "── defect 2: the restoration claim is made true (blank-line-safe), not just asserted ──"
+GI_STEP="$(printf '%s' "$OUT_ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.gitignore/.test(x))[0])})')"
+assert "the .gitignore step conditions the blank-line removal rather than asserting it always exists" \
+  "printf '%s' \"\$GI_STEP\" | grep -qi 'if.*blank line'"
+CM_STEP="$(printf '%s' "$OUT_ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In CLAUDE\.md/.test(x))[0])})')"
+assert "the CLAUDE.md step also conditions the blank-line removal rather than asserting it always exists" \
+  "printf '%s' \"\$CM_STEP\" | grep -qi 'if.*blank line'"
+assert "the .gitignore step covers the empty-original-file edge case" \
+  "printf '%s' \"\$GI_STEP\" | grep -qi 'empty'"
+assert "the CLAUDE.md step covers the fence-is-first-thing-in-file edge case" \
+  "printf '%s' \"\$CM_STEP\" | grep -qi 'empty\\|first thing'"
+
+# ── DEFECT C: the blank-line-above-BEGIN instruction must never be unconditional
+# (the merge's separator is 0, 1, or 2 newlines depending on the pre-merge tail,
+# and in the sep='' case — a file already ending in "\n\n" — that blank line is
+# the ADOPTER'S OWN byte, not the merge's), and the restoration claim must not
+# overclaim byte-identity (the no-trailing-newline case leaves one added byte).
+echo ""
+echo "── defect C: the blank-line instruction is optional/hedged, never an unconditional delete ──"
+assert "the .gitignore step does NOT tell the reader to unconditionally 'delete that line too'" \
+  "! printf '%s' \"\$GI_STEP\" | grep -qF 'delete that line too'"
+assert "the CLAUDE.md step does NOT tell the reader to unconditionally 'delete that line too'" \
+  "! printf '%s' \"\$CM_STEP\" | grep -qF 'delete that line too'"
+assert "the .gitignore step frames the leftover blank line as optional (MAY remove), not mandatory" \
+  "printf '%s' \"\$GI_STEP\" | grep -qF 'MAY remove'"
+assert "the CLAUDE.md step frames the leftover blank line as optional (MAY remove), not mandatory" \
+  "printf '%s' \"\$CM_STEP\" | grep -qF 'MAY remove'"
+assert "the .gitignore step does NOT claim byte-identical restoration" \
+  "! printf '%s' \"\$GI_STEP\" | grep -qi 'byte-identical'"
+assert "the CLAUDE.md step does NOT claim byte-identical restoration" \
+  "! printf '%s' \"\$CM_STEP\" | grep -qi 'byte-identical'"
+# NOT "only ever appended" for .gitignore. Two independent adversarial reviewers
+# flagged the same overstatement: merge-gitignore.sh assembles a temp file and
+# lands it with `cat "$TMP" > "$TARGET"` — a truncate-and-rewrite, not an append
+# syscall. The adopter's bytes above the fence ARE preserved, which is the thing
+# they care about, so the step must claim exactly that and no more. (The CLAUDE.md
+# step below is a genuine append, so it keeps the stronger wording.)
+assert "the .gitignore step claims byte preservation above the fence, not an append syscall" \
+  "printf '%s' \"\$GI_STEP\" | grep -qi 'byte you had above the fence is preserved'"
+assert "the .gitignore step does NOT overstate the write as append-only" \
+  "! printf '%s' \"\$GI_STEP\" | grep -qi 'only ever appended'"
+assert "the CLAUDE.md step states the merge only ever appended (nothing above the block was rewritten)" \
+  "printf '%s' \"\$CM_STEP\" | grep -qi 'only ever appended'"
+# merge-gitignore.sh CREATES an absent target (verified in the script: the
+# fence-absent branch does \`: > \"\$TMP\"\` when \$TARGET does not exist, then
+# appends the fence) — so for that starting state the correct undo is deleting
+# the file, not just the fenced region, since there was nothing before it.
+assert "merge-gitignore.sh creates the target when it was absent (confirms the case the step below documents)" \
+  "grep -qF ': > \"\$TMP\"' \"$PKG/merge/merge-gitignore.sh\""
+assert "the .gitignore step covers the absent-original-file case (undo is deleting the file, not just the fence)" \
+  "printf '%s' \"\$GI_STEP\" | grep -qi 'absent'"
 
 # Marker parity — each quoted string must be the one its writer actually emits.
 GI_MERGE="$PKG/merge/merge-gitignore.sh"

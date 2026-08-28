@@ -124,12 +124,20 @@ Ask them what they want. Do not choose on their behalf.
 
 Assemble the command from their answers. The flags are in `decisions[].flag`.
 
-```
-npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer>
+```bash
+export APPLY_LOG=$PWD/.logicloom-apply.log        # per-repo, beside $PLAN — not /tmp
+npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer> | tee "$APPLY_LOG"
 ```
 
 `--only` is mandatory. `hooks` is deliberately not in `--only=all` — if they want
 the governance floor, it must be named.
+
+Capture the transcript as it runs — `tee` writes it to `$APPLY_LOG` so it survives
+a scrollback loss or a mangled follow-up command. When you report the `WROTE`
+count in section 4, quote it from the log (`grep WROTE "$APPLY_LOG"`) rather than
+reconstructing it later from the receipt. A reconstructed number can be correct,
+but it is weaker evidence than a captured one — label it as reconstructed if
+that's what happened to you.
 
 ## 4. Verify — this is the actual test
 
@@ -140,8 +148,9 @@ Run each and record the result.
 | 1 | Their files are untouched | **check 1's block below** | **empty output.** The two merge targets you approved are the only paths permitted to show `M`. Any other `M` line is a failure. `??` lines are expected and fine |
 | 2 | The merges did what they said | `git diff .gitignore` and `.claude/settings.json` | a fenced block appended; their existing keys and lines intact and in place |
 | 3 | Idempotency | re-run the exact same apply command, **without committing first** | **exit 0**, reports `NO-OP`, writes nothing, and prints a `DISCOUNTED` section naming the blocks its own first run caused |
-| 3b | The discount is narrow | **check 3b's block below** | first re-run: **exit 1**, `DIRTY-MERGE-TARGET`, a note that the discount was *REFUSED* because the file changed. Nothing written. After removing the probe line: `NO-OP` once more |
-| 4 | The receipt exists and is honest | `cat .logicloom-adopt-receipt.json` | lists what landed, and carries an `uninstall` procedure |
+| 3b | The discount is narrow | **check 3b's block below** | for BOTH merge targets probed — `.gitignore`, and `.claude/settings.json` if `hooks` was applied — first re-run: **exit 1**, `DIRTY-MERGE-TARGET`, a note that the discount was *REFUSED* because the file changed. Nothing written. After restoring each: `NO-OP` once more |
+| 4 | The receipt exists and is honest | **check 4's block below** | every path the receipt's `runs[].wrote[]` claims exists on disk as the kind it claims (file / dir / merge-target-still-a-file); nothing claimed is missing; it carries an `uninstall` procedure |
+| 4b | The uninstall is safe to run | **check 4b's block below** | **PASS.** The delete list excludes both merge targets (your own files) and the settings sidecar (a later step still reads it), and removes directories child-first and non-recursively. Any `STOP:` here is a data-loss defect — report it verbatim |
 | 5 | Plan matched apply | the two commands below | the count matches `WROTE`, and both reconciliation lists are empty |
 | 6 | The harness is functional | `bash .logic-loom/scripts/bash/constitutional-check.sh` | runs and reports |
 
@@ -155,6 +164,22 @@ reported as failures. Run it from here instead:
 ```bash
 git status --porcelain | grep '^ M' | grep -vE '\.gitignore|\.claude/settings\.json'
 ```
+
+**Four of this run's own outputs never show up in the check above, and that is
+expected.** The same run installs `.gitignore` rules that hide them, so no
+`git status`-based check can ever see them — not a filtering problem, a design
+one. They are still real: they are in the receipt, and check 4 below reconciles
+against the receipt, not `git status`, for exactly this reason.
+
+```
+.logic-loom/backlog-index.json
+plugins/loom-memory/.retention-last-run
+plugins/loom-memory/recall/.gitkeep
+plugins/loom-memory/working/.gitkeep
+```
+
+If check 1 comes back empty, that is a clean pass — do not go looking for these
+four to reconcile them here; that is check 4's job.
 
 **Check 3b's commands.** Snapshot the file, add the probe, then restore the
 snapshot. You are deliberately modifying a file belonging to your user, so the
@@ -174,8 +199,147 @@ mv .gitignore.preprobe .gitignore          # restore; byte-identical by construc
 npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer>   # expect exit 0, NO-OP
 ```
 
-If the second apply does not report `NO-OP`, your restore did not land — say so
-and stop, rather than editing `.gitignore` further to make it pass.
+`.claude/settings.json` is the OTHER merge target, and it only exists to probe if
+your user asked for `hooks` in section 3 — if they did not, this half has nothing
+to touch; skip it and report it as skipped, the same way check 5 reports `hooks`
+as correctly-not-written when it was declined. The probe edit has to keep the
+file valid JSON: unlike `.gitignore` this is a real settings file the tool
+re-parses, and an invalid-JSON probe would exercise a different failure than the
+one this check means to test. Same snapshot-and-restore discipline as above — no
+`sed -i`, no content filter; both corrupt a real file on plausible input exactly
+as described above.
+
+```bash
+if [ -f .claude/settings.json ]; then
+  cp .claude/settings.json .claude/settings.json.preprobe   # snapshot
+  python3 -c "
+import json
+p = '.claude/settings.json'
+d = json.load(open(p))
+d['_logicloomProbe'] = True          # harmless top-level key; keeps the file valid JSON
+json.dump(d, open(p, 'w'), indent=2)
+"
+  npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer>   # expect exit 1, DIRTY-MERGE-TARGET
+
+  mv .claude/settings.json.preprobe .claude/settings.json   # restore; byte-identical by construction
+  npx $LOOM init . --apply --only=<their answer> --claude-md=<their answer>   # expect exit 0, NO-OP
+else
+  echo "hooks was not applied — .claude/settings.json is not a merge target this run; skipping, reported as skipped"
+fi
+```
+
+If a second apply does not report `NO-OP` for either file, your restore did not
+land — say so and stop, rather than editing the file further to make it pass.
+
+**Check 4's command.** `cat .logicloom-adopt-receipt.json` alone cannot fail — it
+only proves the file parses. The block below is the real check: it reconciles
+the receipt against the filesystem, asserting every `runs[].wrote[]` entry it
+claims actually exists, as the kind it claims. `python3`, not `jq` — same reason
+as check 5. It fails closed with a `STOP:` line, same style as check 5's guard,
+rather than printing misleading counts against a receipt it could not read.
+
+```bash
+python3 - <<'PY'
+import json, os, sys
+
+REC = '.logicloom-adopt-receipt.json'
+try:
+    rec = json.load(open(REC))
+except Exception as e:
+    sys.exit('STOP: cannot read %s (%s). Was step 3 run in this directory?' % (REC, e))
+
+missing_files, missing_dirs, missing_merges = [], [], []
+n_file = n_dir = n_merge = 0
+
+for run in rec.get('runs', []):
+    for w in run.get('wrote', []):
+        kind = w.get('kind')
+        p = w['path']
+        if kind == 'file':
+            n_file += 1
+            if not os.path.isfile(p):
+                missing_files.append(p)
+        elif kind == 'dir':
+            n_dir += 1
+            if not os.path.isdir(p.rstrip('/')):
+                missing_dirs.append(p)
+        elif kind == 'merge':
+            # A merge target is the ADOPTER'S OWN pre-existing file — the tool
+            # appended to it, it did not create it. The claim here is "still
+            # there, still a file", not "this tool created it".
+            n_merge += 1
+            if not os.path.isfile(p):
+                missing_merges.append(p)
+        else:
+            sys.exit("STOP: unrecognized wrote[].kind %r for %r — the receipt "
+                      "schema changed; do not guess, report it." % (kind, p))
+
+print('receipt runs:', len(rec.get('runs', [])))
+print('claimed files:  %d (missing: %s)' % (n_file, missing_files or 'none'))
+print('claimed dirs:   %d (missing: %s)' % (n_dir, missing_dirs or 'none'))
+print('claimed merges: %d (missing: %s)' % (n_merge, missing_merges or 'none'))
+
+if missing_files or missing_dirs or missing_merges:
+    sys.exit('STOP: the receipt claims paths that are not on disk — this is a '
+              'real finding, report it with the lists above rather than re-running.')
+
+print('PASS: every path the receipt claims (file, dir, and merge target) exists on disk.')
+PY
+```
+
+**Check 4b — is the uninstall procedure safe to execute?** Existence is not the
+only thing the receipt owes you. Its `uninstall` object is the ONLY reversal
+path this tool ships, and a real run found it telling the reader to delete files
+it must not: the merge targets are the adopter's OWN files, and the settings
+sidecar is the record a later step still needs. Both are fixed; this asserts
+they stay fixed in YOUR install, because a wrong answer here destroys files the
+whole tool exists not to touch.
+
+```bash
+python3 - <<'PY'
+import json, sys
+
+try:
+    rec = json.load(open('.logicloom-adopt-receipt.json'))
+except Exception as e:
+    sys.exit('STOP: cannot read the receipt (%s). Was step 3 run in this directory?' % e)
+
+u = rec.get('uninstall') or sys.exit('STOP: the receipt carries no uninstall procedure.')
+rm = u.get('remove') or sys.exit('STOP: uninstall has no remove list.')
+files, dirs = rm.get('files', []), rm.get('dirsIfEmpty', [])
+wrote = [w for r in rec['runs'] for w in r.get('wrote', [])]
+bad = []
+
+# 1. A merge target is the adopter's own file, appended to behind a fence.
+#    Deleting one by path destroys a file that predates this tool.
+for m in [w['path'] for w in wrote if w.get('kind') == 'merge']:
+    if m in files: bad.append('MERGE TARGET in delete list: ' + m)
+
+# 2. The settings sidecar names which hook groups are ours. A later step reads
+#    it; if step 1 deletes it first, that step can only guess -- and guessing
+#    wrong strips the adopter's own hooks.
+sc = '.claude/.logicloom-adopt-settings.json'
+if any(w['path'] == sc for w in wrote) and sc in files:
+    bad.append('SIDECAR in delete list (a later step still needs it): ' + sc)
+
+# 3. Directories must be removed non-recursively, children first, so anything
+#    you added inside one of ours survives because rmdir refuses a full dir.
+for p in files:
+    if p.endswith('/'): bad.append('directory in the FILES list: ' + p)
+for i, d in enumerate(dirs):
+    for later in dirs[i+1:]:
+        if later.startswith(d): bad.append('parent before child: %s before %s' % (d, later))
+if 'rm -rf' in u['steps'][0]: bad.append('step 1 instructs a recursive delete')
+
+if bad:
+    for b in bad: print('  ' + b)
+    sys.exit('STOP: the uninstall procedure would destroy files it must not. '
+             'This is the highest-value finding available -- report it verbatim.')
+print('PASS: uninstall keeps %d files + %d dirs, excludes every merge target and '
+      'the sidecar, and removes directories child-first, non-recursively.'
+      % (len(files), len(dirs)))
+PY
+```
 
 **Check 5's commands.** `runs[].wrote[].path` lives in the receipt the apply
 wrote, `.logicloom-adopt-receipt.json`. `python3` rather than `jq`, because
@@ -319,7 +483,7 @@ file (`~/.claude/rules/...`) demonstrably does load. Project scope is untested.
 
 ### The repro — follow it exactly
 
-Three conditions, and skipping any one of them produces another inconclusive
+Four conditions, and skipping any one of them produces another inconclusive
 result:
 
 1. **The session must be launched AFTER the install.** Not a subagent of an
@@ -328,7 +492,21 @@ result:
    files are read at launch; a session that started earlier never saw them.
 2. **The probe must be unanswerable from general knowledge.** These facts exist
    only in the installed files, so a correct answer cannot come from training.
-3. **The model must not search the filesystem for it.** Say so in the prompt —
+3. **This brief must not be inside the test project.** It states the correct
+   answer below, and anything under `.docs/` in the adopted repo is inside the
+   scope the governance preflight hook searches and injects on every prompt. A
+   copy of this file sitting in the test project can hand the fresh session the
+   answer key, and you would read that as "rules loaded" when nothing loaded at
+   all — a false PASS on the one question this probe exists to settle. The
+   payload no longer ships it (`exclude: .docs/guides/adopt-smoke-test.md`, and
+   a contract test pins that), but if you SAVED a copy into the test project
+   yourself, move it out first. Confirm before you launch the fresh session:
+
+   ```bash
+   grep -rl 'gh.secret.write' .docs 2>/dev/null || echo "clean — no answer key in preflight scope"
+   ```
+
+4. **The model must not search the filesystem for it.** Say so in the prompt —
    *"answer from what you already have loaded; do not read or search any files"*
    — and if it reads a file anyway, the run is void. Ask again in a new session.
 

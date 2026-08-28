@@ -146,7 +146,7 @@ const SETTINGS_SIDECAR = '.claude/.logicloom-adopt-settings.json';
 // run in the receipt, not a generic recipe. Steps whose cause never happened are
 // omitted rather than printed as "if applicable".
 function uninstallProcedure(receipt) {
-  const paths = {};
+  const paths = {}; // path -> 'file' | 'dir'
   let didGitignore = false;
   let didSettings = false;
   let didClaudeMd = false;
@@ -158,41 +158,124 @@ function uninstallProcedure(receipt) {
       // It is the third merge, and leaving it out of the procedure would be the
       // one edit to THEIR file that uninstall forgot.
       if (w.kind === 'merge' && w.path === 'CLAUDE.md') { didClaudeMd = true; continue; }
-      if (w.path) paths[w.path] = true;
+      // The settings sidecar (SETTINGS_SIDECAR) is excluded from the derived
+      // delete-list on purpose. It is the ONLY record distinguishing the hook
+      // matcher groups THIS tool added from the adopter's own hooks, and the
+      // settings step below has to read it before anything is safe to remove
+      // from .claude/settings.json. If it were in this same list, step 1 would
+      // delete it before that reading ever happens — the settings step would
+      // then have no way to tell our hooks from theirs. So it stays out of
+      // `remove` entirely; the settings step owns deleting it, and deletes it
+      // last, after it has been read. Its own wrote[] entry is untouched — it
+      // WAS written, and the receipt still says so — only this derived list
+      // changes.
+      if (w.path === SETTINGS_SIDECAR) continue;
+      if (w.path) paths[w.path] = w.kind;
     }
   }
-  const pathList = Object.keys(paths).sort();
+  const fileList = Object.keys(paths).filter((p) => paths[p] !== 'dir').sort();
+  // Reverse lexicographic. A directory path recorded by copyTree always ends in
+  // '/', and whenever one of these paths is a strict ancestor of another, the
+  // ancestor is by construction a strict PREFIX of the descendant's string (the
+  // descendant just keeps going where the ancestor's string ends). A prefix
+  // sorts before the longer string it is a prefix of, so plain ascending order
+  // would list a parent before its own children; sorting descending reverses
+  // that, putting every child ahead of every one of its ancestors — exactly the
+  // order a non-recursive `rmdir` needs in order to ever succeed on either.
+  const dirList = Object.keys(paths).filter((p) => paths[p] === 'dir').sort().reverse();
+
+  // The names of the merge targets that actually fired, built ONLY from the
+  // booleans above — never hardcoded — so this list can never name a file that
+  // was not actually merged into on this receipt.
+  const mergeNames = [];
+  if (didGitignore) mergeNames.push('.gitignore');
+  if (didSettings) mergeNames.push('.claude/settings.json');
+  if (didClaudeMd) mergeNames.push('CLAUDE.md');
 
   const steps = [];
-  if (pathList.length) {
+  if (fileList.length || dirList.length) {
+    // Step 1 names `uninstall.remove.files` / `uninstall.remove.dirsIfEmpty` —
+    // never `runs[].wrote[].path`, which still carries the merge targets — and
+    // never the settings sidecar, excluded above. Splitting `remove` into two
+    // arrays (rather than one flat list of files and directories together) is
+    // what makes a dumb script safe by construction: a flat list reads as
+    // "delete these", and `rm -rf` on one of our directories takes a plugin or
+    // any other content the adopter added inside it with it. `rmdir` instead —
+    // one call per entry, in the given order — fails outright on a directory
+    // that still has something in it, so survival of anything added underneath
+    // one of ours does not depend on the reader noticing a warning; it is what
+    // the non-recursive removal does on its own.
     steps.push(
-      'Remove the paths this tool wrote. They are listed under runs[].wrote[].path ' +
-      'in this file (' + pathList.length + ' entr' + (pathList.length === 1 ? 'y' : 'ies') + '). ' +
-      'READ THE LIST FIRST: anything you have since edited or added underneath one of ' +
-      'these directories is yours, and removing the directory takes it with you.'
+      'Delete every path in uninstall.remove.files (' + fileList.length + ' entr' +
+      (fileList.length === 1 ? 'y' : 'ies') + '). Then, in the exact order given, run a ' +
+      'NON-RECURSIVE `rmdir` — never a recursive delete — on every path in uninstall.remove.dirsIfEmpty (' +
+      dirList.length + ' entr' + (dirList.length === 1 ? 'y' : 'ies') + '). That order lists ' +
+      'every child directory before its own parent, and `rmdir` refuses to remove a directory ' +
+      'that still has anything inside it — so a plugin you built under plugins/, a file you added ' +
+      'under .claude/agents/, or anything else you put inside a directory this tool created, makes ' +
+      'that one `rmdir` call fail and leaves the directory (and your content) in place, automatically, ' +
+      'without you having to notice or read a warning first. Use both fields, not the full per-run ' +
+      'write log elsewhere in this file — the write log also carries the file(s) this tool only ' +
+      'MERGED into (' + (mergeNames.length ? mergeNames.join(', ') : 'none on this receipt') + '), ' +
+      'and merging is not removing: deleting one of those by path takes a file you owned before this ' +
+      'tool ever ran, edited in place behind a fence, with it.' +
+      (mergeNames.length
+        ? ' Do NOT delete ' + mergeNames.join(' or ') + ' — see the step(s) below for how to undo those instead.'
+        : '') +
+      ' READ THE LIST FIRST: a file listed under uninstall.remove.files that you have since edited is ' +
+      'still deleted outright, edits and all — the directory protection above only helps for content ' +
+      'you added AS A NEW PATH inside one of our directories, not for edits to a file already on the list.'
     );
   }
   if (didGitignore) {
     steps.push(
-      'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" ' +
-      'through "' + GITIGNORE_FENCE_END + '", inclusive. Everything outside the fence ' +
-      'is byte-identical to what you had before.'
+      'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" through "' +
+      GITIGNORE_FENCE_END + '", inclusive. Every byte you had above the fence is preserved — but what "restored" means afterward depends on what you had before this ' +
+      'tool ran: if your .gitignore was ABSENT, the merge is what created the file, so the correct ' +
+      'undo is deleting the file itself, not just the fence. If it existed but was EMPTY, the fence ' +
+      'was the first thing written into it and there is nothing further above it to restore. ' +
+      'Otherwise, deleting the fenced region leaves everything above it as your own content — though ' +
+      'if your file did not already end in a newline before this tool ran, one trailing newline the ' +
+      'merge added to terminate your last line may still remain; that is a cosmetic difference, not a ' +
+      'change to any of your text, and not something to hunt for. A single blank line often sits just ' +
+      'above the BEGIN marker after you delete the fence — the merge adds one when appending to a ' +
+      'non-empty file — but do not assume it is the merge\'s to remove: if your file already ended in ' +
+      'a blank line, that line was already yours and the merge added a second one, so which is which ' +
+      'is not visible from the text alone. Treat any such blank line as optional cosmetic residue you ' +
+      'MAY remove once you can see it should not be there, never as a byte this instruction is telling ' +
+      'you to delete.'
     );
   }
   if (didSettings) {
     steps.push(
-      'In .claude/settings.json, remove the hook matcher groups recorded in ' +
-      SETTINGS_SIDECAR + '. Nothing else in that file was touched: the merge is ' +
-      'per-key-path and appends to the hooks arrays only, so your own hooks are ' +
-      'still in it and must stay. Then delete ' + SETTINGS_SIDECAR + ' itself.'
+      'In .claude/settings.json, remove the hook matcher groups recorded in ' + SETTINGS_SIDECAR +
+      '. Nothing you had in that file was rewritten: the merge is per-key-path, so your own hooks ' +
+      'are still in it and must stay. It appends to the hooks arrays — and where a container ' +
+      'did not exist it CREATES it, up to and including the whole settings file when you had ' +
+      'none. If this file did not exist before this tool ran, removing our groups leaves a ' +
+      'file that is entirely ours: delete it, and any now-empty hooks or event containers, ' +
+      'rather than leaving an empty shell behind. ' + SETTINGS_SIDECAR + ' is ' +
+      'deliberately NOT in uninstall.remove.files above — it is the only record telling our hook ' +
+      'matcher groups apart from any hooks you added yourself, so it has to survive until you have ' +
+      'read it here. Only once you have removed the matcher groups it names, delete ' +
+      SETTINGS_SIDECAR + ' itself — last, in this step, not in step 1.'
     );
   }
   if (didClaudeMd) {
     steps.push(
-      'In CLAUDE.md — YOUR file — delete the fenced block from "' + claudeMdLib.BEGIN +
-      '" through "' + claudeMdLib.END + '", inclusive. It was appended at the end and ' +
-      'nothing above it was changed. This block exists only because ' +
-      '--claude-md=import was used; the default mode never opens your CLAUDE.md.'
+      'In CLAUDE.md — YOUR file — delete the fenced block from "' + claudeMdLib.BEGIN + '" through "' +
+      claudeMdLib.END + '", inclusive. This block exists only because --claude-md=import was used; ' +
+      'the default mode never opens your CLAUDE.md. The merge only ever appended — nothing above the ' +
+      'block was rewritten — but if your file did not already end in a newline before this tool ran, ' +
+      'one trailing newline the merge added to terminate your last line may still remain after you ' +
+      'delete the block; that is a cosmetic difference, not a change to any of your text. A single ' +
+      'blank line often sits just above the BEGIN marker afterward — the merge adds one when appending ' +
+      'to a non-empty file — but do not assume it is the merge\'s: if your file already ended in a ' +
+      'blank line, that line was already yours, so which one is which is not visible from the text ' +
+      'alone. (If the block was the very first thing in the file — your CLAUDE.md was empty, or the ' +
+      'block landed at the very start — there is no such line at all.) Treat any such blank line as ' +
+      'optional cosmetic residue you MAY remove once you can see it should not be there, never as ' +
+      'something this instruction is telling you to delete.'
     );
   }
   steps.push('Delete ' + RECEIPT_NAME + ' last — it is the record of everything above.');
@@ -202,6 +285,12 @@ function uninstallProcedure(receipt) {
     why: 'This tool refuses to delete, truncate or move anything (refusal 3). An ' +
          'uninstall subcommand would be exactly the delete path it refuses to have, ' +
          'and by the time you run it some of these files are yours, not ours.',
+    // Split, not a flat list: `files` is a straight delete-by-path, `dirsIfEmpty`
+    // is a non-recursive rmdir in child-before-parent order. One obvious way to
+    // read this field, not two — there is no flat `remove` array left to misread
+    // as "safe to rm -rf". Step 1 above names both by these exact key names, so
+    // the step and this field can never drift apart.
+    remove: { files: fileList, dirsIfEmpty: dirList },
     steps: steps,
     notRemovedByThis: 'Nothing under .brain/, features/, specs/ or artifacts/ that YOU ' +
       'created is named above; this tool never wrote it. Content you added inside a ' +

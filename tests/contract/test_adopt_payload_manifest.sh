@@ -253,6 +253,21 @@ assert "the note warns publish-adopt.yml needs its own setup-node" \
   "grep -q 'setup-node' \"$MANIFEST\""
 echo ""
 
+echo "── The smoke-test brief must never ship to an adopter ──"
+# Not a style rule — shipping it breaks the test it describes. The brief's
+# section 5a probes a fresh session with a governance question to find out
+# whether `.claude/rules/` loaded, and the brief states the correct answer.
+# Installed under `.docs/guides/`, it lands inside the loom-memory search scope
+# that governance-preflight.sh injects on every prompt, so the probe can be
+# answered from the injected answer key with rules never loading — a false PASS
+# on the one question `--claude-md=rules` exists to settle. `.docs/guides` is an
+# include:, so only an explicit exclude: keeps it out.
+assert "adopt-smoke-test.md is excluded from the payload" \
+  "grep -qE '^exclude:[[:space:]]+\.docs/guides/adopt-smoke-test\.md[[:space:]]*$' \"$MANIFEST\""
+assert "the exclusion carries its reason, so nobody deletes it as redundant" \
+  "grep -qi 'rules.*load\|answer key\|false PASS' \"$MANIFEST\""
+echo ""
+
 echo "========================================"
 echo "Results: $PASS/$TOTAL passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

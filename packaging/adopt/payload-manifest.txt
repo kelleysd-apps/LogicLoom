@@ -213,6 +213,14 @@ include: .docs/architecture
 # is already a strip entry.
 include: .docs/guides
 exclude: .docs/guides/dev-main-template-split.md
+# adopt-smoke-test.md is OUR test brief for this tool, not adopter documentation,
+# and shipping it actively breaks the test it describes: its section 5a probe asks
+# a fresh session a governance question to find out whether `.claude/rules/` loaded,
+# and the guide states the correct answer. Installed to `.docs/guides/`, it lands
+# inside the loom-memory search scope that `governance-preflight.sh` injects on
+# every prompt — so the probe could be answered from the injected answer key with
+# rules never loading at all. A false PASS on the one question the mode turns on.
+exclude: .docs/guides/adopt-smoke-test.md
 include: .docs/references
 #
 # .docs/agents/agent-registry.json is written by create-agent.sh:426 (a SHIPPED

@@ -921,3 +921,40 @@ sentence over the files. Compute it:
 A written-down counter in a two-file stream is wrong the first time someone
 appends to the other file, and nothing tells them. The derivation cannot drift
 because there is nothing to drift from.
+
+- [ ] LOOM-0043 — Make the uninstall procedure's delete list safe for a file the adopter has since made theirs `status:open`
+      Filed 2026-08-28, from the adopt smoke test's second full run. Two
+      INDEPENDENT adversarial reviewers (a Fable advisor and `codex exec`, run
+      without sight of each other) converged on the same residual: after the
+      D1/D2/B2 fixes landed, `uninstall.remove.files` is still an unconditional
+      delete list, and the receipt records **no per-file digest** for ordinary
+      created files — only merge targets get one (`lib/fsops.js:160`). So the
+      procedure cannot mechanically tell an untouched installed file from one
+      the adopter has since edited and made their own. The function's own
+      comment already concedes the case (`lib/apply.js` ~282: "by the time
+      anyone uninstalls, `.logic-loom/memory/constitution.md` may carry their
+      amendments"), and the emitted "READ THE LIST FIRST" warning asks a human
+      to notice — which a script does not.
+      Remedy both reviewers proposed independently: record `sha256` per written
+      file at install time, and state the predicate in step 1 — delete only if
+      the digest still matches; a mismatch means the file is yours now. That
+      converts a prose warning a script ignores into a check a script can run.
+      Cost is hashing ~400 small files at install, negligible.
+      NOT shipped in this pass deliberately: it changes the receipt schema and
+      the merge-time write path, and the smoke test in front of it needed the
+      confirmed data-loss paths closed rather than a schema change rushed in
+      beside them. The confirmed paths ARE closed and verified (merge targets
+      and the settings sidecar excluded from the delete list; directories split
+      into `dirsIfEmpty` with non-recursive `rmdir`).
+      Also in scope, same reviewers, lower severity:
+      - Removal paths are relative with no anchor to the receipt's repo root; a
+        script run from the wrong cwd deletes matching paths elsewhere. The root
+        IS known at write time (`lib/apply.js:400`) and is simply not carried
+        into the instructions.
+      - The settings sidecar records canonical JSON values, not identities, so
+        an adopter who later adds a hook group canonically identical to one of
+        ours could have their copy removed too. Needs stated cardinality
+        semantics ("remove exactly one occurrence per recorded entry").
+      - The `.gitignore` step branches on whether the file was absent, empty, or
+        non-empty before the merge — a fact the receipt does not record, so a
+        later agent cannot reliably pick the branch.
