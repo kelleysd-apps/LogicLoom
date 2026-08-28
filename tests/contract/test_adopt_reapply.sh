@@ -207,6 +207,38 @@ assert "...and the adopter's rewrite of a file we created SURVIVES it" \
   "grep -q 'the adopter rewrote this' \"$C/.logic-loom/scripts/common.sh\""
 assert "...and the run wrote nothing" "grep -qE 'WROTE +0' \"$TMP/c2.txt\""
 
+# ── 4b. LOOM-0043 REGRESSION — the exact expected adopter act ────────────────
+# PART 1 adds a per-file `sha256` to every created-file wrote[] entry, recorded
+# alongside the existing per-MERGE `digest` field that selfcaused.js actually
+# gates re-runs on (receipt.js:72, `w.kind === 'merge' && typeof w.digest ===
+# 'string'`). Nothing before this suite ever exercised a CREATED file's hash
+# leaking into that gate — case 4 above edits a throwaway script from the
+# synthetic fixture, not the one file apply.js's own comments (~line 126) name
+# as the file adopters are EXPECTED to edit: `.logic-loom/memory/
+# constitution.md`, to carry their own amendments. Uses the REAL shipped
+# payload/manifest (no --payload/--manifest override), because that file does
+# not exist in the synthetic fixture above.
+echo ""
+echo "── LOOM-0043: editing constitution.md — the file adopters are EXPECTED to edit — is still a NO-OP re-run ──"
+DEFER_ROWS_REAPPLY="$(grep -c '^defer:' "$PKG/payload-manifest.txt" 2>/dev/null || echo 0)"
+if [ "$DEFER_ROWS_REAPPLY" -gt 0 ]; then
+  echo "  ⏭  SKIP: an open defer: row in the shipped manifest blocks every real apply right now."
+else
+  CM="$TMP/constitution-edit"; new_repo "$CM"
+  node "$CLI" init "$CM" --apply --only=all >"$TMP/cm1.txt" 2>&1; CM1=$?
+  assert "the real-payload apply succeeds" "[ \"$CM1\" = 0 ]"
+  CONST="$CM/.logic-loom/memory/constitution.md"
+  assert "constitution.md actually landed (sanity check on the fixture)" "[ -f \"$CONST\" ]"
+  printf '\n## Our amendment\nWe require code review on every PR.\n' >> "$CONST"
+  node "$CLI" init "$CM" --apply --only=all >"$TMP/cm2.txt" 2>&1; CM2=$?
+  assert "the re-run after editing constitution.md STILL exits 0" "[ \"$CM2\" = 0 ]"
+  assert "...and is reported as a NO-OP, not a refusal" "grep -q 'NO-OP' \"$TMP/cm2.txt\""
+  assert "...and does not print REFUSED" "! grep -q 'REFUSED' \"$TMP/cm2.txt\""
+  assert "...wrote zero paths" "grep -qE 'WROTE +0' \"$TMP/cm2.txt\""
+  assert "...and the adopter's amendment survives, untouched" \
+    "grep -q 'We require code review on every PR' \"$CONST\""
+fi
+
 # ── 5. A receipt with no digest fails toward BLOCKING ────────────────────────
 # The backward-compatible direction. An older receipt cannot prove the merge
 # target is untouched, so it does not get the benefit of the doubt.

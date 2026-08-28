@@ -497,9 +497,9 @@ assert "uninstall.remove is an object with files[] and dirsIfEmpty[] arrays" \
 assert "uninstall.remove.files.length + .dirsIfEmpty.length equals the count of non-merge runs[].wrote[] entries" \
   "[ \"\$REMOVE_LEN_ALL\" = \"\$WROTE_NONMERGE_COUNT_ALL\" ]"
 assert "uninstall.remove.files does NOT contain .gitignore" \
-  "! printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.indexOf(\".gitignore\")!==-1?0:1))'"
+  "! printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(f=>f.path===\".gitignore\")?0:1))'"
 assert "uninstall.remove.files does NOT contain .claude/settings.json" \
-  "! printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.indexOf(\".claude/settings.json\")!==-1?0:1))'"
+  "! printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(f=>f.path===\".claude/settings.json\")?0:1))'"
 STEP1_ALL="$(printf '%s' "$OUT_ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).steps[0]))')"
 assert "step 1 does NOT contain the substring runs[].wrote[].path" \
   "! printf '%s' \"\$STEP1_ALL\" | grep -qF 'runs[].wrote[].path'"
@@ -529,7 +529,7 @@ echo "── defect D: the settings sidecar survives step 1, and is deleted only
 assert "the sidecar DOES appear in the fixture's wrote[] (sanity check on the fixture itself)" \
   "printf '%s' \"\$SIDECAR_AND_DIRS\" | grep -qF '.claude/.logicloom-adopt-settings.json'"
 assert "uninstall.remove.files does NOT contain the settings sidecar" \
-  "! printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.indexOf(\".claude/.logicloom-adopt-settings.json\")!==-1?0:1))'"
+  "! printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(f=>f.path===\".claude/.logicloom-adopt-settings.json\")?0:1))'"
 assert "uninstall.remove.dirsIfEmpty does NOT contain the settings sidecar" \
   "! printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.dirsIfEmpty.indexOf(\".claude/.logicloom-adopt-settings.json\")!==-1?0:1))'"
 SD_SETTINGS_STEP="$(printf '%s' "$OUT_SD" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.claude\/settings\.json/.test(x))[0])})')"
@@ -545,7 +545,7 @@ assert "the settings step states the sidecar is deleted there, last — not in s
 echo ""
 echo "── defect B2: files vs dirsIfEmpty split, non-recursive removal, child-before-parent order ──"
 assert "no entry in remove.files ends with '/'" \
-  "printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(p=>p.endsWith(\"/\"))?1:0))'"
+  "printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(f=>f.path.endsWith(\"/\"))?1:0))'"
 assert "remove.dirsIfEmpty holds exactly the 3 dir entries from the fixture" \
   "[ \"\$(printf '%s' \"\$OUT_SD\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>console.log(JSON.parse(s).remove.dirsIfEmpty.length))')\" = 3 ]"
 assert "remove.dirsIfEmpty is ordered so no entry is a strict path-prefix of an EARLIER entry (children before parents)" \
@@ -641,6 +641,128 @@ assert "...and that on-disk receipt carries the generated uninstall procedure" \
   "node -e 'const j=require(process.argv[1]); process.exit(j.uninstall && Array.isArray(j.uninstall.steps) && j.uninstall.steps.length ? 0 : 1)' \"$NEW_RECEIPT\""
 assert "...whose last step is deleting the receipt itself" \
   "node -e 'const j=require(process.argv[1]); const s=j.uninstall.steps; process.exit(/Delete \.logicloom-adopt-receipt\.json last/.test(s[s.length-1])?0:1)' \"$NEW_RECEIPT\""
+
+# ── LOOM-0043 PART 1: per-file sha256, so deletion becomes conditional ──────
+echo ""
+echo "── LOOM-0043 part 1: uninstall.remove.files carries a sha256, and step 1 states the predicate ──"
+assert "every entry in a fresh install's remove.files carries a path and a non-null sha256" \
+  "node -e 'const j=require(process.argv[1]); const ok=j.uninstall.remove.files.every(f=>typeof f.path===\"string\"&&f.path.length&&typeof f.sha256===\"string\"&&/^sha256:[0-9a-f]{64}\$/.test(f.sha256)); process.exit(ok&&j.uninstall.remove.files.length>0?0:1)' \"$NEW_RECEIPT\""
+assert "step 1 states the MATCH branch (safe to delete)" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qi 'MATCHES the file on disk'"
+assert "step 1 states the MISMATCH branch (keep it)" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qF 'MISMATCH means KEEP'"
+assert "step 1 states the no-digest/older-receipt branch (review before deleting)" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qi 'null sha256'"
+assert "step 1 names the mechanical-mismatch caveat (formatter/autocrlf) and points at git diff/log" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qi 'autocrlf' && printf '%s' \"\$STEP1_ALL\" | grep -qF 'git diff'"
+
+echo ""
+echo "── LOOM-0043 part 2: step 1 anchors paths to the receipt's own directory, and says they are literal ──"
+assert "step 1 says to resolve paths against the directory containing the receipt file" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qi 'CONTAINS THIS RECEIPT FILE'"
+assert "step 1 says every path is LITERAL, never a glob or pattern" \
+  "printf '%s' \"\$STEP1_ALL\" | grep -qi 'LITERAL' && printf '%s' \"\$STEP1_ALL\" | grep -qi 'never a glob'"
+assert "the returned object also carries a structured anchor (not only prose in step 1)" \
+  "printf '%s' \"\$OUT_ALL\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const a=JSON.parse(s).anchor;process.exit(a&&typeof a.primary===\"string\"&&typeof a.literal===\"string\"?0:1)})'"
+assert "the real on-disk receipt records the absolute root as secondary evidence" \
+  "node -e 'const j=require(process.argv[1]); process.exit(typeof j.uninstall.anchor.recordedRoot===\"string\"&&j.uninstall.anchor.recordedRoot.length?0:1)' \"$NEW_RECEIPT\""
+
+echo ""
+echo "── LOOM-0043 part 3: the settings step states the one-occurrence-per-entry rule ──"
+SETTINGS_STEP_ALL="$(printf '%s' "$OUT_ALL" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.claude\/settings\.json/.test(x))[0])})')"
+assert "the settings step states removing our groups is per-occurrence, not per-content-match" \
+  "printf '%s' \"\$SETTINGS_STEP_ALL\" | grep -qi 'removes exactly ONE matching'"
+assert "...and warns a kept duplicate becomes a broken hook of the adopter's own making" \
+  "printf '%s' \"\$SETTINGS_STEP_ALL\" | grep -qi 'broken hook'"
+
+# ── LOOM-0043 PART 4: pre-merge state, and its FIRST-run-wins aggregation ───
+echo ""
+echo "── LOOM-0043 part 4: merge entries carry a pre-state kind, aggregated FIRST-run-wins ──"
+TWO_RUN_ABSENT_THEN_CONTENT='[
+  {"wrote":[{"path":".gitignore","kind":"merge","preState":"absent"}]},
+  {"wrote":[{"path":".gitignore","kind":"merge","preState":"content"}]}
+]'
+OUT_TWORUN="$(UN "$TWO_RUN_ABSENT_THEN_CONTENT")"
+assert "aggregation across two runs keeps the FIRST run's pre-state (absent), not the second (content)" \
+  "printf '%s' \"\$OUT_TWORUN\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).preMergeState[\".gitignore\"]===\"absent\"?0:1))'"
+TWOSTEP="$(printf '%s' "$OUT_TWORUN" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.gitignore/.test(x))[0])})')"
+assert "...and the .gitignore step's own text reflects that first-run ABSENT case, not the later CONTENT one" \
+  "printf '%s' \"\$TWOSTEP\" | grep -qi 'recorded pre-merge state is ABSENT' && ! printf '%s' \"\$TWOSTEP\" | grep -qi 'recorded pre-merge state is CONTENT'"
+
+MERGE_WITH_STATES='[{"wrote":[
+  {"path":".gitignore","kind":"merge","preState":"absent"},
+  {"path":".claude/settings.json","kind":"merge","preState":"whitespace-only"},
+  {"path":"CLAUDE.md","kind":"merge","preState":"content"}
+]}]'
+OUT_STATES="$(UN "$MERGE_WITH_STATES")"
+assert "preMergeState is exposed for all three merge targets" \
+  "printf '%s' \"\$OUT_STATES\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>{const m=JSON.parse(s).preMergeState;process.exit(m[\".gitignore\"]===\"absent\"&&m[\".claude/settings.json\"]===\"whitespace-only\"&&m[\"CLAUDE.md\"]===\"content\"?0:1)})'"
+# 'absent' is the ONLY pre-state that licenses deleting the adopter's file, so
+# nothing uncertain may reach it. A symlink, a non-regular file, or one we cannot
+# read is not "this tool created it" — adversarial review found statKind()!=='file'
+# sweeping all three into 'absent' and attaching a delete instruction to them.
+# They now classify as 'unknown', which routes to the hedge text.
+UNKNOWN_STATE='[{"wrote":[{"path":".gitignore","kind":"merge","digest":"sha256:a","preState":"unknown"}]}]'
+GI_UNKNOWN_STEP="$(printf '%s' "$(UN "$UNKNOWN_STATE")" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.gitignore/.test(x))[0])})')"
+assert "an UNKNOWN pre-state never tells the reader to delete the whole .gitignore" \
+  "! printf '%s' \"\$GI_UNKNOWN_STEP\" | grep -qi 'DELETE THE FILE ITSELF'"
+assert "classifyPreMergeState returns 'unknown' (not 'absent') for a symlink" \
+  "node -e 'const os=require(\"os\"),fs=require(\"fs\"),p=require(\"path\"); const d=fs.mkdtempSync(p.join(os.tmpdir(),\"cls\")); fs.writeFileSync(p.join(d,\"real\"),\"x\"); fs.symlinkSync(\"real\",p.join(d,\"link\")); const a=require(\"$PKG/lib/apply.js\"); process.exit(a.classifyPreMergeState(p.join(d,\"link\"))===\"unknown\"?0:1)'"
+
+GI_ABSENT_STEP="$(printf '%s' "$OUT_STATES" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.gitignore/.test(x))[0])})')"
+# The absent branch must NOT be an unconditional delete. "We created it" is only
+# "safe to delete outright" while the file is still exactly what we left — an
+# adopter who added ignore rules of their own since would lose them. Same
+# predicate as step 1, and the merge digest is what decides it. Assert BOTH
+# branches are stated, not just the delete.
+assert "the .gitignore step for a recorded ABSENT pre-state says to delete the whole file" \
+  "printf '%s' \"\$GI_ABSENT_STEP\" | grep -qi 'DELETE THE FILE ITSELF'"
+assert "...but conditions that delete on the recorded digest still matching" \
+  "printf '%s' \"\$GI_ABSENT_STEP\" | grep -qi 'digest recorded for .gitignore'"
+# ORDERING IS THE CONTRACT, not just the presence of a digest check. Deleting the
+# fenced region changes the file, so a digest compared AFTER that point can never
+# match and the delete branch becomes unreachable. The instruction must tell the
+# reader to check before modifying anything.
+assert "...and tells the reader to check the digest BEFORE editing anything" \
+  "printf '%s' \"\$GI_ABSENT_STEP\" | grep -qi 'CHECK THE DIGEST FIRST'"
+assert "...and the digest check is positioned ahead of the fence deletion in the text" \
+  "node -e 'const s=process.argv[1]; process.exit(s.toLowerCase().indexOf(\"check the digest first\") < s.toLowerCase().indexOf(\"delete only the fenced region\") ? 0 : 1)' \"\$GI_ABSENT_STEP\""
+assert "...and says to KEEP the file when the digest does not match" \
+  "printf '%s' \"\$GI_ABSENT_STEP\" | grep -qi 'KEEP the file'"
+SET_WS_STEP="$(printf '%s' "$OUT_STATES" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const st=JSON.parse(s).steps;console.log(st.filter(x=>/^In \.claude\/settings\.json/.test(x))[0])})')"
+# Same defect class as the .gitignore absent branch, and it contradicted this
+# step's OWN earlier sentence ("your own hooks are still in it and must stay"):
+# "the file is entirely ours, DELETE IT" is true as of the merge, not as of
+# uninstall time. An adopter who added a hook, a permission, or any other
+# setting afterwards would lose the file. The decidable test is what REMAINS
+# once our groups are gone, so the step must send the reader to look.
+assert "the settings step sends the reader to inspect what REMAINS before deleting" \
+  "printf '%s' \"\$SET_WS_STEP\" | grep -qi 'AT WHAT IS LEFT'"
+assert "...and says KEEP the file if anything of theirs is in it" \
+  "printf '%s' \"\$SET_WS_STEP\" | grep -qi 'KEEP the file'"
+assert "the settings step for a recorded WHITESPACE-ONLY pre-state also says to delete the file (merge_settings_json.py rewrites it wholesale)" \
+  "printf '%s' \"\$SET_WS_STEP\" | grep -qi 'DELETE'"
+assert "...and explains why: merge_settings_json.py treats a whitespace-only file as none at all" \
+  "printf '%s' \"\$SET_WS_STEP\" | grep -qi 'no file at all'"
+
+# The end-to-end absent-.gitignore case, against a REAL apply (not a synthetic
+# receipt) — matches the exact scenario the LOOM-0043 brief calls out by name.
+echo ""
+echo "── LOOM-0043 part 4, end-to-end: a repo with NO .gitignore at all ──"
+NOGI="$TMP/no-gitignore"; mkdir -p "$NOGI"; git_quiet "$NOGI" init
+printf 'x\n' > "$NOGI/README.md"; git_quiet "$NOGI" add -A; git_quiet "$NOGI" commit -m base
+assert "the fixture really starts with no .gitignore" "[ ! -e \"$NOGI/.gitignore\" ]"
+RUN "$NOGI" --apply --only=all,gitignore --claude-md=rules >"$TMP/nogi.out" 2>&1; NOGI_RC=$?
+assert "the apply against a .gitignore-less repo succeeds" "[ $NOGI_RC -eq 0 ]"
+NOGI_RECEIPT="$NOGI/.logicloom-adopt-receipt.json"
+assert "the recorded pre-merge state for .gitignore is absent" \
+  "node -e 'const j=require(process.argv[1]); process.exit(j.uninstall.preMergeState[\".gitignore\"]===\"absent\"?0:1)' \"$NOGI_RECEIPT\""
+assert "the gitignore uninstall step says to delete the file, matching the recorded absent state" \
+  "node -e 'const j=require(process.argv[1]); const st=j.uninstall.steps.filter(x=>/^In \.gitignore/.test(x))[0]; process.exit(/DELETE THE FILE ITSELF/i.test(st)?0:1)' \"$NOGI_RECEIPT\""
+assert "...and gates that delete on the recorded digest still matching" \
+  "node -e 'const j=require(process.argv[1]); const st=j.uninstall.steps.filter(x=>/^In \.gitignore/.test(x))[0]; process.exit(/CHECK THE DIGEST FIRST/i.test(st)?0:1)' \"$NOGI_RECEIPT\""
+assert "...and says KEEP the file on a mismatch, so an adopter's later additions survive" \
+  "node -e 'const j=require(process.argv[1]); const st=j.uninstall.steps.filter(x=>/^In \.gitignore/.test(x))[0]; process.exit(/KEEP the file/i.test(st)?0:1)' \"$NOGI_RECEIPT\""
 
 echo ""
 echo "Results: $PASS passed, $FAIL failed, $TOTAL total"

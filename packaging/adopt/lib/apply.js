@@ -142,22 +142,69 @@ const GITIGNORE_FENCE_BEGIN = '# >>> LogicLoom adopt — managed block. Do not e
 const GITIGNORE_FENCE_END = '# <<< LogicLoom adopt — end managed block <<<';
 const SETTINGS_SIDECAR = '.claude/.logicloom-adopt-settings.json';
 
+// ── PART 4: pre-merge state, read just before a merge touches a target ───────
+// Answers "what did the adopter have here before THIS tool ever wrote to it?",
+// which the .gitignore/.claude/settings.json uninstall steps need in order to
+// tell "delete the fence" from "delete the file". `merge_settings_json.py`
+// treats a whitespace-only pre-existing file as no file at all and rewrites it
+// wholesale (verified at merge_settings_json.py:467-488), so `{existed, bytes}`
+// alone is not enough — a file that existed-but-was-blank needs the same "the
+// merge owns 100% of this file, delete it" answer as a file that never existed.
+// Deliberately NOT a hash: the gitignore merge legitimately adds a terminating
+// newline to an unterminated last line, so an exact byte-restore check would
+// fail spuriously on exactly the repos it should be reassuring.
+// 'absent' means ENOENT and nothing else. A symlink, a non-regular file, or one
+// we cannot read is NOT "this tool created it" — and 'absent' is the one value
+// that licenses DELETING THE FILE, so anything we are unsure about must not
+// reach it. Those cases return 'unknown', which routes to the hedge text that
+// makes the reader decide. Found by adversarial review: `statKind() !== 'file'`
+// swept symlink/other/unreadable into 'absent' and attached a delete to them.
+function classifyPreMergeState(absPath) {
+  const kind = detectLib.statKind(absPath);
+  if (kind === 'absent') return 'absent';
+  if (kind !== 'file') return 'unknown';
+  let text;
+  try { text = fs.readFileSync(absPath, 'utf8'); } catch (e) { return 'unknown'; }
+  return text.trim() === '' ? 'whitespace-only' : 'content';
+}
+
 // Built from what THIS repo actually holds after the run — the union of every
 // run in the receipt, not a generic recipe. Steps whose cause never happened are
 // omitted rather than printed as "if applicable".
 function uninstallProcedure(receipt) {
   const paths = {}; // path -> 'file' | 'dir'
+  // path -> sha256, for every non-dir entry, LAST WRITER WINS (a forward scan
+  // over receipt.runs in chronological order, so a later run's overwrite of the
+  // same path naturally replaces an earlier one — the newest bytes on disk are
+  // the ones a "safe to delete" claim has to be true about). `null` means no
+  // digest was ever recorded for that path (an older receipt, from before this
+  // field existed) — that is distinct from "matches", and is read that way below.
+  const fileSha256 = {};
+  // path -> pre-merge state ('absent' | 'whitespace-only' | 'content'), for each
+  // of the three merge targets, FIRST RUN WINS — the opposite direction from
+  // fileSha256 above, and deliberately so. "What did you have before this tool
+  // EVER touched this file" is a question about run 1, not the most recent run:
+  // run 1 may find `.gitignore` absent and create it, and run 2 (e.g. a second
+  // `--only=hooks` pass) then merges again into a file that already exists. The
+  // state that decides "delete the file" vs. "keep the file, drop the fence" is
+  // run 1's, so this map is populated only when the key is not already set.
+  const preMergeState = {};
   let didGitignore = false;
   let didSettings = false;
   let didClaudeMd = false;
+  const notePreState = (key, w) => {
+    if (!Object.prototype.hasOwnProperty.call(preMergeState, key) && typeof w.preState === 'string') {
+      preMergeState[key] = w.preState;
+    }
+  };
   for (const r of receipt.runs) {
     for (const w of r.wrote || []) {
-      if (w.kind === 'merge' && w.path === '.gitignore') { didGitignore = true; continue; }
-      if (w.kind === 'merge' && w.path === '.claude/settings.json') { didSettings = true; continue; }
+      if (w.kind === 'merge' && w.path === '.gitignore') { didGitignore = true; notePreState(w.path, w); continue; }
+      if (w.kind === 'merge' && w.path === '.claude/settings.json') { didSettings = true; notePreState(w.path, w); continue; }
       // `--claude-md=import` appends one fenced block to a file the adopter owns.
       // It is the third merge, and leaving it out of the procedure would be the
       // one edit to THEIR file that uninstall forgot.
-      if (w.kind === 'merge' && w.path === 'CLAUDE.md') { didClaudeMd = true; continue; }
+      if (w.kind === 'merge' && w.path === 'CLAUDE.md') { didClaudeMd = true; notePreState(w.path, w); continue; }
       // The settings sidecar (SETTINGS_SIDECAR) is excluded from the derived
       // delete-list on purpose. It is the ONLY record distinguishing the hook
       // matcher groups THIS tool added from the adopter's own hooks, and the
@@ -170,10 +217,16 @@ function uninstallProcedure(receipt) {
       // WAS written, and the receipt still says so — only this derived list
       // changes.
       if (w.path === SETTINGS_SIDECAR) continue;
-      if (w.path) paths[w.path] = w.kind;
+      if (w.path) {
+        paths[w.path] = w.kind;
+        // Directories are not hashed (fsops.js never hashes one); only carry a
+        // digest for a file entry, and LAST writer wins by plain overwrite here.
+        if (w.kind !== 'dir') fileSha256[w.path] = (typeof w.sha256 === 'string' && w.sha256) ? w.sha256 : null;
+      }
     }
   }
-  const fileList = Object.keys(paths).filter((p) => paths[p] !== 'dir').sort();
+  const fileList = Object.keys(paths).filter((p) => paths[p] !== 'dir').sort()
+    .map((p) => ({ path: p, sha256: Object.prototype.hasOwnProperty.call(fileSha256, p) ? fileSha256[p] : null }));
   // Reverse lexicographic. A directory path recorded by copyTree always ends in
   // '/', and whenever one of these paths is a strict ancestor of another, the
   // ancestor is by construction a strict PREFIX of the descendant's string (the
@@ -192,6 +245,50 @@ function uninstallProcedure(receipt) {
   if (didSettings) mergeNames.push('.claude/settings.json');
   if (didClaudeMd) mergeNames.push('CLAUDE.md');
 
+  // ── PART 2: THE ANCHOR ──────────────────────────────────────────────────────
+  // Every path in `remove.files` / `remove.dirsIfEmpty` is repo-relative, and
+  // nothing said what to resolve it against — a script run from the wrong cwd
+  // "deletes" matching paths in whatever unrelated tree it happens to be sitting
+  // in. `recordedRoot` (the absolute root this run applied against, stamped on
+  // the run object at apply time) is SECONDARY evidence only, never the anchor:
+  // it goes stale the moment the repository is moved or re-cloned. The receipt
+  // FILE's own directory cannot go stale that way — it is wherever the receipt
+  // physically is — so that is the primary anchor, and is self-locating by
+  // construction. TRADEOFF, named plainly: recording an absolute local path at
+  // all means one now lands in a file the adopter may commit.
+  let recordedRoot = null;
+  for (let i = receipt.runs.length - 1; i >= 0; i--) {
+    const rr = receipt.runs[i] && receipt.runs[i].root;
+    if (typeof rr === 'string' && rr) { recordedRoot = rr; break; }
+  }
+  const anchor = {
+    primary: 'Resolve EVERY path named anywhere in this uninstall object — remove.files, ' +
+      'remove.dirsIfEmpty, and every path mentioned in any step, including .gitignore, ' +
+      '.claude/settings.json, ' + SETTINGS_SIDECAR + ', CLAUDE.md and ' + RECEIPT_NAME + ' ' +
+      'itself — against the directory that CONTAINS THIS RECEIPT FILE, never the working ' +
+      'directory a shell or agent happens to be in. The anchor is not a step-1 rule; a script ' +
+      'that anchors step 1 correctly and then edits a relative .gitignore under its own cwd has ' +
+      'gone on to modify the wrong repository. ' + RECEIPT_NAME + ' is written at the repository ' +
+      'root, so its own directory is self-locating and stays correct even if this repository was ' +
+      'later moved, renamed, or re-cloned. One precondition on that, and it is yours to confirm: ' +
+      'this has to be the receipt the install actually wrote, still sitting where it was written. ' +
+      'A receipt COPIED somewhere else anchors this whole procedure at that other place. If you ' +
+      'cannot confirm it is in its original location, stop — do not run any of this from a ' +
+      'receipt you moved.',
+    recordedRoot: recordedRoot,
+    recordedRootIsSecondary: 'The absolute path above is recorded evidence only, from the run ' +
+      'that last wrote it — it is NOT the anchor. If it disagrees with where this receipt file ' +
+      'actually sits on disk, the repository was moved or cloned since install: trust the ' +
+      'receipt\'s own directory, never this recorded path.',
+    literal: 'Every path in uninstall.remove.files and uninstall.remove.dirsIfEmpty is LITERAL ' +
+      '— a plain repository-relative path, never a glob or a pattern. Match them exactly; do ' +
+      'not expand, and do not follow a symlink at any component of one. A recorded sha256 ' +
+      'proves BYTE EQUALITY of a regular file and nothing else: it does not prove the path is ' +
+      'still a regular file rather than a link, and it says nothing about mode, ownership, or ' +
+      'any other metadata. If a path is no longer a regular file, treat it as a mismatch and ' +
+      'keep it.'
+  };
+
   const steps = [];
   if (fileList.length || dirList.length) {
     // Step 1 names `uninstall.remove.files` / `uninstall.remove.dirsIfEmpty` —
@@ -205,61 +302,183 @@ function uninstallProcedure(receipt) {
     // that still has something in it, so survival of anything added underneath
     // one of ours does not depend on the reader noticing a warning; it is what
     // the non-recursive removal does on its own.
+    //
+    // ── PART 1: THE DIGEST IS PROVENANCE, NOT OBLIGATION ──────────────────────
+    // Each entry in uninstall.remove.files now carries a `sha256` of the bytes
+    // this tool left there. That digest answers exactly one question — "is this
+    // file still exactly what we left?" — and the answer decides whether
+    // deleting it loses anything of yours:
+    //   * digest MATCHES the file on disk now  → safe to delete: it is exactly
+    //     what this tool left, so deleting it loses nothing of yours.
+    //   * digest MISMATCHES                     → KEEP it. The file carries
+    //     changes of yours now; open it, salvage what you want, then delete it
+    //     yourself, on your own schedule.
+    //   * sha256 is null                        → an older receipt recorded no
+    //     digest for this path. It cannot be proven untouched, so review it
+    //     before deleting rather than assuming either way.
+    // "Safe to delete" is the only claim the digest supports. Uninstall is
+    // elective — nothing here executes anything — and wanting to keep a
+    // pristine harness file, even one you never touched, is always allowed.
+    // A mismatch is not necessarily YOUR edit, either: a formatter, a
+    // pre-commit hook, or git `autocrlf` on a Windows clone can rewrite line
+    // endings across every text file this tool installed, and every digest
+    // mismatches for a purely mechanical reason. Check `git diff` / `git log`
+    // on a mismatched file before assuming it carries your own work, or that
+    // this receipt is corrupt — most of the time it will show you a formatter
+    // ran, not that you edited the file. And a file you choose to KEEP this
+    // way keeps its whole ancestor chain of remove.dirsIfEmpty directories too,
+    // because `rmdir` refuses a non-empty directory — that is this design
+    // working as intended, not a failure to clean up.
     steps.push(
-      'Delete every path in uninstall.remove.files (' + fileList.length + ' entr' +
-      (fileList.length === 1 ? 'y' : 'ies') + '). Then, in the exact order given, run a ' +
+      'Delete every path in uninstall.remove.files whose recorded sha256 still MATCHES the file ' +
+      'on disk (' + fileList.length + ' entr' + (fileList.length === 1 ? 'y' : 'ies') + ' total) — ' +
+      'that match is what makes deleting it safe: it is exactly what this tool left, so nothing of ' +
+      'yours is lost. A MISMATCH means KEEP that one instead: the file carries changes of yours now, ' +
+      'so open it, salvage what you want, then delete it yourself, on your own schedule — it is not ' +
+      'this list\'s job to decide that for you. A null sha256 means an older receipt recorded no ' +
+      'digest for that path at all: it cannot be proven untouched, so review it before deleting ' +
+      'rather than assuming either way. A mismatch is not necessarily your own edit, either — a ' +
+      'formatter, a pre-commit hook, or git autocrlf on a Windows clone can rewrite line endings ' +
+      'across every file this tool installed, and every digest mismatches for a purely mechanical ' +
+      'reason; check `git diff` / `git log` on a mismatched file before concluding either that you ' +
+      'changed it or that this receipt is corrupt. Then, in the exact order given, run a ' +
       'NON-RECURSIVE `rmdir` — never a recursive delete — on every path in uninstall.remove.dirsIfEmpty (' +
       dirList.length + ' entr' + (dirList.length === 1 ? 'y' : 'ies') + '). That order lists ' +
       'every child directory before its own parent, and `rmdir` refuses to remove a directory ' +
       'that still has anything inside it — so a plugin you built under plugins/, a file you added ' +
       'under .claude/agents/, or anything else you put inside a directory this tool created, makes ' +
       'that one `rmdir` call fail and leaves the directory (and your content) in place, automatically, ' +
-      'without you having to notice or read a warning first. Use both fields, not the full per-run ' +
-      'write log elsewhere in this file — the write log also carries the file(s) this tool only ' +
-      'MERGED into (' + (mergeNames.length ? mergeNames.join(', ') : 'none on this receipt') + '), ' +
+      'without you having to notice or read a warning first — and a file you chose to KEEP above keeps ' +
+      'its whole ancestor chain of these directories for the same reason: that is this design working, ' +
+      'not a failure to clean up. Use both fields, not the full per-run write log elsewhere in this ' +
+      'file — the write log also carries the file(s) this tool only MERGED into (' +
+      (mergeNames.length ? mergeNames.join(', ') : 'none on this receipt') + '), ' +
       'and merging is not removing: deleting one of those by path takes a file you owned before this ' +
       'tool ever ran, edited in place behind a fence, with it.' +
       (mergeNames.length
         ? ' Do NOT delete ' + mergeNames.join(' or ') + ' — see the step(s) below for how to undo those instead.'
         : '') +
-      ' READ THE LIST FIRST: a file listed under uninstall.remove.files that you have since edited is ' +
-      'still deleted outright, edits and all — the directory protection above only helps for content ' +
-      'you added AS A NEW PATH inside one of our directories, not for edits to a file already on the list.'
+      ' ANCHOR: ' + anchor.primary + ' ' + anchor.recordedRootIsSecondary + ' ' + anchor.literal
     );
   }
   if (didGitignore) {
-    steps.push(
-      'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" through "' +
-      GITIGNORE_FENCE_END + '", inclusive. Every byte you had above the fence is preserved — but what "restored" means afterward depends on what you had before this ' +
-      'tool ran: if your .gitignore was ABSENT, the merge is what created the file, so the correct ' +
-      'undo is deleting the file itself, not just the fence. If it existed but was EMPTY, the fence ' +
-      'was the first thing written into it and there is nothing further above it to restore. ' +
-      'Otherwise, deleting the fenced region leaves everything above it as your own content — though ' +
-      'if your file did not already end in a newline before this tool ran, one trailing newline the ' +
-      'merge added to terminate your last line may still remain; that is a cosmetic difference, not a ' +
-      'change to any of your text, and not something to hunt for. A single blank line often sits just ' +
-      'above the BEGIN marker after you delete the fence — the merge adds one when appending to a ' +
-      'non-empty file — but do not assume it is the merge\'s to remove: if your file already ended in ' +
-      'a blank line, that line was already yours and the merge added a second one, so which is which ' +
-      'is not visible from the text alone. Treat any such blank line as optional cosmetic residue you ' +
-      'MAY remove once you can see it should not be there, never as a byte this instruction is telling ' +
-      'you to delete.'
-    );
+    const kind = preMergeState['.gitignore'];
+    if (kind === 'absent') {
+      steps.push(
+        'In .gitignore — CHECK THE DIGEST FIRST, BEFORE YOU CHANGE ANYTHING. For THIS repository ' +
+        'the recorded pre-merge state is ABSENT: your .gitignore did not exist before this tool ' +
+        'ever ran, so the merge is what created the file and nothing above the fence was ever ' +
+        'yours. That still only licenses deleting the whole file while the file is unchanged since ' +
+        'we wrote it, so compare it against the digest recorded for .gitignore in runs[].wrote[] ' +
+        'BEFORE editing — once you delete the fenced region the digest can no longer match, and a ' +
+        'check made after that point always fails. If it MATCHES: DELETE THE FILE ITSELF; there is ' +
+        'nothing in it but ours. If it does NOT match: you have added ignore rules of your own ' +
+        'since, so KEEP the file and delete only the fenced region from "' + GITIGNORE_FENCE_BEGIN +
+        '" through "' + GITIGNORE_FENCE_END + '", inclusive — the same way step 1 keeps a ' +
+        'mismatched file.'
+      );
+    } else if (kind === 'whitespace-only') {
+      steps.push(
+        'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" through "' +
+        GITIGNORE_FENCE_END + '", inclusive. For THIS repository the recorded pre-merge state is ' +
+        'WHITESPACE-ONLY: your .gitignore existed but held only whitespace before this tool ran, so ' +
+        'the fence was the first real content written into it — there is nothing further above it to ' +
+        'restore. The file itself was yours, though, so KEEP it: delete the fenced region and leave ' +
+        'the file in place, whitespace and all.'
+      );
+    } else if (kind === 'content') {
+      steps.push(
+        'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" through "' +
+        GITIGNORE_FENCE_END + '", inclusive. For THIS repository the recorded pre-merge state is ' +
+        'CONTENT: every byte you had above the fence is preserved, and deleting the fenced region ' +
+        'leaves everything above it as your own content — though if your file did not already end in ' +
+        'a newline before this tool ran, one trailing newline the merge added to terminate your last ' +
+        'line may still remain; that is a cosmetic difference, not a change to any of your text, and ' +
+        'not something to hunt for. A single blank line often sits just above the BEGIN marker after ' +
+        'you delete the fence — the merge adds one when appending to a non-empty file — but do not ' +
+        'assume it is the merge\'s to remove: if your file already ended in a blank line, that line ' +
+        'was already yours and the merge added a second one, so which is which is not visible from ' +
+        'the text alone. Treat any such blank line as optional cosmetic residue you MAY remove once ' +
+        'you can see it should not be there, never as a byte this instruction is telling you to delete.'
+      );
+    } else {
+      // No pre-merge state was recorded for this receipt (an older receipt, from
+      // before this field existed). Hedge across all three possibilities rather
+      // than guessing — this is exactly what every receipt said before PART 4.
+      steps.push(
+        'In .gitignore, delete the fenced region from "' + GITIGNORE_FENCE_BEGIN + '" through "' +
+        GITIGNORE_FENCE_END + '", inclusive. Every byte you had above the fence is preserved — but what "restored" means afterward depends on what you had before this ' +
+        'tool ran: if your .gitignore was ABSENT, the merge is what created the file, so the correct ' +
+        'undo is deleting the file itself, not just the fence. If it existed but was EMPTY, the fence ' +
+        'was the first thing written into it and there is nothing further above it to restore. ' +
+        'Otherwise, deleting the fenced region leaves everything above it as your own content — though ' +
+        'if your file did not already end in a newline before this tool ran, one trailing newline the ' +
+        'merge added to terminate your last line may still remain; that is a cosmetic difference, not a ' +
+        'change to any of your text, and not something to hunt for. A single blank line often sits just ' +
+        'above the BEGIN marker after you delete the fence — the merge adds one when appending to a ' +
+        'non-empty file — but do not assume it is the merge\'s to remove: if your file already ended in ' +
+        'a blank line, that line was already yours and the merge added a second one, so which is which ' +
+        'is not visible from the text alone. Treat any such blank line as optional cosmetic residue you ' +
+        'MAY remove once you can see it should not be there, never as a byte this instruction is telling ' +
+        'you to delete. (No pre-merge state was recorded for this path — an older receipt.)'
+      );
+    }
   }
   if (didSettings) {
-    steps.push(
+    const kind = preMergeState['.claude/settings.json'];
+    let base =
       'In .claude/settings.json, remove the hook matcher groups recorded in ' + SETTINGS_SIDECAR +
       '. Nothing you had in that file was rewritten: the merge is per-key-path, so your own hooks ' +
       'are still in it and must stay. It appends to the hooks arrays — and where a container ' +
-      'did not exist it CREATES it, up to and including the whole settings file when you had ' +
-      'none. If this file did not exist before this tool ran, removing our groups leaves a ' +
-      'file that is entirely ours: delete it, and any now-empty hooks or event containers, ' +
-      'rather than leaving an empty shell behind. ' + SETTINGS_SIDECAR + ' is ' +
-      'deliberately NOT in uninstall.remove.files above — it is the only record telling our hook ' +
+      'did not exist it CREATES it, up to and including the whole settings file when you had none. ';
+    if (kind === 'absent' || kind === 'whitespace-only') {
+      base += 'For THIS repository the recorded pre-merge state is ' +
+        (kind === 'absent' ? 'ABSENT' : 'WHITESPACE-ONLY') + ': your .claude/settings.json ' +
+        (kind === 'absent' ? 'did not exist' : 'existed but held only whitespace') +
+        ' before this tool ran' +
+        (kind === 'whitespace-only'
+          ? ' — and merge_settings_json.py treats a whitespace-only file as no file at all and ' +
+            'rewrites it wholesale, so nothing of yours survived the merge either way'
+          : '') +
+        '. That makes the file OURS AS OF THE MERGE — but not necessarily as of now, and the ' +
+        'difference decides whether deleting it is safe. Remove our hook groups first, then LOOK ' +
+        'AT WHAT IS LEFT: if nothing remains but empty hooks/event containers, the file is still ' +
+        'entirely ours — delete it, and those empty containers, rather than leaving a shell ' +
+        'behind. If ANYTHING of yours is in there — a hook you added, a permission, any other ' +
+        'setting — KEEP the file and delete only the empty containers. This tool created the ' +
+        'file; it has no claim on what you put in it afterwards. ';
+    } else if (kind === 'content') {
+      base += 'For THIS repository the recorded pre-merge state is CONTENT: your ' +
+        '.claude/settings.json already held your own configuration before this tool ran, so once the ' +
+        'matcher groups it added are removed, KEEP the file — it is still yours. ';
+    } else {
+      base += 'If this file did not exist before this tool ran, removing our groups may leave a ' +
+        'file that is entirely ours. Decide by looking at what is left: delete it (and any ' +
+        'now-empty hooks or event containers) only if nothing of yours remains in it; if anything ' +
+        'of yours is there, keep the file. (No pre-merge state was recorded for this path — an ' +
+        'older receipt — so this one you have to read rather than resolve.) ';
+    }
+    // ── PART 3: CARDINALITY, NOT FORMAT. The sidecar stays exactly what it is —
+    // a per-event LIST of the canonical JSON strings this tool inserted, i.e. a
+    // multiset with implicit counts. A literal reading of "remove the groups
+    // recorded in the sidecar" is ambiguous only when the adopter has since
+    // added a group that is canonically IDENTICAL to one of ours: then there
+    // are two matching groups in settings.json and one entry in the sidecar for
+    // it, and the entry has to mean "remove one occurrence", not "remove every
+    // occurrence" — the two groups are behaviorally identical, so it does not
+    // matter WHICH one goes, only that exactly one does.
+    base += 'Cardinality, not format: each entry the sidecar lists removes exactly ONE matching ' +
+      'group from settings.json — any occurrence, since two canonically-identical hook groups are ' +
+      'behaviorally identical — so if you find two groups that are byte-for-byte identical to one of ' +
+      'ours, one of them is yours: remove one, keep one, never both. A kept duplicate will end up ' +
+      'referencing hook scripts that step 1 already deleted, which is a broken hook of your own ' +
+      'making, not this tool\'s. ';
+    base += SETTINGS_SIDECAR +
+      ' is deliberately NOT in uninstall.remove.files above — it is the only record telling our hook ' +
       'matcher groups apart from any hooks you added yourself, so it has to survive until you have ' +
       'read it here. Only once you have removed the matcher groups it names, delete ' +
-      SETTINGS_SIDECAR + ' itself — last, in this step, not in step 1.'
-    );
+      SETTINGS_SIDECAR + ' itself — last, in this step, not in step 1.';
+    steps.push(base);
   }
   if (didClaudeMd) {
     steps.push(
@@ -291,7 +510,15 @@ function uninstallProcedure(receipt) {
     // as "safe to rm -rf". Step 1 above names both by these exact key names, so
     // the step and this field can never drift apart.
     remove: { files: fileList, dirsIfEmpty: dirList },
+    // PART 2. Restated here as data, not only inside step 1's prose, so a reader
+    // (human or agent) parsing the receipt as JSON gets the anchor without
+    // having to regex it out of a paragraph.
+    anchor: anchor,
     steps: steps,
+    // PART 4, recorded for uniformity even where it never changes the narration
+    // (CLAUDE.md: `existed` is always true, since apply.js never creates one —
+    // so its kind only ever distinguishes cosmetic whitespace-only vs. content).
+    preMergeState: preMergeState,
     notRemovedByThis: 'Nothing under .brain/, features/, specs/ or artifacts/ that YOU ' +
       'created is named above; this tool never wrote it. Content you added inside a ' +
       'directory we created is likewise yours — check before you remove the directory.'
@@ -672,6 +899,13 @@ function apply(opts) {
     node: fresh.generator.nodeVersion,
     payloadSource: fresh.payload.source,
     only: opts.only.slice(),
+    // PART 2 — SECONDARY evidence for the uninstall procedure's path anchor
+    // (uninstallProcedure() above). The receipt's OWN directory is the primary
+    // anchor; this absolute path is only useful to notice that the repo moved.
+    // Tradeoff, stated once here rather than repeated at every call site: this
+    // is an absolute path on the machine that ran the install, and it now lands
+    // in a file the adopter may commit.
+    root: rootReal,
     // RECORDED, so a re-run and an uninstall both know what happened. The
     // resolved mode is what was executed; the requested one is what was typed,
     // and they differ exactly when the collapse rule fired.
@@ -892,7 +1126,10 @@ function applyHarness(units, ctx, run, result, p, opts) {
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     const out = { wrote: [], skipped: [] };
     copyTree(src, dst, u.targetPath, ctx, out);
-    for (const w of out.wrote) { run.wrote.push({ target: 'harness', path: w.path, kind: w.kind }); result.wrote.push(w); }
+    // PART 1: forward `sha256` too — copyTree already computed it (fsops.js,
+    // write branch only); reconstructing this object without it is exactly how
+    // a new field never reaches the receipt.
+    for (const w of out.wrote) { run.wrote.push({ target: 'harness', path: w.path, kind: w.kind, sha256: w.sha256 }); result.wrote.push(w); }
     for (const s of out.skipped) { run.skipped.push(s); result.skipped.push(s); }
     p(`      WROTE ${u.targetPath}${u.renamedFrom ? `   (from ${u.renamedFrom})` : ''}  — ${out.wrote.length} entr${out.wrote.length === 1 ? 'y' : 'ies'}` +
       (out.skipped.length ? `, ${out.skipped.length} skipped` : ''));
@@ -938,6 +1175,9 @@ function applyGitignore(units, ctx, run, result, p, opts, root, pkgRoot) {
 
   const target = path.join(ctx.rootReal, '.gitignore');
   assertWritableTarget(ctx.rootReal, target);
+  // PART 4: read BEFORE the merge touches the file — this is the only moment
+  // that answers "what did the adopter have here before this tool EVER ran".
+  const preState = classifyPreMergeState(target);
   if (opts.dryRunWrites) { p('      WOULD append the fenced harness block to .gitignore'); return; }
 
   const r = spawnAllowed('bash', [script, '--target', target, '--block', block, '--write'], { cwd: root });
@@ -957,6 +1197,7 @@ function applyGitignore(units, ctx, run, result, p, opts, root, pkgRoot) {
     // afterwards" — and block on the second. See lib/selfcaused.js.
     run.wrote.push({ target: 'gitignore', path: '.gitignore', kind: 'merge',
       digest: fsops.sha256File(target),
+      preState: preState,
       region: 'the fenced "LogicLoom adopt — managed block"' });
     result.wrote.push({ path: '.gitignore' });
     p(`      MERGED .gitignore — the shipped harness block (${blockPatterns.length} patterns, ${willLand.length} of them new to you)`);
@@ -1010,8 +1251,9 @@ function applyRules(units, ctx, run, result, p, opts, root, fresh) {
     if (opts.dryRunWrites) { p(`      WOULD ${u.targetPath}`); continue; }
     fs.mkdirSync(path.dirname(dst), { recursive: true });
     copyFileNew(src, dst, 0o644);
-    run.wrote.push({ target: 'rules', path: u.targetPath, kind: 'file' });
-    result.wrote.push({ path: u.targetPath, kind: 'file' });
+    const sha = fsops.sha256File(dst);
+    run.wrote.push({ target: 'rules', path: u.targetPath, kind: 'file', sha256: sha });
+    result.wrote.push({ path: u.targetPath, kind: 'file', sha256: sha });
     installed.push(u.targetPath);
     p(`      WROTE ${u.targetPath}`);
   }
@@ -1038,6 +1280,12 @@ function applyRules(units, ctx, run, result, p, opts, root, fresh) {
   }
 
   const before = fs.readFileSync(target, 'utf8');
+  // PART 4: `existed` is always true here — this branch is only reached once
+  // detectLib.statKind(target) === 'file' has already been confirmed above, and
+  // this tool never creates CLAUDE.md — so this only ever decides cosmetic
+  // narration (whitespace-only vs. content), never a delete-the-file branch.
+  // Recorded for uniformity with the other two merge targets anyway.
+  const preState = before.trim() === '' ? 'whitespace-only' : 'content';
   if (claudeMdLib.hasBlock(before)) {
     run.skipped.push({ target: 'rules', path: 'CLAUDE.md',
       why: 'the managed @import block is already present (no-op)' });
@@ -1058,6 +1306,7 @@ function applyRules(units, ctx, run, result, p, opts, root, fresh) {
   fs.appendFileSync(target, suffix, 'utf8');
   run.wrote.push({ target: 'rules', path: 'CLAUDE.md', kind: 'merge',
     digest: fsops.sha256File(target),
+    preState: preState,
     region: 'the fenced "LogicLoom adopt — managed block"' });
   result.wrote.push({ path: 'CLAUDE.md' });
   p(`      MERGED CLAUDE.md — one marked block, ${all.length} @import line(s), appended at the end.`);
@@ -1102,6 +1351,8 @@ function applyHooks(units, ctx, run, result, p, opts, root, pkgRoot) {
 
   const target = path.join(ctx.rootReal, '.claude', 'settings.json');
   assertWritableTarget(ctx.rootReal, target);
+  // PART 4: read BEFORE the merge touches the file — see classifyPreMergeState.
+  const preState = classifyPreMergeState(target);
   if (opts.dryRunWrites) { p(`      WOULD register ${units.length} governance hook command(s) in .claude/settings.json`); return; }
 
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -1118,8 +1369,10 @@ function applyHooks(units, ctx, run, result, p, opts, root, pkgRoot) {
   } else {
     run.wrote.push({ target: 'hooks', path: '.claude/settings.json', kind: 'merge',
       digest: fsops.sha256File(target),
+      preState: preState,
       region: '.claude/.logicloom-adopt-settings.json records exactly what was inserted' });
-    run.wrote.push({ target: 'hooks', path: '.claude/.logicloom-adopt-settings.json', kind: 'file' });
+    run.wrote.push({ target: 'hooks', path: '.claude/.logicloom-adopt-settings.json', kind: 'file',
+      sha256: fsops.sha256File(path.join(ctx.rootReal, SETTINGS_SIDECAR)) });
     result.wrote.push({ path: '.claude/settings.json' });
     p(`      MERGED .claude/settings.json — ${units.length} governance hook command(s) added additively.`);
     p('             No key of yours was set, removed, or reordered. Provenance is in');
@@ -1132,6 +1385,6 @@ module.exports = {
   apply, applyRules, TARGETS, ALL_TARGETS, IN_ALL, parseOnly, planDivergence,
   isSecretShaped, insideRoot, assertWritableTarget, copyTree, spawnAllowed,
   SPAWN_ALLOWLIST, SELF_CAUSED, RECEIPT_SCHEMA, RECEIPT_NAME,
-  readReceipt, priorRun, effectiveBlocking,
+  readReceipt, priorRun, effectiveBlocking, classifyPreMergeState,
   uninstallProcedure, GITIGNORE_FENCE_BEGIN, GITIGNORE_FENCE_END, SETTINGS_SIDECAR
 };

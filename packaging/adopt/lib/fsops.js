@@ -153,8 +153,18 @@ function copyTree(srcAbs, dstAbs, rel, ctx, out) {
     out.skipped.push({ path: rel, why: 'REFUSE-EXISTS: a file is already here and it is yours; move it aside yourself if you want ours' });
     return;
   }
-  if (!ctx.predictOnly) copyFileNew(srcAbs, dstAbs, st.mode & 0o777);
-  out.wrote.push({ path: rel, kind: 'file' });
+  // REFUSAL-8-ADJACENT: a per-file content hash, so a later uninstall can tell
+  // "still exactly what we left" from "the adopter has since made it theirs".
+  // Computed ONLY in the write branch — `ctx.predictOnly` runs this same walk to
+  // resolve the plan's `counts.wouldWrite` before the destination exists at all
+  // (see lib/bookkeeping.js), so there is nothing to hash there. A predicted
+  // entry omits the field rather than lying with a hash of nothing.
+  const entry = { path: rel, kind: 'file' };
+  if (!ctx.predictOnly) {
+    copyFileNew(srcAbs, dstAbs, st.mode & 0o777);
+    entry.sha256 = sha256File(dstAbs);
+  }
+  out.wrote.push(entry);
 }
 
 // ── content provenance for the merge targets (see lib/selfcaused.js) ─────────

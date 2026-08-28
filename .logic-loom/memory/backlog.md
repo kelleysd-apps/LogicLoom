@@ -922,7 +922,7 @@ A written-down counter in a two-file stream is wrong the first time someone
 appends to the other file, and nothing tells them. The derivation cannot drift
 because there is nothing to drift from.
 
-- [ ] LOOM-0043 — Make the uninstall procedure's delete list safe for a file the adopter has since made theirs `status:open`
+- [x] LOOM-0043 — Make the uninstall procedure's delete list safe for a file the adopter has since made theirs `status:done`
       Filed 2026-08-28, from the adopt smoke test's second full run. Two
       INDEPENDENT adversarial reviewers (a Fable advisor and `codex exec`, run
       without sight of each other) converged on the same residual: after the
@@ -940,10 +940,12 @@ because there is nothing to drift from.
       the digest still matches; a mismatch means the file is yours now. That
       converts a prose warning a script ignores into a check a script can run.
       Cost is hashing ~400 small files at install, negligible.
-      NOT shipped in this pass deliberately: it changes the receipt schema and
-      the merge-time write path, and the smoke test in front of it needed the
-      confirmed data-loss paths closed rather than a schema change rushed in
-      beside them. The confirmed paths ARE closed and verified (merge targets
+      SHIPPED 2026-08-28. All four parts landed, plus four defects found in
+      review of the fix itself (see the commit). The receipt schema was NOT
+      bumped — verified by running it: an unrecognized schema makes the receipt
+      look like a foreign file at that path, a blocking precondition, and
+      re-apply REFUSES with exit 1 for every existing adopter. Fields are
+      additive within @1. The confirmed paths ARE closed and verified (merge targets
       and the settings sidecar excluded from the delete list; directories split
       into `dirsIfEmpty` with non-recursive `rmdir`).
       Also in scope, same reviewers, lower severity:
