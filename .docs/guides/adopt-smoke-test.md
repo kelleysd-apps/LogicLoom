@@ -100,9 +100,19 @@ and that contradiction is itself a finding worth reporting.
 
 ```
 cd /path/to/test-project
-npx $LOOM init . --json > /tmp/plan.json
+export PLAN=$PWD/.logicloom-plan.json          # per-repo, not a shared /tmp path
+npx $LOOM init . --json > "$PLAN"
+test -s "$PLAN" || echo "PLAN was not written — stop; every later check reads it"
 npx $LOOM init .                      # the human report, for your user
 ```
+
+`$PLAN` lives beside the repo rather than at `/tmp/plan.json` because a fixed
+shared path is one a *previous* run — yours or someone else's — may already have
+filled in with a plan for a different repo. Check 5 reads this file; if it reads
+a stale one it will reconcile two unrelated runs and print confident nonsense.
+The guard in check 5 catches that even if you skip this, but a per-repo path
+means there is nothing to catch. Delete it when you are done — it is yours, not
+the tool's, and it is not in the receipt.
 
 **Report to your user, in your own words:** the mode it chose and why, the four
 bucket counts, anything blocking, and each entry in `decisions[]` — the question,
@@ -169,14 +179,49 @@ and stop, rather than editing `.gitignore` further to make it pass.
 
 **Check 5's commands.** `runs[].wrote[].path` lives in the receipt the apply
 wrote, `.logicloom-adopt-receipt.json`. `python3` rather than `jq`, because
-`jq` is not guaranteed present:
+`jq` is not guaranteed present.
+
+**Both blocks start by asserting the plan is for THIS repo.** A plan from
+another repository reconciles against this receipt perfectly happily — no
+exception, no warning, just a long list of confident wrong paths. That is the
+worst failure available here, because it looks exactly like a real finding. If
+you see a `STOP:` line, the numbers below it were never printed: re-run step 2
+and start check 5 again. Do not edit the guard out to get past it.
 
 ```bash
-python3 -c "import json;p=json.load(open('/tmp/plan.json'));print('plan wouldWrite:',p['counts']['wouldWrite']['total'])"
+python3 - <<'PY'
+import json, os, sys
+# The plan says which repo it was made for. Assert it is THIS one before
+# trusting a single number out of it: a plan for another repo reconciles
+# against this receipt without erroring and prints authoritative garbage.
+# realpath both sides — on macOS /tmp is a symlink to /private/tmp, and the
+# tool records the resolved path.
+if not os.environ.get('PLAN'):
+    sys.exit('STOP: $PLAN is not set. Re-run step 2.')
+try:
+    plan = json.load(open(os.environ['PLAN']))
+except Exception as e:
+    sys.exit('STOP: cannot read $PLAN (%s). Re-run step 2.' % e)
+root = plan.get('target', {}).get('root')
+if not root or os.path.realpath(root) != os.path.realpath(os.getcwd()):
+    sys.exit('STOP: plan targets %r, cwd is %r. Re-run step 2 before check 5.'
+             % (root, os.getcwd()))
+print('plan target ok:', root)
+print('plan wouldWrite:', plan['counts']['wouldWrite']['total'])
+PY
 
 python3 - <<'PY'
-import json
-plan = json.load(open('/tmp/plan.json'))
+import json, os, sys
+if not os.environ.get('PLAN'):
+    sys.exit('STOP: $PLAN is not set. Re-run step 2.')
+try:
+    plan = json.load(open(os.environ['PLAN']))
+except Exception as e:
+    sys.exit('STOP: cannot read $PLAN (%s). Re-run step 2.' % e)
+root = plan.get('target', {}).get('root')
+if not root or os.path.realpath(root) != os.path.realpath(os.getcwd()):
+    sys.exit('STOP: plan targets %r, cwd is %r. Re-run step 2 before check 5.'
+             % (root, os.getcwd()))
 rec  = json.load(open('.logicloom-adopt-receipt.json'))
 
 # The receipt records the writes, so it is never itself in `wrote`. The plan
