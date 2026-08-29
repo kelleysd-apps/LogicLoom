@@ -120,13 +120,25 @@ if [ "$PKG_TRACKED" = yes ] && [ -f "$PKG_JSON" ]; then
     # What CAN be asserted is that the docs describe the state honestly: the gate
     # is open, and the command does not work yet. Removing the caveat is a
     # maintainer action at publish time, together with this assertion.
+    # STATE 3 SINCE 2026-08-29: logicloom@6.6.0 is on the registry, so the
+    # caveat is now FALSE and must be gone — a stale "this does not resolve" is
+    # the same defect as the false claim it replaced, pointing the other way.
+    #
+    # This branch is flipped BY THE MAINTAINER at first publish, not detected:
+    # whether a name is on the registry needs a network call, and this suite
+    # makes none. Verified before flipping, on a clean npm cache with no global
+    # install shadowing the registry copy: `npx logicloom init .` planned
+    # applyReady with no errors, both applies exited 0, and the installed
+    # harness passed its own constitutional-check.
     for f in "$README" "$START"; do
       n="${f#$ROOT/}"
-      assert "$n still tells the reader \`npx logicloom\` does not work yet (publishable != published)" \
-        "grep -qiE 'does not resolve|not (yet )?(been )?published' '$f'"
-      assert "$n says the gate is open / publication is pending, not that it is private" \
+      assert "$n no longer claims \`npx logicloom\` fails to resolve" \
+        "! grep -qi 'does not resolve' '$f'"
+      assert "$n does not still describe the package as private" \
         "! grep -qi \"package is .private: true\" '$f'"
-      assert "$n still gives the form that works today (running out of a checkout)" \
+      assert "$n presents \`npx logicloom init\` as a runnable command" \
+        "grep -qE 'npx logicloom init' '$f'"
+      assert "$n still documents the checkout form (maintainers and payload work)" \
         "grep -q 'packaging/adopt' '$f'"
     done
   fi
