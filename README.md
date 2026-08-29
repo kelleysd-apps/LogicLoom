@@ -24,9 +24,11 @@ three situations. Pick the row that describes you.
 
 ### The CLI is not published yet — how to run it TODAY
 
-`npx logicloom` **does not resolve.** The package is `private: true` and has
-never been published, so that command fails for everyone including us. It is
-written here as the shape it will have, not as an instruction to type.
+`npx logicloom` **does not resolve yet.** The publication gate is now open —
+the package is no longer marked private — but the name has not been published to
+npm, so that command still fails for everyone including us. It is written here
+as the shape it will have, not as an instruction to type. This line changes when
+the first publish lands, not when the gate opens; those are two different days.
 
 What works today is running it out of a LogicLoom checkout, which is also the
 only form that has a payload to install:

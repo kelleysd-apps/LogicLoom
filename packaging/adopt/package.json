@@ -31,7 +31,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "private": true,
+  "private": false,
   "keywords": [
     "logicloom",
     "claude-code",

@@ -103,12 +103,31 @@ if [ "$PKG_TRACKED" = yes ] && [ -f "$PKG_JSON" ]; then
     assert "START_HERE warns the same" \
       "grep -qi 'tarball' '$START'"
   else
-    # Published. The caveat is now FALSE and must be gone — a stale "this is not
-    # published" is the same defect pointing the other way.
+    # THERE ARE THREE STATES HERE, AND THIS BRANCH USED TO COLLAPSE TWO OF THEM.
+    # It was labelled "Published" and required the "does not resolve" caveat to
+    # be GONE — but its condition only establishes `private: false`, which means
+    # PUBLISHABLE, not published. Between the maintainer opening the gate and the
+    # first `npm publish` landing, `npx logicloom` still 404s for everyone, and
+    # deleting the caveat to satisfy this assertion would have put a false claim
+    # in the two files a new reader starts from.
+    #
+    #   private: true            -> not publishable, does not resolve
+    #   private: false, not sent -> publishable, STILL does not resolve  <- here
+    #   on the registry          -> resolves
+    #
+    # Whether the name is actually ON the registry cannot be determined offline,
+    # and this suite makes no network call, so it cannot be asserted here at all.
+    # What CAN be asserted is that the docs describe the state honestly: the gate
+    # is open, and the command does not work yet. Removing the caveat is a
+    # maintainer action at publish time, together with this assertion.
     for f in "$README" "$START"; do
       n="${f#$ROOT/}"
-      assert "$n no longer claims the package is unpublished (it is not private any more)" \
-        "! grep -qi 'does not resolve' '$f'"
+      assert "$n still tells the reader \`npx logicloom\` does not work yet (publishable != published)" \
+        "grep -qiE 'does not resolve|not (yet )?(been )?published' '$f'"
+      assert "$n says the gate is open / publication is pending, not that it is private" \
+        "! grep -qi \"package is .private: true\" '$f'"
+      assert "$n still gives the form that works today (running out of a checkout)" \
+        "grep -q 'packaging/adopt' '$f'"
     done
   fi
 else

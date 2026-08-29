@@ -456,8 +456,20 @@ ADOPT_PJ="$ROOT/packaging/adopt/package.json"
 if [ ! -f "$ADOPT_PJ" ]; then
   skip "packaging/adopt/package.json (packaging/ is removed by the strip)"
 else
-assert "packaging/adopt/package.json is still marked private (the deliberate gate)" \
-  "grep -q '\"private\": true' \"\$ADOPT_PJ\""
+# THE GATE HAS BEEN OPENED, DELIBERATELY, AND THAT IS NOW WHAT THIS PINS.
+# `private: true` was the first-publication gate: while it was set, the name was
+# not claimed on npm and nothing could be published. Flipping it is the
+# maintainer's decision, made in the file, in a commit, on the record — which is
+# what this assertion now records. It is `false` EXPLICITLY rather than absent,
+# so deleting the key (which npm also treats as publishable) is still a change
+# this suite notices rather than a silent equivalence.
+assert "packaging/adopt/package.json declares private:false explicitly (the gate was opened on purpose)" \
+  "grep -q '\"private\": false' \"\$ADOPT_PJ\""
+# The gate STEP must survive the flag. If someone re-adds `private: true` later,
+# the workflow has to keep refusing with its own typed reason rather than failing
+# at the registry with something that reads like an auth error.
+assert "publish-adopt.yml still carries its explicit private-gate step" \
+  "grep -q 'refuse to publish while the package is marked private' \"\$ROOT/.github/workflows/publish-adopt.yml\""
 assert "its version is the 0.0.0-dev placeholder the workflow overwrites" \
   "grep -q '\"version\": \"0.0.0-dev\"' \"\$ADOPT_PJ\""
 assert "it declares the repository npm provenance needs" \
