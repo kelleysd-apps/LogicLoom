@@ -920,6 +920,31 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       NOT done in this pass deliberately: the confirmed hole (silent fail-open
       of the whole floor on a slim container) is closed, and the remaining items
       need a parse-state redesign rather than another grep.
+- [ ] LOOM-0045 — logicloom@6.6.0 on npm was built locally, not by CI, and is two files short `status:open`
+      Filed 2026-08-29, at first publication. Not a defect in the release; a
+      consequence of bootstrapping the name by hand.
+      npm has no name-reservation mechanism and npm's trusted-publisher settings
+      page needs the package to exist before it can be configured, so the FIRST
+      publish of `logicloom` had to be a manual one. The tarball published was
+      the one built and verified locally, which carries 276 payload files. CI's
+      own assembly of the same tag produces 278 — verified in the publish-adopt
+      run for v6.6.0, whose assembly step succeeded and whose completeness gate
+      passed.
+      The two files are `plugins/loom-memory/{recall,working}/.gitkeep`. The
+      local repro dropped them because it re-initialised a git repo over the
+      extracted tag tree and then used `git ls-files`, which honours that tree's
+      own `.gitignore` — the same rules that make those paths invisible to
+      `git status`, already documented in the adopt smoke-test brief. CI checks
+      the tag out directly and sees all 383 tracked files.
+      IMPACT: none that persists. `_retention_ensure_dirs` in
+      `plugins/loom-memory/lib/retention.sh` does `mkdir -p` and recreates the
+      `.gitkeep` files on first use. Verified against the registry install:
+      retention.sh exits 0 and constitutional-check passes.
+      RESOLVES ITSELF at the next release, which CI builds — provided the
+      trusted publisher is configured first, which is the actual open action
+      here. Do NOT republish 6.6.0: npm refuses an overwrite, and the difference
+      is two placeholder files the harness recreates.
+
 
 
 ## Provenance
