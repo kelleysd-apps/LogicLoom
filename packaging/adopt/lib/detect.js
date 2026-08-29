@@ -13,6 +13,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const gitro = require('./git-ro');
 
 const UNKNOWN = 'unknown';
@@ -59,6 +60,14 @@ function detectGit(root) {
     inProgress: [],             // rebase / merge / cherry-pick / revert / bisect
     porcelain: null,            // raw `git status --porcelain` lines, or null
     trackedCount: UNKNOWN,
+    // `git rev-parse --show-toplevel` for THIS root, regardless of which of
+    // the three isGitRepo paths below found it. Used by preconditions.js to
+    // catch a NESTED install — `root` is a git work tree, but not its own
+    // toplevel, meaning it is a subdirectory of a larger repo (a monorepo
+    // package, say). payload-manifest.txt already declares nested installs
+    // unsupported: every installed hook command is cwd-relative, so hooks
+    // invoked from the real repo root would never find what got written here.
+    toplevel: UNKNOWN,
     reason: null
   };
 
@@ -81,6 +90,12 @@ function detectGit(root) {
   } catch (e) {
     g.gitAvailable = false; g.reason = e.message; return g;
   }
+
+  // One extra call, always made once `isGitRepo` is settled — the subdirectory
+  // branch above already ran the same verb to answer a DIFFERENT question
+  // (is this a repo at all?); this answers "is `root` the repo's OWN root?".
+  const top = gitro.tryLine(root, ['rev-parse', '--show-toplevel']);
+  g.toplevel = top || UNKNOWN;
 
   // Commits present?
   const headSha = gitro.tryLine(root, ['rev-parse', '--verify', '--quiet', 'HEAD']);
@@ -194,6 +209,247 @@ function statusFor(statusMap, relPath) {
     if (p !== entry && target.indexOf(entry + '/') === 0) hits.push(rec);
   }
   return hits;
+}
+
+// ── execution environment ────────────────────────────────────────────────────
+// What would actually RUN an apply on the adopter's machine, as opposed to
+// everything above (which is about their REPO). Same rule as the rest of this
+// file: report what was found, never guess, never throw, never write.
+//
+// PRESENCE ON PATH IS NOT ENOUGH for python3 — a stub, a wrapper, or (on
+// Windows) the App Execution Alias can sit on PATH, exit 0, and do nothing. So
+// python3 is PROBED: actually invoked with a short timeout and the answer it
+// gives is what gets recorded, not the mere fact that a file exists.
+//
+// bash is resolved the same way the adopter's shell WOULD resolve it — via
+// PATH, not `/bin/bash` — because the shipped scripts are invoked as
+// `#!/usr/bin/env bash`, and on macOS a Homebrew bash on PATH can be an
+// entirely different major version from the stock `/bin/bash`.
+//
+// Every probe is bounded (short timeout, no shell, argv array — the same
+// spawn discipline lib/apply.js's spawnAllowed() and lib/git-ro.js's run()
+// already use) and every failure mode — not found, found but exits non-zero,
+// found but times out, found but answers something unparseable — resolves to
+// a recorded fact, never a thrown exception. detect() has no permission to
+// throw; a probe that can't answer just says so.
+const ENV_PROBE_TIMEOUT_MS = 3000;
+
+// Resolve `exe` the way PATH lookup would, for REPORTING only — this is not
+// the mechanism that runs anything (spawnSync below does its own PATH
+// resolution independently); it exists purely so the recorded fact names
+// WHICH executable would run, since two different `bash`es on the same
+// machine can be different major versions.
+function resolveOnPath(exe) {
+  const pathEnv = process.env.PATH || '';
+  const dirs = pathEnv.split(path.delimiter).filter(Boolean);
+  const exts = process.platform === 'win32'
+    ? (process.env.PATHEXT || '.EXE;.CMD;.BAT').split(';')
+    : [''];
+  for (const d of dirs) {
+    for (const ext of exts) {
+      const candidate = path.join(d, exe + ext);
+      try {
+        fs.accessSync(candidate, fs.constants.X_OK);
+        return candidate;
+      } catch (e) { /* not this one */ }
+    }
+  }
+  return null;
+}
+
+// Bounded spawn: no shell, argv array, short timeout, and every failure mode
+// (missing, spawn error, timeout, non-zero exit) comes back as data.
+function runBounded(exe, args) {
+  let r;
+  try {
+    r = spawnSync(exe, args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: ENV_PROBE_TIMEOUT_MS,
+      maxBuffer: 1024 * 1024,
+      shell: false
+    });
+  } catch (e) {
+    return { ok: false, reason: 'threw: ' + e.message };
+  }
+  if (r.error) {
+    if (r.error.code === 'ENOENT') return { ok: false, reason: 'not found' };
+    return { ok: false, reason: 'spawn error: ' + r.error.message };
+  }
+  if (r.signal) return { ok: false, reason: 'timed out (killed with ' + r.signal + ')' };
+  return {
+    ok: r.status === 0,
+    status: typeof r.status === 'number' ? r.status : -1,
+    stdout: String(r.stdout || '').trim(),
+    stderr: String(r.stderr || '').trim()
+  };
+}
+
+function probePython3() {
+  const resolvedPath = resolveOnPath('python3');
+  const rec = { name: 'python3', resolvedPath, present: resolvedPath !== null, usable: false, version: UNKNOWN, detail: null };
+  if (!resolvedPath) { rec.detail = 'not found on PATH'; return rec; }
+  const r = runBounded('python3', ['-c', 'import sys; print(sys.version_info[0], sys.version.split()[0])']);
+  if (!r.ok) {
+    rec.detail = 'found on PATH at ' + resolvedPath + ' but could not be run (' +
+      (r.reason || ('exited ' + r.status + (r.stderr ? ': ' + r.stderr.slice(0, 200) : ''))) + ')';
+    return rec;
+  }
+  const parts = r.stdout.split(/\s+/);
+  const major = parts[0];
+  const version = parts[1] || UNKNOWN;
+  rec.version = version;
+  // Anything that is not a bare major digit means the thing on PATH did not
+  // answer the question we asked — a wrapper, a shim, a Windows Store alias, a
+  // Python 2 whose print syntax made this a tuple. Say THAT, rather than
+  // interpolating its output into a sentence shaped like a version report:
+  // a stub echoing "Python 2.7.18" produced "reports Python Python (2.7.18)".
+  if (!/^[0-9]+$/.test(major)) {
+    rec.detail = 'found on PATH at ' + resolvedPath + ' but did not answer a ' +
+      'version probe in the expected form (got ' + JSON.stringify(r.stdout.slice(0, 120)) +
+      ') — treat it as present but unusable';
+    return rec;
+  }
+  if (major !== '3') {
+    rec.detail = 'found on PATH at ' + resolvedPath + ' but reports Python ' + major +
+      ' (' + version + '), not Python 3 — present but unusable';
+    return rec;
+  }
+  rec.usable = true;
+  rec.detail = 'usable — Python ' + version + ' at ' + resolvedPath;
+  return rec;
+}
+
+function probeBash() {
+  const resolvedPath = resolveOnPath('bash');
+  const rec = { name: 'bash', resolvedPath, present: resolvedPath !== null, usable: false, version: UNKNOWN, detail: null };
+  if (!resolvedPath) {
+    rec.detail = 'not found on PATH — the .gitignore merge and the installed hooks need bash';
+    return rec;
+  }
+  // Resolved via PATH (not /bin/bash) on purpose: `#!/usr/bin/env bash` means
+  // PATH decides which bash runs, and that is the one worth reporting.
+  const r = runBounded('bash', ['-c', 'printf %s "$BASH_VERSION"']);
+  if (!r.ok || !r.stdout) {
+    rec.detail = 'found on PATH at ' + resolvedPath + ' but could not be run (' +
+      (r.reason || 'reported no $BASH_VERSION') + ')';
+    return rec;
+  }
+  rec.version = r.stdout;
+  rec.usable = true;
+  rec.detail = 'usable — bash ' + r.stdout + ' at ' + resolvedPath +
+    ' (the shipped merge scripts target the 3.2 floor; any bash >= 3.2 is fine)';
+  return rec;
+}
+
+function probeGit() {
+  const resolvedPath = resolveOnPath('git');
+  const rec = { name: 'git', resolvedPath, present: resolvedPath !== null, usable: false, version: UNKNOWN, detail: null };
+  if (!resolvedPath) { rec.detail = 'not found on PATH'; return rec; }
+  const r = runBounded('git', ['--version']);
+  if (!r.ok || !r.stdout) {
+    rec.detail = 'found on PATH at ' + resolvedPath + ' but `git --version` failed (' + (r.reason || 'exit ' + r.status) + ')';
+    return rec;
+  }
+  const m = /version\s+(\S+)/.exec(r.stdout);
+  rec.version = m ? m[1] : r.stdout;
+  rec.usable = true;
+  rec.detail = 'usable — ' + r.stdout + ' at ' + resolvedPath;
+  return rec;
+}
+
+// jq — PRESENCE ONLY, no invocation. Unlike python3/bash it is never spawned
+// by this package (it is not on lib/apply.js's SPAWN_ALLOWLIST and this change
+// does not add it there just to print a version string); it matters only to
+// hooks the PAYLOAD installs and runs in later Claude Code sessions, long
+// after this planner has exited. A PATH lookup is the whole probe.
+function probeJq() {
+  const resolvedPath = resolveOnPath('jq');
+  return {
+    name: 'jq',
+    resolvedPath,
+    present: resolvedPath !== null,
+    usable: resolvedPath !== null,
+    version: UNKNOWN,
+    detail: resolvedPath !== null ? ('found on PATH at ' + resolvedPath) : 'not found on PATH'
+  };
+}
+
+// The floor this PACKAGE declares for itself, read from its own package.json
+// rather than threaded through as an argument — detect() is called with just a
+// target root everywhere in this codebase, so this is the one way to get the
+// declared floor into a detection that runs before any --only is known.
+function readDeclaredNodeFloor() {
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    return (pkg.engines && pkg.engines.node) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function parseSemver(v) {
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(String(v));
+  if (!m) return null;
+  return [parseInt(m[1], 10), parseInt(m[2], 10), parseInt(m[3], 10)];
+}
+
+// true/false, or UNKNOWN when either side does not parse as semver.
+function meetsFloor(runningVersion, floorSpec) {
+  const running = parseSemver(runningVersion);
+  const floor = parseSemver(floorSpec);
+  if (!running || !floor) return UNKNOWN;
+  for (let i = 0; i < 3; i++) {
+    if (running[i] > floor[i]) return true;
+    if (running[i] < floor[i]) return false;
+  }
+  return true;
+}
+
+function probeNode() {
+  const declaredFloor = readDeclaredNodeFloor();
+  const running = process.version;
+  const meets = declaredFloor ? meetsFloor(running, declaredFloor) : UNKNOWN;
+  return {
+    name: 'node',
+    resolvedPath: process.execPath,
+    present: true,
+    usable: true,
+    version: running,
+    declaredFloor: declaredFloor || UNKNOWN,
+    meetsFloor: meets,
+    detail: !declaredFloor
+      ? 'running ' + running + '; the package\'s declared floor could not be read'
+      : 'running ' + running + (meets === false
+        ? ' — BELOW the declared floor ' + declaredFloor
+        : ' — meets the declared floor ' + declaredFloor)
+  };
+}
+
+// Never throws. Every probe above already resolves its own failures to data,
+// but this is a second belt: a probe function throwing for an unanticipated
+// reason must still leave detect() returning a plan, not an exception.
+function safeProbe(fn, name) {
+  try {
+    return fn();
+  } catch (e) {
+    return { name, resolvedPath: null, present: UNKNOWN, usable: false, version: UNKNOWN, detail: 'probe threw: ' + e.message };
+  }
+}
+
+function detectEnvironment() {
+  return {
+    python3: safeProbe(probePython3, 'python3'),
+    bash: safeProbe(probeBash, 'bash'),
+    git: safeProbe(probeGit, 'git'),
+    node: safeProbe(probeNode, 'node'),
+    jq: safeProbe(probeJq, 'jq'),
+    // No `process.platform` check exists anywhere else in this package. Both
+    // merge scripts and every installed hook are POSIX shell, cwd-relative
+    // `.sh`; there is no native-Windows code path. Recorded here so a Windows
+    // adopter sees the honest posture before anything else does.
+    platform: process.platform
+  };
 }
 
 // ── target-repo surface detection ────────────────────────────────────────────
@@ -455,12 +711,18 @@ function detect(root) {
     mode: detectMode(abs),
     statusMap: parsePorcelain(git.porcelain),
     surfaces: detectSurfaces(abs),
-    adoption: detectAdoption(abs)
+    adoption: detectAdoption(abs),
+    // The ADOPTER'S execution environment, not their repo — see "execution
+    // environment" above. Independent of `root`: this is a fact about the
+    // machine running the planner, not about the target directory.
+    environment: detectEnvironment()
   };
 }
 
 module.exports = {
   detect, detectGit, detectSurfaces, detectAdoption, detectMode,
   parsePorcelain, statusFor, statKind, readTextOrNull, readJsonReport,
+  detectEnvironment, probePython3, probeBash, probeGit, probeNode, probeJq,
+  resolveOnPath, meetsFloor, readDeclaredNodeFloor,
   UNKNOWN, AGENT_CONFIG_PATHS, IGNORABLE_ENTRIES
 };

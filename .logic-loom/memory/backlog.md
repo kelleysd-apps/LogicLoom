@@ -850,6 +850,77 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       which is the same class of debt LOOM-0036 is about.
 
 ---
+- [x] LOOM-0043 — Make the uninstall procedure's delete list safe for a file the adopter has since made theirs `status:done`
+      Filed 2026-08-28, from the adopt smoke test's second full run. Two
+      INDEPENDENT adversarial reviewers (a Fable advisor and `codex exec`, run
+      without sight of each other) converged on the same residual: after the
+      D1/D2/B2 fixes landed, `uninstall.remove.files` is still an unconditional
+      delete list, and the receipt records **no per-file digest** for ordinary
+      created files — only merge targets get one (`lib/fsops.js:160`). So the
+      procedure cannot mechanically tell an untouched installed file from one
+      the adopter has since edited and made their own. The function's own
+      comment already concedes the case (`lib/apply.js` ~282: "by the time
+      anyone uninstalls, `.logic-loom/memory/constitution.md` may carry their
+      amendments"), and the emitted "READ THE LIST FIRST" warning asks a human
+      to notice — which a script does not.
+      Remedy both reviewers proposed independently: record `sha256` per written
+      file at install time, and state the predicate in step 1 — delete only if
+      the digest still matches; a mismatch means the file is yours now. That
+      converts a prose warning a script ignores into a check a script can run.
+      Cost is hashing ~400 small files at install, negligible.
+      SHIPPED 2026-08-28. All four parts landed, plus four defects found in
+      review of the fix itself (see the commit). The receipt schema was NOT
+      bumped — verified by running it: an unrecognized schema makes the receipt
+      look like a foreign file at that path, a blocking precondition, and
+      re-apply REFUSES with exit 1 for every existing adopter. Fields are
+      additive within @1. The confirmed paths ARE closed and verified (merge targets
+      and the settings sidecar excluded from the delete list; directories split
+      into `dirsIfEmpty` with non-recursive `rmdir`).
+      Also in scope, same reviewers, lower severity:
+      - Removal paths are relative with no anchor to the receipt's repo root; a
+        script run from the wrong cwd deletes matching paths elsewhere. The root
+        IS known at write time (`lib/apply.js:400`) and is simply not carried
+        into the instructions.
+      - The settings sidecar records canonical JSON values, not identities, so
+        an adopter who later adds a hook group canonically identical to one of
+        ours could have their copy removed too. Needs stated cardinality
+        semantics ("remove exactly one occurrence per recorded entry").
+      - The `.gitignore` step branches on whether the file was absent, empty, or
+        non-empty before the merge — a fact the receipt does not record, so a
+        later agent cannot reliably pick the branch.
+
+- [ ] LOOM-0044 — Degraded-parse mode is restrictive for agent_id but still permissive for the other fields `status:open`
+      Filed 2026-08-28, from the external review of the fail-open fix (LOOM-0043
+      sibling work, commit that added the grep rung to `subagent-git-guard.sh`
+      and `protect-governance-files.sh`).
+      What IS fixed and tested: with neither `jq` nor `python3` on PATH, both
+      hooks now extract `agent_id` via a raw-text grep rung and pick the
+      RESTRICTIVE default when no structured parser exists. A subagent `git
+      push` and a subagent write to a governance file both deny identically on a
+      full and a stripped PATH; a main agent is not falsely caught. Regression
+      test in `tests/contract/test_governance_hooks.sh`, mutation-verified.
+      What is NOT fixed, per external review: the restrictive default covers
+      `agent_id` only. In `protect-governance-files.sh` an empty or
+      wrongly-extracted `tool_name`, `file_path`, `notebook_path`, or Bash
+      `command` still reaches an explicit `allow` (~line 155); in
+      `subagent-git-guard.sh` an empty command does not look like git or gh and
+      so is permitted. So a degraded parse is restrictive about WHO is calling
+      but not yet about WHAT they are doing.
+      The grep rung is also a string gate on JSON, inheriting the limits the
+      sibling `git-safety-gate.sh` already had: not path-aware (it keys on the
+      last dot-segment, so `.tool_input.command` and a nested `.foo.command`
+      alias), and unproven against escaped quotes inside string values and
+      duplicate keys. Multi-line/pretty-printed payloads and the `agent_type`
+      -without-`agent_id` case WERE raised and are now covered by tests.
+      This is the known-residual class already documented in
+      `.docs/architecture/governance-threat-model.md` (a porous floor, not a
+      sandbox) — the fix would be to track parse success explicitly and treat
+      "parser present but parse failed" differently from "field genuinely
+      absent", rather than to keep widening a text match.
+      NOT done in this pass deliberately: the confirmed hole (silent fail-open
+      of the whole floor on a slim container) is closed, and the remaining items
+      need a parse-state redesign rather than another grep.
+
 
 ## Provenance
 
@@ -922,41 +993,4 @@ A written-down counter in a two-file stream is wrong the first time someone
 appends to the other file, and nothing tells them. The derivation cannot drift
 because there is nothing to drift from.
 
-- [x] LOOM-0043 — Make the uninstall procedure's delete list safe for a file the adopter has since made theirs `status:done`
-      Filed 2026-08-28, from the adopt smoke test's second full run. Two
-      INDEPENDENT adversarial reviewers (a Fable advisor and `codex exec`, run
-      without sight of each other) converged on the same residual: after the
-      D1/D2/B2 fixes landed, `uninstall.remove.files` is still an unconditional
-      delete list, and the receipt records **no per-file digest** for ordinary
-      created files — only merge targets get one (`lib/fsops.js:160`). So the
-      procedure cannot mechanically tell an untouched installed file from one
-      the adopter has since edited and made their own. The function's own
-      comment already concedes the case (`lib/apply.js` ~282: "by the time
-      anyone uninstalls, `.logic-loom/memory/constitution.md` may carry their
-      amendments"), and the emitted "READ THE LIST FIRST" warning asks a human
-      to notice — which a script does not.
-      Remedy both reviewers proposed independently: record `sha256` per written
-      file at install time, and state the predicate in step 1 — delete only if
-      the digest still matches; a mismatch means the file is yours now. That
-      converts a prose warning a script ignores into a check a script can run.
-      Cost is hashing ~400 small files at install, negligible.
-      SHIPPED 2026-08-28. All four parts landed, plus four defects found in
-      review of the fix itself (see the commit). The receipt schema was NOT
-      bumped — verified by running it: an unrecognized schema makes the receipt
-      look like a foreign file at that path, a blocking precondition, and
-      re-apply REFUSES with exit 1 for every existing adopter. Fields are
-      additive within @1. The confirmed paths ARE closed and verified (merge targets
-      and the settings sidecar excluded from the delete list; directories split
-      into `dirsIfEmpty` with non-recursive `rmdir`).
-      Also in scope, same reviewers, lower severity:
-      - Removal paths are relative with no anchor to the receipt's repo root; a
-        script run from the wrong cwd deletes matching paths elsewhere. The root
-        IS known at write time (`lib/apply.js:400`) and is simply not carried
-        into the instructions.
-      - The settings sidecar records canonical JSON values, not identities, so
-        an adopter who later adds a hook group canonically identical to one of
-        ours could have their copy removed too. Needs stated cardinality
-        semantics ("remove exactly one occurrence per recorded entry").
-      - The `.gitignore` step branches on whether the file was absent, empty, or
-        non-empty before the merge — a fact the receipt does not record, so a
-        later agent cannot reliably pick the branch.
+

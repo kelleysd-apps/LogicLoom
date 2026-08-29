@@ -13,6 +13,49 @@ const UNKNOWN = 'unknown';
 
 function line(s) { return s === undefined ? '' : String(s); }
 
+// The precondition codes that carry execution-environment facts (see
+// lib/preconditions.js's evaluateEnvironment()) — pulled out of the generic
+// warnings list and printed as their own section instead, so a healthy
+// environment doesn't read as four unexplained "Worth knowing" bullets and a
+// broken one doesn't get buried among unrelated dirty-tree warnings.
+const ENV_WARNING_CODES = new Set([
+  'ENVIRONMENT', 'PYTHON3-MISSING', 'PYTHON3-UNUSABLE', 'BASH-MISSING',
+  'NODE-BELOW-DECLARED-FLOOR', 'JQ-MISSING', 'WIN32-POSIX-ONLY'
+]);
+
+// ── execution environment, printed as its own block ──────────────────────────
+// Reads the ENVIRONMENT item (always present — see evaluateEnvironment()) plus
+// any tool-specific warning beside it. Prints nothing if the item is somehow
+// absent (an older plan.json, or a plan built by code that predates this),
+// rather than crashing a render over a missing optional section.
+function environmentSection(p, plan) {
+  const warnings = (plan.preconditions && plan.preconditions.warnings) || [];
+  const envItem = warnings.find((w) => w.code === 'ENVIRONMENT');
+  if (!envItem || !envItem.environment) return;
+  const e = envItem.environment;
+
+  p('  Execution environment — what would run an apply here');
+  envLine(p, 'python3', e.python3);
+  envLine(p, 'bash', e.bash);
+  envLine(p, 'git', e.git);
+  envLine(p, 'node', e.node);
+  envLine(p, 'jq', e.jq);
+  p(`    platform  : ${e.platform || UNKNOWN}`);
+
+  const issues = warnings.filter((w) => ENV_WARNING_CODES.has(w.code) && w.code !== 'ENVIRONMENT');
+  for (const w of issues) {
+    p(`      [${w.code}]`);
+    wrap(w.detail, 8).forEach(p);
+    wrap('→ ' + w.remedy, 8).forEach(p);
+  }
+  p('');
+}
+
+function envLine(p, label, rec) {
+  if (!rec) { p(`    ${label.padEnd(10)}: ${UNKNOWN}`); return; }
+  p(`    ${label.padEnd(10)}: ${rec.detail || UNKNOWN}`);
+}
+
 // `opts.isTTY` — whether stdout is a terminal. See agentHeader() below for why
 // this changes the header and nothing else, and why the default is `false`:
 // an omitted flag should fail toward MORE agent guidance, never less.
@@ -47,6 +90,7 @@ function renderNewProject(plan, isTTY) {
   p(`  git                   : ${plan.target.isGitRepo ? plan.target.gitDetect + ', ' + (plan.target.hasCommits ? 'has commits' : 'no commits yet') : 'not a git repository'}`);
   p(`  generator             : ${plan.generator.package}@${plan.generator.version} on node ${plan.generator.nodeVersion}`);
   p('');
+  environmentSection(p, plan);
 
   const created = plan.buckets.additive;
   p(`  WOULD CREATE (${created.length})`);
@@ -74,9 +118,10 @@ function renderNewProject(plan, isTTY) {
   preconditionSection(p, plan);
   p('');
 
-  if (plan.preconditions.warnings.length) {
+  const otherWarnings = plan.preconditions.warnings.filter((w) => !ENV_WARNING_CODES.has(w.code));
+  if (otherWarnings.length) {
     p('  Worth knowing');
-    for (const w of plan.preconditions.warnings) {
+    for (const w of otherWarnings) {
       p(`    [${w.code}]`);
       wrap(w.detail, 6).forEach(p);
       wrap('→ ' + w.remedy, 6).forEach(p);
@@ -122,6 +167,7 @@ function renderExisting(plan, isTTY) {
   p(`  payload manifest      : ${plan.payload.manifest} (${plan.payload.manifestEntries} entries)`);
   p(`  generator             : ${plan.generator.package}@${plan.generator.version} on node ${plan.generator.nodeVersion}`);
   p('');
+  environmentSection(p, plan);
 
   // ── already adopted ────────────────────────────────────────────────────────
   if (plan.target.adoption.state !== 'absent') {
@@ -179,9 +225,10 @@ function renderExisting(plan, isTTY) {
   p('  Preconditions for an APPLY (the plan itself is always safe and ran anyway)');
   preconditionSection(p, plan);
   p('');
-  if (plan.preconditions.warnings.length) {
-    p(`    warnings            : ${plan.preconditions.warnings.length}`);
-    for (const w of plan.preconditions.warnings) {
+  const existingOtherWarnings = plan.preconditions.warnings.filter((w) => !ENV_WARNING_CODES.has(w.code));
+  if (existingOtherWarnings.length) {
+    p(`    warnings            : ${existingOtherWarnings.length}`);
+    for (const w of existingOtherWarnings) {
       p(`      [${w.code}]`);
       wrap(w.detail, 8).forEach(p);
     }

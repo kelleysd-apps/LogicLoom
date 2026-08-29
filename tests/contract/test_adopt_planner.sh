@@ -28,9 +28,11 @@
 #      unknown subcommand likewise; `adopt` is a working hidden alias.
 #
 # bash 3.2 safe: no associative arrays, no mapfile, no [[ -v ]], no ${var,,}.
-# NOTE: packaging/ is NOT in tests/contract/test_bash32_floor.sh's scan scope
-# (its roots are .logic-loom, .claude/hooks, tests, and declared plugins), but
-# THIS FILE is under tests/ and therefore IS scanned. It is written to the floor.
+# NOTE: packaging/adopt/ IS in tests/contract/test_bash32_floor.sh's scan scope
+# (wholesale, alongside .logic-loom, .claude/hooks and tests) — its merge
+# scripts run on the ADOPTER'S bash, which is stock macOS 3.2 just as often as
+# ours is. THIS FILE is under tests/ and is therefore ALSO scanned in its own
+# right. Both are written to the floor.
 set -uo pipefail
 
 PASS=0; FAIL=0; TOTAL=0
@@ -86,16 +88,24 @@ assert "the package manifest exists" "[ -f \"$PKG/package.json\" ]"
 assert "the plan-format contract exists" "[ -f \"$PKG/PLAN-FORMAT.md\" ]"
 
 # ── Node floor ───────────────────────────────────────────────────────────────
-# Declared >=22.14.0 because npm trusted publishing requires it (PRE-12). The
-# local runner may be older; that is recorded, not enforced, since this suite
-# exercises the planner rather than the publish path.
+# >=22.14.0 was a PUBLISH-time constraint (npm trusted publishing, PRE-12) that
+# had been copied into the package's RUNTIME `engines` field, warning or
+# blocking every adopter below 22.14 for a requirement the CLI itself does not
+# have: it uses only node:{child_process,crypto,fs,os,path} core builtins and
+# two `??` operators. The runtime floor is now the one this repo actually
+# PROVES: every adopt contract suite (this one included) runs under
+# node-version: '20' in .github/workflows/plugin-tests.yml, so >=20.0.0 is
+# evidence-backed rather than merely plausible — 18 is EOL and untested here.
+# 22.14.0 stays where it belongs, in publish-adopt.yml's trusted-publish step.
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)"
-assert "package.json declares the Node >=22.14.0 floor (PRE-12)" \
-  "grep -q '\">=22.14.0\"' \"$PKG/package.json\""
-if [ "$NODE_MAJOR" -lt 22 ]; then
-  echo "  ℹ️  NOTE: local node is v$(node -v | tr -d 'v') — below the declared 22.14.0 floor."
-  echo "     The planner is pure CommonJS and runs here, but engines-gated install"
-  echo "     behaviour and the trusted-publish path are NOT exercised locally."
+assert "package.json declares the evidence-backed runtime Node floor (>=20.0.0), not the publish-time one" \
+  "grep -q '\">=20.0.0\"' \"$PKG/package.json\""
+assert "package.json no longer asserts the publish-only >=22.14.0 floor as a runtime requirement" \
+  "! grep -q '\">=22.14.0\"' \"$PKG/package.json\""
+if [ "$NODE_MAJOR" -lt 20 ]; then
+  echo "  ℹ️  NOTE: local node is v$(node -v | tr -d 'v') — below the declared 20.0.0 floor."
+  echo "     The planner is pure CommonJS and may still run here, but this is not the"
+  echo "     supported floor."
 fi
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/loom-adopt-planner.XXXXXX")"
@@ -307,6 +317,201 @@ assert "NO precondition remedy or detail ever proposes \`git stash\` (checked ac
   "[ $STASH_HITS -eq 0 ]"
 assert "the source of preconditions.js contains the no-stash rationale, not just the behaviour" \
   "grep -q 'NEVER PROPOSE' \"$PKG/lib/preconditions.js\""
+
+# ── execution environment ─────────────────────────────────────────────────────
+# The ADOPTER'S machine, not their repo: what would actually run an apply.
+# python3/bash/git/node are probed and the plan records what was FOUND
+# (resolved path + version), never a bare boolean — and every item here is a
+# WARNING, never blocking, because `--only` (which target the adopter even
+# wants) is not known until apply time (bin/logicloom.js parses it strictly
+# after this plan already exists).
+echo ""
+echo "── execution environment ──"
+
+assert "the plan carries an ENVIRONMENT section naming python3/bash/git/node" \
+  "node -e 'p=require(\"$TMP/ex.json\");w=p.preconditions.warnings.filter(x=>x.code===\"ENVIRONMENT\");e=w[0]&&w[0].environment;process.exit((w.length===1&&e&&e.python3&&e.bash&&e.git&&e.node)?0:1)'"
+assert "the environment section records WHAT WAS FOUND (path + version), not just booleans" \
+  "node -e '
+    p=require(\"$TMP/ex.json\");
+    e=p.preconditions.warnings.filter(x=>x.code===\"ENVIRONMENT\")[0].environment;
+    var ok=[\"python3\",\"bash\",\"git\",\"node\"].every(function(k){
+      var r=e[k];
+      return typeof r.detail===\"string\" && r.detail.length>5 && (\"resolvedPath\" in r) && (\"version\" in r);
+    });
+    process.exit(ok?0:1);'"
+assert "ENVIRONMENT is never a blocking item" \
+  "node -e 'p=require(\"$TMP/ex.json\");process.exit(p.preconditions.blocking.some(b=>b.code===\"ENVIRONMENT\")?1:0)'"
+assert "on a healthy machine (this test runner), python3/bash/git all report usable" \
+  "node -e 'p=require(\"$TMP/ex.json\");e=p.preconditions.warnings.filter(x=>x.code===\"ENVIRONMENT\")[0].environment;process.exit((e.python3.usable&&e.bash.usable&&e.git.usable)?0:1)'"
+
+# ── detection never throws, even against a hostile/stubbed PATH ─────────────
+# The stub PATH carries real `node` and `git` (symlinked) so the CLI itself and
+# its read-only git calls still run, plus a python3 STUB that answers instantly
+# but is not Python 3 (simulating a wrapper/alias, not a real interpreter), and
+# NO bash at all.
+STUBDIR="$TMP/stubpath"
+mkdir -p "$STUBDIR"
+REAL_NODE="$(command -v node)"
+REAL_GIT="$(command -v git)"
+ln -sf "$REAL_NODE" "$STUBDIR/node"
+ln -sf "$REAL_GIT" "$STUBDIR/git"
+cat > "$STUBDIR/python3" <<'PYEOF'
+#!/bin/sh
+echo "2 2.7.18"
+exit 0
+PYEOF
+chmod +x "$STUBDIR/python3"
+
+PATH="$STUBDIR" node "$CLI" init "$EX" --json >"$TMP/stub-unusable.json" 2>"$TMP/stub-unusable.err"; STUB1_RC=$?
+assert "the planner did not crash against a hostile PATH (valid JSON was produced)" \
+  "node -e 'require(\"$TMP/stub-unusable.json\");process.exit(0)' 2>/dev/null"
+assert "an unusable (non-Python-3) python3 on PATH yields PYTHON3-UNUSABLE" \
+  "node -e 'p=require(\"$TMP/stub-unusable.json\");process.exit(p.preconditions.warnings.some(w=>w.code===\"PYTHON3-UNUSABLE\")?0:1)'"
+assert "PYTHON3-UNUSABLE names the resolved stub path in its detail" \
+  "node -e '
+    var path=require(\"path\");
+    p=require(\"$TMP/stub-unusable.json\");
+    w=p.preconditions.warnings.filter(x=>x.code===\"PYTHON3-UNUSABLE\")[0];
+    var expect=path.join(\"$STUBDIR\",\"python3\");
+    process.exit(w.detail.indexOf(expect)!==-1?0:1);'"
+assert "PYTHON3-UNUSABLE is a warning, never blocking (--only is unknown at plan time)" \
+  "node -e 'p=require(\"$TMP/stub-unusable.json\");process.exit(p.preconditions.blocking.some(b=>b.code===\"PYTHON3-UNUSABLE\")?1:0)'"
+assert "bash absent from PATH yields BASH-MISSING" \
+  "node -e 'p=require(\"$TMP/stub-unusable.json\");process.exit(p.preconditions.warnings.some(w=>w.code===\"BASH-MISSING\")?0:1)'"
+assert "BASH-MISSING is a warning, never blocking" \
+  "node -e 'p=require(\"$TMP/stub-unusable.json\");process.exit(p.preconditions.blocking.some(b=>b.code===\"BASH-MISSING\")?1:0)'"
+assert "applyReady is unaffected by env warnings (still computed, not poisoned)" \
+  "node -e 'p=require(\"$TMP/stub-unusable.json\");process.exit(typeof p.applyReady===\"boolean\"?0:1)'"
+
+rm -f "$STUBDIR/python3"
+PATH="$STUBDIR" node "$CLI" init "$EX" --json >"$TMP/stub-missing.json" 2>/dev/null
+assert "python3 entirely absent from PATH yields PYTHON3-MISSING, not UNUSABLE" \
+  "node -e 'p=require(\"$TMP/stub-missing.json\");c=p.preconditions.warnings.map(w=>w.code);process.exit((c.indexOf(\"PYTHON3-MISSING\")!==-1&&c.indexOf(\"PYTHON3-UNUSABLE\")===-1)?0:1)'"
+
+PATH="$STUBDIR" node "$CLI" init "$EX" >"$TMP/stub-missing.txt" 2>"$TMP/stub-missing.err"
+assert "the TEXT report (not just --json) also survives a broken environment" \
+  "grep -q 'Execution environment' \"$TMP/stub-missing.txt\""
+assert "the text report names the missing python3 by code" \
+  "grep -q 'PYTHON3-MISSING' \"$TMP/stub-missing.txt\""
+
+# ── node floor: below-floor is a WARNING and can never become blocking ───────
+assert "meetsFloor(): node below the declared floor compares false" \
+  "node -e 'var d=require(\"$PKG/lib/detect.js\");process.exit(d.meetsFloor(\"v16.20.0\",\">=20.0.0\")===false?0:1)'"
+assert "meetsFloor(): node exactly at the declared floor compares true" \
+  "node -e 'var d=require(\"$PKG/lib/detect.js\");process.exit(d.meetsFloor(\"v20.0.0\",\">=20.0.0\")===true?0:1)'"
+assert "meetsFloor(): node above the declared floor compares true" \
+  "node -e 'var d=require(\"$PKG/lib/detect.js\");process.exit(d.meetsFloor(\"v20.11.0\",\">=20.0.0\")===true?0:1)'"
+assert "a node below the declared floor yields NODE-BELOW-DECLARED-FLOOR as a WARNING, never blocking" \
+  "node -e '
+    var detect=require(\"$PKG/lib/detect.js\");
+    var pre=require(\"$PKG/lib/preconditions.js\");
+    var d=detect.detect(\"$EX\");
+    d.environment.node=Object.assign({},d.environment.node,{version:\"v16.20.0\",declaredFloor:\">=20.0.0\",meetsFloor:false});
+    var r=pre.evaluate(d, [], {});
+    var w=r.warnings.some(function(x){return x.code===\"NODE-BELOW-DECLARED-FLOOR\";});
+    var b=r.blocking.some(function(x){return x.code===\"NODE-BELOW-DECLARED-FLOOR\";});
+    process.exit((w&&!b)?0:1);'"
+
+# ── package.json declares an honest runtime floor ────────────────────────────
+assert "engines.node is a real, evidence-backed runtime floor (20), not the publish-time 22.14.0 requirement" \
+  "node -e 'var pkg=require(\"$PKG/package.json\");process.exit(pkg.engines.node===\">=20.0.0\"?0:1)'"
+
+# ── jq: presence-only, worded around session-runtime hook behaviour ──────────
+echo ""
+echo "── jq / win32 / nested install ──"
+
+assert "jq usable on this runner is recorded in the environment section" \
+  "node -e 'p=require(\"$TMP/ex.json\");e=p.preconditions.warnings.filter(x=>x.code===\"ENVIRONMENT\")[0].environment;process.exit(e.jq?0:1)'"
+
+assert "probeJq(): presence-only, no version probe, never throws when jq is absent" \
+  "node -e '
+    var detect=require(\"$PKG/lib/detect.js\");
+    var save=process.env.PATH;
+    process.env.PATH=\"$TMP/stubpath-empty\";
+    var fs=require(\"fs\"); fs.mkdirSync(\"$TMP/stubpath-empty\",{recursive:true});
+    var r=detect.probeJq();
+    process.env.PATH=save;
+    process.exit((r.present===false&&r.usable===false&&r.version===\"unknown\")?0:1);'"
+
+assert "jq missing while python3 IS usable: the warning says the python3 fallback still works" \
+  "node -e '
+    var pre=require(\"$PKG/lib/preconditions.js\");
+    var env={python3:{present:true,usable:true,version:\"3.11.0\",resolvedPath:\"/usr/bin/python3\",detail:\"usable\"},
+             bash:{present:true,usable:true,version:\"5.2\",resolvedPath:\"/bin/bash\",detail:\"usable\"},
+             git:{present:true,usable:true,version:\"2.40.0\",resolvedPath:\"/usr/bin/git\",detail:\"usable\"},
+             node:{present:true,usable:true,version:\"v20.0.0\",declaredFloor:\">=20.0.0\",meetsFloor:true,detail:\"ok\"},
+             jq:{present:false,usable:false,version:\"unknown\",resolvedPath:null,detail:\"not found on PATH\"},
+             platform:\"darwin\"};
+    var items=pre.evaluateEnvironment(env);
+    var w=items.filter(function(i){return i.code===\"JQ-MISSING\";});
+    process.exit((w.length===1&&w[0].severity===\"warning\"&&/still enforce correctly/.test(w[0].detail))?0:1);'"
+
+assert "jq AND python3 both absent: the warning says the guards fail OPEN" \
+  "node -e '
+    var pre=require(\"$PKG/lib/preconditions.js\");
+    var env={python3:{present:false,usable:false,version:\"unknown\",resolvedPath:null,detail:\"not found on PATH\"},
+             bash:{present:true,usable:true,version:\"5.2\",resolvedPath:\"/bin/bash\",detail:\"usable\"},
+             git:{present:true,usable:true,version:\"2.40.0\",resolvedPath:\"/usr/bin/git\",detail:\"usable\"},
+             node:{present:true,usable:true,version:\"v20.0.0\",declaredFloor:\">=20.0.0\",meetsFloor:true,detail:\"ok\"},
+             jq:{present:false,usable:false,version:\"unknown\",resolvedPath:null,detail:\"not found on PATH\"},
+             platform:\"darwin\"};
+    var items=pre.evaluateEnvironment(env);
+    var w=items.filter(function(i){return i.code===\"JQ-MISSING\";});
+    process.exit((w.length===1&&/fail OPEN/.test(w[0].detail))?0:1);'"
+
+assert "JQ-MISSING is a warning, never blocking" \
+  "node -e '
+    var pre=require(\"$PKG/lib/preconditions.js\");
+    var env={python3:{present:false,usable:false},bash:{present:true,usable:true},
+             git:{present:true,usable:true},node:{present:true,usable:true,meetsFloor:true},
+             jq:{present:false,usable:false},platform:\"darwin\"};
+    var items=pre.evaluateEnvironment(env);
+    process.exit(items.some(function(i){return i.code===\"JQ-MISSING\"&&i.severity===\"warning\";})?0:1);'"
+
+# ── win32: an honest POSIX-only posture, warning-only ─────────────────────────
+assert "platform=win32 yields WIN32-POSIX-ONLY as a warning" \
+  "node -e '
+    var pre=require(\"$PKG/lib/preconditions.js\");
+    var env={python3:{present:true,usable:true},bash:{present:true,usable:true},
+             git:{present:true,usable:true},node:{present:true,usable:true,meetsFloor:true},
+             jq:{present:true,usable:true},platform:\"win32\"};
+    var items=pre.evaluateEnvironment(env);
+    var w=items.filter(function(i){return i.code===\"WIN32-POSIX-ONLY\";});
+    process.exit((w.length===1&&w[0].severity===\"warning\")?0:1);'"
+assert "platform=darwin/linux never yields WIN32-POSIX-ONLY" \
+  "node -e '
+    var pre=require(\"$PKG/lib/preconditions.js\");
+    var env={python3:{present:true,usable:true},bash:{present:true,usable:true},
+             git:{present:true,usable:true},node:{present:true,usable:true,meetsFloor:true},
+             jq:{present:true,usable:true},platform:\"darwin\"};
+    var items=pre.evaluateEnvironment(env);
+    process.exit(items.some(function(i){return i.code===\"WIN32-POSIX-ONLY\";})?1:0);'"
+
+# ── nested install: target root vs git toplevel ───────────────────────────────
+MONO="$TMP/mono"
+mkdir -p "$MONO/packages/foo"
+git_quiet "$MONO" init
+git_quiet "$MONO" commit --allow-empty -m baseline
+
+node "$CLI" init "$MONO/packages/foo" --json >"$TMP/mono-nested.json" 2>/dev/null; MONO_RC=$?
+assert "installing INTO a git subdirectory is BLOCKING (NESTED-GIT-INSTALL)" \
+  "node -e 'p=require(\"$TMP/mono-nested.json\");process.exit(p.preconditions.blocking.some(b=>b.code===\"NESTED-GIT-INSTALL\")?0:1)'"
+assert "the nested-install remedy names the real repository root" \
+  "node -e '
+    var fs=require(\"fs\");
+    p=require(\"$TMP/mono-nested.json\");
+    b=p.preconditions.blocking.filter(x=>x.code===\"NESTED-GIT-INSTALL\")[0];
+    var expect=fs.realpathSync(\"$MONO\");
+    process.exit(b.remedy.indexOf(expect)!==-1?0:1);'"
+assert "nested-install makes applyReady false" \
+  "node -e 'p=require(\"$TMP/mono-nested.json\");process.exit(p.applyReady===false?0:1)'"
+assert "a nested-install plan exits 1" "[ $MONO_RC -eq 1 ]"
+
+node "$CLI" init "$MONO" --json >"$TMP/mono-root.json" 2>/dev/null
+assert "installing AT the git toplevel itself is NOT flagged nested" \
+  "node -e 'p=require(\"$TMP/mono-root.json\");process.exit(p.preconditions.blocking.some(b=>b.code===\"NESTED-GIT-INSTALL\")?1:0)'"
+assert "installing at the toplevel of a fresh EXISTING repo is still applyReady (once baseline exists)" \
+  "node -e 'p=require(\"$TMP/mono-root.json\");process.exit(p.applyReady===true?0:1)'"
 
 # ── the planner writes NOTHING ───────────────────────────────────────────────
 echo ""

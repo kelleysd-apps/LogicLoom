@@ -16,11 +16,14 @@
 // tool's reach. There is a test asserting the string 'stash' never appears in a
 // remedy.
 
+const fs = require('node:fs');
 const path = require('node:path');
 const detect = require('./detect');
 
 const BLOCKING = 'blocking';
 const WARNING = 'warning';
+const UNKNOWN = detect.UNKNOWN;
+const UNKNOWN_PLATFORM = detect.UNKNOWN;
 
 // Paths whose uncommitted state is specifically dangerous, because the applier
 // MERGES into them rather than creating them. A dirty merge target means the
@@ -37,6 +40,153 @@ function backupRemedy(root, rel) {
   return `cp -a "${abs}" "${abs}.pre-logicloom"  # then re-run the plan`;
 }
 
+// ── execution environment ────────────────────────────────────────────────────
+// Facts about the machine that would RUN an apply, surfaced from
+// lib/detect.js's detectEnvironment() (see there for how each is probed).
+//
+// WHY EVERY ONE OF THESE IS A WARNING, NEVER BLOCKING
+// -----------------------------------------------------------------------------
+// `--only` — which targets an apply would actually touch — is parsed at APPLY
+// time (bin/logicloom.js's parseOnly), strictly after the plan this function
+// produces already exists: a bare `logicloom init <dir>` (no --apply, no
+// --only) runs this evaluate() with no idea which targets the adopter even
+// wants. python3 only matters for `--only=hooks` (never reached by the `all`
+// convenience — see TARGETS.hooks.inAll in lib/apply.js); bash only for
+// `gitignore` (which IS in `all`) and `hooks`. Blocking on python3 here would
+// refuse an adopter who only ever asked for `--only=harness`, over a tool this
+// operation does not use — exactly the "refuses to install anything because
+// python3 is missing" failure this module exists to avoid elsewhere.
+//
+// So: always a warning, always worded with which target(s) it would affect,
+// and the corresponding guard AT APPLY TIME — where --only is finally known —
+// belongs in lib/apply.js, which this module does not own and does not edit.
+function evaluateEnvironment(env) {
+  const items = [];
+  if (!env) return items;
+
+  const python3 = env.python3 || {};
+  const bash = env.bash || {};
+  const git = env.git || {};
+  const node = env.node || {};
+  const jq = env.jq || {};
+  const platform = env.platform || UNKNOWN_PLATFORM;
+
+  // Always present, healthy or not — this is the "what was found" record the
+  // plan carries, not merely a problem report. Never blocking.
+  items.push({
+    code: 'ENVIRONMENT',
+    severity: WARNING,
+    path: '(execution environment)',
+    detail: 'python3: ' + shortEnvDetail(python3) + '.  bash: ' + shortEnvDetail(bash) +
+            '.  git: ' + shortEnvDetail(git) + '.  node: ' + shortEnvDetail(node) +
+            '.  jq: ' + shortEnvDetail(jq) + `.  platform: ${platform}.`,
+    remedy: 'informational — see the items below for anything that would affect a specific --only target',
+    // Structured, not just prose: the full probe record for each tool, exactly
+    // as lib/detect.js reported it (path/version/usable), for a reader (human
+    // or agent) that wants the facts rather than the sentence.
+    environment: { python3, bash, git, node, jq, platform }
+  });
+
+  if (!python3.present || !python3.usable) {
+    items.push({
+      code: python3.present ? 'PYTHON3-UNUSABLE' : 'PYTHON3-MISSING',
+      severity: WARNING,
+      path: '(execution environment)',
+      detail: '`--only=hooks` merges into .claude/settings.json with a python3 script, and ' +
+              (python3.present
+                ? `python3 on PATH (${python3.resolvedPath}) is ${python3.detail}`
+                : 'no python3 was found on PATH') +
+              '. This affects the `hooks` target only — `harness`, `rules` and `gitignore` do not need python3.',
+      remedy: python3.present
+        ? 'put a real Python 3 earlier on PATH before running `--apply --only=hooks` (or any --only including hooks)'
+        : 'install python3 and put it on PATH before running `--apply --only=hooks` (or any --only including hooks)'
+    });
+  }
+
+  if (!bash.present) {
+    items.push({
+      code: 'BASH-MISSING',
+      severity: WARNING,
+      path: '(execution environment)',
+      detail: 'no bash was found on PATH. The `.gitignore` merge runs a bash script and `gitignore` ' +
+              'is included in the `all` convenience by default; `hooks` and the hooks it installs also need bash.',
+      remedy: 'install bash and put it on PATH before running `--apply` with `gitignore` or `hooks` in --only'
+    });
+  }
+
+  if (node.meetsFloor === false) {
+    items.push({
+      code: 'NODE-BELOW-DECLARED-FLOOR',
+      severity: WARNING,
+      path: '(execution environment)',
+      detail: `the node running this planner is ${node.version}, below the package's declared floor ` +
+              `(${node.declaredFloor}). The declared floor is conservative — this CLI uses only core node ` +
+              'builtins and no syntax newer than Node 16 — so this is unlikely to matter in practice, but is ' +
+              'named here rather than silently ignored. This is never a blocking condition.',
+      remedy: 'optional: upgrade node to the declared floor, or proceed if the planner and apply otherwise work'
+    });
+  }
+
+  // jq matters to the INSTALLED payload's hooks at SESSION RUNTIME, not to
+  // this apply — so it is worded around what happens later, not around --only.
+  // Two distinct failure modes, and the wording says which one applies:
+  //   1. guard-dangerous-commands.sh has NO jq fallback: every Bash tool call
+  //      in every later session becomes an approval prompt. Safe, but reads
+  //      as broken.
+  //   2. subagent-git-guard.sh / protect-governance-files.sh fall back
+  //      jq -> python3. With BOTH absent they fail OPEN (return allow where
+  //      they should deny) — the adopter believes they installed a governance
+  //      floor and silently gets a thinner one.
+  if (!jq.present) {
+    const python3Ok = python3.present && python3.usable;
+    items.push({
+      code: 'JQ-MISSING',
+      severity: WARNING,
+      path: '(execution environment)',
+      detail: 'no jq was found on PATH. This matters to the installed governance hooks at SESSION ' +
+              'RUNTIME, after this apply is long done, not to the apply itself. guard-dangerous-commands.sh ' +
+              'has no jq fallback: without it, every Bash tool call in every later Claude Code session ' +
+              'becomes an approval prompt — safe, but the adopter will think the harness is broken.' +
+              (python3Ok
+                ? ' subagent-git-guard.sh and protect-governance-files.sh fall back to python3, which ' +
+                  'IS usable here, so those two still enforce correctly.'
+                : ' subagent-git-guard.sh and protect-governance-files.sh fall back to python3 — which ' +
+                  'is ALSO ' + (python3.present ? 'unusable' : 'missing') + ' here — and with both absent ' +
+                  'those guards fail OPEN (return allow where they should deny): the adopter would believe ' +
+                  'they installed a governance floor and silently get a thinner one.'),
+      remedy: python3Ok
+        ? 'install jq before relying on the installed hooks, to avoid an approval prompt on every Bash call'
+        : 'install jq AND a usable python3 before relying on the installed hooks — right now neither ' +
+          'fallback is available and the two guards named above would fail open'
+    });
+  }
+
+  // No `process.platform` check exists anywhere else in this package. Both
+  // merge scripts and every installed hook are POSIX shell, cwd-relative
+  // `.sh`; there is no native-Windows code path.
+  if (platform === 'win32') {
+    items.push({
+      code: 'WIN32-POSIX-ONLY',
+      severity: WARNING,
+      path: '(execution environment)',
+      detail: 'this planner is running on win32. This tool and the payload it installs assume a ' +
+              'POSIX shell throughout: both merge scripts (.gitignore, .claude/settings.json) need ' +
+              'bash and python3, and every installed hook command is a cwd-relative `.sh` script. ' +
+              'There is no native-Windows code path anywhere in this package.',
+      remedy: 'run this under WSL, Git Bash, or Cygwin — not a native Windows shell (cmd.exe / PowerShell)'
+    });
+  }
+
+  return items;
+}
+
+function shortEnvDetail(rec) {
+  if (!rec || rec.present === undefined) return UNKNOWN;
+  if (rec.present === false) return 'not found';
+  if (rec.usable === false) return 'present but unusable (' + (rec.detail || 'see detail') + ')';
+  return (rec.version || 'found') + (rec.resolvedPath ? ' at ' + rec.resolvedPath : '');
+}
+
 // `opts.claudeMdMode` — under `import` the applier appends a fenced block to the
 // adopter's CLAUDE.md, which makes it a merge target like .gitignore. Adding it
 // to the list is what makes a DIRTY or UNTRACKED CLAUDE.md block the apply,
@@ -46,6 +196,44 @@ function evaluate(detected, classified, opts) {
   const root = detected.root;
   const git = detected.git;
   const mode = detected.mode.mode;
+
+  // ── execution environment ──────────────────────────────────────────────────
+  // Runs unconditionally, ahead of every mode/git branch below (including the
+  // early returns): it is a fact about the machine, not about this target
+  // repo, so it belongs in the plan even when the repo itself can't be read.
+  for (const it of evaluateEnvironment(detected.environment)) items.push(it);
+
+  // ── nested install: target root is a SUBDIRECTORY of a git work tree ──────
+  // Unlike the environment items above, this one IS unconditionally blocking:
+  // it is not target-scoped (a nested install is non-functional for every
+  // --only alike, since it is the working-directory relationship between the
+  // installed hooks and the repo root that breaks, not any one tool), it is
+  // cheap to be certain about (one git verb, already run), and the remedy is
+  // simply re-running from the repository root — never a workaround that
+  // trades away safety. payload-manifest.txt already declares nested installs
+  // unsupported for exactly this reason: every installed hook command is
+  // cwd-relative, so a hook invoked from the REAL repo root would never find
+  // what got written here.
+  if (git.isGitRepo && git.toplevel && git.toplevel !== detect.UNKNOWN) {
+    let realRoot = root;
+    let realTop = git.toplevel;
+    try { realRoot = fs.realpathSync(root); } catch (e) { /* keep root as given */ }
+    try { realTop = fs.realpathSync(git.toplevel); } catch (e) { /* keep toplevel as given */ }
+    if (realRoot !== realTop) {
+      items.push({
+        code: 'NESTED-GIT-INSTALL',
+        severity: BLOCKING,
+        path: root,
+        detail: `the target (${root}) is a SUBDIRECTORY of a git work tree, not that work tree's own ` +
+                `root — the repository root is ${git.toplevel}. Installing here would not be functional: ` +
+                'every installed hook command is cwd-relative, so a hook invoked from the real repository ' +
+                'root would never find what was written here. payload-manifest.txt already declares ' +
+                'nested installs unsupported for exactly this reason.',
+        remedy: `re-run \`logicloom init\` from the repository root instead: ${git.toplevel}`,
+        nestedInstall: { targetRoot: root, gitToplevel: git.toplevel }
+      });
+    }
+  }
 
   // ── mode could not be determined ───────────────────────────────────────────
   // Refuse rather than guess. Picking "scaffold" for a directory that turned out
@@ -251,4 +439,4 @@ function finish(items) {
   };
 }
 
-module.exports = { evaluate, MERGE_TARGETS, BLOCKING, WARNING };
+module.exports = { evaluate, evaluateEnvironment, MERGE_TARGETS, BLOCKING, WARNING };

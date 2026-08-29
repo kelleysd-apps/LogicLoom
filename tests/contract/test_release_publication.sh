@@ -462,8 +462,25 @@ assert "its version is the 0.0.0-dev placeholder the workflow overwrites" \
   "grep -q '\"version\": \"0.0.0-dev\"' \"\$ADOPT_PJ\""
 assert "it declares the repository npm provenance needs" \
   "grep -q 'kelleysd-apps/LogicLoom' \"\$ADOPT_PJ\""
-assert "its engines floor matches the trusted-publishing Node floor" \
-  "grep -q '\">=22.14.0\"' \"\$ADOPT_PJ\""
+# THIS ASSERTION USED TO PIN THE BUG. It required the package's RUNTIME
+# `engines` floor to equal the trusted-publishing Node floor (>=22.14.0) — two
+# unrelated numbers. 22.14.0 is what npm's OIDC trusted publishing needs of the
+# PUBLISH JOB; it says nothing about what an adopter needs to RUN the CLI, which
+# uses only core node:{child_process,crypto,fs,os,path} and `??`. Coupling them
+# made npm warn every adopter below 22.14 that the package was unsupported, and
+# blocked `engine-strict` users outright, for a requirement that did not exist.
+# The floor is now >=20.0.0 — the number CI actually proves, since every adopt
+# contract suite runs under node-version: '20' in plugin-tests.yml. Nothing here
+# is ever executed on 18, so >=18 would have been a claim we do not verify.
+assert "its engines floor is the RUNTIME floor CI proves, not the publish floor" \
+  "grep -q '\">=20.0.0\"' \"\$ADOPT_PJ\""
+assert "...and is NOT coupled to the trusted-publishing floor" \
+  "! grep -q '\"engines\"' -A2 \"\$ADOPT_PJ\" | grep -q '22.14.0'"
+# The publish floor still has to live somewhere, and that somewhere is the
+# publish job's own setup-node — which this suite already asserts is independent
+# of the repo's Node 20 pin.
+assert "the 22.14.0 publish floor still exists, in the workflow where it belongs" \
+  "grep -q '22.14.0' \"\$ROOT/.github/workflows/publish-adopt.yml\""
 fi
 fi
 
