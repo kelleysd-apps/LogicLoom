@@ -444,10 +444,20 @@ jobs:
               UNCLASS=$((UNCLASS + 1)); continue
             fi
             REPLAYED=$((REPLAYED + 1))
+            # `if out=$(...)` — NOT a bare `out=$(...); rc=$?`. GitHub runs this
+            # step under `bash -e`, and a plain assignment from a command
+            # substitution carries that command's exit status, so a FAILING
+            # replayed suite killed the step AT THE ASSIGNMENT — before `rc=$?`,
+            # before the FAIL branch below, before the tail-40 of its output.
+            # The observable result was a step that printed a run of PASS lines
+            # and then `Process completed with exit code 1` naming nothing at
+            # all: the gate could tell you the sanitized tree was broken but
+            # never which suite broke it. Wrapping the assignment in `if`
+            # exempts it from `-e` and makes the FAIL branch reachable.
             if [ -n "$WD" ]; then
-              out=$( cd "$WD" 2>/dev/null && eval "$CMD" 2>&1 ); rc=$?
+              if out=$( cd "$WD" 2>/dev/null && eval "$CMD" 2>&1 ); then rc=0; else rc=$?; fi
             else
-              out=$(eval "$CMD" 2>&1); rc=$?
+              if out=$(eval "$CMD" 2>&1); then rc=0; else rc=$?; fi
             fi
             if [ "$rc" -eq 0 ]; then
               echo "PASS       $CMD"
