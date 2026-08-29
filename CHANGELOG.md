@@ -5,6 +5,78 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.6.0] - 2026-08-28
+
+Covers the `dev-main` line since v6.5.0 (2026-08-25 → 2026-08-28). One dominant
+thread — **`npx logicloom init`, the adopt package** — plus the project knowledge
+layer and a run of correctness fixes in the governance floor.
+
+### Added
+
+- **`npx logicloom init` — install LogicLoom into an existing repository, or
+  start a new one.** A read-only PLAN phase the adopter reviews and answers,
+  then an `--apply` that writes only the targets they named. Core promise,
+  enforced in code rather than intended: it never deletes, never truncates,
+  never overwrites a file it did not create (`copyFileNew` opens `'wx'`, so the
+  kernel refuses an existing path), never moves source, and never runs a
+  mutating git command. There is no `--force`. Every path it writes is recorded
+  in `.logicloom-adopt-receipt.json`, whose `uninstall` object is the reversal
+  procedure — a list you run, because an uninstall subcommand would be exactly
+  the delete path the tool refuses to have.
+- **An install a coding agent can drive.** `--agent-guide` and a machine-readable
+  `--json` plan, so an agent can walk the adopter through the decisions instead
+  of the adopter walking a terminal.
+- **`.brain/` — a project-scoped knowledge layer**, with one resolver for where
+  memory lives (`memory_backend = repo | project`) so retrieval follows the
+  write target instead of assuming it.
+- **A three-command promotion lifecycle** (`/promote-dev` → `/promote-staging`
+  → `/promote-prod`) that gates and confirms, and ships no deploy engine.
+- **A draft GitHub Release on tag**, and a command that asserts it happened —
+  from v6.2.0 to v6.5.0 the release path pushed five tags and published zero
+  Releases, with nothing going red.
+
+### Fixed
+
+- **The governance floor failed open on a machine without `jq` and `python3`.**
+  `subagent-git-guard.sh` and `protect-governance-files.sh` parsed the hook
+  payload jq → python3 with no third rung; with neither present every field read
+  empty, an empty `agent_id` read as "main agent", and both returned ALLOW where
+  they return DENY anywhere else. Principle VI and the hook that stops the model
+  rewriting its own rules silently stopped holding on an ordinary slim
+  container, and nothing told the adopter. Both now carry the raw-text rung
+  `git-safety-gate.sh` already had, and a regression test asserts the decision
+  is identical with and without those tools.
+- **The uninstall procedure could destroy the adopter's own files.** Its delete
+  list pointed at every recorded write — including the two files the tool had
+  only MERGED into (the adopter's `.gitignore` and `.claude/settings.json`) and
+  the sidecar a later step still needed to read. Directories sat in the same
+  flat list, so a recursive delete would have taken anything the adopter added
+  inside one. The list is now split into files and `dirsIfEmpty` (children
+  first, non-recursive `rmdir`), merge targets and the sidecar are excluded, and
+  every created file carries a `sha256` so deletion is conditional: a matching
+  digest means deleting loses nothing of yours, a mismatch means the file is
+  yours now and is kept.
+- **Nested installs are detected.** Installing into `packages/foo/` of a
+  monorepo produced a clean plan and would have written a harness into a
+  directory where the hooks cannot load. Now blocking, naming both paths.
+- **The plan reports the adopter's execution environment** — python3 (probed, so
+  a Python-2 stub is caught rather than trusted on presence), bash, git, jq,
+  node against the declared floor, and platform — instead of discovering it when
+  a write fails mid-apply.
+- **`engines.node` no longer asserts a CI requirement at adopters.** `>=22.14.0`
+  came only from npm trusted publishing, a publish-time constraint, and made npm
+  warn every adopter below it. Now `>=20.0.0`, the floor CI actually proves.
+- A run of claims that nothing verified: a suite failing assertions *because*
+  they passed, hooks that never fired, a sandbox claim that was backwards, an
+  em-dash separator whose byte length was assumed rather than measured, and a
+  heredoc bash 3.2 parses and bash 5.2 rejects.
+
+### Changed
+
+- The adopt package's publication gate is open (`private: false`). The name is
+  still unclaimed on npm, so `npx logicloom` does not resolve yet; README and
+  START_HERE say so.
+
 ## [6.5.0] - 2026-08-25
 
 Covers the `dev-main` line since v6.4.1 (2026-08-13 → 2026-08-24). Four threads:
