@@ -23,6 +23,18 @@ name: Tag release on main
 # Maintainer-only: ships to `main` (must be there to run on main pushes) and is
 # removed from a customer project at /initialize-project — like promote-to-main.yml.
 #
+# ALREADY-PUBLISHED TAGS ARE NOT FIXABLE (LOOM-0036). v6.4.1 and v6.5.0 each ship
+# a `.sdd-sync-ref` of c6092b08 — a dev-main merge commit `main` has never held —
+# so `/update-framework` fails for anyone who cloned those tags. A published tag
+# cannot be moved without breaking every existing clone, so it is not moved. The
+# remedy is one line in the ADOPTER's checkout, writing the release's own snapshot
+# commit (which IS on main) into the baseline:
+#     v6.5.0:  echo 28ef9d81894ecef359295bf911854964925d0079 > .sdd-sync-ref
+#     v6.4.1:  echo 8b9775b41ff4e7fbcbb7a04a9c7a771c032b5c93 > .sdd-sync-ref
+# extract-proposals.sh already prints this shape of remedy on the failure path.
+# Deliberately NOT done as a remap-table entry: those rot, and one already had to
+# be added twice. The gates below make the next release correct by construction.
+#
 # DEPENDENCY: the `v*` tag namespace must NOT be covered by a tag-protection rule
 # / ruleset that excludes GITHUB_TOKEN, or the `git push origin <tag>` below will
 # be rejected. (No such ruleset exists today; add a `refs/tags/v*` bypass for
@@ -60,6 +72,15 @@ jobs:
                   | sed -n -E 's/^release: (v[0-9]+\.[0-9]+\.[0-9]+) sanitized template.*/\1/p')
           if [ -z "$VER" ]; then
             echo ".sdd-sync-ref ($SNAP) is not a release snapshot — nothing to tag."; exit 0
+          fi
+          # Hand the resolved release identity to the NEXT step (a step boundary
+          # is a new shell — nothing else survives it). Written BEFORE the
+          # "tag already exists" early exit on purpose: a re-run of an
+          # already-tagged release must still be able to create a MISSING
+          # Release. If REL_TAG were only exported on the tagging path, the
+          # exact re-run that fixes a missed Release would skip it.
+          if [ -n "${GITHUB_ENV:-}" ]; then
+            { echo "REL_TAG=$VER"; echo "REL_SNAP=$SNAP"; } >> "$GITHUB_ENV"
           fi
           # PREVENTION GATE (v6.4.1): the snapshot MUST be an ancestor of main's
           # HEAD. If the release PR was squash- or rebase-merged, C1 is discarded
@@ -101,6 +122,186 @@ jobs:
              || git ls-remote --exit-code --tags origin "$VER" >/dev/null 2>&1; then
             echo "Tag $VER already exists — nothing to do."; exit 0
           fi
-          git tag "$VER" "$SNAP"
+          # TAG TARGET (LOOM-0036): prefer C2, the "chore: advance .sdd-sync-ref"
+          # child of the snapshot, over the snapshot C1 itself.
+          #
+          # WHY: the tag is what an adopter clones (`clone --branch vX.Y.Z`), and
+          # what they get is the TREE at that commit. C1's tree names the baseline
+          # as of BEFORE this release; C2's tree names C1 — i.e. exactly the
+          # release the adopter just cloned, so /update-framework starts with zero
+          # phantom proposals. C2 is single-parent (parent C1), so the
+          # single-parent chain this design rests on is unchanged.
+          #
+          # Fall back to C1 if C2 cannot be positively identified. That is safe,
+          # not a silent downgrade: the reachability gate below runs on whichever
+          # commit we are about to tag, and refuses an unreachable baseline either
+          # way. REL_SNAP stays C1 — the Release-notes step reads the
+          # Source-dev-main trailer, which only C1's message carries.
+          TARGET="$SNAP"
+          # `|| true` on both pipelines: the step runs under `set -euo pipefail`,
+          # where a SIGPIPE'd `git` (head closes early) or a missing blob would
+          # abort the job BEFORE the explanatory error below is ever printed.
+          C2=$(git rev-list --ancestry-path --reverse "$SNAP..HEAD" 2>/dev/null | head -1 || true)
+          if [ -n "$C2" ] \
+             && [ "$(git rev-parse "${C2}^" 2>/dev/null)" = "$(git rev-parse "$SNAP")" ] \
+             && [ "$(git log -1 --format=%s "$C2")" = "chore: advance .sdd-sync-ref to $VER" ] \
+             && [ "$(git cat-file blob "$C2:.sdd-sync-ref" 2>/dev/null | tr -d '[:space:]' || true)" = "$SNAP" ]; then
+            TARGET="$C2"
+          else
+            echo "::warning::No validated sync-ref commit after $SNAP — tagging the snapshot itself."
+          fi
+          # REACHABILITY GATE (LOOM-0036) — read the TREE, not just the commit.
+          # The gate above proves the snapshot COMMIT is in main's history. It
+          # says nothing about the `.sdd-sync-ref` VALUE inside that commit's
+          # tree, and that value is what an adopter's /update-framework resolves.
+          # v6.4.1 and v6.5.0 both passed the commit gate and both shipped
+          # c6092b08 — a dev-main merge commit that main has never contained.
+          BASE=$(git cat-file blob "$TARGET:.sdd-sync-ref" 2>/dev/null | tr -d '[:space:]' || true)
+          if [ -z "$BASE" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null \
+             || ! git merge-base --is-ancestor "$BASE" HEAD; then
+            echo "::error::RELEASE BROKEN — the tree at $TARGET carries .sdd-sync-ref='${BASE:-<empty>}', which is not reachable from main."
+            echo "Every adopter of $VER would get an unresolvable baseline and" >&2
+            echo "/update-framework would fail with '.sdd-sync-ref is NOT reachable" >&2
+            echo "from upstream main'. Refusing to publish a broken tag." >&2
+            echo "FIX IT AT THE SOURCE: the compose step in promote-to-main.yml must" >&2
+            echo "stamp .sdd-sync-ref instead of inheriting dev-main's stale value." >&2
+            echo "Do NOT add a remap entry to extract-proposals.sh — that workaround" >&2
+            echo "is what this gate exists to make unnecessary." >&2
+            exit 1
+          fi
+          git tag "$VER" "$TARGET"
           git push origin "$VER"
-          echo "Tagged $VER -> $SNAP (sanitized snapshot)."
+          echo "Tagged $VER -> $TARGET (baseline .sdd-sync-ref=$BASE, snapshot $SNAP)."
+
+      # =======================================================================
+      # GITHUB RELEASE — created as a DRAFT, published by a human.
+      #
+      # WHY THIS STEP EXISTS: tagging is not releasing. Between v6.2.0 and
+      # v6.5.0 this workflow pushed five tags (6.3.0, 6.3.1, 6.4.0, 6.4.1,
+      # 6.5.0) and published zero GitHub Releases, so the Releases page showed
+      # v6.2.0 as "Latest" for five consecutive releases. Nothing was broken —
+      # the step simply did not exist, and no command was going to remember it.
+      #
+      # WHY IN THE WORKFLOW AND NOT ONLY IN A COMMAND: a step that runs only
+      # when a human invokes the right command is precisely how this drifted.
+      # This fires on the merge that lands the release, unconditionally.
+      #
+      # WHY A DRAFT: publishing a Release is an outward-facing act — it flips
+      # "Latest", notifies watchers, and fronts the repo. A draft is visible
+      # only to collaborators with push access, so creating one is staging, not
+      # publishing. The maintainer proofreads the rendered notes and hits
+      # Publish. Automatic enough not to be forgotten; gated enough not to
+      # publish unread.
+      #
+      # WHERE THE NOTES COME FROM (this is the non-obvious part): CHANGELOG.md
+      # is in the template strip manifest, so it does NOT exist in the
+      # sanitized tree this workflow is checked out on —
+      # `git show v6.5.0:CHANGELOG.md` fails with "exists on disk, but not in
+      # v6.5.0". The notes are therefore read from the DEV-MAIN commit named by
+      # the snapshot's `Source-dev-main:` trailer, where CHANGELOG.md is intact.
+      # Fetching dev-main here is a runner-local fetch; it pushes nothing and
+      # does NOT make dev-main reachable from `main` (the single-parent
+      # invariant in promote-to-main.yml is about the published commit graph,
+      # not about what CI reads).
+      #
+      # NO SILENT FALLBACK: if the section cannot be read, this FAILS rather
+      # than creating an empty Release or falling back to
+      # `--generate-notes`. On a single-parent sanitized line, generated notes
+      # would render one commit — "release: vX.Y.Z sanitized template" — which
+      # is worse than nothing, because it looks like a record and is not one.
+      #
+      # PERMISSIONS: `contents: write` (declared at job level, for the tag push)
+      # is also the permission the Releases API requires. No new scope needed.
+      #
+      # TAKES EFFECT ONE RELEASE LATER: `push:` workflows run the copy of this
+      # file AT THE PUSHED COMMIT, so this step is live from the first release
+      # whose snapshot carries it — v6.6.0. It did not and cannot run for
+      # v6.5.0, which was published by hand.
+      # =======================================================================
+      - name: Create a draft GitHub Release from the CHANGELOG section
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -uo pipefail
+
+          TAG="${REL_TAG:-}"
+          SNAP="${REL_SNAP:-}"
+          if [ -z "$TAG" ] || [ -z "$SNAP" ]; then
+            echo "No release identity from the tagging step — this push landed no release. Nothing to do."
+            exit 0
+          fi
+          NUM="${TAG#v}"
+
+          # ---- IDEMPOTENCE, CHECKED FIRST -----------------------------------
+          # A re-run (or a Release the maintainer already made by hand) must be
+          # a no-op. Deliberately NOT `gh release edit`: once a human has
+          # touched the notes, overwriting them on a re-run would silently
+          # discard their edit.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — leaving it exactly as it is."
+            gh release view "$TAG" --json url,isDraft,name 2>/dev/null || true
+            exit 0
+          fi
+
+          # ---- NOTES SOURCE: dev-main, via the snapshot's provenance trailer -
+          DEV=$(git log -1 --format=%B "$SNAP" \
+                  | sed -n -E 's/^Source-dev-main:[[:space:]]*([0-9a-f]{7,40}).*$/\1/p' | head -1)
+          if [ -z "$DEV" ]; then
+            echo "::error::Snapshot $SNAP carries no 'Source-dev-main:' trailer, so the CHANGELOG source commit is unknown. CHANGELOG.md is stripped from this tree, so there is no other source. Create the Release for $TAG by hand from the CHANGELOG section, then re-run this workflow (it will find the Release and no-op)."
+            exit 1
+          fi
+
+          # dev-main's objects are not guaranteed present even at fetch-depth 0.
+          # Try the branch ref first, then the bare SHA (GitHub serves reachable
+          # SHAs). Both are read-only.
+          if ! git cat-file -e "${DEV}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --quiet origin "+refs/heads/dev-main:refs/remotes/origin/dev-main" 2>/dev/null || true
+          fi
+          if ! git cat-file -e "${DEV}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --quiet origin "$DEV" 2>/dev/null || true
+          fi
+          if ! git cat-file -e "${DEV}^{commit}" 2>/dev/null; then
+            echo "::error::dev-main commit $DEV (from the Source-dev-main trailer) could not be fetched, so the CHANGELOG section for $NUM is unreachable. Create the Release for $TAG by hand, then re-run."
+            exit 1
+          fi
+
+          # ---- EXTRACT the `## [X.Y.Z]` section ------------------------------
+          # Heading form is Keep-a-Changelog: `## [6.5.0] - 2026-08-25`. The tag
+          # carries a leading `v`; the heading does not. Stops at the next `## `.
+          # One awk, no sed: it also trims leading blank lines outright and holds
+          # trailing blank lines in `pending` (never flushed at EOF), so the
+          # section arrives already trimmed. Deliberately avoids the classic
+          # `sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba'` trailing-blank idiom, which
+          # is GNU-specific enough to behave differently under BSD sed.
+          NOTES=$(git show "${DEV}:CHANGELOG.md" 2>/dev/null | awk -v v="$NUM" '
+            index($0, "## [" v "]") == 1 { inside = 1; next }
+            inside && index($0, "## ") == 1 { exit }
+            inside {
+              if ($0 ~ /^[[:space:]]*$/) { if (started) pending = pending $0 "\n"; next }
+              if (pending != "") { printf "%s", pending; pending = "" }
+              started = 1
+              print
+            }
+          ')
+          # Require real substance — an empty or whitespace-only section must
+          # not become a Release.
+          if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then
+            echo "::error::CHANGELOG.md at $DEV has no non-empty '## [$NUM]' section, so there are no release notes for $TAG. Roll the CHANGELOG on dev-main (see /promote step 2), create the Release by hand, then re-run."
+            exit 1
+          fi
+
+          NOTES_FILE="${RUNNER_TEMP:-/tmp}/release-notes-${NUM}.md"
+          printf '%s\n' "$NOTES" > "$NOTES_FILE"
+
+          # --verify-tag: refuse to invent a tag. The tag was pushed by the
+          # previous step; if it is somehow absent, that is a failure to report,
+          # not a tag to create from a Release form.
+          gh release create "$TAG" \
+            --draft \
+            --verify-tag \
+            --title "$TAG" \
+            --notes-file "$NOTES_FILE"
+
+          echo "Created DRAFT Release $TAG from CHANGELOG [$NUM] at dev-main $DEV."
+          echo "::notice::Draft Release $TAG created. It is NOT published — review the notes and hit Publish on the Releases page."
+          gh release view "$TAG" --json url,isDraft,name 2>/dev/null || true

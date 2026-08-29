@@ -11,20 +11,112 @@ LogicLoom is a Claude Code harness for building software with disciplined multi-
 
 ---
 
-## Quickstart
+## Quickstart — three ways in
+
+`git clone` is no longer the only way in, and it is the wrong one for two of the
+three situations. Pick the row that describes you.
+
+| You have | Do this |
+|---|---|
+| **An empty directory** — a new project | `logicloom init` scaffolds the harness, then you add your app under `web/` |
+| **An existing repository** — a project already underway | `logicloom init` in it: it plans, you review, and it writes only the targets you name. Nothing of yours is overwritten, moved or deleted |
+| **Neither, and you want the template itself** | `git clone` this repo. Still valid, still supported — it is how you get the harness's own test suite and how you develop the harness |
+
+### The CLI is not published yet — how to run it TODAY
+
+`npx logicloom` **does not resolve yet.** The publication gate is now open —
+the package is no longer marked private — but the name has not been published to
+npm, so that command still fails for everyone including us. It is written here
+as the shape it will have, not as an instruction to type. This line changes when
+the first publish lands, not when the gate opens; those are two different days.
+
+What works today is running it out of a LogicLoom checkout, which is also the
+only form that has a payload to install:
 
 ```bash
-# Clone
+git clone <this-repo> ~/src/LogicLoom          # once — the source of the payload
+
+cd /path/to/your/project                       # empty dir, or your real repo
+npx ~/src/LogicLoom/packaging/adopt init .     # PLANS. Writes nothing.
+# read the plan, then:
+npx ~/src/LogicLoom/packaging/adopt init . --apply --only=all
+npx ~/src/LogicLoom/packaging/adopt init . --apply --only=hooks   # governance floor, opt-in
+```
+
+`node ~/src/LogicLoom/packaging/adopt/bin/logicloom.js init .` is the same thing
+without npm in the way. Node **22.14.0 or newer** is what the package declares.
+
+`npm pack` + installing the tarball **does not work yet** either: the packed
+payload is assembled at release time and that step is not built, so a tarball
+install finds an empty payload and plans three units instead of four hundred.
+Run it from the checkout until the release path exists.
+
+`init` always plans and never writes. Writing needs both `--apply` and an
+explicit `--only=`; there is no `--force`, and an existing file is always kept.
+`hooks` is deliberately not in `--only=all` — the governance floor changes what
+your own Claude Code sessions may do in this repo, so it has to be named.
+
+### Installing this with a coding agent
+
+If you asked an agent to "install LogicLoom", point it here. The install is
+**plan-first and non-interactive**: there is no prompt, flags decide, and the
+agent does the asking.
+
+```bash
+npx logicloom init --agent-guide      # the procedure, written for an agent
+npx logicloom init <dir> --json       # the plan as data — `decisions[]` is the
+                                      # list of questions to put to the user
+```
+
+`--agent-guide` prints [`packaging/adopt/AGENT-INSTALL.md`](packaging/adopt/AGENT-INSTALL.md):
+which plan fields to read, which questions to put to the user, how to assemble
+the apply command, and — the part that matters most — **the refusals**. This
+tool never deletes, truncates, moves or overwrites; there is no `--force`; it
+never runs mutating git. A block is information, not an obstacle to work around.
+
+The same pointer leads the first lines of every plan report, and is printed
+fuller when stdout is not a terminal. **None of that guarantees an agent finds
+it** — one that already believes it knows how to install an npm package will
+read none of it. The aim is narrower: at every point an agent plausibly looks,
+the right path is the hardest thing to miss.
+
+### After the files are in
+
+```bash
+claude                    # launch Claude Code in the repo
+/initialize-project       # stamp project identity, approval posture, memory backend
+```
+
+`/initialize-project` detects which install it is — it reads
+`.logicloom-adopt-receipt.json` and, in an adopted repository, skips the steps
+that only make sense for a fresh template clone — notably it does **not** delete
+anything under your `.github/workflows/`, does not edit your `CLAUDE.md`, and
+does not create a `VISION.md` you did not ask for.
+
+### What it put in your repo, and how to take it out
+
+The applier writes `.logicloom-adopt-receipt.json` at your repo root. It names
+every path written, every skip and its reason, and carries the **uninstall
+procedure** under its `uninstall` key.
+
+Uninstall is a list you run, not a command we ship. That is deliberate: this
+tool refuses to delete, truncate or move anything, so an `uninstall` subcommand
+would be exactly the delete path it refuses to have — and by the time you run
+it, some of those files are yours, not ours. The receipt makes removal
+mechanical; a human decides what is still theirs.
+
+### Template clone (the third way in)
+
+```bash
 git clone <your-repo-url> logic-loom
 cd logic-loom
-
-# Bootstrap (installs deps, wires hooks, syncs commands)
-bash init-project.sh
-
-# Launch Claude Code in the repo
+bash init-project.sh      # installs deps, wires hooks, syncs commands
 claude
+```
 
-# Use the slash commands (see workflow below)
+### Then, in Claude Code
+
+```
 /swarm explore "current auth surfaces"
 /create-prd "session-cookie-rotation"
 # ... plan mode ...
@@ -267,7 +359,7 @@ MIT
 
 ---
 
-**Framework**: LogicLoom v6.5.0
+**Framework**: LogicLoom v6.6.0
 **Constitution**: v3.3.0 (16 principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models

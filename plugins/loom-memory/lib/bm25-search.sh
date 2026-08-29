@@ -14,7 +14,9 @@
 #       N    = total documents
 #       n(q) = documents containing term q
 #
-# Index storage: .loom-memory-index/bm25/ (repo root relative)
+# Index storage: .loom-memory-index/bm25-<backend>/ (repo root relative; the
+#   suffix keys the index to the resolved memory backend so a backend change
+#   cannot serve stale hits from the previous store)
 #   terms/<term>       - doc:freq pairs, one per line
 #   meta/doc-lengths   - file:wordcount pairs, one per line
 #   meta/corpus-stats  - N (total docs) and avgdl on separate lines
@@ -34,7 +36,40 @@ source "$BM25_BACKEND_DIR/backend-interface.sh"
 
 BM25_K1=1.2
 BM25_B=0.75
-BM25_INDEX_DIR="$BM25_REPO_ROOT/.loom-memory-index/bm25"
+# Where /retro writes durable lessons. RESOLVED from the project's configured
+# memory backend (memory-backend.conf: repo | project) rather than
+# assumed, because retrieval that does not follow the write target reads an
+# empty store and the cross-session learning loop dies silently. Falls back to
+# the historical `project` path when the resolver is absent.
+_bm25_durable_memory_dir() {
+    local resolver out
+    resolver="$BM25_REPO_ROOT/.logic-loom/scripts/bash/resolve-memory-backend.sh"
+    if [ -f "$resolver" ]; then
+        out=$(bash "$resolver" --path 2>/dev/null || true)
+        if [ -n "$out" ]; then printf '%s' "$out"; return 0; fi
+    fi
+    printf '%s' "$HOME/.claude/projects/$(printf '%s' "$BM25_REPO_ROOT" | sed 's|/|-|g')/memory"
+}
+
+_bm25_backend_name() {
+    local resolver out
+    resolver="$BM25_REPO_ROOT/.logic-loom/scripts/bash/resolve-memory-backend.sh"
+    if [ -f "$resolver" ]; then
+        out=$(bash "$resolver" --backend 2>/dev/null || true)
+        case "$out" in repo|project) printf '%s' "$out"; return 0 ;; esac
+    fi
+    printf '%s' "unknown"
+}
+
+# The index is KEYED TO THE RESOLVED BACKEND, and that suffix is load-bearing.
+# The index stores repo-relative document paths and nothing in it records which
+# memory directory those documents came from. Change the backend and a single
+# shared index would keep returning hits for documents in a directory the
+# resolver no longer points at — a stale-hit failure in a retrieval layer, the
+# hardest class to notice, because the results still look plausible. Keying the
+# directory means a backend change costs one rebuild instead of silently wrong
+# answers. Cost: one extra resolver call when this file is sourced.
+BM25_INDEX_DIR="$BM25_REPO_ROOT/.loom-memory-index/bm25-$(_bm25_backend_name)"
 BM25_TERMS_DIR="$BM25_INDEX_DIR/terms"
 BM25_META_DIR="$BM25_INDEX_DIR/meta"
 BM25_DOC_LENGTHS="$BM25_META_DIR/doc-lengths"
@@ -198,12 +233,11 @@ _bm25_find_indexable_files() {
         -size -"${BM25_MAX_FILE_SIZE}c" \
         2>/dev/null || true
 
-    # Also index the home retro-memory dir (/retro writes durable lessons there).
-    # It lives outside the repo, so the repo find above misses it. Slug = repo
-    # path with '/' replaced by '-' (matches retro/SKILL.md's derivation).
-    local memory_slug home_memory
-    memory_slug=$(printf '%s' "$BM25_REPO_ROOT" | sed 's|/|-|g')
-    home_memory="$HOME/.claude/projects/${memory_slug}/memory"
+    # Also index the durable memory dir (/retro writes lessons there). Under the
+    # default backend it lives outside the repo, so the repo find above misses
+    # it. RESOLVED, not assumed — retrieval has to follow the write target.
+    local home_memory
+    home_memory=$(_bm25_durable_memory_dir)
     if [ -d "$home_memory" ]; then
         find "$home_memory" \
             -type f -name "*.md" \
@@ -309,10 +343,9 @@ backend_search() {
     # exploration/ dumps), and the home retro-memory dir where /retro writes.
     local scope_pattern=""
     if [ "$scope" = "session" ]; then
-        local memory_slug home_memory_esc
-        memory_slug=$(printf '%s' "$BM25_REPO_ROOT" | sed 's|/|-|g')
-        # Escape regex metachars in the absolute home path before embedding it.
-        home_memory_esc=$(printf '%s' "$HOME/.claude/projects/${memory_slug}/memory/" | sed 's/[.[\/*^$()+?{|]/\\&/g')
+        local home_memory_esc
+        # Escape regex metachars in the absolute path before embedding it.
+        home_memory_esc=$(printf '%s/' "$(_bm25_durable_memory_dir)" | sed 's/[.[\/*^$()+?{|]/\\&/g')
         scope_pattern='^(specs/|\.docs/|features/.*/(retro|plan-review|prd)\.md$|features/.*/sprints/.*/result\.md$|'"$home_memory_esc"')'
     fi
 

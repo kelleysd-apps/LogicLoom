@@ -31,6 +31,40 @@ Before starting, verify:
 
 ## Procedure
 
+### Step 0: Which install is this? — TEMPLATE CLONE or ADOPTED
+
+Run this before anything else. This skill was written for a **template clone**.
+It is also reachable from a repository that **adopted** LogicLoom via
+`npx logicloom init`, because the adopt payload ships `plugins/` and
+`.claude/commands/` — `/initialize-project` is in that user's palette whether or
+not anyone points them at it.
+
+```bash
+# ADOPTED if this prints; TEMPLATE CLONE if the file is absent. Read-only, no git.
+grep -l '"schema": *"logicloom/adopt-receipt@1"' .logicloom-adopt-receipt.json 2>/dev/null
+```
+
+When ADOPTED:
+
+- **Step 1 (PRD)** — usually there is none. Do not block; read the repo instead.
+- **Step 1b / 1c / 1d** — unchanged. Identity, approval posture and memory
+  backend are the whole reason an adopter runs this.
+- **Step 2 (constitution)** — put project mandates in
+  `.logic-loom/memory/amendments.md`, not `constitution.md`. The shipped
+  constitution came from the payload, and a later `npx logicloom init` upgrade
+  refuses to overwrite a file that already exists — so an edited constitution
+  silently stops tracking upstream.
+- **Step 4 (framework documents)** — their root `CLAUDE.md` is **theirs**; do
+  not edit or create it. The harness's operating instructions live wherever the
+  receipt's `runs[].claudeMd.resolved` says (`rules`, `import` or `none`), and
+  the agent registry installed as `.logic-loom/AGENTS.md`, not root `AGENTS.md`.
+- **Step 7 (remove maintainer CI)** — **skip entirely**, see that step.
+- **Step 8 (report)** — say it was an adopted repo and name what was skipped.
+
+The full disposition table, one row per step, is in
+`plugins/loom-maintenance/commands/initialize-project.md` § Step 0. Keep the two
+in agreement.
+
 ### Step 1: Analyze PRD
 
 Read `.docs/prd/prd.md` and extract:
@@ -130,6 +164,91 @@ relax any of these.
 rewrite the approval policy and then act under it — and a human edit to it
 prompts once. Say so; it is the reassurance that makes the knob safe to use.
 
+### Step 1d: Memory Backend and the Distillation Routine
+
+Two questions, asked once, in this order.
+
+**Question 1 — "Where should durable cross-session memory be written?"**
+Write the answer to `.logic-loom/config/memory-backend.conf`, key `memory_backend`.
+
+| `memory_backend` | One line |
+|---|---|
+| `repo` | `.brain/memory/` — in-tree and versioned, so lessons travel with the code, survive a machine change, and are readable by any tool with filesystem access. Stripped at template release, so a cloner never inherits anyone's lessons. **Recommended, and the shipped default.** This project's own vault: self-contained, no link to anyone else's. |
+| `project` | `$HOME/.claude/projects/<slug>/memory/` — per machine, outside the repo, never committed, invisible to anything that is not Claude Code. Where `/retro` wrote historically. |
+
+The question exists because the destination used to be hardcoded, in prose,
+inside the `/retro` skill: a fine default and a bad contract, because nothing
+could point it anywhere else without editing the skill, and the store it fed
+was per-machine and invisible outside Claude Code. Now it is a setting with
+one resolver and one answer.
+
+The shipped `.logic-loom/config/memory-backend.conf` states
+`memory_backend = repo` EXPLICITLY, and resolution is a pure function of
+`(env, conf)` — the resolver never probes the filesystem to pick a default.
+Both of those are deliberate, and were the outcome of rejecting the obvious
+alternative: a default that looks for a pre-existing store and quietly holds
+there. That would resolve differently in a worktree than in the main checkout
+of the same project (the `project` slug is derived from the checkout path), and
+it would turn a reviewable one-line config diff into a filesystem side effect
+with no diff anywhere.
+
+Migration is therefore DETECTION, not resolution. When memory resolves to
+`repo` while `$HOME/.claude/projects/<slug>/memory/` still holds files from
+before this change, `check-brain-signals.sh` reports the count and both paths
+in the preflight advisory, every session, until the user moves them or sets
+`memory_backend = project`. It never blocks and never moves anyone's files.
+Answering this question is one of the two things that clears it.
+
+```bash
+# Idempotency (Principle IV): an explicit choice is already recorded.
+grep -m1 -E '^[[:space:]]*memory_backend[[:space:]]*=' .logic-loom/config/memory-backend.conf
+
+# Set the answer in place. Every comment in the file is its schema — preserve them.
+
+# Confirm. Read-only; never writes, never runs git; exits 0 even on a bad value.
+bash .logic-loom/scripts/bash/resolve-memory-backend.sh --explain
+```
+
+The resolver is fail-SAFE, not fail-closed: an unrecognised backend warns on
+stderr and falls back to the default (`repo`) rather than aborting the write. Losing a
+retrospective's lessons to a config typo is worse than writing them to the
+default store and saying so out loud.
+
+`memory-backend.conf` and `brain.conf` govern behaviour and are on the
+governance guard's protected-path list, added additively via
+`protected_paths` in `.logic-loom/config/governance.conf`. A subagent's write
+to either file is DENIED; a main-agent edit prompts for approval. Writing the
+user's answer into `memory-backend.conf` in this step will therefore prompt —
+that is correct and expected, not a case to route around.
+
+**Question 2 — "Run the distillation routine on a schedule, or invoke `/distill` by hand?"**
+This question does two things, and neither is scaffolding.
+
+- **By hand** (or declines entirely): scaffold NOTHING. `.brain/` keeps its
+  single `README.md`, no `raw/`, `wiki/`, `index/` or `memory/` directory is
+  created, `check-brain-record.sh` runs in CI and passes vacuously, and the
+  preflight advisory stays silent. A layer is created the first time there is
+  something to put in it — the same treatment `web/` and `artifacts/` already
+  get.
+- **Schedule**: **print** the contents of
+  `.logic-loom/templates/distill-schedule-prompt.md` and tell the user to
+  install it themselves via `/schedule` or their own cron. **Do not install
+  it.** `~/.claude/scheduled-tasks/` is the USER'S tree, and the harness ↔
+  user boundary in CLAUDE.md forbids the harness writing there —
+  `init-project.sh`'s existing footprint discipline (it creates `web/`,
+  removes maintainer CI, and touches nothing user-level) is the precedent.
+  ```bash
+  cat .logic-loom/templates/distill-schedule-prompt.md
+  ```
+
+The routine is opt-in at the point of value, not at the point of setup. A
+customer with no distillation habit adopts it the first time captures pile up
+and one line of advisory text mentions the command exists — not because
+initialization made them answer a question about a workflow they have not
+started yet. Honest limit: nothing in the repo can verify a schedule exists;
+the age of the newest `.brain/DISTILL-LOG.md` entry is the only evidence, and
+the advisory reports it honestly.
+
 ### Step 2: Customize Constitution
 
 File: `.logic-loom/memory/constitution.md`
@@ -202,6 +321,14 @@ unapproved action Principle VI exists to prevent.
 
 ### Step 7: Remove maintainer-only template-release CI
 
+**ADOPTED repositories: skip this step entirely — run nothing here.** The adopt
+payload excludes `.github/` wholesale, so nothing under `.github/workflows/` in
+an adopted repo came from LogicLoom; it is all the adopter's own CI and the
+`rm -f` lines below would delete it. That would also contradict the adopt
+applier's standing refusal that nothing is ever deleted, truncated or moved.
+There is nothing of ours there to remove, so skipping removes no protection.
+The rest of this step is for a TEMPLATE CLONE.
+
 The template ships with CI that releases + guards the **LogicLoom template itself**,
 not the customer's project. Remove it from the new project (keep `plugin-tests.yml`
 — it validates the harness the customer is using):
@@ -209,13 +336,18 @@ not the customer's project. Remove it from the new project (keep `plugin-tests.y
 ```bash
 rm -f .github/workflows/promote-to-main.yml   # maintainer release workflow (not for your project)
 rm -f .github/workflows/release-tag.yml       # maintainer auto-tag-on-release-merge (not for your project)
+rm -f .github/workflows/publish-adopt.yml     # maintainer npm publish of the adopt package (not for your project)
 rm -f .github/workflows/leak-guard.yml        # maintainer identity-marker backstop (not for your project)
 rm -f .github/workflows/branch-topology-guard.yml  # maintainer release-branch-only gate on main (your main takes feature branches)
 ```
 
 `branch-topology-guard.yml` is the one that actively BREAKS the project: it fails
 **every** PR into `main` whose head branch is not `release/vX.Y.Z`. The other
-three no-op or fail harmlessly. Removing it is not optional cleanup.
+four no-op or fail harmlessly. Removing it is not optional cleanup.
+`publish-adopt.yml` is maintainer npm-release plumbing: it fires on
+`release: published` and looks for a `Source-dev-main:` trailer and a
+`packaging/` tree only the LogicLoom maintainer repo has, so left behind it fails
+noisily on the customer's first Release.
 
 State clearly in the report that these were removed and why (they would otherwise
 run — and fail/no-op — in the customer's CI and reference a release model the
@@ -243,6 +375,8 @@ Constitution: [old] → [new version]
 Principles customized: [count]
 Agents created: [count]
 Approval posture: [strict|balanced|minimal]  (refused lines: [none|list])
+Memory backend: [repo|project]
+Distillation: [by hand|schedule prompt printed]
 Files modified: [list]
 Validation: PASS/FAIL
 
@@ -270,3 +404,5 @@ Next Steps:
 - **MCP setup**: `plugins/loom-maintenance/skills/mcp-server-setup/SKILL.md`
 - **Constitution**: `.logic-loom/memory/constitution.md`
 - **Gate policy**: `.logic-loom/config/gate-policy.conf` — the ask/silent split, its floor, and the permission-mode keying
+- **Memory backend**: `.logic-loom/config/memory-backend.conf` — where `/retro` writes durable cross-session memory (`repo`/`project`)
+- **Brain config**: `.logic-loom/config/brain.conf` — the distillation routine's settings

@@ -240,14 +240,20 @@ backend_search() {
                -o \( -path '*/sprints/*' -name 'result.md' \) \) 2>/dev/null)
     fi
 
-    # Home retro-memory tier — where /retro writes durable lessons. The slug is
-    # the repo path with '/' replaced by '-' (matches retro/SKILL.md's
-    # `pwd | sed 's|/|-|g'` derivation, e.g.
-    # $HOME/.claude/projects/-Users-...-logic-loom/memory/).
-    local memory_slug home_memory
-    memory_slug=$(printf '%s' "$KEYWORD_REPO_ROOT" | sed 's|/|-|g')
-    home_memory="$HOME/.claude/projects/${memory_slug}/memory"
-    [ -d "$home_memory" ] && search_paths+=("$home_memory")
+    # Durable memory tier — where /retro writes lessons. RESOLVED, not assumed:
+    # the destination is a project setting (memory-backend.conf), and retrieval
+    # has to follow the write target or the learning loop reads an empty store.
+    # Falls back to the historical `project` path when the resolver is absent,
+    # so a partial tree still searches what /retro used to write.
+    local durable_memory resolver
+    resolver="$KEYWORD_REPO_ROOT/.logic-loom/scripts/bash/resolve-memory-backend.sh"
+    if [ -f "$resolver" ]; then
+        durable_memory=$(bash "$resolver" --path 2>/dev/null || true)
+    fi
+    if [ -z "${durable_memory:-}" ]; then
+        durable_memory="$HOME/.claude/projects/$(printf '%s' "$KEYWORD_REPO_ROOT" | sed 's|/|-|g')/memory"
+    fi
+    [ -d "$durable_memory" ] && search_paths+=("$durable_memory")
 
     # Search across all paths for all keywords, collect results
     local all_results=""

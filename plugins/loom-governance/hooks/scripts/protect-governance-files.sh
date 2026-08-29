@@ -31,18 +31,37 @@ VERDICT_LIB="$REPO_ROOT/.logic-loom/lib/governance-verdicts.sh"
 
 INPUT=$(cat)
 
+# jq -> python3 -> grep. The third rung was missing here, exactly as it was in
+# subagent-git-guard.sh: on a machine with NEITHER jq nor python3 every json_get
+# returned empty, the empty .agent_id read as "main agent", and a SUBAGENT write
+# to .claude/settings.json came back ALLOW where it is denied on any normal
+# machine. Verified: deny -> allow. That is the hook whose whole job is stopping
+# the model from rewriting its own rules, so it failing open is the worst of the
+# set. `git-safety-gate.sh` already had this rung and survived the same test.
+have_structured_parser() {
+  command -v jq >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1
+}
+
 json_get() { # jq-path
   if command -v jq >/dev/null 2>&1; then
     printf '%s' "$INPUT" | jq -r "$1 // empty" 2>/dev/null && return
   fi
-  printf '%s' "$INPUT" | python3 -c \
-    "import sys,json
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$INPUT" | python3 -c \
+      "import sys,json
 d=json.load(sys.stdin)
 keys='${1//[.\"]/ }'.split()
 v=d
 for k in keys:
     v=v.get(k) if isinstance(v,dict) else None
-print(v if v is not None else '')" 2>/dev/null
+print(v if v is not None else '')" 2>/dev/null && return
+  fi
+  # Last rung: the raw payload as text. A string gate on JSON, so it cannot see
+  # through escaping or nesting — hence the degraded-parse branch below.
+  leaf=${1##*.}
+  printf '%s' "$INPUT" \
+    | grep -oE "\"$leaf\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+    | head -1 | sed "s/.*\"$leaf\"[^\"]*\"//; s/\"$//"
 }
 
 allow() { printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}\n'; exit 0; }
@@ -54,6 +73,23 @@ decide() { # deny|ask  reason
 }
 
 AGENT_ID="$(json_get '.agent_id' || true)"
+
+# FAIL CLOSED ON A DEGRADED PARSE. With no structured parser we are reading JSON
+# with grep, so an empty agent_id is not evidence of the main agent — it is
+# evidence we cannot tell. Being wrong this way costs the main agent an approval
+# prompt on a governance file, which it already gets. Being wrong the other way
+# lets a subagent silently rewrite the rules that constrain it.
+if [ -z "$AGENT_ID" ] && ! have_structured_parser; then
+  # Keyed on `agent_id` ONLY. `agent_type` was in this list and came out on
+  # external review: it can be present for a TOP-LEVEL session, so matching it
+  # would classify a main agent as a subagent and deny its legitimate git —
+  # trading a silent hole for a silent blockage. `agent_id` is the documented
+  # discriminator this hook uses everywhere else, so it is the only honest
+  # degraded-mode signal.
+  case "$INPUT" in
+    *'"agent_id"'*) AGENT_ID="unknown-degraded-parse" ;;
+  esac
+fi
 TOOL="$(json_get '.tool_name' || true)"
 
 # Protected governance surface (repo-root-relative path prefixes). Delegates to

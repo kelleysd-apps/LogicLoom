@@ -38,23 +38,64 @@ set -euo pipefail
 
 INPUT=$(cat)
 
+# THE PARSER CHAIN MUST HAVE A THIRD RUNG, AND THIS ONE DID NOT.
+# jq -> python3 -> grep. Without the grep rung, a machine carrying NEITHER jq nor
+# python3 — an ordinary slim CI or dev container — made every json_get return
+# empty. An empty .agent_id then read as "not a subagent", and this hook returned
+# ALLOW for a subagent `git push` that it denies on any normal machine. Verified
+# against a PATH holding neither: deny -> allow. Principle VI, the CRITICAL one,
+# silently stopped holding, and nothing told the adopter. `git-safety-gate.sh`
+# already carried this third rung, which is exactly why it survived the same
+# test; the two hooks are now consistent.
+have_structured_parser() {
+  command -v jq >/dev/null 2>&1 || command -v python3 >/dev/null 2>&1
+}
+
 json_get() { # key
   if command -v jq >/dev/null 2>&1; then
     printf '%s' "$INPUT" | jq -r "$1 // empty" 2>/dev/null && return
   fi
-  printf '%s' "$INPUT" | python3 -c \
-    "import sys,json
+  if command -v python3 >/dev/null 2>&1; then
+    printf '%s' "$INPUT" | python3 -c \
+      "import sys,json
 d=json.load(sys.stdin)
 keys='${1//[.\"]/ }'.split()
 v=d
 for k in keys:
     v=v.get(k) if isinstance(v,dict) else None
-print(v if v is not None else '')" 2>/dev/null
+print(v if v is not None else '')" 2>/dev/null && return
+  fi
+  # Last rung: read the raw payload as text. A string gate on JSON, so it cannot
+  # see through escaping or nesting — which is why the degraded-parse branch
+  # below refuses to treat "I found nothing" as "there is nothing".
+  leaf=${1##*.}
+  printf '%s' "$INPUT" \
+    | grep -oE "\"$leaf\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" \
+    | head -1 | sed "s/.*\"$leaf\"[^\"]*\"//; s/\"$//"
 }
 
 AGENT_ID="$(json_get '.agent_id' || true)"
 COMMAND="$(json_get '.tool_input.command' || true)"
 [ -z "$COMMAND" ] && COMMAND="$(json_get '.command' || true)"
+
+# FAIL CLOSED ON A DEGRADED PARSE, never open. With no structured parser we are
+# reading JSON with grep, so "no agent_id found" is not evidence that this is the
+# main agent — it is evidence that we cannot tell. If the payload mentions
+# agent_id at all while we are in that state, treat the caller as a subagent and
+# let the allowlist decide. The cost of being wrong this way is a main-agent
+# read-only git call taking the allowlisted path; the cost of the other way is
+# the hole this comment exists because of.
+if [ -z "$AGENT_ID" ] && ! have_structured_parser; then
+  # Keyed on `agent_id` ONLY. `agent_type` was in this list and came out on
+  # external review: it can be present for a TOP-LEVEL session, so matching it
+  # would classify a main agent as a subagent and deny its legitimate git —
+  # trading a silent hole for a silent blockage. `agent_id` is the documented
+  # discriminator this hook uses everywhere else, so it is the only honest
+  # degraded-mode signal.
+  case "$INPUT" in
+    *'"agent_id"'*) AGENT_ID="unknown-degraded-parse" ;;
+  esac
+fi
 
 allow() {
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow"}}\n'
