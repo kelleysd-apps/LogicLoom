@@ -332,15 +332,44 @@ jobs:
           const dest = path.join(PKG, 'payload');
           let n = 0;
           for (const rel of files) {
-            if (!includes.some((re) => re.test(rel))) continue;
+            // A `rename:` SOURCE is itself a selection. Filtering on `include:`
+            // alone silently dropped every path the manifest names ONLY via a
+            // rename — today exactly one, AGENTS.md, whose rename to
+            // .logic-loom/AGENTS.md has no matching include line. The assembled
+            // payload was missing it, the step still reported success, and the
+            // shipped package refused every apply with
+            // "payload defect: AGENTS.md named by the manifest is not in the
+            // payload". Caught by installing the packed tarball, not by CI.
+            if (!includes.some((re) => re.test(rel)) && !renames.has(rel)) continue;
             if (manifest.isExcluded(parsed, rel, false)) continue;
-            const out = path.join(dest, renames.get(rel) || rel);
+            // COPY TO THE SOURCE PATH, NEVER THE RENAMED ONE. A `rename:` is an
+            // INSTALL-time mapping, not a layout instruction for the payload:
+            // lib/manifest.js states that every verb but `author:` names a path
+            // IN THE PAYLOAD, resolved against the payload root, and units.js
+            // applies the rename when it writes into the adopter's repo.
+            // Renaming here put AGENTS.md at payload/.logic-loom/AGENTS.md,
+            // where the planner does not look for it, and the packaged tool
+            // still refused every apply with the same payload defect.
+            const out = path.join(dest, rel);
             fs.mkdirSync(path.dirname(out), { recursive: true });
             fs.copyFileSync(rel, out);
             n++;
           }
           if (n === 0) {
             console.error('::error::The payload manifest selected ZERO files from the tag tree. A package that installs nothing must not ship.');
+            process.exit(1);
+          }
+          // Every path the manifest NAMES must have landed. `n > 0` only proves
+          // the selector matched something, which is what let a payload missing
+          // one required file report success.
+          const missing = [];
+          for (const [src, dst] of renames) {
+            // The payload holds the SOURCE path; `dst` is where the installer
+            // will later write it into the adopter's repo.
+            if (!fs.existsSync(path.join(dest, src))) missing.push(`${src} (installs to ${dst})`);
+          }
+          if (missing.length) {
+            for (const m of missing) console.error(`::error::Payload assembly dropped a manifest-named path: ${m}`);
             process.exit(1);
           }
           console.log(`Payload: ${n} files from the tag tree.`);
