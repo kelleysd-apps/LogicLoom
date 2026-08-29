@@ -432,16 +432,92 @@ echo ""
 # init left branch-topology-guard.yml in place and every PR the customer opened
 # into main was rejected.
 echo "4. All three /initialize-project paths remove the same maintainer CI"
-EXPECTED_WF="branch-topology-guard.yml
-leak-guard.yml
-promote-to-main.yml
-release-tag.yml"
+# ── FULL ACCOUNTING, NOT A COVERAGE FLOOR ───────────────────────────────────
+# This was a hardcoded `EXPECTED_WF` of four literal basenames. Exact against
+# TODAY's tree and blind to tomorrow's: a FIFTH maintainer workflow added to
+# .github/workflows/ is not in the list, so no init path has to remove it and
+# this section stays green while every customer inherits it. That is precisely
+# branch-topology-guard.yml's failure — a maintainer-only workflow left behind,
+# rejecting the customer's PRs — i.e. the failure this section exists to catch.
+# A hardcoded list is not a floor, but it decays into one the moment the tree
+# grows past it, and nothing goes red to say so.
+#
+# So: every workflow file in .github/workflows/ lands in exactly one of three
+# buckets, and the three must add up to the total.
+#   STRIPPED — template-strip-manifest.txt removes it; it never reaches a
+#              customer tree, so there is nothing for init to remove. DERIVED
+#              from the manifest — no line here, and it cannot be faked.
+#   KEPT     — ships AND is meant for the customer. Listed by FILENAME below
+#              WITH a reason. One line per exemption, and only here.
+#   REMOVED  — everything else: shipped but maintainer-only. All three init
+#              paths must remove EXACTLY this set — same set in all three, no
+#              extras, none missing.
+#
+# The default is REMOVED, which is the safe direction: a new workflow is treated
+# as maintainer-only until someone writes down why it is not. Adding
+# publish-adopt.yml therefore needs NO edit to this file — it lands in REMOVED
+# and this section goes red until all three init paths remove it. A STALE keep
+# line (naming a workflow that no longer exists, or one the manifest strips)
+# fails too, so an exemption cannot outlive the file it exempted.
+# (Read into the variable directly, NOT via \$(cat <<WFK) — same bash quoting
+# reason given in section 1's accounting heredoc.)
+IFS='' read -r -d '' WF_KEPT_REASONS <<'WFK' || true
+plugin-tests.yml :: validates the SHIPPED harness against the customer's own repo. It is THEIR CI, not ours — removing it would delete the only gate that tells them their clone still works.
+WFK
 
 removed_set() { # <file> -> sorted unique workflow basenames on rm/for-wf lines
   grep -E 'rm -f|for wf in' "$1" 2>/dev/null \
     | grep -oE '\.github/workflows/[A-Za-z0-9._-]+\.yml' \
     | sed 's#.*/##' | sort -u
 }
+
+WF_DIR="$ROOT/.github/workflows"
+assert "the workflow directory exists" "[ -d '$WF_DIR' ]"
+ALL_WF="$(ls "$WF_DIR" 2>/dev/null | grep -E '\.ya?ml$' | sort || true)"
+N_ALL_WF="$(printf '%s\n' "$ALL_WF" | grep -c . || true)"
+
+WF_STRIPPED=""; WF_KEPT=""; WF_REMOVED=""
+while IFS= read -r wf; do
+  [ -z "$wf" ] && continue
+  if is_stripped ".github/workflows/$wf" "$MANIFEST"; then
+    WF_STRIPPED="${WF_STRIPPED}${wf}"$'\n'
+  elif printf '%s\n' "$WF_KEPT_REASONS" | grep -qF "$wf ::"; then
+    WF_KEPT="${WF_KEPT}${wf}"$'\n'
+  else
+    WF_REMOVED="${WF_REMOVED}${wf}"$'\n'
+  fi
+done <<EOF
+$ALL_WF
+EOF
+# Trim the trailing newline each accumulation leaves, so these compare byte-for-
+# byte against removed_set()'s `sort -u` output (which has none).
+WF_STRIPPED="$(printf '%s' "$WF_STRIPPED" | grep -v '^$' || true)"
+WF_KEPT="$(printf '%s' "$WF_KEPT" | grep -v '^$' || true)"
+WF_REMOVED="$(printf '%s' "$WF_REMOVED" | grep -v '^$' || true)"
+
+N_WF_STRIPPED="$(printf '%s\n' "$WF_STRIPPED" | grep -c . || true)"
+N_WF_KEPT="$(printf '%s\n' "$WF_KEPT" | grep -c . || true)"
+N_WF_REMOVED="$(printf '%s\n' "$WF_REMOVED" | grep -c . || true)"
+
+assert "every workflow is classified ($N_WF_STRIPPED stripped + $N_WF_KEPT kept + $N_WF_REMOVED removed = $((N_WF_STRIPPED + N_WF_KEPT + N_WF_REMOVED)), total $N_ALL_WF)" \
+  "[ '$((N_WF_STRIPPED + N_WF_KEPT + N_WF_REMOVED))' -eq '$N_ALL_WF' ]"
+assert "the REMOVED set is non-empty (got $N_WF_REMOVED) — an empty expectation asserts nothing" \
+  "[ '$N_WF_REMOVED' -ge 1 ]"
+
+# A keep line that names nothing shipped is an excuse outliving its file.
+WF_STALE=""
+while IFS= read -r line; do
+  [ -z "$line" ] && continue
+  nm="${line%% ::*}"
+  printf '%s\n' "$WF_KEPT" | grep -qxF "$nm" && continue
+  WF_STALE="${WF_STALE}${nm}; "
+done <<EOF
+$WF_KEPT_REASONS
+EOF
+assert "no STALE workflow-keep line — excuses a workflow that no longer ships (got: ${WF_STALE:-none})" \
+  '[ -z "$WF_STALE" ]'
+
+EXPECTED_WF="$WF_REMOVED"
 
 INIT_SH="$ROOT/init-project.sh"
 INIT_SKILL="$ROOT/plugins/loom-maintenance/skills/project-initialization/SKILL.md"
@@ -455,14 +531,27 @@ S_SH="$(removed_set "$INIT_SH")"
 S_SKILL="$(removed_set "$INIT_SKILL")"
 S_CMD="$(removed_set "$INIT_CMD")"
 
-assert "init-project.sh removes exactly the four maintainer workflows" \
+assert "init-project.sh removes exactly the $N_WF_REMOVED derived maintainer workflows" \
   "[ \"\$S_SH\" = \"\$EXPECTED_WF\" ]"
-assert "project-initialization SKILL.md removes exactly the same four" \
+assert "project-initialization SKILL.md removes exactly the same $N_WF_REMOVED" \
   "[ \"\$S_SKILL\" = \"\$EXPECTED_WF\" ]"
-assert "initialize-project.md (the executed command) removes exactly the same four" \
+assert "initialize-project.md (the executed command) removes exactly the same $N_WF_REMOVED" \
   "[ \"\$S_CMD\" = \"\$EXPECTED_WF\" ]"
-assert "none of the three removes plugin-tests.yml (it validates the shipped harness)" \
-  "! printf '%s\n%s\n%s\n' \"\$S_SH\" \"\$S_SKILL\" \"\$S_CMD\" | grep -q 'plugin-tests.yml'"
+
+# The set-equality above already forbids these, but stated separately so the
+# failure NAMES the workflow rather than dumping two sorted lists to diff by eye.
+WF_WRONGLY_REMOVED=""
+while IFS= read -r wf; do
+  [ -z "$wf" ] && continue
+  if printf '%s\n%s\n%s\n' "$S_SH" "$S_SKILL" "$S_CMD" | grep -qxF "$wf"; then
+    WF_WRONGLY_REMOVED="${WF_WRONGLY_REMOVED}${wf}; "
+  fi
+done <<EOF
+$WF_KEPT
+$WF_STRIPPED
+EOF
+assert "no init path removes a KEPT or STRIPPED workflow (got: ${WF_WRONGLY_REMOVED:-none})" \
+  '[ -z "$WF_WRONGLY_REMOVED" ]'
 echo ""
 
 # ── 5. the guard that ships tells its inheritor how to get rid of it ────────

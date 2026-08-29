@@ -444,10 +444,20 @@ jobs:
               UNCLASS=$((UNCLASS + 1)); continue
             fi
             REPLAYED=$((REPLAYED + 1))
+            # `if out=$(...)` — NOT a bare `out=$(...); rc=$?`. GitHub runs this
+            # step under `bash -e`, and a plain assignment from a command
+            # substitution carries that command's exit status, so a FAILING
+            # replayed suite killed the step AT THE ASSIGNMENT — before `rc=$?`,
+            # before the FAIL branch below, before the tail-40 of its output.
+            # The observable result was a step that printed a run of PASS lines
+            # and then `Process completed with exit code 1` naming nothing at
+            # all: the gate could tell you the sanitized tree was broken but
+            # never which suite broke it. Wrapping the assignment in `if`
+            # exempts it from `-e` and makes the FAIL branch reachable.
             if [ -n "$WD" ]; then
-              out=$( cd "$WD" 2>/dev/null && eval "$CMD" 2>&1 ); rc=$?
+              if out=$( cd "$WD" 2>/dev/null && eval "$CMD" 2>&1 ); then rc=0; else rc=$?; fi
             else
-              out=$(eval "$CMD" 2>&1); rc=$?
+              if out=$(eval "$CMD" 2>&1); then rc=0; else rc=$?; fi
             fi
             if [ "$rc" -eq 0 ]; then
               echo "PASS       $CMD"
@@ -473,9 +483,22 @@ jobs:
       - name: Compose single-parent release commit
         id: compose
         run: |
+          set -euo pipefail
+          PARENT=$(git rev-parse refs/remotes/origin/main)
+          # STAMP THE BASELINE BEFORE write-tree (LOOM-0036).
+          # dev-main carries its OWN .sdd-sync-ref, and nothing ever advances it:
+          # it holds a dev-main merge SHA that `main` has never seen. Composing the
+          # tree straight from dev-main therefore shipped that dev-main SHA inside
+          # the snapshot commit's tree — so `git clone --branch vX.Y.Z` handed the
+          # adopter a baseline that is NOT reachable from main, and
+          # /update-framework died with ".sdd-sync-ref is NOT reachable from
+          # upstream main". That is how v6.4.1 and v6.5.0 shipped with
+          # c6092b08 (a dev-main merge) as their baseline.
+          # PARENT is main's tip, so it is reachable from main BY CONSTRUCTION.
+          # The Advance step below then moves the published value forward to C1.
+          printf '%s\n' "$PARENT" > .sdd-sync-ref
           git add -A
           TREE=$(git write-tree)
-          PARENT=$(git rev-parse refs/remotes/origin/main)
           SRC=$(git rev-parse HEAD)            # dev-main tip (string only)
           MSG="release: ${{ needs.gate.outputs.version }} sanitized template"
           C1=$(printf '%s\n\nSource-dev-main: %s\n' "$MSG" "$SRC" \
@@ -498,6 +521,52 @@ jobs:
                  | git commit-tree "$TREE2" -p "$C1")
           echo "commit=$C2" >> "$GITHUB_OUTPUT"
 
+      # REACHABILITY GATE (LOOM-0036) — the invariant, asserted by construction.
+      #
+      # THE INVARIANT: the `.sdd-sync-ref` value INSIDE a published commit must be
+      # an ANCESTOR OF THAT COMMIT. Every commit in this chain lands on `main`
+      # (C1 as the merge's second parent, C2 as its first), so "ancestor of the
+      # commit that carries it" implies "reachable from main" the moment the
+      # promotion PR is merged — which is exactly what extract-proposals.sh
+      # requires of an adopter's baseline.
+      #
+      # WHAT IT CATCHES that nothing else did: the pre-existing gate in
+      # release-tag.yml checks that the snapshot COMMIT is an ancestor of main
+      # (it catches a squash/rebase merge). It never reads the snapshot's TREE,
+      # so a stale `.sdd-sync-ref` VALUE inside a perfectly reachable commit
+      # sailed through it. This step reads the value.
+      #
+      # It runs BEFORE any push, so a failure costs a red workflow and nothing
+      # else — no branch, no tag, no Release, nothing an adopter can clone.
+      - name: Verify published .sdd-sync-ref is reachable
+        run: |
+          set -uo pipefail
+          RC=0
+          for C in "${{ steps.compose.outputs.commit }}" "${{ steps.sync.outputs.commit }}"; do
+            REF=$(git cat-file blob "$C:.sdd-sync-ref" 2>/dev/null | tr -d '[:space:]')
+            if [ -z "$REF" ]; then
+              echo "::error::$C carries an EMPTY or missing .sdd-sync-ref."; RC=1; continue
+            fi
+            if ! git cat-file -e "${REF}^{commit}" 2>/dev/null; then
+              echo "::error::$C carries .sdd-sync-ref=$REF, which is not a commit in this repository."; RC=1; continue
+            fi
+            if git merge-base --is-ancestor "$REF" "$C"; then
+              echo "OK  $C -> .sdd-sync-ref=$REF (ancestor)"
+            else
+              echo "::error::$C carries .sdd-sync-ref=$REF, which is NOT an ancestor of it."
+              echo "RELEASE ABORTED: the baseline about to be published is unreachable." >&2
+              echo "  Every adopter of this release would get a .sdd-sync-ref that is not" >&2
+              echo "  in main's history, and /update-framework would fail for all of them" >&2
+              echo "  with '.sdd-sync-ref is NOT reachable from upstream main'." >&2
+              echo "  CAUSE (historically): the snapshot tree was composed straight from" >&2
+              echo "  dev-main, inheriting dev-main's own stale .sdd-sync-ref. The compose" >&2
+              echo "  step must stamp the value; see 'Compose single-parent release commit'." >&2
+              echo "  DO NOT fix this by adding a remap entry to extract-proposals.sh." >&2
+              RC=1
+            fi
+          done
+          exit "$RC"
+
       # PUBLISH (default): push the release branch to THIS repo and STOP. The PR
       # is opened afterwards with a USER token — see the header for why this
       # workflow must not open it. A human merges with a MERGE COMMIT; the tag is
@@ -508,7 +577,7 @@ jobs:
           set -euo pipefail
           BR="release/${{ needs.gate.outputs.version }}"
           git push origin "${{ steps.sync.outputs.commit }}:refs/heads/$BR"
-          BODY="Single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ needs.gate.outputs.version }} (the sanitized snapshot) — no manual tagging."
+          BODY="Single-parent promotion from dev-main onto this repo's main. The in-workflow sanitization audit (Checks 1-7) already passed — that is the binding gate. **Merge with a MERGE COMMIT** (never squash/rebase) to keep .sdd-sync-ref + v* tags reachable for /update-framework. On merge, .github/workflows/release-tag.yml auto-tags ${{ needs.gate.outputs.version }} on the \`chore: advance .sdd-sync-ref\` commit, so the tag's tree names the sanitized snapshot as its baseline — no manual tagging."
           {
             echo "## Release branch pushed — PR NOT opened (by design)"
             echo ""
@@ -543,5 +612,10 @@ jobs:
         if: ${{ inputs.publish_mode == 'direct-push' }}
         run: |
           git push origin "${{ steps.sync.outputs.commit }}:main"
-          git tag "${{ needs.gate.outputs.version }}" "${{ steps.compose.outputs.commit }}"
+          # Tag C2 (the sync-ref commit), NOT C1 (the snapshot) — LOOM-0036.
+          # C1's tree still names the PREVIOUS main tip as the baseline, so a
+          # `clone --branch vX.Y.Z` of C1 is one release stale. C2's tree names
+          # C1 itself: the adopter's baseline is exactly the release they cloned.
+          # C2 is single-parent (parent C1), so the chain invariant is untouched.
+          git tag "${{ needs.gate.outputs.version }}" "${{ steps.sync.outputs.commit }}"
           git push origin "${{ needs.gate.outputs.version }}"

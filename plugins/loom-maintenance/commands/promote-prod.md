@@ -125,7 +125,47 @@ succeeding. A failed release leaves the rehearsal environment standing on
 purpose — it is the diagnostic diff between "the rehearsal passed" and
 "production failed". Do not tear it down to tidy up, and do not suggest it.
 
-### Step 6 — Report what happened, not what you hope happened
+### Step 6 — GitHub Release: verify it exists, and say who published it
+
+**Read the scope line first, because it is the honest part: this command cannot
+drive a LogicLoom template release today.** The harness release path is
+`/promote` → merge → `.github/workflows/release-tag.yml`, and `/promote` is
+maintainer-only and stripped from a customer's clone. `/promote-prod` ships to
+customers and has no route into it. **LOOM-0035** — consolidating the two into a
+single `/promote-prod` — is the work that makes this step something this command
+*drives* rather than something it *checks*. Until then, do not claim otherwise.
+
+**Live now** (any project whose release cuts a GitHub Release, harness included):
+verify the Release exists, and report it. A tag is not a release.
+
+```bash
+gh release view "<tag>" --json url,isDraft,name,tagName
+```
+
+- **No such release → report it as a gap, not a pass.** This is the failure that
+  actually happened here: from **v6.2.0 to v6.5.0 the harness release path
+  pushed five tags and published zero Releases** (6.3.0, 6.3.1, 6.4.0, 6.4.1,
+  6.5.0), and the Releases page showed v6.2.0 as "Latest" the whole time.
+  Nothing went red, because nothing was asserting it.
+- **`isDraft: true` → correct.** CI stages a draft; it never publishes. A human
+  proofreads the notes and hits Publish — the act that flips "Latest" and
+  notifies watchers stays human, deliberately.
+- Report **URL**, **`isDraft`**, and `tagName`. Naming only the tag is not a
+  verification of the release.
+- **Creating or publishing the Release is not this command's job.** Like every
+  other outward act here, it is surfaced and handed over.
+
+**Lands with LOOM-0035**: the consolidated `/promote-prod` owns GitHub Release
+publication end to end — dispatching the release workflow, verifying the draft
+appeared, and handing the maintainer the Publish gate — under the same typed
+exact phrase this rung already requires.
+
+**One-release lag, for the harness path.** `release-tag.yml` is triggered by
+`push:`, so GitHub runs the copy of the file **at the pushed commit**. The draft
+Release step first runs for **v6.6.0**; it did not and cannot run for v6.5.0,
+which was published by hand.
+
+### Step 7 — Report what happened, not what you hope happened
 
 A successful release means the seam exited zero. It does not mean the release
 works. There is typically no automated end-to-end test driving the artifact

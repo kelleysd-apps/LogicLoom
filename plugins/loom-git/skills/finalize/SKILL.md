@@ -37,15 +37,38 @@ bash .logic-loom/scripts/bash/constitutional-check.sh
 
 Parse output for pass/fail results per principle.
 
-### Step 2: Run Test Suite (Principle II)
+### Step 2: Run the Harness Test Suite If It Is Present (Principle II)
 
-Run the project test suite to validate coverage:
+The harness regression suite ships with a LogicLoom clone and with the template
+release, but **not** with the npm adopt payload (`exclude: tests` in
+`packaging/adopt/payload-manifest.txt`). Run it when present; skip it honestly
+when absent.
 
 ```
-bash tests/run_all_tests.sh 2>&1
+if [ -f tests/run_all_tests.sh ]; then
+  bash tests/run_all_tests.sh 2>&1
+else
+  echo "harness-tests: NOT RUN — tests/run_all_tests.sh is not present."
+  echo "harness-tests: this install did not receive the harness suite (adopt payload excludes tests/)."
+  echo "harness-tests: Principle II is UNVERIFIED for this run."
+fi
 ```
 
-Check that all suites pass and coverage meets the 80% threshold.
+**Present** — check that all suites pass and coverage meets the 80% threshold.
+
+**Absent** — record Principle II as `NOT VERIFIED — harness suite absent` and
+carry that line into the compliance report. Never report "all tests passed",
+"tests green", or a coverage figure off a suite that did not run: an unrun check
+is a gap, not a pass.
+
+**Why this skill does not run the adopter's own tests.** It would have to guess
+the runner (`npm test`? `pytest`? a Makefile target? a monorepo's per-workspace
+scripts?), and a wrong guess produces the exact failure this step exists to
+prevent — a green line in a compliance report that measured nothing, or a red
+one that indicts the harness for someone else's misconfigured script. `/finalize`
+validates constitutional compliance, which `constitutional-check.sh` ships and
+performs for every install; the project's own suite belongs to the project's own
+CI. Naming the gap is the honest output.
 
 ### Step 3: Validate 16 Principles
 

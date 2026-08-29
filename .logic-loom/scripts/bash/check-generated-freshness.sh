@@ -22,11 +22,10 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # WHY A SEPARATE SCRIPT AND NOT A `--check` MODE ON EACH GENERATOR
 # ─────────────────────────────────────────────────────────────────────────────
-# Both generators are FAIL-OPEN by explicit contract — build-backlog-dashboard.sh
-# documents "a viewer generator must not gate a workflow" and exits 0 on a
-# missing index; build-graph-bridge.sh warns and exits 0 with no jq. A `--check`
-# mode would put fail-CLOSED behaviour inside a fail-OPEN tool, and the next
-# reader could not tell from the exit code which contract was in force. It would
+# build-backlog-dashboard.sh is FAIL-OPEN by explicit contract — it documents "a
+# viewer generator must not gate a workflow" and exits 0 on a missing index. A
+# `--check` mode would put fail-CLOSED behaviour inside a fail-OPEN tool, and the
+# next reader could not tell from the exit code which contract was in force. It would
 # also duplicate the normalisation logic below in two places, in two languages of
 # artifact (HTML, JSONL), with no shared test.
 #
@@ -304,7 +303,8 @@ TMPD="$(mktemp -d 2>/dev/null || mktemp -d -t loomfresh)" || exit 1
 trap 'rm -rf "$TMPD"' EXIT
 
 FAILED=0
-CHECKED=0     # how many artifacts this run actually examined
+CHECKED=0        # how many artifacts this run actually examined
+TOOL_BROKE=0     # a GENERATOR failed, as opposed to an artifact being stale
 
 # ── The tracked set is the source of truth for WHAT to check ────────────────
 # See the header. No git, or not a work tree -> REFUSE (exit 1). We cannot
@@ -509,6 +509,31 @@ fail_header() {
   echo ""
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# A GENERATOR'S OWN WORDS BEAT THIS GATE'S GUESS
+# ─────────────────────────────────────────────────────────────────────────────
+# Every generator invocation below captures BOTH its exit status and its stderr,
+# and every failing branch prints them. That is not tidiness; it is the fix for a
+# real CI failure. The graph builder was run as `... >/dev/null 2>&1`, so when it
+# died the gate had exactly one fact left — no file on disk — and reported the
+# only thing that fact could support: "the builder produced nothing". True,
+# useless, and it read as staleness. The builder's exit code and stderr, which
+# name the failing command, had been thrown away one line earlier.
+#
+# So: never `2>&1` a generator into /dev/null here, and never infer a cause from
+# the absence of an output file when the tool that failed to write it was willing
+# to say why.
+show_tool_output() { # $1=label  $2=stderr file
+  if [ -s "$2" ]; then
+    echo "  ── $1 said: ─────────────────────────────────────────────"
+    sed 's/^/  /' "$2" 2>/dev/null | head -40
+    echo "  ─────────────────────────────────────────────────────────"
+  else
+    echo "  ($1 wrote nothing to stderr.)"
+  fi
+  echo ""
+}
+
 # ── 1. artifacts/backlog-dashboard.html ──────────────────────────────────────
 if [ "$ONLY" = "" ] || [ "$ONLY" = "dashboard" ]; then
   DASH_REL="artifacts/backlog-dashboard.html"
@@ -562,10 +587,16 @@ if [ "$ONLY" = "" ] || [ "$ONLY" = "dashboard" ]; then
       echo ""
       FAILED=1
     else
+      # Same rule as the graph builder below: keep the renderer's exit code and
+      # stderr. `2>&1 >/dev/null` here used to throw away the only explanation of
+      # an empty page.
       bash "$RENDERER" "$ROOT" --index "$TMPD/index.json" --out "$TMPD/dash.html" \
-        >/dev/null 2>&1
-      if [ ! -s "$TMPD/dash.html" ]; then
-        fail_header "$DASH_REL — the renderer produced no page"
+        >/dev/null 2>"$TMPD/renderer.err"
+      rrc=$?
+      if [ "$rrc" -ne 0 ] || [ ! -s "$TMPD/dash.html" ]; then
+        fail_header "$DASH_REL — the renderer produced no page (exit $rrc)"
+        show_tool_output "build-backlog-dashboard.sh" "$TMPD/renderer.err"
+        TOOL_BROKE=1
         FAILED=1
       else
         normalise_ts "$TMPD/dash.html" "$TMPD/fresh.norm"
@@ -632,12 +663,32 @@ if [ "$ONLY" = "" ] || [ "$ONLY" = "graph" ]; then
     echo ""
     FAILED=1
   else
-    bash "$BUILDER" "$ROOT" --out "$TMPD/graph-bridge.jsonl" >/dev/null 2>&1
-    if [ ! -f "$TMPD/graph-bridge.jsonl" ]; then
-      fail_header "$GB_REL — the builder produced nothing"
+    bash "$BUILDER" "$ROOT" --out "$TMPD/graph-bridge.jsonl" \
+      >/dev/null 2>"$TMPD/builder.err"
+    brc=$?
+    if [ "$brc" -ne 0 ]; then
+      # The BUILDER broke. That is not staleness, and calling it staleness sends
+      # the reader to regenerate-and-commit — which cannot work, because the tool
+      # that would do the regenerating is the thing that failed.
+      fail_header "$GB_REL — THE BUILDER FAILED (exit $brc); this is NOT a stale artifact"
+      show_tool_output "build-graph-bridge.sh" "$TMPD/builder.err"
+      TOOL_BROKE=1
+      echo "  Fix the builder or its toolchain, then re-run this gate. Reproduce with:"
+      echo ""
+      echo "    bash .logic-loom/scripts/bash/build-graph-bridge.sh --out /dev/null"
+      echo ""
+      FAILED=1
+    elif [ ! -f "$TMPD/graph-bridge.jsonl" ]; then
+      # Exit 0 with no file. The builder's own contract forbids this — it either
+      # writes the file or exits non-zero — so reaching here means the contract
+      # was broken, not that the corpus was empty.
+      fail_header "$GB_REL — the builder exited 0 but wrote no file (contract violation)"
+      show_tool_output "build-graph-bridge.sh" "$TMPD/builder.err"
+      TOOL_BROKE=1
       FAILED=1
     elif diff -q "$GB" "$TMPD/graph-bridge.jsonl" >/dev/null 2>&1; then
       echo "✅ fresh: $GB_REL"
+      [ -s "$TMPD/builder.err" ] && show_tool_output "build-graph-bridge.sh (warnings)" "$TMPD/builder.err"
     else
       fail_header "$GB_REL differs from what the markdown corpus produces"
       echo "  A doc was added, moved, renamed or re-linked without rebuilding the"
@@ -648,6 +699,9 @@ if [ "$ONLY" = "" ] || [ "$ONLY" = "graph" ]; then
       echo "  First differing lines (committed < , regenerated > ):"
       diff "$GB" "$TMPD/graph-bridge.jsonl" 2>/dev/null | head -20 | sed 's/^/    /'
       echo ""
+      # A warning from the builder (e.g. python3 absent -> relative link edges
+      # skipped) explains a diff that would otherwise look like real drift.
+      [ -s "$TMPD/builder.err" ] && show_tool_output "build-graph-bridge.sh (warnings)" "$TMPD/builder.err"
       FAILED=1
     fi
   fi
@@ -656,8 +710,16 @@ fi
 
 if [ "$FAILED" -ne 0 ]; then
   echo "Generated-artifact freshness check FAILED."
-  echo "These files are tracked BECAUSE this gate keeps them honest — regenerate,"
-  echo "then commit the result alongside the source change that caused the drift."
+  if [ "$TOOL_BROKE" -ne 0 ]; then
+    # Do NOT tell the reader to regenerate-and-commit when the thing that would
+    # do the regenerating is what failed. That advice sent people looking for a
+    # stale doc when the actual fault was in the generator or its toolchain.
+    echo "At least one GENERATOR failed — that is a broken tool, not a stale file."
+    echo "Read its output above, fix that first; regenerating cannot help until you do."
+  else
+    echo "These files are tracked BECAUSE this gate keeps them honest — regenerate,"
+    echo "then commit the result alongside the source change that caused the drift."
+  fi
   exit 1
 fi
 

@@ -7,6 +7,7 @@
     "create-prd": {"plugin": "loom-creation", "source": "plugins/loom-creation/commands/create-prd.md"},
     "create-skill": {"plugin": "loom-creation", "source": "plugins/loom-creation/commands/create-skill.md"},
     "cross-check": {"plugin": "loom-orchestrator", "source": "plugins/loom-orchestrator/commands/cross-check.md"},
+    "distill": {"plugin": "loom-orchestrator", "source": "plugins/loom-orchestrator/commands/distill.md"},
     "finalize": {"plugin": "loom-git", "source": "plugins/loom-git/commands/finalize.md"},
     "fullstack-team": {"plugin": "loom-orchestrator", "source": "plugins/loom-orchestrator/commands/fullstack-team.md"},
     "git-push": {"plugin": "loom-git", "source": "plugins/loom-git/commands/git-push.md"},
