@@ -57,7 +57,7 @@ below are not optional polish; they are the boundary.
    In CLI mode it runs under the provider's read-only sandbox (see Mode B) and
    may NOT write or mutate the workspace.
 4. **Writes only its own report.** The only filesystem write this skill performs
-   is the findings artifact (`.docs/cross-check/.../` or the caller-supplied
+   is the findings artifact (`.brain/raw/reviews/.../` or the caller-supplied
    `--out` path). It never writes into repo source.
 5. **Fail-open, never phantom-gate.** If the chosen provider's key is missing or
    its CLI is absent, do NOT hard-fail the review. Emit `overall_verdict:
@@ -226,9 +226,39 @@ boundary) and stops an external model's false positive from halting the pipeline
 ## Output format
 
 Write `<out>/cross-check-report.md` (and `<out>/findings.json` with the raw
-object). Default `<out>` is `.docs/cross-check/YYYYMMDD-HHMMSS-<scope-slug>/`.
+object). Default `<out>` is
+`.brain/raw/reviews/YYYYMMDD-HHMMSS-<scope-slug>/` — this is a **capture**:
+`.brain/raw/` holds immutable evidence, and `check-brain-record.sh` (CI,
+fail-closed) requires every `*.md` under it to carry parseable capture
+frontmatter. `cross-check-report.md` therefore opens with that frontmatter,
+before its `# Cross-Check Report` heading, as shown below.
+
+This is the clean first move because `.docs/cross-check/` was never
+gitignored — this output was already tracked. Moving it under `.brain/raw/`
+changes *where* it lives, not *whether* it is committed. It picks up one new
+property for free: `.brain/raw` is a wholesale strip entry in
+`.logic-loom/scripts/bash/template-strip-manifest.txt`, so this output no
+longer reaches the published template, which it previously did.
+
+`findings.json` is not markdown — the record gate globs `*.md` only, so it
+never ranges over `findings.json`. Do not add capture frontmatter to it; it
+is the raw data the report's frontmatter block points evidence at, not a
+capture in its own right.
+
+A caller-supplied `--out` (from `/review-team` or `/plan-review`, folding this
+slot into their own artifact tree) is **not** a capture and needs no capture
+frontmatter — the record gate only walks `.brain/raw/`, and a caller-supplied
+path is by definition somewhere else.
 
 ```markdown
+---
+type: capture
+title: "<target scope>"
+date: <YYYY-MM-DD>
+source: "/cross-check <target> --provider <provider>"
+status: unprocessed
+---
+
 # Cross-Check Report — <target>
 
 - Date: <YYYY-MM-DD>
@@ -267,8 +297,9 @@ object). Default `<out>` is `.docs/cross-check/YYYYMMDD-HHMMSS-<scope-slug>/`.
 - `--focus <area>` (optional): bias the adversary (e.g. `security`,
   `concurrency`, `spec-deviation`).
 - `--out <path>` (optional): write the report here instead of the default
-  `.docs/cross-check/...` dir. Callers (`/review-team`, `/plan-review`) pass this
-  to fold the slot into their own artifact tree.
+  `.brain/raw/reviews/...` dir. Callers (`/review-team`, `/plan-review`) pass
+  this to fold the slot into their own artifact tree — a caller-supplied
+  `--out` is not a capture and carries no capture frontmatter.
 
 **Keys (`.env`, gitignored):** `OPENAI_API_KEY` for `codex`/`openai`;
 `GEMINI_API_KEY` for `gemini`. Optional model overrides:

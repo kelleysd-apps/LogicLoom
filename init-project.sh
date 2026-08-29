@@ -224,14 +224,28 @@ WEBREADME
     echo -e "${GREEN}✓${NC} Created web/README.md"
 fi
 
-# Archive framework README and create project README
+# Archive framework README and create project README.
+# IDEMPOTENT: the generated README is written ONLY when there is no README.md to
+# lose. A re-run finds the project README this script wrote last time -- or, worse,
+# one the user has since written by hand -- and must not clobber it. Previously the
+# `cat >` below was unconditional, so a second run destroyed the user's README.
 echo -e "${BLUE}Setting up documentation...${NC}"
-if [ -f "README.md" ] && [ ! -f "FRAMEWORK_README.md" ]; then
-    mv README.md FRAMEWORK_README.md
-    echo -e "${GREEN}✓${NC} Framework documentation moved to FRAMEWORK_README.md"
+WRITE_PROJECT_README=1
+if [ -f "README.md" ]; then
+    if [ -f "FRAMEWORK_README.md" ]; then
+        # Framework README already archived => this is a re-run and README.md is
+        # not ours to overwrite.
+        WRITE_PROJECT_README=0
+    else
+        mv README.md FRAMEWORK_README.md
+        echo -e "${GREEN}✓${NC} Framework documentation moved to FRAMEWORK_README.md"
+    fi
 fi
 
 # Create new project README
+if [ "$WRITE_PROJECT_README" = "0" ]; then
+    echo -e "${YELLOW}ℹ${NC}  Existing README.md left untouched (FRAMEWORK_README.md already archived)"
+else
 cat > README.md << EOF
 # $PROJECT_NAME
 
@@ -310,8 +324,8 @@ Follow the constitutional principles in \`.logic-loom/memory/constitution.md\`.
 
 Built with [LogicLoom](https://github.com/kelleysd-apps/LogicLoom)
 EOF
-
 echo -e "${GREEN}✓${NC} Project README created"
+fi
 
 # Initialize git if not already initialized
 if [ ! -d ".git" ]; then
@@ -505,7 +519,7 @@ echo ""
 # harness you are using.)
 echo ""
 echo -e "${BLUE}Removing maintainer-only template-release CI...${NC}"
-for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/leak-guard.yml .github/workflows/branch-topology-guard.yml; do
+for wf in .github/workflows/promote-to-main.yml .github/workflows/release-tag.yml .github/workflows/publish-adopt.yml .github/workflows/leak-guard.yml .github/workflows/branch-topology-guard.yml; do
     if [ -f "$wf" ]; then
         rm -f "$wf"
         echo -e "${GREEN}✓${NC} Removed $wf (LogicLoom template-release CI, not for your project)"

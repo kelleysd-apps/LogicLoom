@@ -20,9 +20,18 @@
 # So the scan covers harness-owned shell only:
 #
 #   .logic-loom/ , .claude/hooks/ , tests/    framework-owned wholesale — the
-#                                             harness↔product boundary in
+#   packaging/adopt/                          harness↔product boundary in
 #                                             CLAUDE.md puts product code in
-#                                             web/ or apps/<name>/, never here
+#                                             web/ or apps/<name>/, never here.
+#                                             packaging/adopt/ is wholesale too,
+#                                             for a different reason: its
+#                                             merge scripts (merge/*.sh) run on
+#                                             the ADOPTER'S bash, not ours —
+#                                             stock macOS ships 3.2 there just
+#                                             as much as it does here, and this
+#                                             suite is the only thing that would
+#                                             ever notice a bash-4-only idiom
+#                                             creeping into that package.
 #   plugins/<p>/                              ONLY for plugins DECLARED in
 #                                             CLAUDE.md's Plugin Registry table
 #
@@ -177,7 +186,7 @@ declared_harness_plugins() {
 # Framework-owned wholesale + one root per declared harness plugin.
 floor_scan_roots() {
   local r="$1" d p
-  for d in .logic-loom .claude/hooks tests; do
+  for d in .logic-loom .claude/hooks tests packaging/adopt; do
     [ -d "$r/$d" ] && printf '%s\n' "$r/$d"
   done
   for p in $(declared_harness_plugins "$r"); do
@@ -240,11 +249,26 @@ assert "every declared plugin is a real directory under plugins/ (${MISSING_DIR:
 ORPHANS="$(undeclared_harness_shaped "$ROOT" | tr '\n' ' ')"
 assert "no loom-*/sdd-* plugin on disk is missing from the registry (${ORPHANS:-none})" \
        "[ -z \"\$(printf '%s' \"\$ORPHANS\" | tr -d ' ')\" ]"
-# The three wholesale roots must actually be in the computed set, or the scoping
+# The wholesale roots must actually be in the computed set, or the scoping
 # change quietly narrowed the floor to plugins alone.
-for d in .logic-loom .claude/hooks tests; do
-  assert "wholesale framework root '$d' is in the scan set" \
-         "grep -q -- \"$d\" <<< \"\$SCAN_ROOTS\""
+#
+# CONDITIONAL ON THE ROOT EXISTING, and that is not a softening. `floor_scan_roots`
+# only emits a root it can see (`[ -d ]` above), and this suite runs on TWO trees:
+# the dev tree, where all four exist, and the SANITIZED template tree, where
+# `packaging/` is stripped wholesale on purpose. Asserting `packaging/adopt`
+# unconditionally made this suite fail on the sanitized tree — which is a
+# customer's first push going red for a directory they are never shipped. Caught
+# by the promote gate's customer-CI replay, which is exactly its job.
+# Teeth are kept: on any tree where the directory IS present, its absence from
+# the scan set is still a failure.
+for d in .logic-loom .claude/hooks tests packaging/adopt; do
+  if [ -d "$ROOT/$d" ]; then
+    assert "wholesale framework root '$d' is in the scan set" \
+           "grep -q -- \"$d\" <<< \"\$SCAN_ROOTS\""
+  else
+    assert "wholesale root '$d' is absent from this tree, so correctly not scanned" \
+           "! grep -q -- \"$d\" <<< \"\$SCAN_ROOTS\""
+  fi
 done
 
 # ─────────────────────────────────────────────────────────────────────────────

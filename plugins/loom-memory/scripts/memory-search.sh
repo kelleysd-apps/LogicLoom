@@ -184,6 +184,24 @@ EOF
 # Main
 # ============================================
 
+# ── Brain-layer advisory (liveness + load) ───────────────────────────────────
+# Emitted alongside memory context so it reaches the model through the SAME
+# `additionalContext` injection governance-preflight.sh already performs.
+#
+# WHY HERE AND NOT IN THE HOOK: governance-preflight.sh lives under
+# `.claude/hooks/`, which is on the governance protected-path list. The cheapest
+# change to a governance surface is none, so the advisory rides the injection
+# the hook already makes rather than editing the hook.
+#
+# The script itself is silent by construction on a tree with no `.brain/`, no
+# unprocessed captures, or no run log — an unadopted routine makes no noise. It
+# always exits 0 and can never block. `--once` dedupes per session per state.
+_brain_advisory() {
+    local script="$REPO_ROOT/.logic-loom/scripts/bash/check-brain-signals.sh"
+    [ -f "$script" ] || return 0
+    bash "$script" --once 2>/dev/null || true
+}
+
 main() {
     local message="${1:-}"
 
@@ -191,6 +209,12 @@ main() {
     if [ "$MEMORY_ENABLED" != "true" ]; then
         exit 0
     fi
+
+    # Advisory first: it is short, bounded, and must not be crowded out of the
+    # token budget by memory results.
+    local BRAIN_ADVISORY
+    BRAIN_ADVISORY="$(_brain_advisory)"
+    [ -n "$BRAIN_ADVISORY" ] && printf '%s\n\n' "$BRAIN_ADVISORY"
 
     # Need a message to search
     if [ -z "$message" ]; then

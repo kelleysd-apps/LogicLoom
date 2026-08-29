@@ -27,9 +27,29 @@ Flag any apparent credentials, API keys, or private keys in staged files.
 
 ### Step 3: Validate Test Coverage (Principle II)
 ```bash
-bash tests/run_all_tests.sh 2>&1
+# The harness regression suite ships with a LogicLoom clone and with the template,
+# but NOT with the npm adopt payload (`exclude: tests` in
+# packaging/adopt/payload-manifest.txt). Run it when it is here; say plainly that
+# it did not run when it is not. Never infer a pass from an absent suite.
+if [ -f tests/run_all_tests.sh ]; then
+  bash tests/run_all_tests.sh 2>&1
+else
+  echo "harness-tests: NOT RUN — tests/run_all_tests.sh is not present."
+  echo "harness-tests: this install did not receive the harness suite (adopt payload excludes tests/)."
+  echo "harness-tests: Principle II is UNVERIFIED for this run."
+fi
 ```
-Ensure all test suites pass and coverage meets 80% threshold.
+If the suite ran: report the per-suite result and whether coverage meets the 80%
+threshold. If it did not: report Principle II as **NOT VERIFIED — harness suite
+absent**, with that one-line reason. **Do not write "all tests passed", "tests
+green", or any coverage number when the suite did not run** — an unrun check is
+a gap in the report, never a pass.
+
+`/finalize` does **not** search for or run the project's own test command. It
+checks constitutional compliance and reports honestly on what it could not
+check; guessing at someone's runner and reporting its result as this repo's
+compliance evidence would be worse than naming the gap. Run your own suite (and
+your own CI) alongside `/finalize`, not through it.
 
 ### Step 4: Check Documentation Sync (Principle VIII)
 - Verify CLAUDE.md is up to date

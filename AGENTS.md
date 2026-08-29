@@ -1,6 +1,6 @@
 # LogicLoom Agent Registry
 
-**Version**: 6.5.0
+**Version**: 6.6.0
 **Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
 **Total Agents**: 8 (6 plugin + 2 project-level: deep-reasoner, fast-worker)
@@ -191,7 +191,7 @@ The **subagent git guard** denies MUTATING git from a subagent. A subagent may r
 |-------|---------|-------|
 | **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
 
-> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, `cross-check`, and `project-graph` among them (11 skills total in this plugin).
+> **Note**: this plugin's orchestration is skill-based — `team-orchestration`, `multi-skill-workflow`, `plan-review`, `retro`, `cross-check`, `distillation-pass`, and `project-graph` among them (12 skills total in this plugin).
 
 ### sdd-specification (0 agents — skill-based)
 
@@ -265,6 +265,7 @@ The vision/swarm pack is built on the following orchestrator skills:
 | `cross-check` | Governed cross-provider adversarial reviewer (Codex/GPT default; Gemini pluggable) — advisory + read-only; the slot in `/review-team` + `/plan-review` and the standalone `/cross-check` | loom-orchestrator |
 | `plan-review` | CEO + Eng review verdict on `plan.md` before swarm implement | loom-orchestrator |
 | `retro` | Post-feature learning capture — what worked, what to change | loom-orchestrator |
+| `distillation-pass` | Promotes `.brain/raw/` captures into cited `.brain/wiki/` pages; appends one dated entry to `.brain/DISTILL-LOG.md` on every run, including a zero-op run. A prompt, not an engine — no runner, never runs git | loom-orchestrator |
 
 ### `/swarm` modes (3)
 
@@ -350,6 +351,7 @@ Quick reference for delegation based on task domain:
 | **Tasks** | task list, breakdown | unified-specification skill (phase 3) | skill | sdd-specification | SDD waterfall |
 | **Plan review** | /plan-review, plan verdict | plan-review skill | skill | loom-orchestrator | vision/swarm |
 | **Retro** | /retro, learnings | retro skill | skill | loom-orchestrator | vision/swarm |
+| **Distill** | /distill, .brain, knowledge capture | distillation-pass skill | skill | loom-orchestrator | vision/swarm |
 | **Unified spec** | /specification | unified-specification skill | skill | sdd-specification | SDD waterfall |
 | **Agent Creation** | create agent, new agent | subagent-architect | agent | loom-creation | shared |
 | **Multi-Domain** | 2+ domains detected | team-orchestration skill | skill | loom-orchestrator | vision/swarm |
@@ -363,10 +365,11 @@ Quick reference for delegation based on task domain:
 |---------|----------|--------|---------|
 | `/create-prd` | prd-specialist | loom-creation | Create PRD (auto-detects vision-driven vs legacy) |
 | `/swarm` | team-orchestration skill | loom-orchestrator | Multi-agent swarm (explore / implement / generic-legacy) |
-| `/research` | team-synthesizer | loom-orchestrator | Jury-on-demand multi-LLM research |
-| `/cross-check` | cross-check skill | loom-orchestrator | Governed cross-provider adversarial review (advisory + read-only) |
+| `/research` | team-synthesizer | loom-orchestrator | Jury-on-demand multi-LLM research. Final report lands as a capture at `.brain/raw/research/<id>-<slug>.md` (`status: unprocessed`); working intermediates stay in the gitignored `.docs/research/<id>-<slug>/` |
+| `/cross-check` | cross-check skill | loom-orchestrator | Governed cross-provider adversarial review (advisory + read-only). Report lands as a capture in `.brain/raw/reviews/<id>-<slug>/` unless a caller passes `--out` |
 | `/plan-review` | plan-review skill | loom-orchestrator | CEO + Eng verdict on plan.md (`--adversary` adds cross-provider lens) |
-| `/retro` | retro skill | loom-orchestrator | Post-feature learning capture |
+| `/retro` | retro skill | loom-orchestrator | Post-feature learning capture. Memory destination is RESOLVED, never hardcoded — `memory_backend = repo` (default, `.brain/memory/`) or `project`; see `resolve-memory-backend.sh` |
+| `/distill` | distillation-pass skill | loom-orchestrator | Promotes `.brain/raw/` captures into `.brain/wiki/`; appends a dated `.brain/DISTILL-LOG.md` entry on every run |
 | `/review-team` | 4 reviewers + cross-provider adversary | loom-orchestrator | security + quality + performance + behavioral evaluator + Codex adversary |
 | `/git-push` | - | loom-git | Complete git workflow (commit + push + PR) |
 | `/code-review` | - | *(external Claude Code command — not shipped by LogicLoom)* | PR-level review |
@@ -418,6 +421,8 @@ test / fix loop
 /code-review (PR-level)
        ↓
 /retro (capture learnings)
+       ↓
+/distill (promote .brain/raw/ captures into .brain/wiki/, optional/skippable)
 ```
 
 ### SDD waterfall pack pipeline
@@ -479,7 +484,8 @@ plugins/
 │       ├── research/SKILL.md
 │       ├── plan-review/SKILL.md     (v6.0.0)
 │       ├── retro/SKILL.md           (v6.0.0)
-│       └── ... (11 skills total)
+│       ├── distillation-pass/SKILL.md   (backs /distill)
+│       └── ... (12 skills total)
 ├── sdd-specification/skills/
 │   └── unified-specification/SKILL.md   (the only skill; spec+plan+tasks merged in v5.1.0)
 ├── loom-creation/agents/
@@ -582,4 +588,4 @@ Contract-first, well-understood feature? ──→ /specification (spec + plan +
 
 **Registry Maintainer**: subagent-architect
 **Review Cycle**: On any agent change
-**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `.logic-loom/memory/amendments.md` (fork-owned, optional), `.docs/policies/shell-idiom-policy.md`, `plugins/MANIFEST-SCHEMA.md`, `features/README.md`
+**Cross-Reference**: CLAUDE.md, `VISION.md`, `.logic-loom/memory/constitution.md`, `.logic-loom/memory/amendments.md` (fork-owned, optional), `.docs/policies/shell-idiom-policy.md`, `plugins/MANIFEST-SCHEMA.md`, `features/README.md`, `.brain/README.md` (project knowledge layer contract)

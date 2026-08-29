@@ -1,0 +1,398 @@
+name: Publish adopt package to npm
+
+# =============================================================================
+# Publishes `packaging/adopt` (the `npx logicloom init` package) to the public
+# npm registry when a maintainer PUBLISHES a GitHub Release.
+#
+# ---------------------------------------------------------------------------
+# WHEN THIS FILE FIRST TAKES EFFECT — ONE RELEASE LATER, AND WHY
+# ---------------------------------------------------------------------------
+# For the `release` event, GITHUB_REF is `refs/tags/<tag_name>` and GITHUB_SHA
+# is the commit the tag points at, so GitHub runs the copy of THIS FILE THAT
+# EXISTS IN THE TAG'S TREE — not the copy on dev-main, and not the copy that was
+# on the default branch a moment ago.
+#
+# The tag is applied by release-tag.yml to the sanitized snapshot line on `main`.
+# So this workflow is live for the FIRST RELEASE WHOSE SNAPSHOT CARRIES IT —
+# v6.6.0 — and it did not and cannot run for v6.5.0 or anything earlier. That is
+# the same one-release-later property release-tag.yml's own header records, and
+# it is stated here rather than assumed because getting it wrong is exactly how
+# the version-binding gate ended up inert for v6.5.0.
+#
+# Two other ref facts, both deliberate:
+#   * `workflow_dispatch` is NOT offered. A dispatch runs the DEFAULT BRANCH's
+#     copy unless `--ref` is passed, which is the second half of the same trap:
+#     a hand-run publish would use main's workflow against whatever tree the
+#     runner happened to check out. If a publish must be re-driven, re-run THIS
+#     workflow run from the Actions UI — that re-runs it at the same tag.
+#   * GitHub's docs carry a general note that some events "only trigger a
+#     workflow run if the workflow file exists on the default branch". That note
+#     is absent from the `release` section and the docs do not resolve whether it
+#     applies. It is MOOT here — the tag is on `main`, which IS the default
+#     branch — so both readings are satisfied. Do not restate it as settled.
+#
+# ---------------------------------------------------------------------------
+# WHY `release: published` AND NOT release-tag.yml's JOB
+# ---------------------------------------------------------------------------
+# release-tag.yml creates a DRAFT Release; a draft is explicitly not published.
+# Publishing the npm package from that same job would put a package on a public
+# registry while the human-facing Release was still unread in draft. Hooking
+# `published` reuses the gate that already exists — the maintainer's Publish
+# click. No new confirmation surface, no new state.
+#
+# ---------------------------------------------------------------------------
+# AUTH: TRUSTED PUBLISHING (OIDC). NO LONG-LIVED TOKEN IN SECRETS.
+# ---------------------------------------------------------------------------
+# VERIFIED 2026-08-27 against https://docs.npmjs.com/trusted-publishers:
+#   * npm CLI >= 11.5.1 and Node >= 22.14.0 are REQUIRED.
+#   * `permissions: id-token: write` is REQUIRED (plus `contents: read`).
+#   * GitHub-hosted runners ONLY — "Self-hosted runners are not currently
+#     supported". `runs-on: ubuntu-latest` below satisfies this; moving this job
+#     to a self-hosted runner would break publishing and NOTHING in-repo would
+#     flag it.
+#   * THE WORKFLOW FILENAME IS PART OF THE BINDING. Renaming this file breaks
+#     publishing until the trusted-publisher config on npmjs.com is updated.
+#   * Configurations created after 2026-05-20 must EXPLICITLY select at least one
+#     allowed action; omitting it is a silent misconfiguration, not a setup error.
+#
+# NODE PIN: this job carries its OWN actions/setup-node at 22.14.0. The repo's
+# other workflows pin `node-version: '20'`, which is BELOW the trusted-publishing
+# floor — copying a step from either of them would silently give this job Node 20
+# and a publish that fails at the registry. They are deliberately not bumped:
+# neither publishes.
+#
+# NPM PIN: Node 22.14.0 ships npm 10.x, which is below the 11.5.1 floor, so the
+# CLI is upgraded explicitly below and then VERIFIED. An unverified upgrade is
+# how a floor silently stops being met.
+#
+# UNVERIFIED AND IT AFFECTS SEQUENCING: the docs do not state whether trusted
+# publishing works for the FIRST EVER publish of a name that does not yet exist
+# (the configuration flow is described as visiting "your package settings", which
+# implies the package must already exist). The path that is correct either way:
+# one manual `npm publish` from the maintainer's machine to create the name, then
+# configure the trusted publisher, then let this workflow handle every release
+# after. Until that has happened this job is expected to fail at the publish step
+# — loudly, which is the point.
+#
+# ---------------------------------------------------------------------------
+# WHERE THE TWO HALVES COME FROM
+# ---------------------------------------------------------------------------
+#   PAYLOAD  — from the TAG's tree (an already-sanitized `main` snapshot). This
+#              is what makes `.sdd-sync-ref` provably reachable for every adopter
+#              (the v6.3.1 / v6.4.0 failure mode), and it is why nothing here
+#              assembles a payload from dev-main or from a tarball.
+#   MANIFEST — the package itself (`packaging/adopt/**`) is MAINTAINER-ONLY:
+#              `packaging` is a template-strip-manifest entry, so it does not
+#              exist in the tag's tree. It is read from the dev-main commit named
+#              by the snapshot's `Source-dev-main:` trailer — the same mechanism
+#              release-tag.yml already uses to reach CHANGELOG.md. That fetch is
+#              runner-local; it pushes nothing and does not make dev-main
+#              reachable from `main`.
+#
+# ---------------------------------------------------------------------------
+# MAINTAINER-ONLY
+# ---------------------------------------------------------------------------
+# This file must SHIP (it has to be in the tag's tree to run) and must be REMOVED
+# from a customer's project, exactly like release-tag.yml and promote-to-main.yml.
+# All three /initialize-project paths remove it; tests/contract/
+# test_shipped_gates_vs_strip.sh § 4 enforces that all three agree.
+#
+# THIS WORKFLOW NEVER RUNS GIT MUTATIONS. It reads refs, fetches read-only, and
+# publishes to npm. It creates no tag, no commit, no branch.
+# =============================================================================
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read      # read the tag's tree and fetch dev-main read-only
+  id-token: write     # REQUIRED by npm trusted publishing (OIDC)
+
+jobs:
+  publish:
+    # GitHub-hosted ONLY — npm trusted publishing does not support self-hosted.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need the snapshot's parent + the ability to fetch dev-main
+
+      - uses: actions/setup-node@v4
+        with:
+          # >= 22.14.0 — the trusted-publishing floor. Deliberately NOT '20'.
+          node-version: '22.14.0'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Meet the npm CLI floor (>= 11.5.1) and prove it
+        run: |
+          set -euo pipefail
+          npm install -g npm@^11.5.1
+          NPM_V="$(npm --version)"
+          echo "npm CLI: $NPM_V ; node: $(node --version)"
+          node -e '
+            const need = [11, 5, 1];
+            const got = process.argv[1].split("-")[0].split(".").map(Number);
+            for (let i = 0; i < 3; i++) {
+              if ((got[i] || 0) > need[i]) process.exit(0);
+              if ((got[i] || 0) < need[i]) {
+                console.error("::error::npm CLI " + process.argv[1] +
+                  " is below the trusted-publishing floor 11.5.1. Publishing would fail at the registry.");
+                process.exit(1);
+              }
+            }
+          ' "$NPM_V"
+
+      # ---------------------------------------------------------------------
+      # VERSION DERIVATION — computed from the tag, never stamped.
+      #
+      # `packaging/adopt/package.json` carries the placeholder `0.0.0-dev`, and
+      # this step overwrites it. That makes version drift UNREPRESENTABLE rather
+      # than merely detectable: there is no second place a human could write a
+      # number that disagrees with the release, so there is nothing to reconcile
+      # and no 14th bump-version.sh site to forget.
+      #
+      # It is derived TWICE and the two must agree:
+      #   (1) the Release's tag_name  -> the version to publish
+      #   (2) FRAMEWORK_VERSION in the TAG'S OWN architecture.conf
+      # (2) is the tree's own claim about which harness it is. If the two differ,
+      # the tag lies about the tree it points at and the package would install a
+      # harness whose version is not the one on the tin. Refuse.
+      #
+      # STRICT X.Y.Z ONLY. A pre-release tag (v6.6.0-rc.1) is REFUSED rather
+      # than published: npm would move the `latest` dist-tag onto it, so a
+      # release candidate would become what `npx logicloom` installs by default.
+      # ---------------------------------------------------------------------
+      - name: Derive the package version from the release tag
+        env:
+          REL_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+
+          TAG="${REL_TAG:-}"
+          if [ -z "$TAG" ]; then
+            echo "::error::No release tag_name on this event — nothing to derive a version from."
+            exit 1
+          fi
+          case "$TAG" in
+            v*) NUM="${TAG#v}" ;;
+            *)  echo "::error::Release tag '$TAG' does not start with 'v'. LogicLoom tags are 'vX.Y.Z'; refusing to guess."; exit 1 ;;
+          esac
+          if ! printf '%s' "$NUM" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Release tag '$TAG' is not a plain vX.Y.Z release version."
+            echo "Pre-release and build-metadata tags are refused on purpose: npm would move the" >&2
+            echo "'latest' dist-tag onto them, making a candidate what 'npx logicloom' installs." >&2
+            exit 1
+          fi
+
+          CONF=".logic-loom/config/architecture.conf"
+          TREE_VER="$(sed -n -E 's/^FRAMEWORK_VERSION=([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' "$CONF" 2>/dev/null | head -1 || true)"
+          if [ -z "$TREE_VER" ]; then
+            echo "::error::Could not read FRAMEWORK_VERSION from $CONF at tag $TAG. The tag's tree cannot state which harness it is; refusing to publish."
+            exit 1
+          fi
+          if [ "$TREE_VER" != "$NUM" ]; then
+            echo "::error::VERSION INCOHERENCE — tag $TAG says $NUM, but the tree it points at says FRAMEWORK_VERSION=$TREE_VER."
+            echo "The package would install a harness whose version is not the one on the tin." >&2
+            echo "Fix the release, not this workflow: /promote stamps every version site before" >&2
+            echo "the snapshot is composed, so a mismatch means the tag was applied to the wrong commit." >&2
+            exit 1
+          fi
+
+          echo "PKG_VERSION=$NUM" >> "$GITHUB_ENV"
+          echo "Publishing version $NUM (from tag $TAG, confirmed by FRAMEWORK_VERSION)."
+
+      # ---------------------------------------------------------------------
+      # THE PACKAGE SOURCE — dev-main, via the snapshot's provenance trailer.
+      # `packaging/` is stripped from `main`, so it is NOT in this checkout.
+      # ---------------------------------------------------------------------
+      - name: Check out packaging/adopt from the dev-main commit the snapshot names
+        run: |
+          set -euo pipefail
+
+          # The tag may point at C2 ("chore: advance .sdd-sync-ref"), whose parent
+          # C1 is the snapshot carrying the trailer. Try HEAD, then HEAD^.
+          trailer_of() {
+            git log -1 --format=%B "$1" 2>/dev/null \
+              | sed -n -E 's/^Source-dev-main:[[:space:]]*([0-9a-f]{7,40}).*$/\1/p' | head -1
+          }
+          DEV="$(trailer_of HEAD)"
+          [ -z "$DEV" ] && DEV="$(trailer_of 'HEAD^' || true)"
+          if [ -z "$DEV" ]; then
+            echo "::error::Neither the tagged commit nor its parent carries a 'Source-dev-main:' trailer, so the packaging/adopt source is unknown. packaging/ is stripped from main, so there is no other source. Publish by hand from dev-main at this release's commit."
+            exit 1
+          fi
+
+          if ! git cat-file -e "${DEV}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --quiet origin "+refs/heads/dev-main:refs/remotes/origin/dev-main" 2>/dev/null || true
+          fi
+          if ! git cat-file -e "${DEV}^{commit}" 2>/dev/null; then
+            git fetch --no-tags --quiet origin "$DEV" 2>/dev/null || true
+          fi
+          if ! git cat-file -e "${DEV}^{commit}" 2>/dev/null; then
+            echo "::error::dev-main commit $DEV (from the Source-dev-main trailer) could not be fetched, so packaging/adopt is unreachable."
+            exit 1
+          fi
+
+          # Read-only extraction into a directory OUTSIDE the payload source tree.
+          PKG="${RUNNER_TEMP:-/tmp}/adopt-pkg"
+          rm -rf "$PKG"; mkdir -p "$PKG"
+          if ! git archive "$DEV" packaging/adopt | tar -x -C "$PKG" --strip-components=2; then
+            echo "::error::dev-main commit $DEV has no packaging/adopt tree."
+            exit 1
+          fi
+          echo "ADOPT_PKG=$PKG" >> "$GITHUB_ENV"
+          echo "ADOPT_DEV=$DEV" >> "$GITHUB_ENV"
+          echo "Read packaging/adopt from dev-main $DEV into $PKG"
+
+      # ---------------------------------------------------------------------
+      # THE PRIVATE-PACKAGE GATE — FAILS LOUDLY, NEVER NO-OPS.
+      #
+      # `packaging/adopt/package.json` ships `"private": true` until the
+      # maintainer decides the package should exist on npm. npm itself refuses to
+      # publish a private package, but it refuses at the END of the job with a
+      # registry error that reads like an auth problem. That is the wrong shape:
+      # a deliberate gate should say it is a deliberate gate.
+      #
+      # So this asserts the flag EARLY and explicitly. It is NOT silently
+      # stripped: removing `private: true` is the maintainer's decision to make
+      # in the file, in a commit, on the record — not something a workflow does
+      # on their behalf on the way past.
+      # ---------------------------------------------------------------------
+      - name: Gate — refuse to publish while the package is marked private
+        run: |
+          set -euo pipefail
+          PRIVATE="$(node -p "JSON.parse(require('node:fs').readFileSync(process.env.ADOPT_PKG + '/package.json','utf8')).private === true")"
+          if [ "$PRIVATE" = "true" ]; then
+            echo "::error::REFUSING TO PUBLISH — packaging/adopt/package.json has \"private\": true."
+            cat >&2 <<'EOF'
+          =============================================================================
+          The adopt package is still marked PRIVATE.
+
+          WHAT THIS MEANS
+            `private: true` is the deliberate gate on first publication. It is not a
+            leftover and this workflow will not remove it. While it is set, the
+            package name is not claimed on npm and nothing is published.
+
+          WHY THIS FAILS INSTEAD OF SKIPPING
+            A publish job that quietly does nothing is indistinguishable from a
+            publish job that is broken. The Release is published, the maintainer
+            believes the package went out, and nobody learns otherwise until an
+            adopter runs `npx logicloom` and gets a 404. Failing here is the honest
+            report: the release happened, the package deliberately did not.
+
+          TO PUBLISH
+            1. Decide the package should exist on npm.
+            2. Publish the name ONCE by hand from a maintainer machine (npm trusted
+               publishing may require the package to exist before a trusted
+               publisher can be configured — see this file's header).
+            3. Configure the trusted publisher on npmjs.com naming this repository
+               and the workflow filename `publish-adopt.yml`.
+            4. Remove `"private": true` from packaging/adopt/package.json on
+               dev-main, in a commit.
+          =============================================================================
+          EOF
+            exit 1
+          fi
+          echo "Package is publishable (no private flag)."
+
+      # ---------------------------------------------------------------------
+      # PAYLOAD ASSEMBLY — the tag's tree, filtered by payload-manifest.txt.
+      #
+      # The manifest is the single source of truth for what "LogicLoom adopted"
+      # means; this step does not carry a second copy of that list. It reuses the
+      # package's own parser (lib/manifest.js) so the published payload and the
+      # planner can never disagree about the boundary. If a dedicated build
+      # script later lands under packaging/adopt/, call it here instead.
+      # ---------------------------------------------------------------------
+      - name: Assemble the payload from the tag's tree
+        run: |
+          set -euo pipefail
+          git ls-files -z > "${RUNNER_TEMP:-/tmp}/tag-files.z"
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const PKG = process.env.ADOPT_PKG;
+          const manifest = require(path.join(PKG, 'lib', 'manifest.js'));
+          const parsed = manifest.load(path.join(PKG, 'payload-manifest.txt'));
+          if (parsed.errors && parsed.errors.length) {
+            for (const e of parsed.errors) console.error(`::error::payload-manifest.txt:${e.lineNo}: ${e.error}`);
+            process.exit(1);
+          }
+          const files = fs
+            .readFileSync(path.join(process.env.RUNNER_TEMP || '/tmp', 'tag-files.z'), 'utf8')
+            .split('\0').filter(Boolean);
+
+          const includes = parsed.entries
+            .filter((e) => e.verb === 'include')
+            .map((e) => manifest.globToRegExp(e.path, true));
+          // `rename: <src> :: <dst>` parses to { path: src, arg: dst }.
+          const renames = new Map(parsed.renames.map((e) => [e.path, e.arg]));
+
+          const dest = path.join(PKG, 'payload');
+          let n = 0;
+          for (const rel of files) {
+            // A `rename:` SOURCE is itself a selection. Filtering on `include:`
+            // alone silently dropped every path the manifest names ONLY via a
+            // rename — today exactly one, AGENTS.md, whose rename to
+            // .logic-loom/AGENTS.md has no matching include line. The assembled
+            // payload was missing it, the step still reported success, and the
+            // shipped package refused every apply with
+            // "payload defect: AGENTS.md named by the manifest is not in the
+            // payload". Caught by installing the packed tarball, not by CI.
+            if (!includes.some((re) => re.test(rel)) && !renames.has(rel)) continue;
+            if (manifest.isExcluded(parsed, rel, false)) continue;
+            // COPY TO THE SOURCE PATH, NEVER THE RENAMED ONE. A `rename:` is an
+            // INSTALL-time mapping, not a layout instruction for the payload:
+            // lib/manifest.js states that every verb but `author:` names a path
+            // IN THE PAYLOAD, resolved against the payload root, and units.js
+            // applies the rename when it writes into the adopter's repo.
+            // Renaming here put AGENTS.md at payload/.logic-loom/AGENTS.md,
+            // where the planner does not look for it, and the packaged tool
+            // still refused every apply with the same payload defect.
+            const out = path.join(dest, rel);
+            fs.mkdirSync(path.dirname(out), { recursive: true });
+            fs.copyFileSync(rel, out);
+            n++;
+          }
+          if (n === 0) {
+            console.error('::error::The payload manifest selected ZERO files from the tag tree. A package that installs nothing must not ship.');
+            process.exit(1);
+          }
+          // Every path the manifest NAMES must have landed. `n > 0` only proves
+          // the selector matched something, which is what let a payload missing
+          // one required file report success.
+          const missing = [];
+          for (const [src, dst] of renames) {
+            // The payload holds the SOURCE path; `dst` is where the installer
+            // will later write it into the adopter's repo.
+            if (!fs.existsSync(path.join(dest, src))) missing.push(`${src} (installs to ${dst})`);
+          }
+          if (missing.length) {
+            for (const m of missing) console.error(`::error::Payload assembly dropped a manifest-named path: ${m}`);
+            process.exit(1);
+          }
+          console.log(`Payload: ${n} files from the tag tree.`);
+          NODE
+
+      - name: Stamp the derived version into the package manifest
+        run: |
+          set -euo pipefail
+          node -e '
+            const fs = require("node:fs");
+            const f = process.env.ADOPT_PKG + "/package.json";
+            const j = JSON.parse(fs.readFileSync(f, "utf8"));
+            j.version = process.env.PKG_VERSION;
+            fs.writeFileSync(f, JSON.stringify(j, null, 2) + "\n");
+            console.log("package.json version = " + j.version);
+          '
+
+      # Trusted publishing: the OIDC token is minted from `id-token: write`.
+      # No NODE_AUTH_TOKEN, no NPM_TOKEN, no secret. Provenance is attached
+      # automatically for a trusted-publisher publish.
+      - name: Publish to npm (trusted publishing / OIDC)
+        working-directory: ${{ env.ADOPT_PKG }}
+        run: |
+          set -euo pipefail
+          npm publish --access public
+          echo "::notice::Published logicloom@${PKG_VERSION} from tag ${{ github.event.release.tag_name }} (payload from the tag tree, package from dev-main ${ADOPT_DEV})."

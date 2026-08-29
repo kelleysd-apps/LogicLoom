@@ -189,6 +189,63 @@ FZ_D="$(printf '%s' "$FZ_SUB" | bash "$FZ" | decision)"
 assert "freeze-write-scope runs in subagent context (no-DAG -> allow, got '$FZ_D')" "[ '$FZ_D' = 'allow' ]"
 
 echo ""
+echo "── The floor must hold on a machine with NEITHER jq NOR python3 ──"
+# A slim CI or dev container is an ordinary adopter environment, and it broke the
+# floor silently. Both constitutional guards parsed the hook payload jq->python3
+# with no third rung; with neither present every field read empty, an empty
+# agent_id read as "main agent", and the guards returned ALLOW where they deny on
+# a normal machine. Principle VI and the rule-protection hook simply stopped
+# holding, with nothing said to the adopter. git-safety-gate.sh already had a
+# grep rung, which is the only reason it survived — so it is the control here.
+# The assertion is DIVERGENCE: same input, same decision, both environments.
+NOBIN="$(mktemp -d)"
+for t in bash sh grep sed awk cat tr cut head tail wc git dirname basename mktemp rm ls printf test expr; do
+  for d in /usr/bin /bin /usr/sbin /sbin; do
+    [ -x "$d/$t" ] && { ln -sf "$d/$t" "$NOBIN/$t"; break; }
+  done
+done
+# The stub PATH is only meaningful if it really lacks both parsers AND can still
+# run the hooks; a malformed one produced a false ALLOW while this was written.
+assert "the degraded-PATH fixture genuinely has no jq" \
+  "! PATH='$NOBIN' command -v jq >/dev/null 2>&1"
+assert "the degraded-PATH fixture genuinely has no python3" \
+  "! PATH='$NOBIN' command -v python3 >/dev/null 2>&1"
+assert "the degraded-PATH fixture can still run grep (else every result below is void)" \
+  "PATH='$NOBIN' grep --version >/dev/null 2>&1"
+
+floor_same() { # label  hook  json  expected
+  _full="$(printf '%s' "$3" | bash "$2" 2>/dev/null | decision)"
+  _min="$(printf '%s' "$3" | PATH="$NOBIN" bash "$2" 2>/dev/null | decision)"
+  assert "$1: '$4' on a normal machine (got '$_full')" "[ '$_full' = '$4' ]"
+  assert "$1: SAME decision with no jq and no python3 (got '$_min')" "[ '$_min' = '$4' ]"
+}
+SGG="$ROOT_DIR/plugins/loom-governance/hooks/scripts/subagent-git-guard.sh"
+PGF="$ROOT_DIR/plugins/loom-governance/hooks/scripts/protect-governance-files.sh"
+GSG="$ROOT_DIR/plugins/loom-governance/hooks/scripts/git-safety-gate.sh"
+floor_same "subagent git push" "$SGG" \
+  '{"tool_name":"Bash","agent_id":"s1","tool_input":{"command":"git push origin main"}}' deny
+floor_same "subagent gh" "$SGG" \
+  '{"tool_name":"Bash","agent_id":"s1","tool_input":{"command":"gh pr merge 1"}}' deny
+floor_same "subagent read-only git stays allowed" "$SGG" \
+  '{"tool_name":"Bash","agent_id":"s1","tool_input":{"command":"git status"}}' allow
+floor_same "subagent writes settings.json" "$PGF" \
+  '{"tool_name":"Write","agent_id":"s1","tool_input":{"file_path":".claude/settings.json"}}' deny
+floor_same "subagent writes the constitution" "$PGF" \
+  '{"tool_name":"Write","agent_id":"s1","tool_input":{"file_path":".logic-loom/memory/constitution.md"}}' deny
+floor_same "main agent git push (control: already survived)" "$GSG" \
+  '{"tool_name":"Bash","tool_input":{"command":"git push origin main"}}' ask
+# External review flagged these two as uncovered, and both are ordinary shapes a
+# host can emit — not exotic input. Pretty-printed JSON breaks a naive one-line
+# grep; `agent_type` without `agent_id` is a MAIN-agent payload that an
+# over-broad degraded-mode trigger would misclassify as a subagent and deny.
+ML_JSON="$(printf '{\n  "tool_name": "Bash",\n  "agent_id": "s1",\n  "tool_input": {\n    "command": "git push origin main"\n  }\n}')"
+floor_same "multi-line JSON still denies a subagent push" "$SGG" "$ML_JSON" deny
+floor_same "agent_type WITHOUT agent_id is the main agent, not a subagent" "$SGG" \
+  '{"tool_name":"Bash","agent_type":"general","tool_input":{"command":"git push origin main"}}' allow
+
+rm -rf "$NOBIN"
+
+echo ""
 echo "======================================="
 echo " Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
 echo "======================================="

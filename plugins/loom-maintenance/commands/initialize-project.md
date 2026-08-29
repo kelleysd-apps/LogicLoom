@@ -17,8 +17,55 @@ Use the Task tool to invoke prd-specialist:
 
 ## Execution Instructions (for prd-specialist)
 
+### Step 0: Which install is this? — TEMPLATE CLONE or ADOPTED
+
+**Run this first. Several steps below are wrong, and one is destructive, in an
+adopted repository.**
+
+This command was written for a **template clone**: a fresh checkout of the
+LogicLoom template that becomes the project. It is now also reachable from a
+repository that **adopted** LogicLoom via `npx logicloom init` — the adopt
+payload ships `plugins/` and `.claude/commands/`, so `/initialize-project` is in
+that user's command palette whether or not anyone points them at it. Telling
+adopters not to run it is not a control; making it know where it is running is.
+
+Detect, read-only, no git:
+
+```bash
+# ADOPTED if this prints the schema line; TEMPLATE CLONE if the file is absent.
+grep -l '"schema": *"logicloom/adopt-receipt@1"' .logicloom-adopt-receipt.json 2>/dev/null
+```
+
+The receipt is written by the adopt applier and names every path it wrote. Read
+it — `runs[].claudeMd.resolved` is where the harness's operating instructions
+actually live in this repo, and `uninstall` is the removal procedure.
+
+| Step | TEMPLATE CLONE | ADOPTED |
+|---|---|---|
+| 1 · Locate PRD | as written | **Usually no PRD.** Do not block and do not ask them to write one; take project facts from the repo they already have |
+| 1.5 · VISION.md | as written | **Offer, never create unprompted.** They have their own product direction and no `VISION.md` stub was installed (the payload excludes it) |
+| 1.6 · project.conf | as written | as written — **this is the main reason to run the command** |
+| 1.7 · gate posture | as written | as written |
+| 1.8 · memory + distill | as written | as written |
+| 2 · Constitution | as written | **Write mandates to `.logic-loom/memory/amendments.md`, not `constitution.md`.** Editing the shipped constitution makes every later `npx logicloom init` upgrade a conflict against a file it will refuse to overwrite |
+| 3 · Agents | as written | as written |
+| 4 · MCP / keys / upstream | as written | as written, except: their root `CLAUDE.md` is **theirs**. Do not edit or create it. The harness registry installed as `.logic-loom/AGENTS.md`, not root `AGENTS.md` |
+| 4f · Remove maintainer CI | as written | **SKIP ENTIRELY — see below** |
+| 5–6 · Validate + report | as written | as written; say in the report that this was an adopted repo and which steps were skipped |
+
+**Why 4f is skipped, and why this is not a softening.** The adopt payload
+excludes `.github/` wholesale, so **nothing under `.github/workflows/` in an
+adopted repository came from LogicLoom** — every file there is the adopter's CI.
+`rm -f` against their workflows would delete work this tool has no claim on, and
+it would contradict the applier's own refusal that nothing is ever deleted,
+truncated or moved. The removal step exists because a *template clone* inherits
+the maintainer-only release workflows; an adopted repo inherits none, so there is
+nothing to remove and the step has no work to do. Skipping it removes no
+protection — it declines to act on files that were never ours.
+
 ### Step 1: Locate PRD
 Find PRD at `specs/prd/PRD.md` or ask user for location.
+(ADOPTED: usually absent — do not block. See Step 0.)
 
 ### Step 1.5: Scaffold the Project VISION
 Ensure the project's **foundational** product north-star exists at repo-root
@@ -122,6 +169,45 @@ by editing one line in `gate-policy.conf`, and editing that file will itself
 prompt for approval (it is on the protected-file floor, so a subagent cannot
 rewrite the approval policy and then act under it).
 
+### Step 1.8: Memory Backend and the Distillation Routine
+
+Ask two questions, once, in order. Full detail lives in the
+`project-initialization` skill; this is the short version.
+
+1. **Where should durable cross-session memory be written?** Offer two named
+   backends — `repo` (`.brain/memory/`, in-tree and versioned, so lessons
+   travel with the code and survive a machine change; stripped at template
+   release, **recommended, and the shipped default**) and `project`
+   (`$HOME/.claude/projects/<slug>/memory/`, per machine, outside the repo,
+   never committed — where `/retro` wrote historically). Write the choice
+   to `.logic-loom/config/memory-backend.conf`, key `memory_backend`.
+   Idempotency (Principle IV): if `memory_backend` is already set
+   explicitly, skip — that key is exactly what this step writes. With no
+   explicit setting the resolver defaults to `repo`; it never probes the
+   filesystem to decide. A store left behind at
+   `$HOME/.claude/projects/<slug>/memory/` from before this change is
+   reported by the preflight advisory (`check-brain-signals.sh`) until the
+   user moves it or answers `project` — nothing moves anyone's files.
+   Confirm with the read-only resolver, which never writes:
+   ```bash
+   bash .logic-loom/scripts/bash/resolve-memory-backend.sh --explain
+   ```
+   `memory-backend.conf` and `brain.conf` are on the governance guard's
+   protected-path list — a subagent's write is DENIED and a main-agent edit
+   prompts for approval. Writing the answer here will prompt; expect that,
+   don't route around it.
+2. **Run distillation on a schedule, or by hand?** By hand (or declined):
+   scaffold nothing — `.brain/` keeps just its `README.md` until there is
+   something to put in it. Schedule: **print**
+   `.logic-loom/templates/distill-schedule-prompt.md` and tell the user to
+   install it themselves via `/schedule` or their own cron — **do not
+   install it**; `~/.claude/scheduled-tasks/` is the user's tree, and the
+   harness-user boundary forbids writing there.
+
+This is opt-in at the point of value, not the point of setup — do not turn it
+into a workflow decision the user has to make before they have anything to
+distill.
+
 ### Step 2: Customize Constitution
 Read PRD goals and constraints. Update `.logic-loom/memory/constitution.md` principles as needed.
 
@@ -176,12 +262,19 @@ command themselves.
 
 ### Step 4f: Remove Maintainer-Only Template-Release CI
 
-The template ships four workflows that release + guard **the LogicLoom template
-itself**, not the customer's project. Remove all four now:
+**ADOPTED repositories: SKIP THIS STEP ENTIRELY. Run nothing here.** The adopt
+payload excludes `.github/` wholesale, so nothing under `.github/workflows/` in
+an adopted repo came from LogicLoom — it is all the adopter's own CI, and the
+`rm -f` lines below would delete it. See Step 0 for the detection and the full
+argument. The rest of this step applies to a TEMPLATE CLONE only.
+
+The template ships five workflows that release + guard **the LogicLoom template
+itself**, not the customer's project. Remove all five now:
 
 ```bash
 rm -f .github/workflows/promote-to-main.yml        # maintainer release workflow (not for your project)
 rm -f .github/workflows/release-tag.yml            # maintainer auto-tag-on-release-merge (not for your project)
+rm -f .github/workflows/publish-adopt.yml          # maintainer npm publish of the adopt package (not for your project)
 rm -f .github/workflows/leak-guard.yml             # maintainer identity-marker backstop (not for your project)
 rm -f .github/workflows/branch-topology-guard.yml  # maintainer release-branch-only gate on main (your main takes feature branches)
 ```
@@ -193,14 +286,22 @@ customer is actually using.
 **every** pull request into `main` whose head branch is not `release/vX.Y.Z`. In
 this repo's release topology that is correct; in a normal project, where `main`
 receives ordinary feature branches, it rejects every PR the customer opens. The
-other three merely no-op or fail harmlessly. Removing it is not optional cleanup.
+other four merely no-op or fail harmlessly. Removing it is not optional cleanup.
+
+`publish-adopt.yml` publishes LogicLoom's own npm adopt package on
+`release: published`. Left behind it would fire on the customer's first GitHub
+Release and fail — it looks for a `Source-dev-main:` trailer and a `packaging/`
+tree that only the LogicLoom maintainer repo has. Noise, not damage, but it is
+maintainer plumbing that is meaningless in an adopter's repo.
 
 Idempotent (Principle IV): `rm -f` on an already-removed file is a no-op, so
 re-running this command is safe.
 
 This step is the SAME removal performed by `init-project.sh` (the shell path) and
 documented in the `project-initialization` skill. All three paths must list the
-same four workflows — `tests/contract/test_shipped_gates_vs_strip.sh` asserts it.
+same set of workflows — `tests/contract/test_shipped_gates_vs_strip.sh` derives
+that set from `.github/workflows/` (default: maintainer-only) and asserts all
+three agree, so a sixth workflow turns it red until every path names it.
 
 State in the Step 6 report which files were removed and why.
 
@@ -209,5 +310,7 @@ Run `.logic-loom/scripts/bash/constitutional-check.sh`
 
 ### Step 6: Report
 Show: VISION.md scaffolded/seeded (or skipped if author-filled), the approval
-posture chosen (and any refused lines), the maintainer-only CI workflows removed,
-customizations applied, agents created, MCP servers recommended, next steps.
+posture chosen (and any refused lines), the memory backend chosen and whether
+distillation is by hand or a schedule prompt was printed, the maintainer-only
+CI workflows removed, customizations applied, agents created, MCP servers
+recommended, next steps.
