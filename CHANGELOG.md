@@ -5,6 +5,36 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.6.1] - 2026-08-29
+
+The first release published by CI. v6.6.0 claimed the `logicloom` name with a
+manual publish — npm has no name reservation, and its trusted-publisher settings
+page needs the package to exist before it can be configured — so that tarball
+was built locally and this is the first one assembled by the release workflow.
+
+### Fixed
+
+- **`npm publish` is idempotent.** Publishing over an existing version fails
+  E403, and the step had no guard, so two ordinary situations produced a red
+  release: re-running the job after a transient failure, and the first release
+  of a name claimed by hand (whose version is already on the registry by
+  definition). The step now checks the registry first and exits 0 with a notice.
+  This is why v6.6.0's own publish job went red — that tag predates the fix, and
+  `publish-adopt.yml` runs from the tag's own tree.
+- **The published payload is CI's, not a local build.** v6.6.0 shipped 276
+  payload files where the workflow assembles 278; the local build re-initialised
+  a git repo over the extracted tag tree and used `git ls-files`, which honours
+  that tree's own `.gitignore` and dropped
+  `plugins/loom-memory/{recall,working}/.gitkeep`. No adopter was affected —
+  `_retention_ensure_dirs` recreates both on first use — and this release
+  restores them by being built the normal way. (LOOM-0045)
+
+### Changed
+
+- README and START_HERE present `npx logicloom init .` as a runnable command;
+  the package resolves. The docs-sync contract test moved to its third state,
+  which asserts the "does not resolve" caveat is gone rather than present.
+
 ## [6.6.0] - 2026-08-28
 
 Covers the `dev-main` line since v6.5.0 (2026-08-25 → 2026-08-28). One dominant
