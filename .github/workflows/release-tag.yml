@@ -295,7 +295,7 @@ jobs:
               started = 1
               print
             }
-          ')
+          ' || true)
           # Require real substance — an empty or whitespace-only section must
           # not become a Release.
           if [ -z "$(printf '%s' "$NOTES" | tr -d '[:space:]')" ]; then

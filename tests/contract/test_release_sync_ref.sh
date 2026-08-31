@@ -278,6 +278,72 @@ else
 fi
 
 echo ""
+echo "── The release-notes extraction must survive a CHANGELOG past the pipe buffer ──"
+# THIS IS A REAL FAILURE, TWICE, AND IT WAS SILENT BOTH TIMES.
+# release-tag.yml builds the Release body with `git show <rev>:CHANGELOG.md | awk`.
+# The awk calls `exit` at the next `## ` heading — that is how it bounds the
+# section — which closes the pipe while git is still writing the rest of the file.
+# Once CHANGELOG.md no longer fits in the 64KB pipe buffer, git blocks on write,
+# takes SIGPIPE, dies 141; `pipefail` makes that the pipeline's status and
+# `bash -e` aborts the step at the assignment, before any of its explanatory
+# errors can print. v6.6.0 (68,400 bytes) squeaked through; v6.6.1 (70,018) and
+# v6.6.2 (71,069) both failed with no output and no GitHub Release.
+# It is a threshold, not a race — every later release fails harder.
+RT_WF="$ROOT/.github/workflows/release-tag.yml"
+assert "release-tag.yml exists" "[ -f \"$RT_WF\" ]"
+# Read the workflow and assert the NOTES command substitution is terminated with
+# `|| true`. Done in python because the terminator line is a lone quote followed
+# by the guard, which is painful to match reliably from shell quoting.
+assert "the CHANGELOG->notes pipeline in release-tag.yml is SIGPIPE-guarded" \
+  "python3 - \"$RT_WF\" <<'PYCHK'
+import io, sys
+lines = io.open(sys.argv[1], encoding='utf-8').read().split('\n')
+start = next((i for i, l in enumerate(lines) if l.strip().startswith('NOTES=\$(git show')), None)
+if start is None:
+    sys.exit('NOTES assignment not found')
+for l in lines[start:start + 25]:
+    t = l.strip()
+    if t == \"' || true)\":
+        sys.exit(0)
+    if t == \"')\":
+        sys.exit('NOTES substitution closes UNGUARDED')
+sys.exit('NOTES terminator not found within 25 lines')
+PYCHK"
+
+# Behavioural, not just textual: run the real shape against a CHANGELOG far past
+# the buffer and assert the assignment does not kill the shell.
+RT_TMP="$(mktemp -d)"
+{
+  echo "## [9.9.9]"
+  echo "real notes for the section under test"
+  echo "## [9.9.8]"
+  i=0; while [ "$i" -lt 9000 ]; do echo "older changelog padding line $i ................................"; i=$((i+1)); done
+} > "$RT_TMP/CHANGELOG.md"
+assert "the fixture really is past the 64KB pipe buffer" \
+  "[ \"\$(wc -c < \"$RT_TMP/CHANGELOG.md\")\" -gt 65536 ]"
+cat > "$RT_TMP/extract.sh" <<'RTEOF'
+set -uo pipefail
+NOTES=$(cat "$1" | awk -v v="9.9.9" '
+  index($0, "## [" v "]") == 1 { inside = 1; next }
+  inside && index($0, "## ") == 1 { exit }
+  inside { print }
+' || true)
+[ -n "$NOTES" ] || exit 9
+echo "SURVIVED"
+RTEOF
+assert "the guarded extraction survives and reaches the line after it" \
+  "[ \"\$(bash -e \"$RT_TMP/extract.sh\" \"$RT_TMP/CHANGELOG.md\" 2>/dev/null)\" = 'SURVIVED' ]"
+# And prove the guard is what saves it: the unguarded form must die. `$?` is
+# captured into a variable FIRST — reading it inside the assert would report the
+# assert's own subshell, not the run under test.
+sed "s/' || true)/')/" "$RT_TMP/extract.sh" > "$RT_TMP/unguarded.sh"
+bash -e "$RT_TMP/unguarded.sh" "$RT_TMP/CHANGELOG.md" >/dev/null 2>&1
+RT_UNGUARDED_RC=$?
+assert "...and the UNGUARDED form dies on SIGPIPE (rc=$RT_UNGUARDED_RC), proving the guard is load-bearing" \
+  "[ \"$RT_UNGUARDED_RC\" -eq 141 ]"
+rm -rf "$RT_TMP"
+
+echo ""
 echo "═══════════════════════════════════════════════════════════"
 echo "  RESULTS: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 echo "═══════════════════════════════════════════════════════════"
