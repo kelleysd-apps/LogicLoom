@@ -394,5 +394,21 @@ jobs:
         working-directory: ${{ env.ADOPT_PKG }}
         run: |
           set -euo pipefail
+          # IDEMPOTENT. `npm publish` over an existing version fails E403
+          # ("cannot publish over the previously published versions"), which
+          # turns two ordinary situations into a red release: re-running this
+          # job after a transient failure, and the FIRST release of a name that
+          # was bootstrapped by hand — a manual publish is the only way to
+          # create a package, and npm's trusted-publisher settings page needs
+          # the package to exist before it can be configured. Neither is an
+          # error worth failing on: the registry already holds exactly what this
+          # job would upload. A DIFFERENT payload at the same version is not
+          # possible to fix here either, since npm refuses the overwrite
+          # regardless — so the honest behaviour is to say the version is
+          # already there and stop.
+          if npm view "logicloom@${PKG_VERSION}" version >/dev/null 2>&1; then
+            echo "::notice::logicloom@${PKG_VERSION} is already on the registry — nothing to publish. This is the expected path for a re-run, and for the first release after a name was claimed by a manual publish."
+            exit 0
+          fi
           npm publish --access public
           echo "::notice::Published logicloom@${PKG_VERSION} from tag ${{ github.event.release.tag_name }} (payload from the tag tree, package from dev-main ${ADOPT_DEV})."
