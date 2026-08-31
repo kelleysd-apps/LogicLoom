@@ -920,7 +920,7 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       NOT done in this pass deliberately: the confirmed hole (silent fail-open
       of the whole floor on a slim container) is closed, and the remaining items
       need a parse-state redesign rather than another grep.
-- [ ] LOOM-0045 — logicloom@6.6.0 on npm was built locally, not by CI, and is two files short `status:open`
+- [x] LOOM-0045 — logicloom@6.6.0 on npm was built locally, not by CI, and is two files short `status:done`
       Filed 2026-08-29, at first publication. Not a defect in the release; a
       consequence of bootstrapping the name by hand.
       npm has no name-reservation mechanism and npm's trusted-publisher settings
@@ -940,10 +940,13 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       `plugins/loom-memory/lib/retention.sh` does `mkdir -p` and recreates the
       `.gitkeep` files on first use. Verified against the registry install:
       retention.sh exits 0 and constitutional-check passes.
-      RESOLVES ITSELF at the next release, which CI builds — provided the
-      trusted publisher is configured first, which is the actual open action
-      here. Do NOT republish 6.6.0: npm refuses an overwrite, and the difference
-      is two placeholder files the harness recreates.
+      CLOSED 2026-08-31 by logicloom@6.6.1, the first release published by CI
+      through the configured npm trusted publisher. Its payload carries 281
+      files including both .gitkeep paths and AGENTS.md; verified from the
+      registry with `npx logicloom`: applyReady, both applies exit 0, harness
+      check passes, the floor denies a subagent push, customer files untouched.
+      6.6.0 stays as published — npm refuses an overwrite, and the difference
+      was two placeholders the harness recreates on first use.
 
 
 
