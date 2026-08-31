@@ -3,7 +3,8 @@ type: capture
 title: "Memory-backend default flip: adversarial review of the legacy-aware probe"
 date: 2026-08-26
 source: "in-session adversarial design review (deep-reasoner, Claude lineage) of the memory_backend default change — NOT a cross-provider /cross-check run; same-lineage, so not decorrelated"
-status: unprocessed
+status: processed
+distilled-into: .brain/wiki/decisions/memory-backend-default.md
 ---
 
 # Review — memory backend: delete the external-path backend, flip the default to `repo`

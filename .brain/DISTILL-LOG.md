@@ -11,6 +11,15 @@ empty repo both read zero captures.
 Grammar and the four promotion outcomes: `.brain/README.md` and
 `plugins/loom-orchestrator/skills/distillation-pass/SKILL.md`.
 
+## 2026-08-31
+
+- run: /distill
+- scanned: 1 captures under .brain/raw/ (1 unprocessed)
+- promoted: .brain/raw/reviews/20260826-153000-memory-backend-default/cross-check-report.md -> .brain/wiki/decisions/memory-backend-default.md
+- result: first promotion. `.brain/wiki/` created. The capture self-declares that
+  it is a same-lineage design review in `/cross-check` shape and not a
+  cross-provider run; that caveat is carried onto the page rather than dropped.
+
 ## 2026-08-26
 
 - run: /distill

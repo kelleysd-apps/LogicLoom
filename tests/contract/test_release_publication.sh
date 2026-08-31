@@ -482,6 +482,26 @@ assert "...and states the refusal the package is built around" \
 assert "README.md is not in the files array (npm includes it unconditionally)" \
   "! node -e 'const f=require(process.argv[1]).files||[];process.exit(f.some(x=>/README/i.test(x))?0:1)' \"$ADOPT_PJ\""
 
+# BOTH package.json files declared "license": MIT with no LICENSE text anywhere
+# in the repo — GitHub detected no license at all, and npm showed the declaration
+# with nothing behind it. A declared licence with no text is a claim the project
+# does not actually make. Same shape as the missing README, and invisible for the
+# same reason: npm ships LICENSE unconditionally, so `files` never mentions it.
+ADOPT_LICENSE="$ROOT/packaging/adopt/LICENSE"
+ROOT_LICENSE="$ROOT/LICENSE"
+assert "the repository carries LICENSE text" "[ -f \"$ROOT_LICENSE\" ]"
+assert "the adopt package carries LICENSE text (npm renders it)" "[ -f \"$ADOPT_LICENSE\" ]"
+assert "the package LICENSE is byte-identical to the repository's" \
+  "cmp -s \"$ROOT_LICENSE\" \"$ADOPT_LICENSE\""
+assert "the LICENSE text matches what package.json declares (MIT)" \
+  "head -1 \"$ROOT_LICENSE\" | grep -qi 'MIT License'"
+assert "...and package.json still declares MIT, so text and declaration agree" \
+  "node -e 'process.exit(require(process.argv[1]).license === \"MIT\" ? 0 : 1)' \"$ADOPT_PJ\""
+# The payload manifest must NOT install our LICENSE into an adopter's repository.
+# Dropping a licence file into someone else's project is not ours to do.
+assert "the payload does NOT install our LICENSE into an adopter's repo" \
+  "! grep -qE '^(include|rename):[[:space:]]+LICENSE' \"$ROOT/packaging/adopt/payload-manifest.txt\""
+
 assert "packaging/adopt/package.json declares private:false explicitly (the gate was opened on purpose)" \
   "grep -q '\"private\": false' \"\$ADOPT_PJ\""
 # The gate STEP must survive the flag. If someone re-adds `private: true` later,
