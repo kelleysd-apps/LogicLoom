@@ -19,9 +19,9 @@ everything after this section is identical.
 
 ### A. New project, or an existing repository — `logicloom init`
 
-**`npx logicloom` does not resolve yet.** The publication gate is open — the
-package is no longer marked private — but it has not been published to npm, so
-that command still fails for everyone. Run it from a LogicLoom
+**`npx logicloom` resolves** — the package is published (`logicloom@6.6.0`,
+first published 2026-08-29), so `npx logicloom init .` works in any directory.
+You can also run it from a LogicLoom
 checkout instead — which is also the only form that currently has a payload to
 install (a packed tarball does not; the payload is assembled at release time and
 that step is not built):

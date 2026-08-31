@@ -22,16 +22,24 @@ three situations. Pick the row that describes you.
 | **An existing repository** — a project already underway | `logicloom init` in it: it plans, you review, and it writes only the targets you name. Nothing of yours is overwritten, moved or deleted |
 | **Neither, and you want the template itself** | `git clone` this repo. Still valid, still supported — it is how you get the harness's own test suite and how you develop the harness |
 
-### The CLI is not published yet — how to run it TODAY
+### Install it
 
-`npx logicloom` **does not resolve yet.** The publication gate is now open —
-the package is no longer marked private — but the name has not been published to
-npm, so that command still fails for everyone including us. It is written here
-as the shape it will have, not as an instruction to type. This line changes when
-the first publish lands, not when the gate opens; those are two different days.
+`npx logicloom` resolves — the package is published (`logicloom@6.6.0`, first
+published 2026-08-29). Point it at an empty directory to start a new project, or
+at an existing repository to adopt LogicLoom into it:
 
-What works today is running it out of a LogicLoom checkout, which is also the
-only form that has a payload to install:
+```bash
+cd /path/to/your/project
+npx logicloom init .                           # PLANS. Writes nothing.
+npx logicloom init . --apply --only=all --claude-md=rules
+npx logicloom init . --apply --only=hooks      # the governance floor, opt-in
+```
+
+The plan phase has no write path at all, so the first command is always safe to
+run. It reports what it would do and the decisions it needs from you.
+
+Running it out of a LogicLoom checkout still works and is what maintainers use —
+the payload then comes from the checkout rather than the packaged one:
 
 ```bash
 git clone <this-repo> ~/src/LogicLoom          # once — the source of the payload
@@ -359,7 +367,7 @@ MIT
 
 ---
 
-**Framework**: LogicLoom v6.6.0
+**Framework**: LogicLoom v6.6.1
 **Constitution**: v3.3.0 (16 principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
