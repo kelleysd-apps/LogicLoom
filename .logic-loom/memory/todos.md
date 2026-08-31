@@ -110,6 +110,127 @@ harness-dev-specific, so it carries a `stub:` entry in
 
 ## Items
 
+### Provider portability — instruction files (TOP PRIORITY)
+
+- [ ] LOOM-0046 — Make AGENTS.md the single provider-neutral source; CLAUDE.md imports it `status:open`
+      Raised 2026-08-31. Two problems, one root cause: CLAUDE.md (860 lines) and
+      AGENTS.md (620 lines) duplicate content that a contract test and the Tandem
+      Update Rules police by hand, and AGENTS.md is serving two masters — this
+      harness treats it as an agent REGISTRY while every other provider treats it
+      as the PRIMARY PROMPT file.
+      Resolution: `CLAUDE.md` becomes `@AGENTS.md` plus Claude-only sections;
+      the provider-neutral governance moves into AGENTS.md Tier 1 (already
+      structured Tier 1 / Tier 2, so mostly relocation). Zero drift by
+      construction, which retires the verbatim-duplication test and the manual
+      tandem rules.
+      NOT A SYMLINK, and this was checked rather than assumed. The Claude Code
+      docs support `ln -s AGENTS.md CLAUDE.md` but only "if you don't need to add
+      Claude-specific content", and state: "On Windows, creating a symlink
+      requires Administrator privileges or Developer Mode, so use the @AGENTS.md
+      import instead." Our CLAUDE.md is largely Claude-specific (hook wiring,
+      slash commands, plugin bridge), so a symlink would force host detail into
+      the provider-neutral file — backwards. `lib/fsops.js` also REFUSES symlinks
+      outright (`REFUSE-SYMLINK`), so one interacts badly with the payload.
+
+- [ ] LOOM-0047 — An adopter on a non-Claude provider gets ZERO LogicLoom governance `status:open`
+      Raised 2026-08-31, VERIFIED in a real install (kori-beta, logicloom@6.6.1).
+      This is the one that actually "breaks the harness if the user changes
+      providers", and it is separate from LOOM-0046.
+      `--claude-md` offers `rules` | `import` | `none`. All three put the
+      harness's operating instructions in `.claude/rules/logicloom-*.md`, which
+      only Claude Code reads. The payload also renames our AGENTS.md to
+      `.logic-loom/AGENTS.md` — correct, it must not collide with theirs — so
+      nothing LogicLoom installs is visible to Codex, Cursor, Gemini CLI or
+      Aider.
+      Evidence: kori-beta's own CLAUDE.md is a one-line `@AGENTS.md` import and
+      its AGENTS.md is an Expo file. Grepped both after a clean 393-file install:
+      NEITHER mentions LogicLoom. Open that repo in another provider and the
+      governance is not degraded, it is absent.
+      Needs a design decision before code: an `agents-md` install target (or a
+      renamed flag covering all instruction surfaces) that offers to append a
+      marked LogicLoom block to the adopter's AGENTS.md, under the same
+      never-overwrite/fenced-merge rules as `.gitignore`. Changes the install
+      contract, so: design doc first.
+      Confirmed while investigating, and it closes a question open since the
+      smoke test: rules WITHOUT `paths` frontmatter "are loaded at launch with
+      the same priority as `.claude/CLAUDE.md`" (Claude Code docs). So `rules`
+      mode does work — it just does not travel.
+
+### Adopter parity — structure ships, our data does not
+
+- [ ] LOOM-0048 — `.brain/` structure never reaches an npm adopter, and onboarding assumes it did `status:open`
+      Raised 2026-08-31 from a structural audit of both distribution channels.
+      A TEMPLATE CLONE gets `.brain/README.md`, stubbed from
+      `.logic-loom/templates/brain-readme-template.md` by the strip manifest —
+      structure ships, our data does not, which is correct. An NPM ADOPTER gets
+      nothing: `payload-manifest.txt` carries `exclude: .brain` wholesale.
+      This is not only a gap, it is a BROKEN REFERENCE:
+      `initialize-project.md:200` instructs the agent that "`.brain/` keeps just
+      its `README.md`" — a file the npm path never installs. Verified absent in
+      kori-beta after a clean 393-file install of logicloom@6.6.1.
+      Fix: drop the exclusion. The payload is assembled from the TAG's tree,
+      which the strip manifest has already sanitized, so the README arrives
+      stubbed and safe with no new machinery.
+      ROOT CAUSE, and the thing to check on every future exclusion: because the
+      payload builds from an already-sanitized tree, an `exclude:` on a path the
+      strip manifest STUBS throws away safe structure. Two of the four `stub:`
+      entries were affected; `todos.md` and `backlog.md` inherit correctly and
+      arrive clean (verified: 0 LOOM items, 0 references to our work in
+      kori-beta). `VISION.md` is NOT affected — its exclusion is deliberate and
+      `/initialize-project` offers it from a template that does ship.
+
+- [ ] LOOM-0049 — Ship the `artifacts/` convention and a live backlog dashboard `status:open`
+      Raised 2026-08-31. The generators already ship and are already
+      repo-neutral — `build-backlog-index.sh` and `build-backlog-dashboard.sh`
+      have zero references to our repo, and running them in kori-beta produced a
+      working 11.8KB dashboard. What does NOT ship: the `artifacts/` directory
+      itself, its convention README, any instruction to run the generators, and
+      `check-generated-freshness.sh`.
+      Fix `artifacts/` the way `features/` and `specs/` are already done —
+      `.gitkeep` + `README.md` ship, content excluded. That pattern is in the
+      manifest and works; this is applying it, not inventing it.
+      Ship `check-generated-freshness.sh`. Its recorded exclusion reason —
+      "it regenerates artifacts/backlog-dashboard.html … an artifact the payload
+      does not ship and the adopter has no source for" — has expired: they have
+      `todos.md`, `backlog.md`, and both generators.
+      DASHBOARD MUST TRACK LIVE WORK. Decided: GitHub issues are RENDERED, never
+      imported into `todos.md` — importing puts two writers on one id space and
+      guarantees drift.
+      The freshness gate and live data are reconciled by moving the fetch to
+      VIEW time: the generated HTML stays a pure function of todos.md +
+      backlog.md, so it is deterministic and the gate keeps its meaning, while an
+      inline script fetches issues when the file is opened. Verified feasible —
+      `api.github.com` returns `access-control-allow-origin: *`, so this works
+      from `file://`; 60 req/hr unauthenticated, 5,000 with an optional token in
+      localStorage, which also covers private repos. Owner/repo derived from
+      `git remote` at build time. Must degrade VISIBLY ("issues unavailable")
+      with no remote, no network, or a private repo and no token.
+      Markdown half stays current by regenerating on `SessionStart` — a hook
+      point that already ships. Regeneration is a pure function of the sources,
+      so an unchanged backlog produces identical bytes and no git diff.
+
+- [ ] LOOM-0050 — Offer the CI methodology as templates the adopter can install and edit `status:open`
+      Raised 2026-08-31. `payload-manifest.txt` excludes `.github` wholesale and
+      that stays — those workflows are our release loop and name our topology,
+      and we must never write into someone's CI unasked. But the consequence
+      today is that an adopter is never OFFERED the methodology at all:
+      `initialize-project.md` step 4f skips CI entirely for an adopted repo.
+      Fix: ship the workflows as templates under
+      `.logic-loom/templates/workflows/`, and turn step 4f from "skip entirely"
+      into "offer, adapt, never install unprompted" — the same shape 1.5 already
+      uses for VISION.md.
+
+- [ ] LOOM-0051 — `/initialize-project` does not get an adopter to parity `status:open`
+      Raised 2026-08-31. The stated goal is that `npx logicloom init` followed by
+      `/initialize-project` leaves an adopter with the same structure and systems
+      we have, unless they choose otherwise. It does not today.
+      Current steps: PRD, VISION.md, project.conf, gate posture, memory+distill,
+      constitution, agents, MCP/keys/upstream, remove-maintainer-CI, validate.
+      Missing: the `.brain/` scaffold (LOOM-0048), `artifacts/` plus a first
+      dashboard build (LOOM-0049), and the CI methodology offer (LOOM-0050).
+      Depends on all three. The command is the single place these questions
+      should surface, so it is the last piece to land, not the first.
+
 ### Governance and constitution
 
 - [x] LOOM-0001 — Maintainer sign-off on constitution v3.3.0 + the amendments extension point `status:done`

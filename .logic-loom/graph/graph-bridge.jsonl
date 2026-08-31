@@ -18,6 +18,7 @@
 {"type":"entity","name":".docs/archive/feature-003/implementation-plan.md","entityType":"note","observations":["Feature 003: Upstream Sync Implementation Plan"]}
 {"type":"entity","name":".docs/archive/feature-003/upstream-sync-report.md","entityType":"note","observations":["Feature 003: Upstream Sync Report"]}
 {"type":"entity","name":".docs/design/adopt-package-research.md","entityType":"note","observations":["Adopting LogicLoom into an existing project — distribution research"]}
+{"type":"entity","name":".docs/design/adopter-parity-and-live-dashboard.md","entityType":"note","observations":["Adopter parity + a live backlog dashboard — design specification"]}
 {"type":"entity","name":".docs/design/brain-spec.md","entityType":"note","observations":["`.brain/` — design specification"]}
 {"type":"entity","name":".docs/design/claude-md-split.md","entityType":"note","observations":["CLAUDE.md — split analysis and recommendation"]}
 {"type":"entity","name":".docs/design/marketplace-mcp-middleware.md","entityType":"note","observations":["Plugin Marketplace — MCP Middleware Design"]}
@@ -131,6 +132,7 @@
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"tests/contract/test_adopt_payload_manifest.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopter-parity-and-live-dashboard.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/swarm-implement/SKILL.md","relationType":"mentions"}
