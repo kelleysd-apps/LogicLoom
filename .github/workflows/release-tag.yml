@@ -244,8 +244,18 @@ jobs:
           fi
 
           # ---- NOTES SOURCE: dev-main, via the snapshot's provenance trailer -
+          # `|| true` IS LOAD-BEARING, for the same reason the tagging step above
+          # already carries it: `head -1` closes the pipe as soon as it has its
+          # line, `sed` (or `git log`) takes SIGPIPE, and under `pipefail` the
+          # assignment returns 141. The step runs under `bash -e`, so that aborts
+          # it INSTANTLY — before any echo, before the explanatory errors below.
+          # Observed exactly once and it cost a release: v6.6.1's run produced no
+          # output whatsoever and exited 141, leaving the tag applied and no
+          # GitHub Release. It is a race (small commit messages usually let sed
+          # finish first), which is why it survived every earlier release.
           DEV=$(git log -1 --format=%B "$SNAP" \
-                  | sed -n -E 's/^Source-dev-main:[[:space:]]*([0-9a-f]{7,40}).*$/\1/p' | head -1)
+                  | sed -n -E 's/^Source-dev-main:[[:space:]]*([0-9a-f]{7,40}).*$/\1/p' \
+                  | head -1 || true)
           if [ -z "$DEV" ]; then
             echo "::error::Snapshot $SNAP carries no 'Source-dev-main:' trailer, so the CHANGELOG source commit is unknown. CHANGELOG.md is stripped from this tree, so there is no other source. Create the Release for $TAG by hand from the CHANGELOG section, then re-run this workflow (it will find the Release and no-op)."
             exit 1
@@ -273,6 +283,9 @@ jobs:
           # section arrives already trimmed. Deliberately avoids the classic
           # `sed -e :a -e '/^\n*$/{$d;N;};/\n$/ba'` trailing-blank idiom, which
           # is GNU-specific enough to behave differently under BSD sed.
+          # Same exposure: a `git show` that cannot read the blob makes the whole
+          # pipeline non-zero under `pipefail`. The empty-NOTES check below is
+          # the intended handler for that, and it can only run if we get there.
           NOTES=$(git show "${DEV}:CHANGELOG.md" 2>/dev/null | awk -v v="$NUM" '
             index($0, "## [" v "]") == 1 { inside = 1; next }
             inside && index($0, "## ") == 1 { exit }

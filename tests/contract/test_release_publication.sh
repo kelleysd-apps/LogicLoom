@@ -463,6 +463,25 @@ else
 # what this assertion now records. It is `false` EXPLICITLY rather than absent,
 # so deleting the key (which npm also treats as publishable) is still a change
 # this suite notices rather than a silent equivalence.
+# THE PACKAGE MUST SHIP A README. npm renders it as the package's front page,
+# and 6.6.0 and 6.6.1 both went out without one — the registry showed "This
+# package does not have a README" to everyone who looked. Nothing caught it
+# because nothing asserted it: the `files` array does not list README.md (npm
+# includes it automatically regardless), so its absence was invisible to every
+# check that reads that array.
+ADOPT_README="$ROOT/packaging/adopt/README.md"
+assert "the adopt package ships a README (npm's front page)" \
+  "[ -f \"$ADOPT_README\" ]"
+assert "...that names the package and its primary command" \
+  "grep -q 'npx logicloom init' \"$ADOPT_README\""
+assert "...and states the refusal the package is built around" \
+  "grep -qi 'no .--force' \"$ADOPT_README\""
+# `files` deliberately does NOT list README.md — npm always includes it. Asserting
+# that here stops someone "fixing" the omission by adding it and then trusting the
+# array as the complete picture.
+assert "README.md is not in the files array (npm includes it unconditionally)" \
+  "! node -e 'const f=require(process.argv[1]).files||[];process.exit(f.some(x=>/README/i.test(x))?0:1)' \"$ADOPT_PJ\""
+
 assert "packaging/adopt/package.json declares private:false explicitly (the gate was opened on purpose)" \
   "grep -q '\"private\": false' \"\$ADOPT_PJ\""
 # The gate STEP must survive the flag. If someone re-adds `private: true` later,

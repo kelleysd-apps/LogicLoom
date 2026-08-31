@@ -4,7 +4,7 @@
 **Effective Date**: 2026-08-17 (rev. 2026-08-24 — LOOM-0012: `count` removed, inventory lists verified against disk)
 **Authority**: Constitution v3.3.0 — Principle XVI (Plugin-First Architecture)
 **Review Cycle**: Quarterly
-**Applies to**: LogicLoom v6.6.1, all 8 bundled plugins under `plugins/`
+**Applies to**: LogicLoom v6.6.2, all 8 bundled plugins under `plugins/`
 
 ---
 
