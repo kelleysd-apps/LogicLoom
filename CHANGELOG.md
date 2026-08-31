@@ -5,6 +5,26 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.6.2] - 2026-08-31
+
+### Added
+
+- **The package ships a README.** npm renders it as the package's front page,
+  and 6.6.0 and 6.6.1 both went out without one — the registry told every
+  visitor "This package does not have a README". Nothing caught it because
+  nothing asserted it: `files` does not list `README.md` (npm includes it
+  unconditionally), so its absence was invisible to every check that reads that
+  array. A contract test now pins that the README exists, names the primary
+  command, and states the no-`--force` refusal — and that `files` still does not
+  list it, so nobody "fixes" the omission by adding it there and then trusts the
+  array as the whole picture.
+
+  The README is written for someone deciding whether to point this at a
+  repository they care about: the plan/apply split, what each `--only` target
+  installs, why `hooks` is not in `all`, the four refusals enforced in code, how
+  the receipt's uninstall works, and the runtime requirements the plan reports
+  before you install rather than partway through.
+
 ## [6.6.1] - 2026-08-29
 
 The first release published by CI. v6.6.0 claimed the `logicloom` name with a
