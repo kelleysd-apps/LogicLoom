@@ -30,17 +30,19 @@ echo ""
 # ═══════════════════════════════════════
 echo "--- Agent Reduction ---"
 
-# Count remaining agent files across all plugins
+# Count remaining agent files across all plugins. LOOM-0052: five agents moved
+# to .claude/agents/ (project scope) so they actually load -- only the
+# hook-injected constitutional-governance-agent stays under plugins/.
 AGENT_COUNT=$(find "$ROOT_DIR/plugins" -path "*/agents/*.md" | wc -l | tr -d ' ')
-assert "Agent count reduced to ~6 (found ${AGENT_COUNT})" "[ ${AGENT_COUNT} -le 7 ]"
+assert "Only constitutional-governance-agent remains under plugins/ (found ${AGENT_COUNT})" "[ ${AGENT_COUNT} -eq 1 ]"
 
 # Verify essential agents are KEPT
 assert "constitutional-governance-agent kept" "[ -f '$ROOT_DIR/plugins/loom-governance/agents/constitutional-governance-agent.md' ]"
-assert "memory-context-agent kept" "[ -f '$ROOT_DIR/plugins/loom-memory/agents/memory-context-agent.md' ]"
-assert "framework-sync-agent kept" "[ -f '$ROOT_DIR/plugins/loom-maintenance/agents/framework-sync-agent.md' ]"
-assert "prd-specialist kept" "[ -f '$ROOT_DIR/plugins/loom-creation/agents/prd-specialist.md' ]"
-assert "subagent-architect kept" "[ -f '$ROOT_DIR/plugins/loom-creation/agents/subagent-architect.md' ]"
-assert "team-synthesizer kept" "[ -f '$ROOT_DIR/plugins/loom-orchestrator/agents/team-synthesizer.md' ]"
+assert "memory-context-agent kept as project agent" "[ -f '$ROOT_DIR/.claude/agents/memory-context-agent.md' ]"
+assert "framework-sync-agent kept as project agent" "[ -f '$ROOT_DIR/.claude/agents/framework-sync-agent.md' ]"
+assert "prd-specialist kept as project agent" "[ -f '$ROOT_DIR/.claude/agents/prd-specialist.md' ]"
+assert "subagent-architect kept as project agent" "[ -f '$ROOT_DIR/.claude/agents/subagent-architect.md' ]"
+assert "team-synthesizer kept as project agent" "[ -f '$ROOT_DIR/.claude/agents/team-synthesizer.md' ]"
 # loom-dev-loop plugin removed (superseded by Claude Code native /workflow, /loop, /goal)
 assert "loom-dev-loop plugin removed" "[ ! -d '$ROOT_DIR/plugins/loom-dev-loop' ]"
 

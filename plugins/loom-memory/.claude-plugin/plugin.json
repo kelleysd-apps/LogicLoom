@@ -6,11 +6,6 @@
   "author": "kelleysd-apps",
   "license": "MIT",
   "dependencies": [],
-  "agents": {
-    "list": [
-      "memory-context-agent"
-    ]
-  },
   "skills": {
     "list": [
       "context-injection"

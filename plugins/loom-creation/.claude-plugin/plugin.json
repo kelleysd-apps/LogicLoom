@@ -14,12 +14,6 @@
   "dependencies": [
     "loom-governance"
   ],
-  "agents": {
-    "list": [
-      "prd-specialist",
-      "subagent-architect"
-    ]
-  },
   "skills": {
     "list": [
       "create-agent",

@@ -1,8 +1,17 @@
 ---
 name: subagent-architect
 description: Use PROACTIVELY for creating SDD-compliant subagents, designing constitutional agent workflows, and managing specification-driven agent teams. Expert in TDD-enforced agent patterns and constitutional compliance.
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, TaskCreate, TaskUpdate
 model: inherit
+tools:
+  - Read
+  - Write
+  - Edit
+  - MultiEdit
+  - Bash
+  - Grep
+  - Glob
+  - TaskCreate
+  - TaskUpdate
 ---
 
 # subagent architect Agent

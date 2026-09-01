@@ -243,7 +243,7 @@ as GitHub issues #77-#81. GitHub is INTAKE; these items are the record of record
 Each names its issue so the two cannot drift silently — close the issue when the
 item is done, and say so here.
 
-- [ ] LOOM-0052 — Five plugin-declared agents never load, but docs and a command still dispatch them `status:open` `ref:gh#77`
+- [x] LOOM-0052 — Five plugin-declared agents never load, but docs and a command still dispatch them `status:done` `ref:gh#77`
       VERIFIED FIRST-HAND, not inspected: `subagent-architect`, `prd-specialist`,
       `team-synthesizer`, `framework-sync-agent` and `memory-context-agent` are
       absent from this session's own available agent types, while the two
@@ -258,11 +258,28 @@ item is done, and say so here.
       the five — behavioural, silent, and in every install.
       `constitutional-governance-agent` is correctly NOT affected: it is
       hook-injected via the preflight, working as designed.
-      NEEDS A DECISION, not just a fix: make them load (register a marketplace,
-      which contradicts the deliberate "plugins/ is not an installation" stance),
-      move them to `.claude/agents/` (proven to load, but rubs against Principle
-      XVI Plugin-First), or stop claiming them and remove the dispatch. Pick
-      before coding.
+      DONE 2026-08-31. Maintainer chose: move all five to `.claude/agents/`.
+      Not a new Principle XVI exception — CLAUDE.md already states "Keep the two
+      agents as PROJECT files (.claude/agents/), never plugin agents (which lose
+      hooks/mcpServers/permissionMode)". This applies that existing decision to
+      the five left behind. `constitutional-governance-agent` stays in
+      loom-governance: hook-injected, working as designed.
+      PROVED BY OBSERVATION, not inference: immediately after the move this
+      session registered all five as available agent types with their declared
+      tools intact — the exact condition whose absence was the defect.
+      Four plugin manifests updated (the validator enforces agents.list ==
+      disk), four empty agents/ dirs removed, AGENTS.md registry restructured,
+      and a `history-scrub-rules.json` rule that still named the old path fixed.
+      New assertion mutation-verified twice by me independently: planting one
+      back under plugins/*/agents/ fails, and removing one from .claude/agents/
+      fails.
+      ALSO FIXED, and it would have regenerated the defect: `/create-agent`'s
+      doc routed new agents to `plugins/*/agents/`. Note the SCRIPT was already
+      correct (`AGENTS_DIR=.claude/agents`) — only the doc was stale, which is
+      the opposite of what the report implied. Its `<department>/` subdirectory
+      is fine: Claude Code scans `.claude/agents/` RECURSIVELY and identity comes
+      from the `name` field, not the path (vendor docs, checked because I
+      initially suspected it as a second instance of the same defect).
 
 - [ ] LOOM-0053 — Domain briefs hardcode a React/Next.js web stack with no adaptation point `status:open` `ref:gh#79`
       VERIFIED: `frontend.md` names React/Next/Vue/Angular and owns

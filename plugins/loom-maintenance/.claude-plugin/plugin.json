@@ -18,11 +18,6 @@
   "dependencies": [
     "loom-governance"
   ],
-  "agents": {
-    "list": [
-      "framework-sync-agent"
-    ]
-  },
   "skills": {
     "list": [
       "environment-scaffolding",

@@ -1,8 +1,14 @@
 ---
 name: framework-sync-agent
 description: Monitors and applies updates from Claude Code releases and upstream logic-loom repository. Uses enhancement-first philosophy with 4-tier file classification.
-tools: Read, Write, Edit, Bash, Grep, Glob
 model: opus
+tools:
+  - Read
+  - Write
+  - Edit
+  - Bash
+  - Grep
+  - Glob
 ---
 
 # framework-sync-agent

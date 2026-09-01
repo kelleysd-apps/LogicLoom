@@ -80,11 +80,40 @@ assert "team-orchestration skill exists" "[ -f plugins/loom-orchestrator/skills/
 assert "team-orchestration skill has Task Brief" "grep -q '## Task Brief' plugins/loom-orchestrator/skills/team-orchestration/SKILL.md"
 assert "multi-skill-workflow skill exists" "[ -f plugins/loom-orchestrator/skills/multi-skill-workflow/SKILL.md ]"
 assert "multi-skill-workflow skill has Task Brief" "grep -q '## Task Brief' plugins/loom-orchestrator/skills/multi-skill-workflow/SKILL.md"
-assert "team-synthesizer agent retained" "[ -f plugins/loom-orchestrator/agents/team-synthesizer.md ]"
+# LOOM-0052: team-synthesizer moved to .claude/agents/ (project scope) so it
+# actually loads -- plugins/*/agents/ never registers as a Claude Code plugin
+# marketplace in this repo. It still exists, just not under the plugin.
+assert "team-synthesizer agent retained as project agent" "[ -f .claude/agents/team-synthesizer.md ]"
+assert "team-synthesizer NOT under plugins/loom-orchestrator/agents" "[ ! -f plugins/loom-orchestrator/agents/team-synthesizer.md ]"
 assert "task-orchestrator agent removed" "[ ! -f plugins/loom-orchestrator/agents/task-orchestrator.md ]"
 assert "swarm-coordinator agent removed" "[ ! -f plugins/loom-orchestrator/agents/swarm-coordinator.md ]"
 assert "workflow-coordinator agent removed" "[ ! -f plugins/loom-orchestrator/agents/workflow-coordinator.md ]"
-assert "plugin.json lists only team-synthesizer" "python3 -c 'import json; d=json.load(open(\"plugins/loom-orchestrator/.claude-plugin/plugin.json\")); agents=d.get(\"agents\",{}); lst=agents.get(\"list\",agents) if isinstance(agents,dict) else agents; assert lst==[\"team-synthesizer\"]'"
+assert "loom-orchestrator agents directory removed" "[ ! -d plugins/loom-orchestrator/agents ]"
+assert "plugin.json has no agents block (empty on disk)" "python3 -c 'import json; d=json.load(open(\"plugins/loom-orchestrator/.claude-plugin/plugin.json\")); assert \"agents\" not in d'"
+
+echo ""
+echo "═══ LOOM-0052: Plugin Agents Never Load — Five Agents Moved to Project Scope ═══"
+echo ""
+# Agents declared under plugins/*/.claude-plugin/plugin.json NEVER LOAD in this
+# repo: nothing registers plugins/ as a Claude Code plugin marketplace (no
+# marketplace.json, nothing in ~/.claude/plugins/). Only .claude/agents/ files
+# load. This defect was silent for a long time precisely because nothing
+# asserted these five agents were actually reachable -- this block is that
+# assertion. It must fail if any of the five reappears under plugins/*/agents/,
+# and fail if any goes missing from .claude/agents/.
+LOOM_0052_AGENTS="subagent-architect prd-specialist team-synthesizer framework-sync-agent memory-context-agent"
+for a in $LOOM_0052_AGENTS; do
+  assert "LOOM-0052: ${a} loads from .claude/agents/" "[ -f .claude/agents/${a}.md ]"
+  assert "LOOM-0052: ${a} absent from every plugins/*/agents/" "[ -z \"\$(find plugins -path \"*/agents/${a}.md\" 2>/dev/null)\" ]"
+done
+# constitutional-governance-agent is the deliberate exception -- hook-injected
+# via the preflight UserPromptSubmit, no "agent" field in settings.json. It
+# stays under plugins/loom-governance/agents/ and is NOT part of this move.
+assert "LOOM-0052: constitutional-governance-agent stays under loom-governance (not moved)" "[ -f plugins/loom-governance/agents/constitutional-governance-agent.md ]"
+# Closes the loop: after the move, exactly one plugin agent file should exist
+# anywhere under plugins/ -- constitutional-governance-agent, and nothing else.
+PLUGIN_AGENT_COUNT=$(find plugins -path '*/agents/*.md' | wc -l | tr -d ' ')
+assert "LOOM-0052: exactly 1 agent file remains under plugins/ (found ${PLUGIN_AGENT_COUNT})" "[ ${PLUGIN_AGENT_COUNT} -eq 1 ]"
 
 echo ""
 echo "═══ Specification Skill Consolidation Tests ═══"

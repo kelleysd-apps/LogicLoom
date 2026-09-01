@@ -186,50 +186,73 @@ The **subagent git guard** denies MUTATING git from a subagent. A subagent may r
 |-------|---------|-------|
 | **constitutional-governance-agent** | Primary entry point, governance enforcement | opus |
 
-### loom-orchestrator (1 agent, 11 skills)
+### loom-orchestrator (0 agents — 12 skills)
 
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus |
-
+> `team-synthesizer` shipped here through v6.6.x, but a plugin-declared agent
+> under `plugins/*/.claude-plugin/plugin.json` never actually loads in this
+> repo (no `marketplace.json`, nothing in `~/.claude/plugins/` registers
+> `plugins/` as a Claude Code plugin installation). LOOM-0052 moved it to
+> `.claude/agents/team-synthesizer.md` — see **Project-level agents** below,
+> where it now actually loads.
+>
 > **Note**: task-orchestrator, swarm-coordinator, and workflow-coordinator were converted to enhanced skills (`team-orchestration`, `multi-skill-workflow`) with Task Brief sections in v5.0.0. v6.0.0 added `plan-review` and `retro` skills for the LogicLoom workflow. A `cross-check` skill (governed cross-provider adversarial reviewer) was added later, and a `distillation-pass` skill (backs `/distill`, promotes `.brain/raw/` captures into `.brain/wiki/`) was added after that — a `project-graph` skill backs `/graph` (now **12** skills total in this plugin).
 
 ### sdd-specification (0 agents — skill-based)
 
 > All 4 specification agents (specification-agent, planning-agent, tasks-agent, specification-orchestrator) were converted to enhanced skills in v5.0.0. v5.1.0 then **merged those skills into one**: the plugin ships a single skill, `unified-specification`, backing the single `/specification` command. `sdd-specification`, `sdd-planning`, and `sdd-tasks` no longer exist as skills, and `/specify`, `/plan`, `/tasks` no longer exist as commands.
 
-### loom-creation (2 agents)
+### loom-creation (0 agents — 5 skills)
 
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| **prd-specialist** | PRD creation (auto-detects vision-driven vs blank-slate mode), product strategy | opus |
-| **subagent-architect** | Agent creation, SDD compliance | inherit |
+> `prd-specialist` and `subagent-architect` shipped here through v6.6.x, moved
+> to `.claude/agents/` by LOOM-0052 for the same reason as `team-synthesizer`
+> above — see **Project-level agents** below.
 
-### loom-maintenance (1 agent)
+### loom-maintenance (0 agents)
 
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| **framework-sync-agent** | Framework updates from upstream | opus |
+> `framework-sync-agent` shipped here through v6.6.x, moved to
+> `.claude/agents/` by LOOM-0052 — see **Project-level agents** below.
 
-### loom-memory (1 agent)
+### loom-memory (0 agents)
 
-| Agent | Purpose | Model |
-|-------|---------|-------|
-| **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku |
+> `memory-context-agent` shipped here through v6.6.x, moved to
+> `.claude/agents/` by LOOM-0052 — see **Project-level agents** below.
+>
+> `constitutional-governance-agent` (loom-governance, above) is the deliberate
+> exception: it does not move, because it is never dispatched via a Claude
+> Code `"agent"` field in the first place — it is hook-injected as
+> `additionalContext` by the `UserPromptSubmit` preflight hook, so "plugin
+> agents never load" doesn't apply to it.
 
-### Project-level agents (`.claude/agents/`) — orchestrator + worker ladder
+### Project-level agents (`.claude/agents/`)
 
-Dev-time delegation ladder: a **frontier orchestrator** (the main session —
-Fable 5 → Opus 4.8 fallback; set via `/model`, model-agnostic-but-frontier,
-never a non-Claude model) plans/reasons/delegates over cheaper Claude workers.
-Kept as **project** agents (not plugin agents, which lose
-`hooks`/`mcpServers`/`permissionMode`) so the hook floor still governs them.
-Full reference: `.docs/architecture/orchestrator-worker-ladder.md`.
+Every currently-loadable non-governance agent in this repo is a **project**
+agent — LOOM-0052 (2026-08-31) moved the five that used to sit under
+`plugins/*/agents/` here, because a plugin-declared agent never loads in this
+repo (see the per-plugin notes above). Two shapes:
+
+**Orchestrator + worker ladder** — a dev-time delegation pattern: a
+**frontier orchestrator** (the main session — Fable 5 → Opus 4.8 fallback; set
+via `/model`, model-agnostic-but-frontier, never a non-Claude model)
+plans/reasons/delegates over cheaper Claude workers. Kept as **project** agents
+(not plugin agents, which lose `hooks`/`mcpServers`/`permissionMode`) so the
+hook floor still governs them. Full reference:
+`.docs/architecture/orchestrator-worker-ladder.md`.
 
 | Agent | Purpose | Model (effort) |
 |-------|---------|-------|
 | **deep-reasoner** | Architecture decisions, hard debugging, design tradeoffs | opus (high) |
 | **fast-worker** | Boilerplate, tests, routine mechanical edits | sonnet (medium) |
+
+**Moved from plugin scope (LOOM-0052)** — the five agents formerly listed under
+their originating plugins above; content unchanged, only the load path fixed:
+
+| Agent | Purpose | Model | Formerly under |
+|-------|---------|-------|-----------------|
+| **prd-specialist** | PRD creation (auto-detects vision-driven vs blank-slate mode), product strategy | opus | loom-creation |
+| **subagent-architect** | Agent creation, SDD compliance | inherit | loom-creation |
+| **team-synthesizer** | Merges multi-LLM parallel outputs; cross-model convergence analysis and tribunal confidence scoring | opus | loom-orchestrator |
+| **framework-sync-agent** | Framework updates from upstream | opus | loom-maintenance |
+| **memory-context-agent** | Searches project memory and injects relevant context via preflight hook | haiku | loom-memory |
 
 > Dispatch inside `/workflow` via `agent(prompt, { agentType: 'deep-reasoner' })`;
 > `agent()`'s per-call `effort` supplies dynamic per-dispatch effort (raw Task
@@ -346,7 +369,7 @@ Quick reference for delegation based on task domain:
 
 | Domain | Keywords | Delegate To | Type | Plugin | Pack |
 |--------|----------|-------------|------|--------|------|
-| **PRD/Product** | PRD, product, vision, personas | prd-specialist | agent | loom-creation | shared |
+| **PRD/Product** | PRD, product, vision, personas | prd-specialist | agent | `.claude/agents/` (LOOM-0052; `/create-prd` cmd stays loom-creation) | shared |
 | **Specification** | spec, requirements, user story | unified-specification skill | skill | sdd-specification | SDD waterfall |
 | **Planning** | implementation plan, research, contracts | unified-specification skill (phase 2) | skill | sdd-specification | SDD waterfall |
 | **Tasks** | task list, breakdown | unified-specification skill (phase 3) | skill | sdd-specification | SDD waterfall |
@@ -354,7 +377,7 @@ Quick reference for delegation based on task domain:
 | **Retro** | /retro, learnings | retro skill | skill | loom-orchestrator | vision/swarm |
 | **Distill** | /distill, .brain, knowledge capture | distillation-pass skill | skill | loom-orchestrator | vision/swarm |
 | **Unified spec** | /specification | unified-specification skill | skill | sdd-specification | SDD waterfall |
-| **Agent Creation** | create agent, new agent | subagent-architect | agent | loom-creation | shared |
+| **Agent Creation** | create agent, new agent | subagent-architect | agent | `.claude/agents/` (LOOM-0052; `/create-agent`/`/create-plugin` cmds stay loom-creation) | shared |
 | **Multi-Domain** | 2+ domains detected | team-orchestration skill | skill | loom-orchestrator | vision/swarm |
 | **Swarm** | swarm, team, parallel agents | team-orchestration skill | skill | loom-orchestrator | vision/swarm |
 
@@ -364,9 +387,9 @@ Quick reference for delegation based on task domain:
 
 | Command | Delegate | Plugin | Purpose |
 |---------|----------|--------|---------|
-| `/create-prd` | prd-specialist | loom-creation | Create PRD (auto-detects vision-driven vs legacy) |
+| `/create-prd` | prd-specialist | loom-creation cmd; agent is project-scoped `.claude/agents/` (LOOM-0052) | Create PRD (auto-detects vision-driven vs legacy) |
 | `/swarm` | team-orchestration skill | loom-orchestrator | Multi-agent swarm (explore / implement / generic-legacy) |
-| `/research` | team-synthesizer | loom-orchestrator | Jury-on-demand multi-LLM research. Final report lands as a capture at `.brain/raw/research/<id>-<slug>.md` (`status: unprocessed`); working intermediates stay in the gitignored `.docs/research/<id>-<slug>/` |
+| `/research` | team-synthesizer | loom-orchestrator cmd; agent is project-scoped `.claude/agents/` (LOOM-0052) | Jury-on-demand multi-LLM research. Final report lands as a capture at `.brain/raw/research/<id>-<slug>.md` (`status: unprocessed`); working intermediates stay in the gitignored `.docs/research/<id>-<slug>/` |
 | `/cross-check` | cross-check skill | loom-orchestrator | Governed cross-provider adversarial review (advisory + read-only). Report lands as a capture in `.brain/raw/reviews/<id>-<slug>/` unless a caller passes `--out` |
 | `/plan-review` | plan-review skill | loom-orchestrator | CEO + Eng verdict on plan.md (`--adversary` adds cross-provider lens) |
 | `/retro` | retro skill | loom-orchestrator | Post-feature learning capture. Memory destination is RESOLVED, never hardcoded — `memory_backend = repo` (default, `.brain/memory/`) or `project`; see `resolve-memory-backend.sh` |
@@ -378,9 +401,9 @@ Quick reference for delegation based on task domain:
 | `/build-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — sequential architect→implementor→reviewer |
 | `/fullstack-team` | domain briefs + coordinator | loom-orchestrator | SDD waterfall pack — parallel full-stack team |
 | `/finalize` | - | loom-git | Pre-commit compliance validation (no git execution) |
-| `/create-agent` | subagent-architect | loom-creation | Create new agent |
-| `/create-plugin` | subagent-architect | loom-creation | Create new plugin |
-| `/update-framework` | framework-sync-agent | loom-maintenance | Framework updates from upstream |
+| `/create-agent` | subagent-architect | loom-creation cmd; agent is project-scoped `.claude/agents/` (LOOM-0052) | Create new agent |
+| `/create-plugin` | subagent-architect | loom-creation cmd; agent is project-scoped `.claude/agents/` (LOOM-0052) | Create new plugin |
+| `/update-framework` | framework-sync-agent | loom-maintenance cmd; agent is project-scoped `.claude/agents/` (LOOM-0052) | Framework updates from upstream |
 | `/initialize-project` | - | loom-maintenance | Post-PRD project customization (also picks the gate-policy posture) |
 | `/scaffold-environments` | environment-scaffolding skill | loom-maintenance | Opt-in scaffolding of the promotion methodology into a new or existing project — detect, propose a delta, write only what is named |
 | `/promote-dev` | promotion-lifecycle skill | loom-maintenance | Lowest rung — gates feature branch/worktree → integration branch + dev, then prints the project's seam command. Prompts; skippable |
@@ -467,35 +490,43 @@ Coordinator merges results into features/<feature>/sprints/02-api-surface/
 
 ## Agent File Locations (Plugin-First)
 
+A plugin-declared agent under `plugins/*/.claude-plugin/plugin.json` never
+loads in this repo (LOOM-0052) — `constitutional-governance-agent` is the one
+exception, because it is hook-injected rather than dispatched as an `"agent"`.
+Every other loadable agent lives in `.claude/agents/`, outside the plugin tree.
+
 ```
+.claude/agents/                          (project scope — actually loads)
+├── deep-reasoner.md                     (orchestrator + worker ladder)
+├── fast-worker.md                       (orchestrator + worker ladder)
+├── prd-specialist.md                    (moved from loom-creation, LOOM-0052)
+├── subagent-architect.md                (moved from loom-creation, LOOM-0052)
+├── team-synthesizer.md                  (moved from loom-orchestrator, LOOM-0052)
+├── framework-sync-agent.md              (moved from loom-maintenance, LOOM-0052)
+└── memory-context-agent.md              (moved from loom-memory, LOOM-0052)
+
 plugins/
 ├── loom-governance/
 │   ├── agents/
-│   │   └── constitutional-governance-agent.md  (governance core entry)
+│   │   └── constitutional-governance-agent.md  (governance core entry —
+│   │       hook-injected via preflight, NOT moved by LOOM-0052)
 │   └── domain-briefs/
 │       ├── frontend.md  backend.md  database.md
 │       ├── testing.md  security.md  performance.md
 │       └── devops.md    (7 briefs — replaces the deleted sdd-domain-* plugins)
-├── loom-orchestrator/
-│   ├── agents/
-│   │   └── team-synthesizer.md
-│   └── skills/
-│       ├── team-orchestration/SKILL.md
-│       ├── multi-skill-workflow/SKILL.md
-│       ├── research/SKILL.md
-│       ├── plan-review/SKILL.md     (v6.0.0)
-│       ├── retro/SKILL.md           (v6.0.0)
-│       ├── distillation-pass/SKILL.md   (backs /distill)
-│       └── ... (12 skills total)
+├── loom-orchestrator/skills/
+│   ├── team-orchestration/SKILL.md
+│   ├── multi-skill-workflow/SKILL.md
+│   ├── research/SKILL.md
+│   ├── plan-review/SKILL.md     (v6.0.0)
+│   ├── retro/SKILL.md           (v6.0.0)
+│   ├── distillation-pass/SKILL.md   (backs /distill)
+│   └── ... (12 skills total)
 ├── sdd-specification/skills/
 │   └── unified-specification/SKILL.md   (the only skill; spec+plan+tasks merged in v5.1.0)
-├── loom-creation/agents/
-│   ├── prd-specialist.md
-│   └── subagent-architect.md
-├── loom-maintenance/agents/
-│   └── framework-sync-agent.md
-└── loom-memory/agents/
-    └── memory-context-agent.md
+├── loom-creation/skills/     (agents/ removed — see .claude/agents/ above)
+├── loom-maintenance/skills/  (agents/ removed — see .claude/agents/ above)
+└── loom-memory/               (agents/ removed — see .claude/agents/ above)
 ```
 
 ---

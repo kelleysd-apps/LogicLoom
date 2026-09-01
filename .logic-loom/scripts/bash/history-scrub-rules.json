@@ -695,7 +695,7 @@
       ]
     },
     {
-      "path": "plugins/loom-creation/agents/subagent-architect.md",
+      "path": ".claude/agents/subagent-architect.md",
       "ops": [
         {
           "op": "drop-section",

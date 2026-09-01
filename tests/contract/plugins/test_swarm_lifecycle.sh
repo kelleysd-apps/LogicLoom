@@ -20,7 +20,7 @@ echo ""
 echo "T4.1.1: Swarm command and orchestration skills"
 assert "/swarm command exists" "[ -f plugins/loom-orchestrator/commands/swarm.md ]"
 assert "team-orchestration skill exists" "[ -f plugins/loom-orchestrator/skills/team-orchestration/SKILL.md ]"
-assert "team-synthesizer agent exists" "[ -f plugins/loom-orchestrator/agents/team-synthesizer.md ]"
+assert "team-synthesizer agent exists (LOOM-0052: project scope)" "[ -f .claude/agents/team-synthesizer.md ]"
 assert "multi-skill-workflow skill exists" "[ -f plugins/loom-orchestrator/skills/multi-skill-workflow/SKILL.md ]"
 assert "orchestrator agents converted to skills" "[ ! -f plugins/loom-orchestrator/agents/swarm-coordinator.md ]"
 

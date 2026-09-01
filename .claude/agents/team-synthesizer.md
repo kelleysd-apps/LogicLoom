@@ -1,8 +1,12 @@
 ---
 name: team-synthesizer
 description: Merges multi-LLM parallel outputs into coherent results. Supports cross-model convergence analysis and tribunal confidence-scored output.
-tools: Read, Write, Grep, Glob
 model: opus
+tools:
+  - Read
+  - Write
+  - Grep
+  - Glob
 ---
 
 # Team Synthesizer Agent

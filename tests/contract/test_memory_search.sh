@@ -61,8 +61,8 @@ assert "memory-log.sh exists" "[ -f $MEMORY_LOG ]"
 assert "memory-log.sh is executable" "[ -x $MEMORY_LOG ]"
 assert "context-injection skill exists" \
   "[ -f plugins/loom-memory/skills/context-injection/SKILL.md ]"
-assert "memory-context-agent exists" \
-  "[ -f plugins/loom-memory/agents/memory-context-agent.md ]"
+assert "memory-context-agent exists as project agent (LOOM-0052)" \
+  "[ -f .claude/agents/memory-context-agent.md ]"
 
 # ── Configuration Tests ──
 echo ""

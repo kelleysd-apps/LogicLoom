@@ -1,32 +1,24 @@
 ---
 name: memory-context-agent
-version: 1.0.0
-department: orchestration
-model: haiku
-description: |
+description: >-
   Searches tiered project memory (working/recall/archival) to find relevant
   context for the current user request. Injects found context via preflight
   hook additionalContext. Uses keyword-based retrieval with relevance scoring.
-
   This agent operates within the preflight hook pipeline and must complete
   within 3 seconds. It augments Claude Code's native memory systems
   (auto memory, session memory) rather than replacing them.
-
+model: haiku
 tools:
   - Read
   - Grep
   - Glob
   - Bash
-
-triggers:
-  - Every UserPromptSubmit (via preflight hook)
-
-constitutional_principles:
-  - VII (Observability)
-  - XVI (Plugin-First)
 ---
 
 # Memory Context Agent
+
+Triggered on every `UserPromptSubmit` (via the preflight hook). Constitutional
+principles: VII (Observability), XVI (Plugin-First).
 
 ## Purpose
 
