@@ -184,7 +184,7 @@ harness-dev-specific, so it carries a `stub:` entry in
       kori-beta). `VISION.md` is NOT affected — its exclusion is deliberate and
       `/initialize-project` offers it from a template that does ship.
 
-- [ ] LOOM-0049 — Ship the `artifacts/` convention and a live backlog dashboard `status:open`
+- [x] LOOM-0049 — Ship the `artifacts/` convention and a live backlog dashboard `status:done`
       Raised 2026-08-31. The generators already ship and are already
       repo-neutral — `build-backlog-index.sh` and `build-backlog-dashboard.sh`
       have zero references to our repo, and running them in kori-beta produced a
@@ -210,9 +210,24 @@ harness-dev-specific, so it carries a `stub:` entry in
       localStorage, which also covers private repos. Owner/repo derived from
       `git remote` at build time. Must degrade VISIBLY ("issues unavailable")
       with no remote, no network, or a private repo and no token.
-      Markdown half stays current by regenerating on `SessionStart` — a hook
-      point that already ships. Regeneration is a pure function of the sources,
-      so an unchanged backlog produces identical bytes and no git diff.
+      DONE 2026-08-31. `artifacts/{.gitkeep,README.md}` ship; the three
+      generated pages are excluded; `check-generated-freshness.sh` ships.
+      The issues panel fetches at VIEW time only — proven, not asserted: a build
+      with `curl`/`wget` PATH-shimmed to fail made ZERO network attempts, and an
+      issue title that is not also a LOOM item appears nowhere in the output.
+      TWO DEFECTS CAUGHT DURING IMPLEMENTATION, both would have shipped broken:
+      (1) `artifacts` was ALSO stripped wholesale by the template strip manifest,
+      so the new payload includes would have shipped nothing — the LOOM-0048
+      mistake about to repeat in a second file. Now named per-file.
+      (2) The hook derived owner/repo from `git remote` and passed `--repo`. The
+      freshness gate regenerates WITHOUT that override, so it produced
+      `GH_REPO = null` against a committed real value and the tracked artifact
+      was PERMANENTLY STALE — the gate caught it on exactly that line. Fixed by
+      making `project.conf`'s `repo` key the single deterministic source and
+      removing the override; the hook now runs no git at all. `repo` is declared
+      in our own project.conf as part of this change.
+      Idempotency proven: two consecutive hook runs on an unchanged backlog
+      leave the tree untouched.
 
 - [ ] LOOM-0050 — Offer the CI methodology as templates the adopter can install and edit `status:open`
       Raised 2026-08-31. `payload-manifest.txt` excludes `.github` wholesale and

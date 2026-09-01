@@ -289,6 +289,38 @@ assert "the exclusion carries its reason, so nobody deletes it as redundant" \
   "grep -qi 'rules.*load\|answer key\|false PASS' \"$MANIFEST\""
 echo ""
 
+echo "── artifacts/ ships: structure travels, content does not (LOOM-0049) ──"
+# Same shape as the .brain/README.md block above, and for the identical reason:
+# BOTH halves are required. Removing the exclusion alone ships nothing (the
+# copier selects a path only when an include: matches it); the include alone
+# would select nothing if template-strip-manifest.txt still removed the whole
+# `artifacts` directory (it no longer does — see that manifest's own LOOM-0049
+# comment for why the wholesale form had to become per-file).
+assert "artifacts/.gitkeep is explicitly included in the payload" \
+  "grep -qE '^include:[[:space:]]+artifacts/\.gitkeep[[:space:]]*\$' \"$MANIFEST\""
+assert "artifacts/README.md is explicitly included in the payload" \
+  "grep -qE '^include:[[:space:]]+artifacts/README\.md[[:space:]]*\$' \"$MANIFEST\""
+assert "...and artifacts (the whole directory) is NOT excluded, which would beat those includes" \
+  "! grep -qE '^exclude:[[:space:]]+artifacts[[:space:]]*\$' \"$MANIFEST\""
+# The content must stay ours. Each of our three own artifact pages is excluded
+# individually; a fourth path under artifacts/ appearing here unexcluded would
+# be a new LogicLoom-authored page shipping to a customer unnoticed.
+for _f in backlog-dashboard.html harness-graph.html logicloom-vision.html; do
+  assert "artifacts/$_f is explicitly excluded from the payload" \
+    "grep -qE '^exclude:[[:space:]]+artifacts/$_f[[:space:]]*\$' \"$MANIFEST\""
+done
+echo ""
+
+echo "── check-generated-freshness.sh now SHIPS to the adopt package (LOOM-0049) ──"
+# It used to be excluded because the adopter had no source for what it
+# regenerates. That reason expired: todos.md, backlog.md and both backlog
+# generators all ship now, so the gate has every input it needs.
+assert "check-generated-freshness.sh is NOT excluded from the payload" \
+  "! grep -qE '^exclude:[[:space:]]+\.logic-loom/scripts/bash/check-generated-freshness\.sh[[:space:]]*\$' \"$MANIFEST\""
+assert "the manifest records WHY it now ships (the reason expired, not just deleted silently)" \
+  "grep -qi 'expired' \"$MANIFEST\" && grep -q 'check-generated-freshness.sh' \"$MANIFEST\""
+echo ""
+
 echo "========================================"
 echo "Results: $PASS/$TOTAL passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

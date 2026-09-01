@@ -13,6 +13,11 @@
             "type": "command",
             "command": "bash .logic-loom/scripts/bash/check-dev-branch-base.sh --event SessionStart",
             "timeout": 5000
+          },
+          {
+            "type": "command",
+            "command": "bash .logic-loom/scripts/bash/regenerate-backlog-dashboard.sh",
+            "timeout": 15000
           }
         ]
       }

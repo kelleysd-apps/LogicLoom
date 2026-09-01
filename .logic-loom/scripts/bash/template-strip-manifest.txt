@@ -126,36 +126,58 @@ plugins/loom-maintenance/commands/promote.md
 CHANGELOG.md            # the harness's own version history (v6.2 dev-loop, etc.)
 
 # --- Repo-root `artifacts/`: the CONVENTION ships (documented in CLAUDE.md's
-#     directory structure and .docs/policies/file-structure-policy.md), the
-#     CONTENTS are ours. Today that is two hand-authored LogicLoom pages —
-#     artifacts/harness-graph.html ("What the harness is actually made of") and
-#     artifacts/logicloom-vision.html ("Vision, Findings & Record", carrying our
-#     decisions, verified problems and open evidence gaps). Same class as
-#     .docs/reports and .docs/design above, which are already stripped wholesale
-#     — and until now `artifacts/` was in NO list at all, so both files were
-#     shipping to customers verbatim.
-#     WHOLESALE, not `artifacts/*.html`: a glob would silently ship the first
-#     non-HTML artifact we drop in there. Nothing is stubbed and no .gitkeep is
-#     shipped, so the directory simply does not exist in a customer clone —
-#     the same treatment as `web/`, which the policy documents without shipping.
-#     A customer creates it the first time they have an artifact to put in it.
+#     directory structure and .docs/policies/file-structure-policy.md, and now
+#     in `artifacts/README.md` itself), the CONTENTS are ours. Same class as
+#     `.brain/` directly below: the structure travels, the content does not.
 #
-#     NOTE on artifacts/backlog-dashboard.html — THIS ENTRY IS NOW LOAD-BEARING
-#     FOR IT. That page is GENERATED, and it used to be gitignored, so the old
-#     text here said the wholesale entry "never sees it" and the two mechanisms
-#     were independent. That is no longer true. The page is now TRACKED (it was
-#     invisible in every checkout that had not run the generator; dev state has
-#     to be consistent across the dev line), so it DOES enter a promotion
-#     checkout and this entry is the ONE thing that keeps it out of a customer's
-#     tree. Its content is ours end to end — our backlog ids, our item titles,
-#     our source paths — so it must never ship.
-#     This is exactly why the entry is WHOLESALE and not `artifacts/*.html` or
-#     any other glob: the wholesale form already covered a future tracked
-#     artifact before there was one, and it is what made this change safe to
-#     make. Do not narrow it. Its freshness is guarded separately, in-repo, by
-#     .logic-loom/scripts/bash/check-generated-freshness.sh (CI: plugin-tests.yml)
-#     — a different concern from shipping, and neither substitutes for the other.
-artifacts
+#     CHANGED FROM WHOLESALE (LOOM-0049). This directory used to be stripped
+#     wholesale — the whole directory, including any README, simply did not
+#     exist in a customer clone. That made LOOM-0049's adopt-package fix
+#     impossible to land: `packaging/adopt/payload-manifest.txt` builds from
+#     THIS ALREADY-STRIPPED TREE, so an `include: artifacts/README.md` in that
+#     manifest selects nothing when the strip manifest has already removed the
+#     whole directory. (Same root cause LOOM-0048 hit on `.brain/` — an
+#     `exclude:` or, here, a wholesale directory strip, on a path the OTHER
+#     manifest wants to include throws away safe structure before that manifest
+#     ever runs.) So this entry now names its OWN content files individually —
+#     `.brain/`'s pattern exactly — and `artifacts/README.md` and
+#     `artifacts/.gitkeep`, being unlisted, ship.
+#
+#     Named individually, and why each one is ours:
+#       artifacts/harness-graph.html      — "What the harness is actually made
+#                                            of" — our own architecture map.
+#       artifacts/logicloom-vision.html   — "Vision, Findings & Record" — our
+#                                            decisions, verified problems, open
+#                                            evidence gaps.
+#       artifacts/backlog-dashboard.html  — GENERATED from OUR
+#                                            .logic-loom/memory/todos.md and
+#                                            backlog.md — our backlog ids, our
+#                                            item titles, our source paths. It
+#                                            is TRACKED (dev state has to be
+#                                            consistent across worktree ->
+#                                            dev-main), so it DOES enter a
+#                                            promotion checkout and this line is
+#                                            the one thing that keeps it out of
+#                                            a customer's tree. Its freshness is
+#                                            guarded separately, in-repo, by
+#                                            .logic-loom/scripts/bash/check-
+#                                            generated-freshness.sh (CI:
+#                                            plugin-tests.yml) — a different
+#                                            concern from shipping, and neither
+#                                            substitutes for the other.
+#
+#     THE RISK THIS TRADES AWAY, STATED PLAINLY: the old wholesale form covered
+#     a future artifact we drop in `artifacts/` before there was a decision
+#     about it — a new hand-authored page here today ships to customers
+#     verbatim unless someone adds it to this list in the same change. That is
+#     the exact risk `.brain/`'s per-child list already accepts, for the same
+#     reason: the alternative (an exclude: for the whole directory) is what
+#     blocked the adopter-facing include from ever matching anything. Add a new
+#     LogicLoom-authored artifact here WHEN YOU ADD IT — do not rediscover this
+#     as a leak.
+artifacts/harness-graph.html
+artifacts/logicloom-vision.html
+artifacts/backlog-dashboard.html
 
 # --- Project brain: the CONVENTION ships (README + layer names + the
 #     frontmatter contract), the CONTENTS are ours end to end. Same class as

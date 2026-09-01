@@ -58,6 +58,7 @@
 {"type":"entity","name":"README.md","entityType":"note","observations":["LogicLoom"]}
 {"type":"entity","name":"START_HERE.md","entityType":"note","observations":["START HERE — LogicLoom Onboarding"]}
 {"type":"entity","name":"VISION.md","entityType":"note","observations":["Vision: LogicLoom"]}
+{"type":"entity","name":"artifacts/README.md","entityType":"code-path","observations":["README.md"]}
 {"type":"entity","name":"artifacts/backlog-dashboard.html","entityType":"code-path","observations":["backlog-dashboard.html"]}
 {"type":"entity","name":"features/README.md","entityType":"note","observations":["`features/` — Vision / Swarm workflow pack"]}
 {"type":"entity","name":"features/code-knowledge-graph/exploration/graph-design.md","entityType":"code-path","observations":["graph-design.md"]}
@@ -132,6 +133,7 @@
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"tests/contract/test_adopt_payload_manifest.sh","relationType":"mentions"}
+{"type":"relation","from":".docs/design/adopter-parity-and-live-dashboard.md","to":"artifacts/README.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopter-parity-and-live-dashboard.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/brain-spec.md","to":"plugins/loom-orchestrator/skills/distillation-pass/SKILL.md","relationType":"mentions"}

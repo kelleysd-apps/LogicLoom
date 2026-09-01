@@ -244,18 +244,37 @@ echo ""
 # ── 5. ZERO external references ──────────────────────────────────────────────
 # THE property that makes file:// work. Checked as absence, so any new off-file
 # reference — CDN, webfont, remote image, external stylesheet — fails here.
-echo "5. Self-contained: zero external references of any kind"
-assert "no http:// URL anywhere" "! grep -q 'http://' '$PAGE'"
-assert "no https:// URL anywhere" "! grep -q 'https://' '$PAGE'"
+echo "5. Self-contained: zero external references EXCEPT the view-time issues fetch"
+assert "no http:// URL anywhere (insecure — never allowed, not even for GitHub)" \
+  "! grep -q 'http://' '$PAGE'"
 assert "no protocol-relative //cdn reference" "! grep -q '//cdn' '$PAGE'"
 assert "no <script src=" "! grep -qE '<script[^>]+src=' '$PAGE'"
 assert "no <link href=" "! grep -qE '<link[^>]+href=' '$PAGE'"
 assert "no CSS url() (webfont / remote image)" "! grep -q 'url(' '$PAGE'"
 assert "no @import" "! grep -q '@import' '$PAGE'"
-assert "no runtime fetch() of the index — it is INLINED" "! grep -q 'fetch(' '$PAGE'"
 assert "no XMLHttpRequest" "! grep -q 'XMLHttpRequest' '$PAGE'"
-assert "every href is an on-page fragment" \
+# LOOM-0049: the ONE deliberate exception. The page's script fetches GitHub's
+# REST API when OPENED (view time), never when THIS SCRIPT runs (build time) —
+# see build-backlog-dashboard.sh "LIVE DATA". So the page legitimately contains
+# ONE https:// literal (the api.github.com endpoint string) and ONE fetch(
+# call. Every OTHER https:// occurrence, and any second fetch(, would mean a
+# second off-file reference crept in — exactly what this section exists to
+# catch — so both are asserted as counts, not just presence.
+assert "no runtime fetch() of the INDEX (still INLINED, never fetched)" \
+  "! grep -qE \"fetch\\([\\\"']\\.{0,2}/|fetch\\([^)]*index\" '$PAGE'"
+assert "exactly one https:// literal in the whole page" \
+  "[ \"\$(grep -o 'https://' '$PAGE' | wc -l | tr -d ' ')\" = '1' ]"
+assert "...and it is the GitHub REST API, nothing else" \
+  "grep -q 'https://api.github.com/repos/' '$PAGE'"
+assert "exactly one fetch( call in the whole page" \
+  "[ \"\$(grep -o 'fetch(' '$PAGE' | wc -l | tr -d ' ')\" = '1' ]"
+assert "every literal href=\"...\" in the static markup is an on-page fragment" \
   "[ \"\$(grep -oE 'href=\"[^\"]*\"' '$PAGE' | grep -cv 'href=\"#')\" = '0' ]"
+# The issue-link href is built via setAttribute, never a literal href="...", so
+# a real GitHub URL can appear in the DOM at view time without ever being a
+# literal quoted attribute in the file this script writes.
+assert "the issue link href is set via setAttribute, not a literal href=\"...\"" \
+  "grep -q 'setAttribute(\"href\"' '$PAGE'"
 echo ""
 
 # ── 6. Determinism ───────────────────────────────────────────────────────────
@@ -413,16 +432,26 @@ echo "12. artifacts/ is declared, and our own artifacts are stripped"
 if [ "$TREE_KIND" = "sanitized" ]; then
   skip "strip manifest exists" \
     "strip manifest present — sanitized tree (maintainer-only file)"
-  skip "manifest strips artifacts/ WHOLESALE (not a fragile *.html glob)" \
+  skip "manifest strips each of our own artifacts/ pages individually (LOOM-0049)" \
     "strip manifest present — sanitized tree (maintainer-only file)"
   skip "the manifest entry carries its reason" \
     "strip manifest present — sanitized tree (maintainer-only file)"
+  skip "artifacts/README.md and .gitkeep are NOT stripped (they ship, LOOM-0049)" \
+    "strip manifest present — sanitized tree (maintainer-only file)"
 else
 assert "strip manifest exists" "[ -f '$MANIFEST' ]"
-assert "manifest strips artifacts/ WHOLESALE (not a fragile *.html glob)" \
-  "grep -qE '^artifacts[[:space:]]*(#.*)?\$' '$MANIFEST'"
+# LOOM-0049: the old wholesale `artifacts` line removed the whole directory,
+# including any README/.gitkeep, which blocked the adopt-package fix below
+# (payload-manifest.txt builds from THIS already-stripped tree, so an
+# `include: artifacts/README.md` there selects nothing if this manifest still
+# removes the whole directory). Each of our OWN artifact pages is now named
+# individually — the same shape .brain/'s per-child list already uses.
+assert "manifest strips each of our own artifacts/ pages individually (LOOM-0049)" \
+  "grep -qxF 'artifacts/harness-graph.html' '$MANIFEST' && grep -qxF 'artifacts/logicloom-vision.html' '$MANIFEST' && grep -qxF 'artifacts/backlog-dashboard.html' '$MANIFEST'"
 assert "the manifest entry carries its reason" \
   "grep -q 'Repo-root .artifacts/.' '$MANIFEST'"
+assert "artifacts/README.md and .gitkeep are NOT stripped (they ship, LOOM-0049)" \
+  "! grep -qxF 'artifacts/README.md' '$MANIFEST' && ! grep -qxF 'artifacts/.gitkeep' '$MANIFEST' && ! grep -qxE 'artifacts[[:space:]]*(#.*)?' '$MANIFEST'"
 fi
 assert "artifacts/ is documented in CLAUDE.md's directory structure" \
   "grep -q '^artifacts/' '$ROOT/CLAUDE.md'"
@@ -486,8 +515,8 @@ if [ -f "$COLLECTOR" ]; then
   assert "the real index has at least one item" "[ \"$REAL_N\" -ge 1 ]"
   assert "every index item reached the page" "[ \"$RENDERED\" = \"$REAL_N\" ]"
   fi
-  assert "the real page has zero external references" \
-    "! grep -qE 'http://|https://|//cdn' '$TMP/real.html'"
+  assert "the real page has zero external references (except the api.github.com issues fetch, LOOM-0049)" \
+    "! grep -qE 'http://|//cdn' '$TMP/real.html' && ! grep -E 'https://' '$TMP/real.html' | grep -qv 'https://api.github.com/'"
   SUM="$(grep -oE '<span class=\"count cls-count\">[0-9]+' "$TMP/real.html" | grep -oE '[0-9]+$' | awk '{s+=$1} END {print s+0}')"
   assert "the class counts sum to the item total" "[ \"\$SUM\" = \"$REAL_N\" ]"
   # Today's repo carries backlog items only. The other two classes MUST still
@@ -655,8 +684,8 @@ TASK_EOF
     "grep -q 'id=\"grp-feature-done\"' '$T3P' && grep -q 'id=\"grp-feature-in_progress\"' '$T3P' && grep -q 'id=\"grp-spec-done\"' '$T3P'"
   assert "the sprint name is carried as the feature item's heading" \
     "grep -q '02-polish' '$T3P'"
-  assert "the three-class page is still self-contained" \
-    "! grep -qE 'http://|https://|//cdn|@import|<script[^>]+src=|<link[^>]+href=' '$T3P'"
+  assert "the three-class page is still self-contained (except the api.github.com issues fetch, LOOM-0049)" \
+    "! grep -qE 'http://|//cdn|@import|<script[^>]+src=|<link[^>]+href=' '$T3P' && ! grep -E 'https://' '$T3P' | grep -qv 'https://api.github.com/'"
 else
   echo "     (collector absent — three-class proof skipped)"
 fi
@@ -693,6 +722,104 @@ if [ -f "$COLLECTOR" ]; then
 else
   echo "     (collector absent — table parity skipped)"
 fi
+echo ""
+
+# ── 17. LOOM-0049: view-time issues fetch — SOURCE-DEPENDENCE, not byte-identity ─
+# Design doc .docs/design/adopter-parity-and-live-dashboard.md §7: the claim
+# most likely to be wrong is that view-time fetching keeps the freshness gate
+# honest. That rests on the generated HTML depending on nothing but todos.md +
+# backlog.md (modulo the generated_at normalisation the gate already applies).
+# Byte-identity across two plain runs is explicitly the WRONG test — it fails
+# today, against a CORRECT generator, purely because of the generated_at stamp
+# (test 6 above already proves determinism the RIGHT way: same index -> same
+# bytes, no epoch needed, since generated_at is carried from the index). This
+# section proves the three things §7 actually asks for.
+echo "17. View-time issues fetch: source-dependence, not byte-identity"
+
+# (1) The BUILD path makes no network call, so no issue data can enter the
+# file at generation time. Proven the same way test 11 proves no-git: shim
+# every network client this script or its OS could plausibly reach for, run
+# both generators, and assert (a) the run still succeeds and (b) none of the
+# shims were invoked.
+mkdir -p "$TMP/netshim"
+for _bin in curl wget nc; do
+  cat > "$TMP/netshim/$_bin" <<SHIMEOF
+#!/bin/sh
+echo "$_bin \$@" >> "\$NET_SHIM_LOG"
+exit 1
+SHIMEOF
+  chmod +x "$TMP/netshim/$_bin"
+done
+: > "$TMP/net-calls.log"
+NONET="$TMP/nonet"; rm -rf "$NONET"; mkdir -p "$NONET"
+NET_SHIM_LOG="$TMP/net-calls.log" PATH="$TMP/netshim:$PATH" \
+  bash "$COLLECTOR" "$ROOT" --out "$NONET/idx.json" >"$TMP/nonet-collect.out" 2>&1
+NC1=$?
+NET_SHIM_LOG="$TMP/net-calls.log" PATH="$TMP/netshim:$PATH" \
+  bash "$GEN" "$ROOT" --index "$NONET/idx.json" --out "$NONET/dash.html" >"$TMP/nonet-render.out" 2>&1
+NC2=$?
+assert "the collector succeeds with every network client unreachable" "[ $NC1 -eq 0 ]"
+assert "the renderer succeeds with every network client unreachable" "[ $NC2 -eq 0 ]"
+assert "neither generator invoked curl, wget or nc" "[ ! -s '$TMP/net-calls.log' ]"
+assert "the page was still produced with zero network access at build time" "[ -s '$NONET/dash.html' ]"
+
+# (2) With SOURCE_DATE_EPOCH pinned, the clock is the ONLY per-run variable —
+# two pinned runs are byte-identical. (Unpinned determinism is already proven
+# in test 6; this is the specific proof §7 calls for.)
+EPOCH_A="$TMP/epoch-a.html"; EPOCH_B="$TMP/epoch-b.html"
+SOURCE_DATE_EPOCH=0 bash "$COLLECTOR" "$ROOT" --out "$TMP/epoch-idx-a.json" >/dev/null 2>&1
+SOURCE_DATE_EPOCH=0 bash "$GEN" "$ROOT" --index "$TMP/epoch-idx-a.json" --out "$EPOCH_A" >/dev/null 2>&1
+SOURCE_DATE_EPOCH=0 bash "$COLLECTOR" "$ROOT" --out "$TMP/epoch-idx-b.json" >/dev/null 2>&1
+SOURCE_DATE_EPOCH=0 bash "$GEN" "$ROOT" --index "$TMP/epoch-idx-b.json" --out "$EPOCH_B" >/dev/null 2>&1
+assert "two SOURCE_DATE_EPOCH-pinned regenerations are byte-identical" \
+  "cmp -s '$EPOCH_A' '$EPOCH_B'"
+
+# (3) The emitted HTML carries the fetch SCAFFOLDING (the mechanism) but NO
+# issue data (numbers, titles) — because no fetch ever ran while this script
+# executed. Proven against the plain fixture page from test 0/1 ($PAGE), which
+# has never seen a network call by construction (this whole suite never grants
+# one), plus a targeted check that the scaffolding names real GitHub API shape
+# without any of it having been populated.
+assert "the page carries the fetch scaffolding (element ids the view-time script needs)" \
+  "grep -q 'id=\"issues-status\"' '$PAGE' && grep -q 'id=\"issues-list\"' '$PAGE' && grep -q 'id=\"issues-count\"' '$PAGE'"
+assert "the page carries the GitHub issues endpoint shape" \
+  "grep -q '/issues?state=open' '$PAGE'"
+assert "the page contains no issue NUMBER field (would only exist post-fetch)" \
+  "! grep -q '\"number\":' '$PAGE'"
+assert "the page contains no issue html_url field (would only exist post-fetch)" \
+  "! grep -q '\"html_url\"' '$PAGE'"
+assert "the page contains no pull_request field (would only exist post-fetch)" \
+  "! grep -q '\"pull_request\"' '$PAGE'"
+echo ""
+
+# ── 18. GH_REPO is baked from the index, validated, never guessed ────────────
+echo "18. GH_REPO: baked from .project.repo, validated owner/repo shape, else null"
+NOREPO="$TMP/norepo"; mkdir -p "$NOREPO/.logic-loom"
+cat > "$NOREPO/$IDX_REL" <<'NOREPO_EOF'
+{ "schema_version": 1, "generated_at": "2026-01-01T00:00:00Z", "source_digest": "x",
+  "project": {}, "items": [] }
+NOREPO_EOF
+bash "$GEN" "$NOREPO" >/dev/null 2>&1
+assert "no project.repo -> GH_REPO bakes as null" \
+  "grep -qE 'var GH_REPO = null;' '$NOREPO/$OUT_REL'"
+
+BADREPO="$TMP/badrepo"; mkdir -p "$BADREPO/.logic-loom"
+cat > "$BADREPO/$IDX_REL" <<'BADREPO_EOF'
+{ "schema_version": 1, "generated_at": "2026-01-01T00:00:00Z", "source_digest": "x",
+  "project": { "repo": "not a valid remote label" }, "items": [] }
+BADREPO_EOF
+bash "$GEN" "$BADREPO" >/dev/null 2>&1
+assert "a repo value that is not owner/repo shaped bakes as null, not garbage" \
+  "grep -qE 'var GH_REPO = null;' '$BADREPO/$OUT_REL'"
+
+GOODREPO="$TMP/goodrepo"; mkdir -p "$GOODREPO/.logic-loom"
+cat > "$GOODREPO/$IDX_REL" <<'GOODREPO_EOF'
+{ "schema_version": 1, "generated_at": "2026-01-01T00:00:00Z", "source_digest": "x",
+  "project": { "repo": "acme/widgets" }, "items": [] }
+GOODREPO_EOF
+bash "$GEN" "$GOODREPO" >/dev/null 2>&1
+assert "an owner/repo shaped value bakes in verbatim" \
+  "grep -qE 'var GH_REPO = \"acme/widgets\";' '$GOODREPO/$OUT_REL'"
 echo ""
 
 echo "════════════════════════════════"

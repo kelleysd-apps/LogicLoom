@@ -125,11 +125,19 @@ include: .claude/context
 exclude: .logic-loom/scripts/bash/update-agent-context.sh
 #
 # check-generated-freshness.sh — PRE-5 flagged this as "not currently stripped;
-#   needs a decision". DECIDED HERE: exclude. Verified at :320 it refuses outside
-#   a git work tree, and it regenerates artifacts/backlog-dashboard.html — an
-#   artifact the payload does not ship and the adopter has no source for. A gate
-#   that can only fail is worse than no gate.
-exclude: .logic-loom/scripts/bash/check-generated-freshness.sh
+#   needs a decision", and it was decided EXCLUDE: "it regenerates
+#   artifacts/backlog-dashboard.html — an artifact the payload does not ship
+#   and the adopter has no source for. A gate that can only fail is worse than
+#   no gate." That reason has EXPIRED (LOOM-0049). The payload now ships
+#   `.logic-loom/memory/todos.md`, `.logic-loom/memory/backlog.md`, and both
+#   backlog generators (`build-backlog-index.sh` / `build-backlog-dashboard.sh`,
+#   both already inherited whole via `include: .logic-loom` and neither carved
+#   out above) — every input this gate regenerates from. SHIP IT: an adopter who
+#   builds and commits their own dashboard gets the same fail-closed staleness
+#   check we do, for free, the moment the artifact is tracked in their repo (the
+#   gate derives what to check from the git index — see its own header). An
+#   adopter who never builds a dashboard sees it exit 0 "nothing to check", the
+#   same as our own sanitized-tree case.
 #
 # .logic-loom/tests/ — three suites (test-git-safety.sh, test-policy-validation.sh,
 #   test_logging.sh). Same class as root tests/ below: they test the HARNESS,
@@ -201,6 +209,27 @@ include: specs/.gitkeep
 include: specs/README.md
 exclude: features/*/
 exclude: specs/*/
+
+# artifacts/README.md and artifacts/.gitkeep — the CONVENTION ships (LOOM-0049),
+# same shape as .brain/README.md and features/specs above. Requires BOTH halves,
+# same lesson as .brain: template-strip-manifest.txt used to remove `artifacts`
+# WHOLESALE, so an `include:` here would have selected nothing from the tag tree
+# until that manifest was changed to name our own three artifact pages
+# individually instead (see its own comment for the full reasoning and the
+# residual risk that trade accepts). With that change landed, the tag carries
+# artifacts/README.md and artifacts/.gitkeep and nothing else under artifacts/,
+# so this include selects exactly those two paths and nothing more.
+include: artifacts/.gitkeep
+include: artifacts/README.md
+# Defensive, not load-bearing today: the strip manifest already removes these
+# three by name, so none of them exist in the tag this payload is built from.
+# Named here anyway so a FUTURE broadening of the tag's artifacts/ content (a
+# glob include added above, a strip-manifest edit that forgets one of the three)
+# still cannot ship our content through THIS manifest without an explicit,
+# reviewable exclude removed first.
+exclude: artifacts/backlog-dashboard.html
+exclude: artifacts/harness-graph.html
+exclude: artifacts/logicloom-vision.html
 
 # --- CONTRACT DOCS THE SHIPPED SCRIPTS CITE BY PATH --------------------------
 # Verified: scaffold-environments.sh:152 resolves
@@ -442,7 +471,15 @@ exclude: CHANGELOG.md
 # structure: an `exclude:` beats an `include:`, and the strip manifest had
 # already reduced .brain/ to a stubbed README before the payload ever saw it.
 # The include above ships that README and nothing else.
-exclude: artifacts
+#
+# artifacts is NOT excluded either (LOOM-0049), for the identical reason: a
+# directory-level `exclude: artifacts` here would beat the
+# `include: artifacts/.gitkeep` / `include: artifacts/README.md` rows above and
+# ship nothing, repeating the exact LOOM-0048 mistake one section down in the
+# same file. The three artifact pages that are actually ours are excluded
+# individually, immediately above, the same shape `.brain/`'s per-child strip-
+# manifest entries use — and matches what the strip manifest already does one
+# layer earlier, so a path either of them removed can never reach a customer.
 exclude: packaging
 exclude: .docs/design
 exclude: .docs/reports

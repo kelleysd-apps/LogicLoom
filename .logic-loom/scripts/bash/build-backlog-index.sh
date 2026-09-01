@@ -300,10 +300,17 @@
 #     refusal.
 #
 # Usage:
-#   build-backlog-index.sh [ROOT] [--out FILE] [--stdout]
-#     ROOT       repo root (default: resolved from this script's location)
-#     --out FILE output path (default: <ROOT>/.logic-loom/backlog-index.json)
-#     --stdout   also echo the index to stdout
+#   build-backlog-index.sh [ROOT] [--out FILE] [--stdout] [--repo OWNER/REPO]
+#     ROOT             repo root (default: resolved from this script's location)
+#     --out FILE       output path (default: <ROOT>/.logic-loom/backlog-index.json)
+#     --stdout         also echo the index to stdout
+#     --repo OWNER/REPO  overrides project.conf's optional `repo` key in the
+#                      emitted `.project.repo` field. This script still runs NO
+#                      git of its own — see BOUNDARIES above — so the value is
+#                      supplied ALREADY RESOLVED by the caller (e.g. a wrapper
+#                      that ran `git remote get-url origin` itself). Anyone
+#                      running this by hand without the flag gets exactly what
+#                      project.conf declares, same as before this flag existed.
 #
 # Exit: 0  success (including the zero-sources case)
 #       1  unwritable output path, or jq failed to assemble
@@ -311,12 +318,14 @@
 #       3  fatal source defect — see FATAL DEFECTS; nothing was written
 set -uo pipefail
 
-ROOT=""; OUT=""; ECHO_STDOUT=0
+ROOT=""; OUT=""; ECHO_STDOUT=0; REPO_OVERRIDE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --out)     OUT="${2:-}"; shift 2 || true ;;
     --out=*)   OUT="${1#--out=}"; shift ;;
     --stdout)  ECHO_STDOUT=1; shift ;;
+    --repo)    REPO_OVERRIDE="${2:-}"; shift 2 || true ;;
+    --repo=*)  REPO_OVERRIDE="${1#--repo=}"; shift ;;
     -h|--help) sed -n '2,40p' "$0"; exit 0 ;;
     -*) echo "ERROR: unknown option '$1'" >&2; exit 2 ;;
     *)  [ -z "$ROOT" ] && ROOT="$1"; shift ;;
@@ -402,6 +411,10 @@ if [ -r "$CONF" ]; then
     esac
   done < "$CONF"
 fi
+# --repo on the command line wins over project.conf's declared value — the
+# caller resolved it (typically from `git remote`) closer to the moment it is
+# used, which project.conf's own comment names as the more trustworthy source.
+[ -n "$REPO_OVERRIDE" ] && P_REPO="$REPO_OVERRIDE"
 
 # ── PARSER: todos.md / backlog.md  (levels "todo" / "backlog") ────────────────────────────────────────────────────────────
 # Items live ONLY below `## Items`, to the next `## ` or EOF. Fenced blocks are
