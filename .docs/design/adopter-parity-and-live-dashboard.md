@@ -158,8 +158,20 @@ Issue data entering the file at build time would break that invariant. The
   works from `file://` with no server and no proxy.
 - Unauthenticated: 60 requests/hour per IP. With an optional token held in
   `localStorage`: 5,000/hour, and private repositories become readable.
-- `{owner}/{repo}` is derived from `git remote` **at build time** and baked into
-  the HTML, so the dashboard stays repo-neutral and works in any adopter's repo.
+- `{owner}/{repo}` comes from **`project.conf`'s optional `repo` key**, and only
+  from there. It is baked into the HTML at build time, so the dashboard stays
+  repo-neutral and works in any adopter's repo.
+
+  **This document originally said "derived from `git remote`", and implementing it
+  that way broke the freshness gate.** The gate regenerates WITHOUT whatever
+  override the caller used, so the committed artifact carried the real repo while
+  the gate's copy carried `null`, and the tracked file was permanently STALE —
+  observed, on exactly that line. A git remote is not deterministic across a fork,
+  a mirror, or a clone with a renamed origin, and it is not what the gate reads.
+  `project.conf` is deterministic, is what the collector already reads by default,
+  and is what `/initialize-project` sets. The `--repo` flag survives for manual
+  use; nothing in the automated path passes it. Reasoning is preserved in
+  `regenerate-backlog-dashboard.sh`'s header so it is not re-litigated.
 
 **Degradation is visible, never silent.** Each of these renders a stated reason
 in the issues panel rather than an empty list: no git remote, no network, rate

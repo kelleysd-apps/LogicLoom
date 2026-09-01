@@ -50,18 +50,22 @@ actually live in this repo, and `uninstall` is the removal procedure.
 | 2 · Constitution | as written | **Write mandates to `.logic-loom/memory/amendments.md`, not `constitution.md`.** Editing the shipped constitution makes every later `npx logicloom init` upgrade a conflict against a file it will refuse to overwrite |
 | 3 · Agents | as written | as written |
 | 4 · MCP / keys / upstream | as written | as written, except: their root `CLAUDE.md` is **theirs**. Do not edit or create it. The harness registry installed as `.logic-loom/AGENTS.md`, not root `AGENTS.md` |
-| 4f · Remove maintainer CI | as written | **SKIP ENTIRELY — see below** |
+| 4f · Maintainer CI / CI methodology | remove the five maintainer-only workflows, as written | **Never remove anything (nothing there is ours) — instead OFFER the CI methodology templates: install, adapt, or decline** |
+| 4g · `.brain/` scaffold | as written | as written |
+| 4h · `artifacts/` + dashboard | as written | as written |
 | 5–6 · Validate + report | as written | as written; say in the report that this was an adopted repo and which steps were skipped |
 
-**Why 4f is skipped, and why this is not a softening.** The adopt payload
-excludes `.github/` wholesale, so **nothing under `.github/workflows/` in an
-adopted repository came from LogicLoom** — every file there is the adopter's CI.
-`rm -f` against their workflows would delete work this tool has no claim on, and
-it would contradict the applier's own refusal that nothing is ever deleted,
-truncated or moved. The removal step exists because a *template clone* inherits
-the maintainer-only release workflows; an adopted repo inherits none, so there is
-nothing to remove and the step has no work to do. Skipping it removes no
-protection — it declines to act on files that were never ours.
+**Why 4f no longer skips entirely for an adopted repo, and what stays
+unchanged.** The adopt payload excludes `.github/` wholesale, so **nothing
+under `.github/workflows/` in an adopted repository came from LogicLoom** —
+every file there is the adopter's own CI. That fact is unchanged and it is
+still why this tool **never removes, overwrites, or touches** anything under
+an adopted repo's `.github/` — `rm -f` against their workflows would delete
+work this tool has no claim on, and it would contradict the applier's own
+refusal that nothing is ever deleted, truncated or moved. What changed is that
+"nothing to remove" used to mean "nothing to do here at all." It now means
+"offer the methodology instead" — see Step 4f below for the offer, adapt,
+never-install-unprompted shape.
 
 ### Step 1: Locate PRD
 Find PRD at `specs/prd/PRD.md` or ask user for location.

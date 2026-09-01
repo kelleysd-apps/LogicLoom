@@ -2,7 +2,7 @@
 
 **For:** the kori-beta team
 **From:** LogicLoom maintainers
-**Date:** 2026-08-31
+**Date:** 2026-09-01 (revised — four items shipped since the first draft)
 **Your install:** `logicloom@6.6.1`, Node 22.23.2, targets `harness + gitignore + rules + hooks`
 
 ---
@@ -13,10 +13,10 @@ The install itself was clean — 393 files written, 0 skipped, 0 failed, and non
 of your own files touched. Everything the receipt claims is on disk. The
 governance hooks work.
 
-Six things are wrong or missing, all found by auditing **your** install. Four are
-already fixed upstream and reach you on your next upgrade. Two need a decision
-from you, and one of those matters specifically because you are a React Native
-project.
+Seven things were wrong or missing, all found by auditing **your** install.
+**Six are now fixed upstream** and reach you on your next upgrade — including the
+domain briefs, which is the one that mattered most for a React Native project.
+One remains open, and it needs nothing from you.
 
 **You already fixed the worst one yourselves.** More on that below — you were
 right, and we have made the same change upstream.
@@ -85,7 +85,7 @@ Keep `plugins/loom-governance/agents/constitutional-governance-agent.md`.
 
 ## 2. The domain briefs assume a React/Next.js web app — this one is about you
 
-**Status: open upstream (`LOOM-0053`). Affects you today.**
+**Status: FIXED upstream (`LOOM-0053`). Was affecting you; reaches you on upgrade.**
 
 Three of the four domain briefs hardcode a stack that is not yours:
 
@@ -109,11 +109,27 @@ What IS affected: swarm and team workers get primed with the wrong frameworks,
 the wrong test runner, and file-ownership guidance pointing at directories you do
 not have.
 
-**What you can do now:** the briefs are plain markdown at
-`plugins/loom-governance/domain-briefs/`. Edit them to describe your actual
-stack. Nothing validates their content, so there is no schema to satisfy — just
-make them true. We would genuinely like to see what you write; it will inform
-the adaptation point we build.
+**What changed.** All seven briefs are now stack-neutral — the framework names
+and the `src/**` ownership are gone, leaving the durable guidance about what each
+domain owns and what good looks like. None of the seven was already neutral;
+`database.md` was closest and still claimed `src/db/**`.
+
+**Your adaptation point is an overlay**, not an edit to shipped files:
+
+```
+.logic-loom/domain-briefs/frontend.md      # your words, appended after ours
+.logic-loom/domain-briefs/testing.md
+```
+
+`get_domain_brief` appends your overlay after the shipped brief, so your
+description of Expo, your test runner, and your real directory layout comes last
+and wins. Because it is a separate file, `/update-framework` will not fight it —
+which editing the shipped briefs would have.
+
+The shipped `.logic-loom/domain-briefs/README.md` carries a worked example, and
+we wrote that example against React Native / Expo / Supabase-Deno because yours
+was the case that prompted this. We would still like to see what you actually
+write.
 
 ---
 
@@ -141,7 +157,7 @@ with none of our content. Reaches you on upgrade.
 
 ## 4. No backlog dashboard, and nothing told you one was possible
 
-**Status: in progress upstream (`LOOM-0049`).**
+**Status: FIXED upstream (`LOOM-0049`).**
 
 You have `todos.md` and `backlog.md` (correctly stubbed — zero LogicLoom items,
 zero references to our work) and both dashboard generators. What you did not get:
@@ -160,9 +176,19 @@ That produced a working 11.8 KB dashboard from your own backlog. **We left it
 there** — `artifacts/backlog-dashboard.html` in your repo is ours, generated
 during that check. Delete it if you would rather start clean.
 
-Coming: `artifacts/` ships properly, the freshness gate ships, and the dashboard
-renders your open GitHub issues live — fetched when you open the file, so the
-tracked artifact stays deterministic.
+**What you get on upgrade.** `artifacts/` ships with its convention README, the
+freshness gate ships, and a `SessionStart` hook regenerates the dashboard so it
+tracks your todos and backlog as they change. The regeneration is a no-op when
+nothing changed, so it will not dirty your tree.
+
+The dashboard also renders your **open GitHub issues live** — fetched when you
+open the file, never baked in, so the tracked artifact stays deterministic and
+the freshness gate keeps its meaning.
+
+One thing to set: the issues panel reads `repo = <owner>/<repo>` from
+`.logic-loom/config/project.conf`. Without it the panel says so plainly rather
+than sitting empty. Deliberately not derived from your git remote — that is not
+deterministic across forks and mirrors, and it broke our own gate when we tried.
 
 ---
 
@@ -185,7 +211,7 @@ and adapt them. Install, edit, or decline — your `.github/` stays yours.
 
 ## 6. Two documentation defects that will mislead you
 
-**Status: open upstream (`LOOM-0054`, `LOOM-0056`).**
+**Status: FIXED upstream (`LOOM-0054`, `LOOM-0056`).**
 
 **The bash-4 claim is wrong, and it understates your protection.**
 `.claude/rules/logicloom-governance.md:38` — a file you installed — says the
@@ -208,9 +234,12 @@ commands, 28 test suites. Actual: 8, 8, 24, 47. Release tooling re-stamps only
 the version keys, so the file looks maintained while the rest is years stale, and
 the installer copied it to you verbatim.
 
-**Nothing reads these keys** — only prose and the version bumper. It is false
-metadata, not false behaviour. Do not build anything on those numbers. Tracked
-upstream as `LOOM-0055`.
+**Nothing reads these keys** — only prose and the version bumper. It was false
+metadata, not false behaviour.
+
+**Fixed (`LOOM-0055`) by deleting them**, not by correcting them: a number nothing
+derives is a number that drifts, which is how they got four years stale. Until you
+upgrade, do not build anything on those numbers.
 
 ---
 
@@ -218,13 +247,27 @@ upstream as `LOOM-0055`.
 
 | # | Item | Status | Your action |
 |---|---|---|---|
-| 1 | Plugin agents did not load | **Fixed upstream** | Delete 5 stale `plugins/*/agents/` files after upgrade |
-| 2 | Domain briefs assume React/Next | **Open** | Edit the briefs for RN/Expo/Deno — tell us what you write |
-| 3 | `.brain/` missing | **Fixed upstream** | None |
-| 4 | No dashboard | **In progress** | Build one now with the two commands above |
-| 5 | No CI templates | **Open** | None; templates are coming |
-| 6 | Wrong bash-4 claim, dead doc links | **Open** | Ignore the bash-4 line; verify `.docs` paths before relying on them |
-| — | `architecture.conf` counts false | **Open** | Do not trust those numbers |
+| 1 | Plugin agents did not load | **Fixed** (LOOM-0052) | Delete 5 stale `plugins/*/agents/` files after upgrade |
+| 2 | Domain briefs assumed React/Next | **Fixed** (LOOM-0053) | Write overlays in `.logic-loom/domain-briefs/` — tell us what you write |
+| 3 | `.brain/` missing | **Fixed** (LOOM-0048) | None |
+| 4 | No dashboard | **Fixed** (LOOM-0049) | Build one now, or wait for upgrade; set `repo` in `project.conf` |
+| 5 | No CI templates | **In progress** (LOOM-0050) | None; the three CI gates plus a written guide are coming |
+| 6 | Wrong bash-4 claim, dead doc links | **Fixed** (LOOM-0054/0056) | Ignore the bash-4 line until you upgrade |
+| 7 | Compliance check pushed agents to the dead location | **Fixed** (LOOM-0057) | None — see below |
+| — | `architecture.conf` counts false | **Fixed** (LOOM-0055) | Do not trust those numbers until you upgrade |
+
+### 7. Our own compliance check was making this worse
+
+Worth knowing because it explains why the agent problem survived so long:
+`constitutional-check.sh` warned that anything in `.claude/agents/` was a "legacy
+agent file" and told authors to put agents in `plugins/*/agents/` — the one
+directory that never loads. The check was rewarding the placement that breaks and
+penalising the one that works, which is exactly the placement your commit
+`5cc2267` chose.
+
+If you ran `constitutional-check.sh` and saw your bridged agents flagged as
+legacy, that warning was wrong and you were right to ignore it. Fixed upstream:
+the check now flags agents under `plugins/*/agents/` as unreachable instead.
 
 ---
 

@@ -1,0 +1,69 @@
+# =============================================================================
+# TEMPLATE — adapted from LogicLoom's own .github/workflows/plugin-tests.yml.
+#
+# WHAT THIS DOES
+#   Runs your project's own test suite on every push and every pull request.
+#   LogicLoom's own copy of this file runs ~40 named bash contract-test scripts
+#   under tests/contract/ — that list is OUR harness's own suite and does not
+#   ship to an adopter (the adopt payload excludes tests/ and
+#   .logic-loom/tests/ outright, since they test the harness, not your
+#   project). This template does NOT reproduce that list. It gives you the
+#   same SHAPE — checkout, set up your runtimes, run your tests, fail the
+#   build red on any failure — with your own test command in the one step
+#   that matters.
+#
+# WHAT IT ASSUMES
+#   - GitHub-hosted runners (`ubuntu-latest`). Self-hosted runners work too;
+#     nothing here depends on GitHub-hosted specifically.
+#   - You have ONE command that runs your whole suite (`npm test`, `pytest`,
+#     `go test ./...`, `bash tests/run_all_tests.sh`, ...). If you have
+#     several independent suites, duplicate the "Run tests" step per suite —
+#     the way LogicLoom's own copy has one named step per contract script —
+#     rather than chaining them with `&&`, so a CI failure names which suite
+#     broke instead of just "the tests step failed."
+#
+# WHAT TO CHANGE (placeholders below, marked ⟨LIKE THIS⟩)
+#   - ⟨RUNTIME SETUP⟩ — delete the setup-node / setup-python steps you don't
+#     need, or add the ones your project actually requires (Ruby, Go, JVM...).
+#   - ⟨YOUR TEST COMMAND⟩ — replace with the real command. If you don't have
+#     one yet, that's the actual gap this file is meant to surface — write one
+#     before wiring the workflow, not after.
+#   - The job name and the `Run tests` step name are generic on purpose;
+#     rename them to whatever your team calls the suite.
+#
+# WHAT THIS DELIBERATELY DOES NOT INCLUDE
+#   LogicLoom's own copy also runs two REPO-SPECIFIC fail-closed gates —
+#   check-generated-freshness.sh (a generated artifact matches its sources)
+#   and check-brain-record.sh (the `.brain/` knowledge-layer record holds
+#   together). Both are LogicLoom mechanisms your project may not have adopted
+#   (`.brain/` ships README-only until you opt in — see
+#   `/initialize-project`'s `.brain/` scaffold step). If you use them, add
+#   your own steps calling those scripts; this template does not assume you
+#   do.
+# =============================================================================
+
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ⟨RUNTIME SETUP⟩ — keep what you need, delete the rest.
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'   # ⟨YOUR NODE VERSION⟩
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # ⟨YOUR PYTHON VERSION, IF NEEDED⟩
+
+      - name: Run tests
+        run: echo "⟨YOUR TEST COMMAND HERE — e.g. npm test, or bash tests/run_all_tests.sh⟩" && exit 1

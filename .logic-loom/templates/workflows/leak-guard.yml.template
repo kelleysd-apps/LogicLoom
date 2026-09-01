@@ -1,0 +1,110 @@
+# =============================================================================
+# TEMPLATE — adapted from LogicLoom's own .github/workflows/leak-guard.yml.
+#
+# WHAT THIS DOES
+#   Fails any pull request into your protected branch that contains a
+#   sensitive-identity marker — a leaked internal hostname, a legacy project
+#   codename, a real customer name, an absolute path off someone's laptop,
+#   whatever string your team has decided should never land in tracked
+#   content. The mechanism (below) is UNCHANGED from LogicLoom's own copy: it
+#   is already repo-neutral, names no topology, and needed no adaptation
+#   beyond this header and the branch name.
+#
+# WHAT IT ASSUMES
+#   - A repo variable named `LEAK_MARKERS` holding an ERE (extended regex)
+#     alternation of the strings to fail on, e.g.
+#     `internal-codename|old-company-name|/Users/[a-z]+/`.
+#     Configure it in GitHub repo Settings → Secrets and variables → Actions
+#     → Variables. NOT a secret — it is evaluated in a public log, so treat it
+#     as something you're comfortable a PR author could see echoed back on a
+#     failure (the strings, not what they protect).
+#   - Your protected branch is called `main`. ⟨CHANGE THE BRANCH NAME BELOW⟩
+#     if yours is `master`, `production`, or anything else.
+#   - `fetch-depth: 0` on checkout, so `git grep` sees the full tracked tree
+#     of the PR's merge commit, not a shallow clone.
+#
+# WHAT TO CHANGE
+#   - `branches: [main]` in the `on:` block, if your protected branch has a
+#     different name.
+#   - The `CANARY` string constant. It only has to be unique enough that it
+#     doesn't collide with real content in your repo — the value below,
+#     copied from LogicLoom, works fine as-is, but regenerating it (any
+#     random token) costs nothing and removes any doubt.
+#   - `LEAK_MARKERS` itself is NOT set here — it lives in repo Settings as
+#     described above, deliberately kept out of this public workflow file so
+#     the confidential strings are never themselves committed.
+#
+# WHY THE SELF-TEST CANARY MATTERS
+#   A scan that silently matches nothing looks identical to a clean tree. The
+#   canary is a nonsense string planted in this very file; the job asserts it
+#   finds the canary BEFORE trusting a "no marker hits" result from the real
+#   scan. If the canary isn't found, the scan machinery itself is broken
+#   (wrong working directory, empty git index, malformed pathspec) and the
+#   job fails loudly instead of reporting a clean tree it never actually read.
+# =============================================================================
+
+on:
+  pull_request:
+    branches: [main]   # ⟨YOUR PROTECTED BRANCH, IF NOT "main"⟩
+
+permissions:
+  contents: read
+
+jobs:
+  leak-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Assert no sensitive identity markers in tracked content
+        env:
+          LEAK_MARKERS: ${{ vars.LEAK_MARKERS }}
+        run: |
+          set -euo pipefail
+
+          # The self-test sentinel. Present in exactly one tracked file: this one.
+          CANARY='LEAKGUARD-SELFTEST-CANARY-9f24c1a7'
+
+          SCAN_HITS=''
+
+          # scan <ere> <label>
+          #   stdout of the grep lands in $SCAN_HITS.
+          #   returns 0 = matched, 1 = no match.
+          #   ANY other git grep exit status is FATAL: it means the scan did not
+          #   run, which is indistinguishable from "no match" if you ignore it.
+          scan() {
+            local ere="$1" label="$2" errf rc
+            errf="$(mktemp)"
+            SCAN_HITS="$(git grep -nIE -e "$ere" -- . 2>"$errf")" && rc=0 || rc=$?
+            if [ "$rc" -gt 1 ]; then
+              echo "::error::leak-guard could not RUN its ${label} scan — git grep exited ${rc}. NOTHING WAS SCANNED; this PR is not certified. Most likely cause: a malformed ERE in the marker pattern."
+              sed 's/^/    git grep: /' "$errf" >&2
+              rm -f "$errf"
+              exit 1
+            fi
+            rm -f "$errf"
+            return "$rc"
+          }
+
+          # ── 0. Markers must be configured ──────────────────────────────────
+          if [ -z "${LEAK_MARKERS:-}" ]; then
+            echo "::error::vars.LEAK_MARKERS is not set — leak-guard fails closed. Set it in repo Settings → Variables to an ERE alternation of confidential markers."
+            exit 1
+          fi
+
+          # ── 1. Self-test: prove the scanner can see this tree ──────────────
+          if scan "$CANARY" "self-test"; then
+            echo "leak-guard: self-test ok (canary found; the scanner is reading this tree)"
+          else
+            echo "::error::leak-guard self-test FAILED — the canary planted in this workflow file was not found. The scan matched nothing because it is looking at nothing, not because the tree is clean. Refusing to report clean."
+            exit 1
+          fi
+
+          # ── 2. The real scan ───────────────────────────────────────────────
+          if scan "$LEAK_MARKERS" "marker"; then
+            echo "::error::Sensitive identity marker(s) found in tracked content:"
+            printf '%s\n' "$SCAN_HITS" | head -30 || true
+            exit 1
+          fi
+
+          echo "leak-guard: clean (no sensitive identity markers)"

@@ -1,0 +1,103 @@
+# =============================================================================
+# TEMPLATE — adapted from LogicLoom's own
+# .github/workflows/branch-topology-guard.yml.
+#
+# WHAT THIS DOES
+#   Fails any pull request into your protected branch whose HEAD branch name
+#   does not match an allowed pattern. This is a PROVENANCE gate, not a
+#   content gate (pair it with leak-guard.yml.template, which checks content):
+#   it exists for projects where the protected branch is only supposed to
+#   receive commits that went through one particular process — a release
+#   build, a sanitization step, a required approval pipeline — and a
+#   hand-cut PR from an arbitrary feature branch would skip that process
+#   entirely.
+#
+#   LogicLoom's own copy of this file guards a real, narrow situation: our
+#   public `main` is a sanitized template line that must receive commits ONLY
+#   from a machine-composed `release/vX.Y.Z` branch produced by our own
+#   release-promotion workflow (see `.docs/guides/release-loop-methodology.md`
+#   for the pattern in prose — that workflow itself is maintainer-only and
+#   does not ship as a template, by design; see that guide's closing section).
+#   Your project almost certainly has a DIFFERENT process, or none — this file
+#   is only useful if you actually have a gate the branch name is meant to
+#   prove was followed.
+#
+# WHEN TO SKIP THIS ONE ENTIRELY
+#   If your protected branch takes ordinary feature-branch PRs (the common
+#   case), you do not want this workflow at all — it would reject every
+#   normal PR your team opens. Install `plugin-tests.yml.template` and
+#   `leak-guard.yml.template` without this one.
+#
+# WHAT TO CHANGE IF YOU DO USE IT
+#   - `branches: [main]` in the `on:` block — your protected branch name.
+#   - `ALLOWED_HEAD_REGEX` — the pattern a PR's head branch must match. The
+#     placeholder below (`^release/.+$`) is deliberately loose; tighten it to
+#     whatever your own release-branch naming convention actually is (a
+#     version tag, a date stamp, a ticket prefix — your call).
+#   - The REMEDY text in the `cat <<EOF ... EOF` block — it currently
+#     describes LogicLoom's own two-branch promotion pattern
+#     (a development line feeding a machine-composed release branch feeding
+#     the protected branch). Replace it with instructions specific to YOUR
+#     process, or your contributors will read a remedy that describes a
+#     workflow you don't have.
+#
+# EXEMPTIONS
+#   LogicLoom's own copy has none — no label, actor, or "skip" escape hatch,
+#   because every such hatch is a way to land unreviewed content on the
+#   protected line, which is exactly what this exists to prevent. Keep that
+#   property if you adopt this: an escape hatch on a provenance gate defeats
+#   the gate.
+# =============================================================================
+
+on:
+  pull_request:
+    branches: [main]   # ⟨YOUR PROTECTED BRANCH, IF NOT "main"⟩
+    types: [opened, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-topology:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert PR head matches the allowed branch pattern
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          # ⟨YOUR ALLOWED HEAD-BRANCH PATTERN⟩ — the placeholder below accepts
+          # any branch under release/, which is almost certainly too loose for
+          # real use. Tighten it to your own convention.
+          ALLOWED_HEAD_REGEX: '^release/.+$'
+        run: |
+          set -euo pipefail
+          if [ -z "${HEAD_REF:-}" ]; then
+            echo "::error::Could not determine the PR head branch (github.head_ref is empty) — failing closed."
+            exit 1
+          fi
+          if printf '%s' "$HEAD_REF" | grep -qE "$ALLOWED_HEAD_REGEX"; then
+            echo "branch-topology: head '$HEAD_REF' is an allowed branch"
+            exit 0
+          fi
+          echo "::error::PR head branch '$HEAD_REF' may not target the protected branch."
+          cat <<EOF
+          ------------------------------------------------------------------
+          CAUSE
+            The protected branch accepts pull requests ONLY from a branch
+            matching:
+                $ALLOWED_HEAD_REGEX
+            '$HEAD_REF' does not match.
+
+          REMEDY
+            ⟨Describe YOUR process here⟩ — e.g.:
+              1. Land your work on your normal development branch first.
+              2. Run whatever build or review step your project requires to
+                 produce an approved branch matching the pattern above.
+              3. Open the PR into the protected branch from THAT branch.
+
+            There is no exemption for this gate. If your protected branch is
+            meant to take ordinary feature-branch PRs, delete this workflow
+            entirely rather than loosening the regex to match everything —
+            a provenance gate with no real restriction is worse than none.
+          ------------------------------------------------------------------
+          EOF
+          exit 1
