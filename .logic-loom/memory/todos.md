@@ -207,6 +207,29 @@ harness-dev-specific, so it carries a `stub:` entry in
 
 ### Adopter-found defects — mirrored from GitHub (kori-beta, logicloom@6.6.1)
 
+- [x] LOOM-0057 — constitutional-check called `.claude/agents/` "legacy" and pushed agents to the one place that never loads `status:done` `ref:gh#82`
+      Filed and fixed 2026-09-01. The ENFORCEMENT counterpart to LOOM-0052: that
+      item found five agents in `plugins/*/agents/` that never load; this one
+      found that our own compliance check was actively directing authors there.
+      Two sites, both inverted now:
+      `constitutional-check.sh:456` told authors to "Create specialized agents in
+      plugins/*/agents/", and `:679` warned that anything in `.claude/agents/`
+      besides deep-reasoner/fast-worker was a "legacy agent file". The word
+      legacy was exactly backwards — `.claude/agents/` is the only directory
+      Claude Code scans, and it scans it recursively.
+      The check now flags the opposite: an agent under `plugins/*/agents/` is the
+      finding, because it will never load. `constitutional-governance-agent` is
+      exempt — hook-injected via the preflight, never dispatched by name.
+      Verified both directions: planting a plugin agent produces
+      "...that will NEVER LOAD"; the seven correctly-placed project agents produce
+      zero warnings; the exempt agent is not flagged.
+      I SAW THIS WARNING EARLIER AND LET IT PASS. It appeared in a
+      constitutional-check run right after LOOM-0052 landed and was reported to
+      me as a pre-existing unrelated warning. It was neither: our own fix had
+      just made it wrong. gh#82 caught what I did not.
+
+
+
 Filed 2026-08-31. These five were found by auditing a real npm install and exist
 as GitHub issues #77-#81. GitHub is INTAKE; these items are the record of record.
 Each names its issue so the two cannot drift silently — close the issue when the

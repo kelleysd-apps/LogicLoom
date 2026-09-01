@@ -453,7 +453,7 @@ elif [ $AGENT_COUNT -gt 0 ]; then
     ((CHECK_WARN_COUNT++))
 elif [ "$TRIGGERS_EXIST" = true ]; then
     echo -e "   ${YELLOW}⚠${NC}  WARNING: Triggers defined but no agents created"
-    record_warn "Create specialized agents in plugins/*/agents/"
+    record_warn "Create specialized agents in .claude/agents/ (Claude Code reads that directory; a plugin tree that is not an installed marketplace is never scanned)"
     ((CHECK_WARN_COUNT++))
 else
     echo -e "   ${YELLOW}⚠${NC}  WARNING: No agent infrastructure found"
@@ -657,27 +657,42 @@ fi
 # `mcpServers`, and `permissionMode` frontmatter keys, which those two rely on.
 # See CLAUDE.md § "Orchestrator + worker ladder". Only agent files OUTSIDE this
 # sanctioned set are flagged as legacy strays.
-SANCTIONED_PROJECT_AGENTS=("deep-reasoner.md" "fast-worker.md")
+# `.claude/agents/` IS THE CORRECT LOCATION, AND THIS CHECK USED TO SAY THE
+# OPPOSITE. It warned that anything there but deep-reasoner/fast-worker was a
+# "legacy agent file" and directed authors to `plugins/*/agents/` — the one
+# directory Claude Code never reads. The compliance check was rewarding the
+# placement that makes an agent undispatchable. See LOOM-0052: five agents sat
+# in `plugins/*/agents/` and silently never loaded.
+#
+# Claude Code scans `.claude/agents/` (and `~/.claude/agents/`) RECURSIVELY;
+# identity comes from the `name` frontmatter field, not the path. A plugin agent
+# loads only when the plugin tree is an installed marketplace, which this repo's
+# `plugins/` deliberately is not.
+#
+# So the check is inverted: an agent under `plugins/*/agents/` is the finding,
+# not an agent under `.claude/agents/`. One exception —
+# `constitutional-governance-agent` is hook-injected via the UserPromptSubmit
+# preflight as additionalContext and never dispatched by name, so it is correct
+# where it is.
+HOOK_INJECTED_PLUGIN_AGENTS=("constitutional-governance-agent.md")
 AGENT_ORG=true
-if [ -d "$REPO_ROOT/.claude/agents" ]; then
-    STRAY_AGENTS=()
-    for agent_file in "$REPO_ROOT/.claude/agents"/*.md; do
-        [ -f "$agent_file" ] || continue
-        agent_base=$(basename "$agent_file")
-        is_sanctioned=false
-        for sanctioned in "${SANCTIONED_PROJECT_AGENTS[@]}"; do
-            if [ "$agent_base" = "$sanctioned" ]; then
-                is_sanctioned=true
-                break
-            fi
-        done
-        [ "$is_sanctioned" = true ] || STRAY_AGENTS+=("$agent_base")
+UNREACHABLE_AGENTS=()
+for agent_file in "$REPO_ROOT"/plugins/*/agents/*.md; do
+    [ -f "$agent_file" ] || continue
+    agent_base=$(basename "$agent_file")
+    is_exempt=false
+    for exempt in "${HOOK_INJECTED_PLUGIN_AGENTS[@]}"; do
+        if [ "$agent_base" = "$exempt" ]; then
+            is_exempt=true
+            break
+        fi
     done
+    [ "$is_exempt" = true ] || UNREACHABLE_AGENTS+=("$agent_base")
+done
 
-    if [ ${#STRAY_AGENTS[@]} -gt 0 ]; then
-        AGENT_ORG=false
-        record_warn "Legacy agent file(s) in .claude/agents/ (${STRAY_AGENTS[*]}) — agents should be in plugins/*/agents/ (only deep-reasoner.md / fast-worker.md are sanctioned project agents)"
-    fi
+if [ ${#UNREACHABLE_AGENTS[@]} -gt 0 ]; then
+    AGENT_ORG=false
+    record_warn "Agent file(s) in plugins/*/agents/ that will NEVER LOAD (${UNREACHABLE_AGENTS[*]}) — Claude Code reads .claude/agents/, not a plugin tree that is not an installed marketplace. Move them to .claude/agents/ (a subdirectory is fine; the scan is recursive)."
 fi
 
 # Check skills live in plugins (Plugin-First Architecture v4.0)
