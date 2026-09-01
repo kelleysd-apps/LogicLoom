@@ -625,14 +625,33 @@ get_domain_brief() {
     # Resolve the governance core plugin dir (loom-governance after rename;
     # sdd-governance before). First match wins.
     local gov_dir
+    local shipped_emitted=false
     for gov_dir in loom-governance sdd-governance; do
         local brief_file="$REPO_ROOT/plugins/$gov_dir/domain-briefs/${domain}.md"
         if [ -f "$brief_file" ]; then
             # Emit content from the "## Task Brief" heading to EOF (skip the header).
             awk '/^## Task Brief/{f=1;next} f' "$brief_file"
-            return 0
+            shipped_emitted=true
+            break
         fi
     done
+
+    # Project overlay (LOOM-0053): project-owned, never written by
+    # /update-framework, so an adopter's own stack description survives an
+    # upgrade. Appended AFTER the shipped content so the project's own words
+    # come last. Emitted verbatim -- it is the adopter's file, not ours, so no
+    # "## Task Brief" heading is required or stripped. Absent overlay ->
+    # behavior is byte-identical to before this feature existed. Emitted even
+    # when there was no shipped brief for this domain, so an adopter can add an
+    # overlay for a domain the shipped registry does not cover.
+    local overlay_file="$REPO_ROOT/.logic-loom/domain-briefs/${domain}.md"
+    if [ -f "$overlay_file" ]; then
+        if [ "$shipped_emitted" = true ]; then
+            printf '\n'
+        fi
+        cat "$overlay_file"
+    fi
+
     return 0
 }
 

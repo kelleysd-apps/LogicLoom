@@ -81,7 +81,7 @@ primary source of **spec → code** edges in the bridge:
 covers:
   - src/auth/session.ts
   - src/auth/rotation.ts
-  - plugins/loom-git/skills/git-push/SKILL.md
+  - plugins/loom-git/skills/git-push-workflow/SKILL.md
 ---
 ```
 

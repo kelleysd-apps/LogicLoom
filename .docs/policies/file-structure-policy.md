@@ -509,21 +509,6 @@ Before creating ANY folder:
 
 ## Enforcement
 
-### Automated Checks
-
-The framework provides validation tools:
-
-```bash
-# Validate directory structure
-.logic-loom/scripts/bash/validate-structure.sh
-
-# Check file naming conventions
-.logic-loom/scripts/bash/check-naming.sh
-
-# Audit file organization
-.logic-loom/scripts/bash/file-audit.sh
-```
-
 ### Skill-Based Enforcement
 
 The `file-organization` skill provides:

@@ -24,7 +24,7 @@ namespace of layer-1 changes (`.specify/` → `.logic-loom/`).
 
 | Layer | Path | Contents |
 |-------|------|----------|
-| 1. Governance + infra | `.logic-loom/` | constitution.md, MEMORY.md, lib/ (logging.sh, policy.sh), scripts/, templates/, config/, plans/, tests/ |
+| 1. Governance + infra | `.logic-loom/` | constitution.md, lib/ (logging.sh, policy.sh), scripts/, templates/, config/, plans/, tests/ |
 | 2. Harness integration | `.claude/` | hooks/, commands/ (bridge-generated), context/, settings.json |
 | 3. Capabilities | `plugins/` | All skills, agents, commands (plugin-first per Principle XVI) |
 
@@ -81,8 +81,6 @@ benefits from a fully specified up-front design. Choose the vision/swarm pack
 (§3) when the task is exploratory, surface-bearing, or has a quality bar that
 needs behavioral grading. All packs share the governance core (§12), plugin
 chassis, and distribution machinery.
-
-SDD-waterfall reference docs live at `.docs/workflows/sdd-waterfall.md`.
 
 ## 5. Plan-as-DAG handoff contract
 
@@ -295,10 +293,9 @@ shipped as of v6.1.0):
 ## 14. References
 
 - Anthropic, "How we built our multi-agent harness." See
-  `.logic-loom/memory/MEMORY.md` →
-  `reference_anthropic_harness_design.md` for indexed notes.
-- Garry Tan / gstack — gstack cross-comparison. See `MEMORY.md` →
-  `reference_gstack_research.md`.
+  `.brain/memory/reference_anthropic_harness_design.md` for indexed notes.
+- Garry Tan / gstack — gstack cross-comparison. See
+  `.brain/memory/reference_gstack_research.md`.
 - arxiv 2511.00330 — Sherlock (deterministic replay).
 - arxiv 2512.01786 — Jury on Demand (query-type-driven judge selection).
 - arxiv 2605.20563 — STORM (multi-writer write arbitration).

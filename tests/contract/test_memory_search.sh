@@ -172,6 +172,111 @@ for domain in frontend backend database security testing performance devops; do
   fi
 done
 
+# ── Stack-neutral shipped briefs (LOOM-0053) ──
+echo ""
+echo "Stack-neutral shipped domain briefs"
+for domain in frontend backend database security testing performance devops; do
+  BRIEF_FILE="$GOV_DIR/domain-briefs/${domain}.md"
+  if [ -f "$BRIEF_FILE" ]; then
+    NAMED=$(count_matches -Eio 'React|Next\.js|Vue\.js|Angular|\bJest\b|Vitest|Cypress|Playwright' "$BRIEF_FILE")
+    assert "${domain} brief names no React/Next/Vue/Angular/Jest/Vitest/Cypress/Playwright" "[ '$NAMED' -eq 0 ]"
+  fi
+done
+
+# ── Domain-brief project overlay support (LOOM-0053) ──
+echo ""
+echo "Domain-brief project overlay (get_domain_brief)"
+
+OVERLAY_DIR=".logic-loom/domain-briefs"
+assert "overlay directory exists" "[ -d '$OVERLAY_DIR' ]"
+assert "overlay README exists" "[ -f '$OVERLAY_DIR/README.md' ]"
+assert "overlay .gitkeep exists" "[ -f '$OVERLAY_DIR/.gitkeep' ]"
+
+# Absent overlay -> output is byte-identical to the shipped-only path.
+# Computed two ways: once via get_domain_brief itself (compared again below,
+# after exercising the overlay path, to catch state leaking across calls), and
+# once via a DIRECT, independent awk extraction of the shipped brief (so a
+# mutation that always appends something — even with no overlay file present —
+# is caught here rather than passing by comparing two runs of the same bug).
+NO_OVERLAY_OUTPUT=$(bash -c 'source .logic-loom/scripts/bash/common.sh 2>/dev/null; get_domain_brief "backend"' 2>/dev/null || echo "")
+DIRECT_SHIPPED_ONLY=$(awk '/^## Task Brief/{f=1;next} f' "$GOV_DIR/domain-briefs/backend.md")
+assert "absent overlay -> output matches a direct extraction of the shipped brief alone" \
+  "[ \"\$NO_OVERLAY_OUTPUT\" = \"\$DIRECT_SHIPPED_ONLY\" ]"
+
+# Present overlay -> its content is appended AFTER the shipped content, and
+# get_domain_brief still returns 0.
+TMP_OVERLAY_MARKER="__LOOM_0053_OVERLAY_MARKER__"
+TMP_OVERLAY_FILE="$OVERLAY_DIR/backend.md"
+OVERLAY_PRE_EXISTED=false
+[ -f "$TMP_OVERLAY_FILE" ] && OVERLAY_PRE_EXISTED=true
+if [ "$OVERLAY_PRE_EXISTED" = false ]; then
+  printf '## This project\n\n- %s\n' "$TMP_OVERLAY_MARKER" > "$TMP_OVERLAY_FILE"
+
+  WITH_OVERLAY_OUTPUT=$(bash -c 'source .logic-loom/scripts/bash/common.sh 2>/dev/null; get_domain_brief "backend"' 2>/dev/null || echo "")
+  WITH_OVERLAY_RC=0
+  bash -c 'source .logic-loom/scripts/bash/common.sh 2>/dev/null; get_domain_brief "backend" >/dev/null 2>&1' || WITH_OVERLAY_RC=$?
+
+  assert "overlay content appears in get_domain_brief output" \
+    "echo \"\$WITH_OVERLAY_OUTPUT\" | grep -q '$TMP_OVERLAY_MARKER'"
+
+  SHIPPED_POS=$( (printf '%s\n' "$WITH_OVERLAY_OUTPUT" | grep -n 'File Ownership' || true) | head -1 | cut -d: -f1)
+  OVERLAY_POS=$( (printf '%s\n' "$WITH_OVERLAY_OUTPUT" | grep -n "$TMP_OVERLAY_MARKER" || true) | head -1 | cut -d: -f1)
+  assert "overlay content is appended AFTER the shipped content" \
+    "[ -n '$SHIPPED_POS' ] && [ -n '$OVERLAY_POS' ] && [ '$OVERLAY_POS' -gt '$SHIPPED_POS' ]"
+
+  assert "get_domain_brief still returns 0 with an overlay present" "[ '$WITH_OVERLAY_RC' -eq 0 ]"
+
+  rm -f "$TMP_OVERLAY_FILE"
+else
+  echo "  ⏭  SKIP: $TMP_OVERLAY_FILE already exists on disk — refusing to overwrite it for this test"
+fi
+
+# Absent-overlay behavior is unchanged by the feature (byte-identical).
+NO_OVERLAY_OUTPUT_AFTER=$(bash -c 'source .logic-loom/scripts/bash/common.sh 2>/dev/null; get_domain_brief "backend"' 2>/dev/null || echo "")
+assert "absent overlay -> get_domain_brief output is byte-identical to before" \
+  "[ \"\$NO_OVERLAY_OUTPUT\" = \"\$NO_OVERLAY_OUTPUT_AFTER\" ]"
+
+# Overlay for a domain with NO shipped brief -> still returns 0, emits overlay only.
+NOSHIP_DOMAIN="__loom0053_no_shipped_brief__"
+NOSHIP_OVERLAY_FILE="$OVERLAY_DIR/${NOSHIP_DOMAIN}.md"
+printf '## This project\n\n- %s\n' "$TMP_OVERLAY_MARKER" > "$NOSHIP_OVERLAY_FILE"
+NOSHIP_OUTPUT=$(bash -c "source .logic-loom/scripts/bash/common.sh 2>/dev/null; get_domain_brief '$NOSHIP_DOMAIN'" 2>/dev/null || echo "")
+NOSHIP_RC=0
+bash -c "source .logic-loom/scripts/bash/common.sh 2>/dev/null; get_domain_brief '$NOSHIP_DOMAIN' >/dev/null 2>&1" || NOSHIP_RC=$?
+assert "overlay-only domain (no shipped brief) still returns 0" "[ '$NOSHIP_RC' -eq 0 ]"
+assert "overlay-only domain (no shipped brief) emits the overlay content" \
+  "echo \"\$NOSHIP_OUTPUT\" | grep -q '$TMP_OVERLAY_MARKER'"
+rm -f "$NOSHIP_OVERLAY_FILE"
+
+# ── Manifest ships the overlay structure (LOOM-0053) ──
+echo ""
+echo "Adopt payload manifest ships the overlay structure"
+ADOPT_MANIFEST="packaging/adopt/payload-manifest.txt"
+if [ -f "$ADOPT_MANIFEST" ]; then
+  # ASSERT THE OUTCOME, NOT THE MECHANISM. An earlier version of these two
+  # assertions required a literal `include:` line per overlay file. Those lines
+  # were added as "defensive" duplicates under the existing wholesale
+  # `include: .logic-loom`, and they BROKE plan/apply reconciliation: the planner
+  # counts UNITS, so a path named twice is predicted twice while the apply writes
+  # it once (observed: plan 411 vs apply 407). Removing them fixed the count and
+  # made these two assertions fail — a test that pinned the defect in place.
+  #
+  # What matters is that the overlay structure REACHES an adopter. The wholesale
+  # include already does that. So: assert coverage, and assert that nobody
+  # re-adds a redundant nested include.
+  assert "the overlay directory is covered by an include (wholesale or explicit)" \
+    "grep -qE '^include: \.logic-loom$' '$ADOPT_MANIFEST' || grep -qE '^include: \.logic-loom/domain-briefs' '$ADOPT_MANIFEST'"
+  assert "no REDUNDANT nested include under the wholesale .logic-loom entry" \
+    "! { grep -qE '^include: \.logic-loom$' '$ADOPT_MANIFEST' && grep -qE '^include: \.logic-loom/' '$ADOPT_MANIFEST'; }"
+  assert "the overlay files exist to be shipped" \
+    "[ -f .logic-loom/domain-briefs/README.md ] && [ -f .logic-loom/domain-briefs/.gitkeep ]"
+else
+  echo "  ⏭  SKIP: $ADOPT_MANIFEST absent (stripped/customer tree)"
+fi
+STRIP_MANIFEST=".logic-loom/scripts/bash/template-strip-manifest.txt"
+assert "template-strip-manifest.txt does not remove .logic-loom/domain-briefs wholesale" \
+  "! grep -Eq '^\.logic-loom/domain-briefs[[:space:]]*$' '$STRIP_MANIFEST'"
+
 # ── Memory v2.0 Backend Implementations ──
 echo ""
 echo "Memory v2.0 backend implementations"

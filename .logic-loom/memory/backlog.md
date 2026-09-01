@@ -326,6 +326,65 @@ wiring is tracked as LOOM-0017 in `todos.md`.
 
 ## Items
 
+### Provider portability — instruction files (DEFERRED: explore first)
+
+**Deferred 2026-08-31, by decision, not by neglect.** Both items are real and
+verified; what is missing is the exploration, not the will. LOOM-0047 changes the
+INSTALL CONTRACT — it needs a new instruction-surface target, and getting that
+shape wrong is expensive to walk back once adopters have installed against it.
+LOOM-0046 is self-contained and could ship alone, but splitting the pair would
+mean deciding our own file layout before knowing what the adopter-facing surface
+has to look like, and the second answer constrains the first.
+
+Nothing is broken for any current adopter: kori-beta runs Claude Code, which
+reads CLAUDE.md. This becomes urgent the day someone switches to Codex, Cursor,
+Gemini CLI or Aider, at which point the governance is not degraded but ABSENT.
+Promote both together when the exploration is done.
+
+- [ ] LOOM-0046 — Make AGENTS.md the single provider-neutral source; CLAUDE.md imports it `status:open`
+      Raised 2026-08-31. Two problems, one root cause: CLAUDE.md (860 lines) and
+      AGENTS.md (620 lines) duplicate content that a contract test and the Tandem
+      Update Rules police by hand, and AGENTS.md is serving two masters — this
+      harness treats it as an agent REGISTRY while every other provider treats it
+      as the PRIMARY PROMPT file.
+      Resolution: `CLAUDE.md` becomes `@AGENTS.md` plus Claude-only sections;
+      the provider-neutral governance moves into AGENTS.md Tier 1 (already
+      structured Tier 1 / Tier 2, so mostly relocation). Zero drift by
+      construction, which retires the verbatim-duplication test and the manual
+      tandem rules.
+      NOT A SYMLINK, and this was checked rather than assumed. The Claude Code
+      docs support `ln -s AGENTS.md CLAUDE.md` but only "if you don't need to add
+      Claude-specific content", and state: "On Windows, creating a symlink
+      requires Administrator privileges or Developer Mode, so use the @AGENTS.md
+      import instead." Our CLAUDE.md is largely Claude-specific (hook wiring,
+      slash commands, plugin bridge), so a symlink would force host detail into
+      the provider-neutral file — backwards. `lib/fsops.js` also REFUSES symlinks
+      outright (`REFUSE-SYMLINK`), so one interacts badly with the payload.
+
+- [ ] LOOM-0047 — An adopter on a non-Claude provider gets ZERO LogicLoom governance `status:open`
+      Raised 2026-08-31, VERIFIED in a real install (kori-beta, logicloom@6.6.1).
+      This is the one that actually "breaks the harness if the user changes
+      providers", and it is separate from LOOM-0046.
+      `--claude-md` offers `rules` | `import` | `none`. All three put the
+      harness's operating instructions in `.claude/rules/logicloom-*.md`, which
+      only Claude Code reads. The payload also renames our AGENTS.md to
+      `.logic-loom/AGENTS.md` — correct, it must not collide with theirs — so
+      nothing LogicLoom installs is visible to Codex, Cursor, Gemini CLI or
+      Aider.
+      Evidence: kori-beta's own CLAUDE.md is a one-line `@AGENTS.md` import and
+      its AGENTS.md is an Expo file. Grepped both after a clean 393-file install:
+      NEITHER mentions LogicLoom. Open that repo in another provider and the
+      governance is not degraded, it is absent.
+      Needs a design decision before code: an `agents-md` install target (or a
+      renamed flag covering all instruction surfaces) that offers to append a
+      marked LogicLoom block to the adopter's AGENTS.md, under the same
+      never-overwrite/fenced-merge rules as `.gitignore`. Changes the install
+      contract, so: design doc first.
+      Confirmed while investigating, and it closes a question open since the
+      smoke test: rules WITHOUT `paths` frontmatter "are loaded at launch with
+      the same priority as `.claude/CLAUDE.md`" (Claude Code docs). So `rules`
+      mode does work — it just does not travel.
+
 ### Governance and constitution
 
 - [x] LOOM-0013 — Decide whether Principles I and III should report SKIP for a harness-shaped repo `status:done`

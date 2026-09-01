@@ -92,7 +92,7 @@ registration keys: **LogicLoom Hooks** below.
 | `subagent-git-guard.sh` (PreToolUse · Bash) | **Principle VI** — denies MUTATING git from a subagent (detected via `agent_id` in the hook payload). A subagent may run explicitly **allowlisted read-only** git (`status`, `log`, `diff`, `show`, listings, `rev-parse`, `config --get`, …); everything else — write forms, `fetch`, code-executing globals (`-c`, `--git-dir`, `--work-tree`, `--exec-path`), command substitution — is denied. Mutating git stays main-agent + direct-user-request only. `gh` remains categorically denied for subagents. |
 | `git-safety-gate.sh` (PreToolUse · Bash) | **Principle VI** — main-agent git mutations force an approval prompt (`permissionDecision: ask`). No autonomous git. |
 | `protect-governance-files.sh` (PreToolUse · Write/Edit + Bash) | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, `loom-governance/hooks/`) → subagent **deny** / main **ask**. The model can't silently soften its own rules. |
-| `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (bash 4+; fails open otherwise) |
+| `guard-dangerous-commands.sh` (PreToolUse · Bash) | Policy-based dangerous-command blocking (enforces on bash 3.2+, i.e. stock macOS; prefers bash 4 when present) |
 | `freeze-write-scope.sh` (PreToolUse · Write/Edit) | Plan-as-DAG file ownership during `/swarm implement`; paths canonicalized (`realpath`) so `..`/symlink can't escape `owns:` scope. |
 | `governance-preflight.sh` (UserPromptSubmit) | Injects domain guidance + memory context (and, in strict mode, the pre-flight recitation) |
 

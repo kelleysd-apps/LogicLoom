@@ -383,7 +383,6 @@ Why: [Specific reason]
 - Constitution v3.3.0: `.logic-loom/memory/constitution.md`
 - Testing domain brief: `plugins/loom-governance/domain-briefs/testing.md` (via `get_domain_brief testing`)
 - Security domain brief: `plugins/loom-governance/domain-briefs/security.md` (via `get_domain_brief security`)
-- Quality Assessor Agent: `plugins/sdd-specification/agents/quality-assessor.md`
 
 ---
 

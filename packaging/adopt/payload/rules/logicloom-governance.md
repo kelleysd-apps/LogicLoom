@@ -35,7 +35,7 @@ carry them:
 | `plugins/loom-governance/hooks/scripts/subagent-git-guard.sh` | denies MUTATING git from a subagent; allowlisted read-only git is permitted; `gh` is denied outright for subagents |
 | `plugins/loom-governance/hooks/scripts/git-safety-gate.sh` | forces an approval prompt on main-agent git mutations |
 | `plugins/loom-governance/hooks/scripts/protect-governance-files.sh` | writes to the governance surface (hooks, `settings.json`, constitution, `governance.conf`) → subagent deny / main-agent ask |
-| `.claude/hooks/guard-dangerous-commands.sh` | policy-based dangerous-command blocking (needs bash 4+; fails open otherwise) |
+| `.claude/hooks/guard-dangerous-commands.sh` | policy-based dangerous-command blocking (enforces on bash 3.2+, i.e. stock macOS; prefers bash 4 when present) |
 | `.claude/hooks/freeze-write-scope.sh` | plan-as-DAG file ownership during `/swarm implement` |
 | `.claude/hooks/user-prompt-submit/governance-preflight.sh` | injects domain guidance and memory context |
 

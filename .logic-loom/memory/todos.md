@@ -110,52 +110,6 @@ harness-dev-specific, so it carries a `stub:` entry in
 
 ## Items
 
-### Provider portability — instruction files (TOP PRIORITY)
-
-- [ ] LOOM-0046 — Make AGENTS.md the single provider-neutral source; CLAUDE.md imports it `status:open`
-      Raised 2026-08-31. Two problems, one root cause: CLAUDE.md (860 lines) and
-      AGENTS.md (620 lines) duplicate content that a contract test and the Tandem
-      Update Rules police by hand, and AGENTS.md is serving two masters — this
-      harness treats it as an agent REGISTRY while every other provider treats it
-      as the PRIMARY PROMPT file.
-      Resolution: `CLAUDE.md` becomes `@AGENTS.md` plus Claude-only sections;
-      the provider-neutral governance moves into AGENTS.md Tier 1 (already
-      structured Tier 1 / Tier 2, so mostly relocation). Zero drift by
-      construction, which retires the verbatim-duplication test and the manual
-      tandem rules.
-      NOT A SYMLINK, and this was checked rather than assumed. The Claude Code
-      docs support `ln -s AGENTS.md CLAUDE.md` but only "if you don't need to add
-      Claude-specific content", and state: "On Windows, creating a symlink
-      requires Administrator privileges or Developer Mode, so use the @AGENTS.md
-      import instead." Our CLAUDE.md is largely Claude-specific (hook wiring,
-      slash commands, plugin bridge), so a symlink would force host detail into
-      the provider-neutral file — backwards. `lib/fsops.js` also REFUSES symlinks
-      outright (`REFUSE-SYMLINK`), so one interacts badly with the payload.
-
-- [ ] LOOM-0047 — An adopter on a non-Claude provider gets ZERO LogicLoom governance `status:open`
-      Raised 2026-08-31, VERIFIED in a real install (kori-beta, logicloom@6.6.1).
-      This is the one that actually "breaks the harness if the user changes
-      providers", and it is separate from LOOM-0046.
-      `--claude-md` offers `rules` | `import` | `none`. All three put the
-      harness's operating instructions in `.claude/rules/logicloom-*.md`, which
-      only Claude Code reads. The payload also renames our AGENTS.md to
-      `.logic-loom/AGENTS.md` — correct, it must not collide with theirs — so
-      nothing LogicLoom installs is visible to Codex, Cursor, Gemini CLI or
-      Aider.
-      Evidence: kori-beta's own CLAUDE.md is a one-line `@AGENTS.md` import and
-      its AGENTS.md is an Expo file. Grepped both after a clean 393-file install:
-      NEITHER mentions LogicLoom. Open that repo in another provider and the
-      governance is not degraded, it is absent.
-      Needs a design decision before code: an `agents-md` install target (or a
-      renamed flag covering all instruction surfaces) that offers to append a
-      marked LogicLoom block to the adopter's AGENTS.md, under the same
-      never-overwrite/fenced-merge rules as `.gitignore`. Changes the install
-      contract, so: design doc first.
-      Confirmed while investigating, and it closes a question open since the
-      smoke test: rules WITHOUT `paths` frontmatter "are loaded at launch with
-      the same priority as `.claude/CLAUDE.md`" (Claude Code docs). So `rules`
-      mode does work — it just does not travel.
-
 ### Adopter parity — structure ships, our data does not
 
 - [x] LOOM-0048 — `.brain/` structure never reaches an npm adopter, and onboarding assumes it did `status:done`
@@ -296,7 +250,7 @@ item is done, and say so here.
       from the `name` field, not the path (vendor docs, checked because I
       initially suspected it as a second instance of the same defect).
 
-- [ ] LOOM-0053 — Domain briefs hardcode a React/Next.js web stack with no adaptation point `status:open` `ref:gh#79`
+- [x] LOOM-0053 — Domain briefs hardcode a React/Next.js web stack with no adaptation point `status:done` `ref:gh#79`
       VERIFIED: `frontend.md` names React/Next/Vue/Angular and owns
       `src/components/**`; `testing.md` names Jest/Vitest/Cypress/Playwright;
       `backend.md` owns `src/api/**`, `src/services/**`. `database.md` is
@@ -309,10 +263,15 @@ item is done, and say so here.
       resolves `owns:`/`freeze:` from a marker file or plan.md — so write-scope
       enforcement is unaffected. An earlier draft of that report claimed
       otherwise and was withdrawn.
-      Same theme as LOOM-0048..0051: an adaptation point at adoption time is the
-      fix, not a second hardcoded stack.
+      DONE 2026-09-01. All seven briefs rewritten stack-neutral — none was
+      already neutral; `database.md` was closest but still owned `src/db/**`.
+      `security.md` keeps OWASP/OAuth2/JWT/TLS, which are protocol vocabulary,
+      not framework lock-in. Adaptation is an OVERLAY at
+      `.logic-loom/domain-briefs/<domain>.md`, appended by `get_domain_brief`
+      after the shipped content so the project's words come last and survive
+      `/update-framework`. Absent overlay is byte-identical to before.
 
-- [ ] LOOM-0054 — Three shipped files say the dangerous-command guard needs bash 4 `status:open` `ref:gh#78`
+- [x] LOOM-0054 — Three shipped files say the dangerous-command guard needs bash 4 `status:done` `ref:gh#78`
       VERIFIED at all three sites: `payload/rules/logicloom-governance.md:38`,
       `CLAUDE.md:95`, `.docs/architecture/governance-threat-model.md:32` — all
       say "bash 4+; fails open otherwise". The guard's own comments say the
@@ -320,11 +279,11 @@ item is done, and say so here.
       re-exec is belt-and-braces, and falling through is "NOT a failure". The
       threat model contradicts itself inside one file — it documents the fix as
       closed around line 347.
-      Worse than a typo because it UNDERSTATES protection, in the rule file every
-      adopter installs: a macOS adopter could reasonably conclude they are
-      unguarded when they are guarded. Straight correction, no decision needed.
+      DONE 2026-09-01. All three now read "enforces on bash 3.2+, i.e. stock
+      macOS; prefers bash 4 when present", matching the guard's own comments and
+      the threat model's own already-documented fix further down its file.
 
-- [ ] LOOM-0055 — architecture.conf count and path metadata is false in the release itself `status:open` `ref:gh#80`
+- [x] LOOM-0055 — architecture.conf count and path metadata is false in the release itself `status:done` `ref:gh#80`
       VERIFIED: plugins 18 vs 8 actual, agents 11 vs 8, commands 19 vs 24, test
       suites 28 vs 47. Release tooling re-stamps only the version keys, so the
       file looks maintained while the rest dates from the pre-v3.1.0 architecture,
@@ -335,11 +294,14 @@ item is done, and say so here.
       One factual error in the issue to correct when closing it: it claims
       `.docs/archive/` does not exist upstream. It does. Only
       `.docs/audit/message-preflight.log` is genuinely missing.
-      Fix should also make the counts derived or dropped — a number nothing
-      derives is a number that drifts, which is the reasoning already applied to
-      the plugin manifest's removed `count` field.
+      DONE 2026-09-01. Maintainer chose DELETE over correct-or-derive. The four
+      count keys are gone, replaced by a comment citing the plugin-manifest
+      `count`-removal precedent so nobody re-adds them. `COMPLIANCE_AUDIT_LOG_PATH`
+      went too — it named `.docs/audit/message-preflight.log`, confirmed absent
+      and unread. `.docs/archive/` was LEFT: it exists, so gh#80's claim that it
+      does not was wrong.
 
-- [ ] LOOM-0056 — Shipped .docs cite ~10 paths that never ship; no link check at release `status:open` `ref:gh#81`
+- [x] LOOM-0056 — Shipped .docs cite ~10 paths that never ship; no link check at release `status:done` `ref:gh#81`
       VERIFIED on four spot-checks, all genuinely absent from dev-main AND the
       tag: `.docs/workflows/sdd-waterfall.md` (cited by loom-architecture.md:85),
       `plugins/sdd-specification/agents/quality-assessor.md`,
@@ -347,11 +309,16 @@ item is done, and say so here.
       The git-push one is the most damaging: it is a WORKED EXAMPLE in the graph
       convention doc and the real path is `git-push-workflow`, so anyone copying
       it produces a dangling graph edge.
-      Root cause is structural, and the fix should be too: `.docs/` is authored
-      against the full dev-main tree and published into a deliberately stripped
-      one, with nothing link-checking it at release. A link check belongs beside
-      the sanitization audit, where it can distinguish "dead everywhere" from
-      "maintainer-only by design".
+      DONE 2026-09-01 for the "dead everywhere" class — 7 citations across 6
+      files. The git-push worked example now names the real
+      `git-push-workflow/SKILL.md`; the three `.logic-loom/memory/MEMORY.md`
+      citations were repointed at real `.brain/memory/` files under the current
+      `repo` backend; genuinely absent references were removed with the claims
+      that depended on them. Every corrected path verified to exist.
+      STILL OPEN, deliberately: the structural half — nothing link-checks `.docs/`
+      at release, so this class can recur. A link check beside the sanitization
+      audit, able to tell "dead everywhere" from "maintainer-only by design",
+      remains unbuilt. Re-file if it recurs.
 
 ### Governance and constitution
 

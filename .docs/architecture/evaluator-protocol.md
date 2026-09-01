@@ -266,8 +266,8 @@ declined; see *Disposition: the evaluator is ADVISORY ONLY*.
 
 - Anthropic, "How we built our multi-agent harness" — load-bearing source
   for the generator/grader split and the Concrete Grading Criteria rubric.
-  See `.logic-loom/memory/MEMORY.md` →
-  `reference_anthropic_harness_design.md` for the indexed notes.
+  See `.brain/memory/reference_anthropic_harness_design.md` for the indexed
+  notes.
 - `plugins/loom-orchestrator/skills/review-evaluator/SKILL.md` — the
   procedural implementation of this protocol.
 - `plugins/loom-orchestrator/skills/team-orchestration/SKILL.md` — the

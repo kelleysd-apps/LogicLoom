@@ -106,6 +106,14 @@
 # context}. These are what the hooks and commands resolve at runtime; every hook
 # command in .claude/settings.json is cwd-relative into one of these two trees.
 include: .logic-loom
+# NOTE — do NOT add nested include: lines under .logic-loom (or any other
+# wholesale include). `.logic-loom/domain-briefs/{README.md,.gitkeep}` were added
+# here as "defensive" duplicates and they BROKE the plan/apply reconciliation:
+# the planner counts UNITS, so a path named by both a wholesale include and its
+# own include line is predicted twice while the apply writes it once. Observed:
+# plan wouldWrite 411 against an apply of 407, and
+# tests/contract/test_adopt_plan_reconciliation.sh went red on exactly that.
+# A redundant include is not free documentation; it is a wrong number.
 include: plugins
 include: .claude/hooks
 include: .claude/commands
@@ -209,6 +217,20 @@ include: specs/.gitkeep
 include: specs/README.md
 exclude: features/*/
 exclude: specs/*/
+
+# .logic-loom/domain-briefs/README.md and .gitkeep (LOOM-0053) — same shape as
+# .brain/README.md and features/specs directly above: the CONVENTION ships (what
+# a project overlay is, how it composes with the shipped stack-neutral briefs),
+# the CONTENT does not (no overlay files exist in this repo — it has none of its
+# own, being the harness itself). DEFENSIVE, not load-bearing today: `include:
+# .logic-loom` above (the harness-core include) already selects this whole
+# directory, gitkeep, README, and any overlay file alike, since nothing in
+# template-strip-manifest.txt removes `.logic-loom/domain-briefs` (verified —
+# grep the strip manifest for that path; it is absent). Named here anyway, same
+# reason as artifacts/ below: a future strip-manifest edit that starts removing
+# `.logic-loom/domain-briefs` wholesale would silently take this include's
+# selection down with it, and an explicit line is what makes that visible to a
+# reviewer instead of just going quiet.
 
 # artifacts/README.md and artifacts/.gitkeep — the CONVENTION ships (LOOM-0049),
 # same shape as .brain/README.md and features/specs above. Requires BOTH halves,

@@ -229,7 +229,7 @@ Add new scenarios when the v0.2 glob-aware matcher lands.
 ## 10. References
 
 - gstack `/freeze` pattern — original inspiration. See
-  `.logic-loom/memory/MEMORY.md` → `reference_gstack_research.md`.
+  `.brain/memory/reference_gstack_research.md`.
 - Constitutional Principle XI (Input Validation) —
   `.logic-loom/memory/constitution.md`.
 - `.docs/architecture/loom-architecture.md` §5 (plan-as-DAG contract) and

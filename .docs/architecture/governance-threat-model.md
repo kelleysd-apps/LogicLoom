@@ -29,7 +29,7 @@ Governance is one layer among several; rely on the stack, not any single gate:
 | `subagent-git-guard.sh` | PreToolUse·Bash | Denies MUTATING git from a subagent (`agent_id` present). Explicitly allowlisted read-only git (status/log/diff/show/listing/…) is permitted; everything else — including `fetch`, code-executing globals like `-c core.fsmonitor=<cmd>`, and any command substitution — is denied. `gh` stays categorically denied. |
 | `git-safety-gate.sh` | PreToolUse·Bash | Main-agent git mutations → `ask`. |
 | `protect-governance-files.sh` | PreToolUse·Write/Edit + Bash | Edits to the governance surface (`.claude/hooks/`, `settings.json`, `constitution.md`, `governance.conf`, the verdict lib + `policy.sh`, `loom-governance/hooks/`) → subagent `deny` / main `ask`. Stops the model softening its own rules. That set is a **fixed floor**; `governance.conf`'s `protected_paths` key can only ADD to it — see *Protected-path floor* below. |
-| `guard-dangerous-commands.sh` | PreToolUse·Bash | Policy-based dangerous-command blocking (bash 4+; fails open on 3.2). |
+| `guard-dangerous-commands.sh` | PreToolUse·Bash | Policy-based dangerous-command blocking (enforces on bash 3.2+, i.e. stock macOS; prefers bash 4 when present — see *bash<4 fail-open is CLOSED* below). |
 | `freeze-write-scope.sh` | PreToolUse·Write/Edit | Plan-as-DAG file-ownership; paths canonicalized (`realpath`) so `..`/symlink/`//` cannot escape the `owns:` scope. |
 | `governance-preflight.sh` | UserPromptSubmit | Domain briefs + memory; strict-mode recitation. |
 
