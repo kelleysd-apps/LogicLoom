@@ -185,6 +185,16 @@ include: .sdd-sync-ref
 # "See Also" list as the per-feature folder convention, so shipping the .gitkeep
 # alone ships a dangling reference. The per-feature CONTENT under features/ is
 # ours and is excluded below.
+# .brain/README.md — the project knowledge layer's CONTRACT, not its content.
+# Same shape as features/ and specs/ directly below: the structure ships, the
+# content does not. The tag carries exactly one .brain path (README.md, stubbed
+# by the strip manifest from brain-readme-template.md); raw/, wiki/, index/,
+# memory/ and DISTILL-LOG.md are strip entries and are absent from the tag, so
+# they cannot leak through this line.
+# Without this include the adopter got NOTHING under .brain/, while
+# initialize-project.md:200 instructs the agent that ".brain/ keeps just its
+# README.md" — the command reasoned about a file the npm path never installed.
+include: .brain/README.md
 include: features/.gitkeep
 include: features/README.md
 include: specs/.gitkeep
@@ -428,7 +438,10 @@ exclude: VISION.md
 exclude: CHANGELOG.md
 
 # --- EXCLUDED: OUR RECORD (all already stripped at release; defensive) -------
-exclude: .brain
+# .brain is NOT excluded. It was, defensively, and that threw away safe
+# structure: an `exclude:` beats an `include:`, and the strip manifest had
+# already reduced .brain/ to a stubbed README before the payload ever saw it.
+# The include above ships that README and nothing else.
 exclude: artifacts
 exclude: packaging
 exclude: .docs/design

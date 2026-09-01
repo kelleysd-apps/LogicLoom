@@ -158,7 +158,7 @@ harness-dev-specific, so it carries a `stub:` entry in
 
 ### Adopter parity — structure ships, our data does not
 
-- [ ] LOOM-0048 — `.brain/` structure never reaches an npm adopter, and onboarding assumes it did `status:open`
+- [x] LOOM-0048 — `.brain/` structure never reaches an npm adopter, and onboarding assumes it did `status:done`
       Raised 2026-08-31 from a structural audit of both distribution channels.
       A TEMPLATE CLONE gets `.brain/README.md`, stubbed from
       `.logic-loom/templates/brain-readme-template.md` by the strip manifest —
@@ -168,9 +168,14 @@ harness-dev-specific, so it carries a `stub:` entry in
       `initialize-project.md:200` instructs the agent that "`.brain/` keeps just
       its `README.md`" — a file the npm path never installs. Verified absent in
       kori-beta after a clean 393-file install of logicloom@6.6.1.
-      Fix: drop the exclusion. The payload is assembled from the TAG's tree,
-      which the strip manifest has already sanitized, so the README arrives
-      stubbed and safe with no new machinery.
+      DONE 2026-08-31. The fix needed BOTH `include: .brain/README.md` and the
+      removal of `exclude: .brain` — the design doc first said only the second
+      was required, which would have shipped nothing, because the copier selects
+      a path only when an include matches it. Verified against the real
+      assembler on the v6.6.2 tag: 276 files before, 277 after, exactly one
+      `.brain` path, byte-identical to `brain-readme-template.md`, zero
+      references to our work. Three assertions added and mutation-verified,
+      including one that fails if anyone ever includes `.brain/wiki` or similar.
       ROOT CAUSE, and the thing to check on every future exclusion: because the
       payload builds from an already-sanitized tree, an `exclude:` on a path the
       strip manifest STUBS throws away safe structure. Two of the four `stub:`
@@ -230,6 +235,91 @@ harness-dev-specific, so it carries a `stub:` entry in
       dashboard build (LOOM-0049), and the CI methodology offer (LOOM-0050).
       Depends on all three. The command is the single place these questions
       should surface, so it is the last piece to land, not the first.
+
+### Adopter-found defects — mirrored from GitHub (kori-beta, logicloom@6.6.1)
+
+Filed 2026-08-31. These five were found by auditing a real npm install and exist
+as GitHub issues #77-#81. GitHub is INTAKE; these items are the record of record.
+Each names its issue so the two cannot drift silently — close the issue when the
+item is done, and say so here.
+
+- [ ] LOOM-0052 — Five plugin-declared agents never load, but docs and a command still dispatch them `status:open` `ref:gh#77`
+      VERIFIED FIRST-HAND, not inspected: `subagent-architect`, `prd-specialist`,
+      `team-synthesizer`, `framework-sync-agent` and `memory-context-agent` are
+      absent from this session's own available agent types, while the two
+      `.claude/agents/` project agents (`deep-reasoner`, `fast-worker`) are
+      present. All five files exist under `plugins/*/agents/`; there is no
+      `marketplace.json` anywhere and nothing of ours in `~/.claude/plugins/`.
+      CLAUDE.md already documents this mechanism for HOOKS ("the repo's plugins/
+      tree is not a plugin installation … so a per-plugin hooks/hooks.json is
+      never read"); it holds for agents too and was never followed through.
+      Effect: a command dispatching one by name silently gets a generic agent,
+      losing the declared model tier and tool restrictions. Highest severity of
+      the five — behavioural, silent, and in every install.
+      `constitutional-governance-agent` is correctly NOT affected: it is
+      hook-injected via the preflight, working as designed.
+      NEEDS A DECISION, not just a fix: make them load (register a marketplace,
+      which contradicts the deliberate "plugins/ is not an installation" stance),
+      move them to `.claude/agents/` (proven to load, but rubs against Principle
+      XVI Plugin-First), or stop claiming them and remove the dispatch. Pick
+      before coding.
+
+- [ ] LOOM-0053 — Domain briefs hardcode a React/Next.js web stack with no adaptation point `status:open` `ref:gh#79`
+      VERIFIED: `frontend.md` names React/Next/Vue/Angular and owns
+      `src/components/**`; `testing.md` names Jest/Vitest/Cypress/Playwright;
+      `backend.md` owns `src/api/**`, `src/services/**`. `database.md` is
+      stack-neutral and fine.
+      Found in a React Native/Expo repo with Deno edge functions — none of it
+      fits, so swarm and team workers are primed with the wrong frameworks, the
+      wrong runner, and ownership pointing at directories that do not exist.
+      The issue's own scope note is CORRECT and I checked it: impact is advisory
+      only. `freeze-write-scope.sh` has ZERO references to domain briefs — it
+      resolves `owns:`/`freeze:` from a marker file or plan.md — so write-scope
+      enforcement is unaffected. An earlier draft of that report claimed
+      otherwise and was withdrawn.
+      Same theme as LOOM-0048..0051: an adaptation point at adoption time is the
+      fix, not a second hardcoded stack.
+
+- [ ] LOOM-0054 — Three shipped files say the dangerous-command guard needs bash 4 `status:open` `ref:gh#78`
+      VERIFIED at all three sites: `payload/rules/logicloom-governance.md:38`,
+      `CLAUDE.md:95`, `.docs/architecture/governance-threat-model.md:32` — all
+      say "bash 4+; fails open otherwise". The guard's own comments say the
+      opposite: the libs are 3.2-compatible, it "ENFORCES on stock macOS", the
+      re-exec is belt-and-braces, and falling through is "NOT a failure". The
+      threat model contradicts itself inside one file — it documents the fix as
+      closed around line 347.
+      Worse than a typo because it UNDERSTATES protection, in the rule file every
+      adopter installs: a macOS adopter could reasonably conclude they are
+      unguarded when they are guarded. Straight correction, no decision needed.
+
+- [ ] LOOM-0055 — architecture.conf count and path metadata is false in the release itself `status:open` `ref:gh#80`
+      VERIFIED: plugins 18 vs 8 actual, agents 11 vs 8, commands 19 vs 24, test
+      suites 28 vs 47. Release tooling re-stamps only the version keys, so the
+      file looks maintained while the rest dates from the pre-v3.1.0 architecture,
+      and the installer copies the false metadata into every adopted repo.
+      LOWEST severity of the five, and the issue overstates it: NOTHING READS
+      THESE KEYS. Only prose files and `bump-version.sh`, which touches version
+      keys only. False metadata, not false behaviour.
+      One factual error in the issue to correct when closing it: it claims
+      `.docs/archive/` does not exist upstream. It does. Only
+      `.docs/audit/message-preflight.log` is genuinely missing.
+      Fix should also make the counts derived or dropped — a number nothing
+      derives is a number that drifts, which is the reasoning already applied to
+      the plugin manifest's removed `count` field.
+
+- [ ] LOOM-0056 — Shipped .docs cite ~10 paths that never ship; no link check at release `status:open` `ref:gh#81`
+      VERIFIED on four spot-checks, all genuinely absent from dev-main AND the
+      tag: `.docs/workflows/sdd-waterfall.md` (cited by loom-architecture.md:85),
+      `plugins/sdd-specification/agents/quality-assessor.md`,
+      `plugins/loom-git/skills/git-push/SKILL.md`, `.logic-loom/memory/MEMORY.md`.
+      The git-push one is the most damaging: it is a WORKED EXAMPLE in the graph
+      convention doc and the real path is `git-push-workflow`, so anyone copying
+      it produces a dangling graph edge.
+      Root cause is structural, and the fix should be too: `.docs/` is authored
+      against the full dev-main tree and published into a deliberately stripped
+      one, with nothing link-checking it at release. A link check belongs beside
+      the sanitization audit, where it can distinguish "dead everywhere" from
+      "maintainer-only by design".
 
 ### Governance and constitution
 

@@ -57,11 +57,20 @@ This is worse than an omission: `initialize-project.md:200` instructs the agent
 that "`.brain/` keeps just its `README.md`" — a file the npm path never installs.
 The command reasons about a file that is not there.
 
-**Change:** delete `exclude: .brain` from `payload-manifest.txt`.
+**Change:** add `include: .brain/README.md` AND delete `exclude: .brain`.
 
-Nothing else is required. The tag carries exactly one `.brain` path
-(`README.md`, stubbed), so the adopter receives the contract document and no
-content. `.brain/raw`, `wiki`, `index`, `memory` and `DISTILL-LOG.md` are already
+**Both are required, and an earlier draft of this document said only the second
+was — that was wrong and would have shipped nothing.** The payload copier
+selects a path only if an `include:` matches it (`lib/fsops.js`; a `rename:`
+source also counts). No include covered `.brain`, so removing the exclusion
+alone leaves the path unselected. Verified by running the real assembly script
+against the v6.6.2 tag: before, 276 files and no `.brain`; after, 277 files and
+`.brain/README.md`.
+
+The include mirrors `features/`/`specs/` directly below it. The tag carries
+exactly one `.brain` path (`README.md`, stubbed), so the adopter receives the
+contract document and no content — confirmed byte-identical to
+`brain-readme-template.md`, with zero references to our work. `.brain/raw`, `wiki`, `index`, `memory` and `DISTILL-LOG.md` are already
 strip-manifest entries and are absent from the tag — they cannot leak.
 
 **Verify by:** `git ls-tree -r --name-only <tag> | grep '^\.brain/'` returns

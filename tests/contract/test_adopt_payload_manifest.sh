@@ -253,6 +253,27 @@ assert "the note warns publish-adopt.yml needs its own setup-node" \
   "grep -q 'setup-node' \"$MANIFEST\""
 echo ""
 
+echo "── .brain/README.md ships: structure travels, content does not ──"
+# The adopter got NOTHING under .brain/ because it was excluded "defensively as
+# our record" — but the strip manifest had already reduced .brain/ to a stubbed
+# README before the payload ever saw the tree, so the exclusion threw away safe
+# STRUCTURE. Meanwhile initialize-project.md instructs the agent that ".brain/
+# keeps just its README.md", a file the npm path never installed.
+#
+# BOTH lines are asserted because removing the exclusion alone ships nothing:
+# the copier selects a path only when an `include:` matches it, and no include
+# covered .brain. Verified against the real assembler — 276 files before, 277
+# after.
+assert ".brain/README.md is explicitly included in the payload" \
+  "grep -qE '^include:[[:space:]]+\.brain/README\.md[[:space:]]*$' \"$MANIFEST\""
+assert "...and .brain is NOT excluded, which would beat that include" \
+  "! grep -qE '^exclude:[[:space:]]+\.brain[[:space:]]*$' \"$MANIFEST\""
+# The content must stay ours. Only the README may be named; a future include of
+# raw/, wiki/, index/ or memory/ would ship a knowledge base to a stranger.
+assert "no .brain path other than README.md is included" \
+  "! grep -E '^include:[[:space:]]+\.brain/' \"$MANIFEST\" | grep -qv 'README\.md'"
+echo ""
+
 echo "── The smoke-test brief must never ship to an adopter ──"
 # Not a style rule — shipping it breaks the test it describes. The brief's
 # section 5a probes a fresh session with a governance question to find out
