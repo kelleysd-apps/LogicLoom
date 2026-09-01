@@ -58,8 +58,13 @@ When ADOPTED:
   not edit or create it. The harness's operating instructions live wherever the
   receipt's `runs[].claudeMd.resolved` says (`rules`, `import` or `none`), and
   the agent registry installed as `.logic-loom/AGENTS.md`, not root `AGENTS.md`.
-- **Step 7 (remove maintainer CI)** — **skip entirely**, see that step.
-- **Step 8 (report)** — say it was an adopted repo and name what was skipped.
+- **Step 7 (maintainer CI / CI methodology)** — **never remove or touch
+  anything under `.github/`** (unchanged); instead **offer** the CI
+  methodology templates — install, adapt, or decline. See that step.
+- **Step 7b (`.brain/` scaffold)** and **Step 7c (backlog dashboard)** — as
+  written; both apply the same way to a template clone and an adopted repo.
+- **Step 8 (report)** — say it was an adopted repo and name what was skipped
+  or offered.
 
 The full disposition table, one row per step, is in
 `plugins/loom-maintenance/commands/initialize-project.md` § Step 0. Keep the two
@@ -319,19 +324,19 @@ GitHub issue #55, whose original "write it for them during setup" proposal was
 rejected precisely because a silent bootstrap write to a shell rc is the
 unapproved action Principle VI exists to prevent.
 
-### Step 7: Remove maintainer-only template-release CI
+### Step 7: Maintainer-only template-release CI (TEMPLATE CLONE) / CI methodology (ADOPTED)
 
-**ADOPTED repositories: skip this step entirely — run nothing here.** The adopt
-payload excludes `.github/` wholesale, so nothing under `.github/workflows/` in
-an adopted repo came from LogicLoom; it is all the adopter's own CI and the
-`rm -f` lines below would delete it. That would also contradict the adopt
-applier's standing refusal that nothing is ever deleted, truncated or moved.
-There is nothing of ours there to remove, so skipping removes no protection.
-The rest of this step is for a TEMPLATE CLONE.
+**Never remove, overwrite, or otherwise touch anything under an adopted repo's
+`.github/`.** The adopt payload excludes `.github/` wholesale, so nothing
+there came from LogicLoom — it is all the adopter's own CI, and `rm -f`
+against it would delete work this tool has no claim on, contradicting the
+adopt applier's standing refusal that nothing is ever deleted, truncated or
+moved. That much is unchanged.
 
-The template ships with CI that releases + guards the **LogicLoom template itself**,
-not the customer's project. Remove it from the new project (keep `plugin-tests.yml`
-— it validates the harness the customer is using):
+**TEMPLATE CLONE** — the template ships with CI that releases + guards the
+**LogicLoom template itself**, not the customer's project. Remove it from the
+new project (keep `plugin-tests.yml` — it validates the harness the customer
+is using):
 
 ```bash
 rm -f .github/workflows/promote-to-main.yml   # maintainer release workflow (not for your project)
@@ -360,6 +365,36 @@ executes). `tests/contract/test_shipped_gates_vs_strip.sh` § 4 fails if the thr
 diverge. A project that adopted LogicLoom via `/update-framework` never ran any
 of them and keeps the guard — `branch-topology-guard.yml`'s own header, and
 `/update-framework` step 4, tell that user how to delete it.
+
+**ADOPTED** — offer the CI methodology instead of doing nothing. Ask once
+whether they want to see the three CI gate templates under
+`.logic-loom/templates/workflows/` (test-suite runner, content leak guard,
+branch-provenance guard) and the prose guide at
+`.docs/guides/release-loop-methodology.md`. For each template they want,
+resolve its `⟨PLACEHOLDER⟩` values with the user and write the result to
+`.github/workflows/<name>.yml` (never copy a template verbatim with
+placeholders still in it). If declined, write nothing to `.github/` — that is
+the correct, complete outcome, not a partial state.
+
+Full detail and the exact offer text: `initialize-project.md` § Step 4f.
+
+### Step 7b: Scaffold `.brain/`
+
+Same offer, never create unprompted shape as VISION.md. Ask whether to create
+`.brain/raw/{research,exploration,reviews,reports,retro,archive}/`,
+`wiki/{concepts,decisions}/`, `index/`, and `memory/` (only when
+`memory_backend = repo`) now, or keep `.brain/` README-only. Idempotency: skip
+if `raw/`, `wiki/`, or `index/` already exist. Full detail:
+`initialize-project.md` § Step 4g.
+
+### Step 7c: Build the first backlog dashboard
+
+Ask whether to run `build-backlog-index.sh` then `build-backlog-dashboard.sh`
+now. If yes, also offer to set `repo = <owner/repo>` in
+`.logic-loom/config/project.conf` — confirmed with the user, **never derived
+from `git remote`** (see `regenerate-backlog-dashboard.sh`'s header for why
+that broke the freshness gate once already). If declined, leave `artifacts/`
+as shipped. Full detail: `initialize-project.md` § Step 4h.
 
 ### Step 8: Validate and Report
 

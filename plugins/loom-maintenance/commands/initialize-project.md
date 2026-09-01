@@ -264,13 +264,12 @@ touch any shell rc file — not even if the user asks in passing.** That setting
 the user's, on their machine, outside this repo. Report it and let them run the
 command themselves.
 
-### Step 4f: Remove Maintainer-Only Template-Release CI
+### Step 4f: Maintainer CI (TEMPLATE CLONE) / CI Methodology (ADOPTED)
 
-**ADOPTED repositories: SKIP THIS STEP ENTIRELY. Run nothing here.** The adopt
-payload excludes `.github/` wholesale, so nothing under `.github/workflows/` in
-an adopted repo came from LogicLoom — it is all the adopter's own CI, and the
-`rm -f` lines below would delete it. See Step 0 for the detection and the full
-argument. The rest of this step applies to a TEMPLATE CLONE only.
+**Branch on Step 0's detection.** The two repository kinds get different
+treatment here, and neither branch touches the other's files.
+
+#### TEMPLATE CLONE
 
 The template ships five workflows that release + guard **the LogicLoom template
 itself**, not the customer's project. Remove all five now:
@@ -301,13 +300,133 @@ maintainer plumbing that is meaningless in an adopter's repo.
 Idempotent (Principle IV): `rm -f` on an already-removed file is a no-op, so
 re-running this command is safe.
 
-This step is the SAME removal performed by `init-project.sh` (the shell path) and
+This removal is the SAME one performed by `init-project.sh` (the shell path) and
 documented in the `project-initialization` skill. All three paths must list the
 same set of workflows — `tests/contract/test_shipped_gates_vs_strip.sh` derives
 that set from `.github/workflows/` (default: maintainer-only) and asserts all
 three agree, so a sixth workflow turns it red until every path names it.
 
 State in the Step 6 report which files were removed and why.
+
+#### ADOPTED — offer, adapt, never install unprompted
+
+**Never remove, overwrite, or otherwise touch anything under an adopted
+repo's `.github/`.** The adopt payload excludes `.github/` wholesale, so
+everything there is the adopter's own CI — there is nothing of ours to
+remove, and there never was (this is unchanged from before this step
+existed).
+
+What's new: **offer** the CI methodology instead of doing nothing. Ask once:
+
+> "LogicLoom ships three CI gate templates — a test-suite runner, a
+> content leak guard, and a branch-provenance guard — plus a guide on the
+> release-line pattern they come from. Want to see them?"
+
+If yes:
+
+1. Point them at `.docs/guides/release-loop-methodology.md` for the prose
+   methodology (what the templates assume, and the two-line release pattern
+   LogicLoom itself uses that the third template only makes sense for).
+2. Walk through `.logic-loom/templates/workflows/*.yml.template` one at a
+   time. Each opens with a header comment stating what it does, what it
+   assumes, and every `⟨PLACEHOLDER⟩` to fill in — read that header with
+   them rather than installing blind.
+3. For each template they want, **write the adapted result** to
+   `.github/workflows/<name>.yml` (drop the `.template` suffix) only after
+   the placeholders are resolved with the user — never copy a template
+   verbatim with its placeholders still in it.
+4. `branch-topology-guard.yml.template` is conditional on actually having a
+   release process the branch name is supposed to prove was followed — say
+   so before offering it, and skip it by default if they don't have one.
+
+If declined, or if the question is never reached: **write nothing to
+`.github/`.** This is not a fallback state to apologize for — a plain "no CI
+methodology installed" is the correct, complete outcome for a repo that
+doesn't want it.
+
+State in the Step 6 report which templates (if any) were installed, and if
+none, that the offer was declined or not asked.
+
+### Step 4g: Scaffold `.brain/` (offer, never create unprompted)
+
+The adopted/cloned repo ships `.brain/` holding only `README.md` — the
+project-knowledge-layer contract, no content. Ask once, the same shape as
+Step 1.5's VISION.md offer:
+
+> "Create the working layers now — `.brain/raw/`, `wiki/`, `index/`,
+> `memory/` — or keep `.brain/` README-only until you have something to put
+> in it?"
+
+Idempotency (Principle IV): if any of `.brain/raw/`, `.brain/wiki/`,
+`.brain/index/` already exist, the layer is already scaffolded — say so and
+skip; do not overwrite or re-ask.
+
+If yes, create the structure `.brain/README.md` itself documents (§ "The
+layers"):
+
+```bash
+mkdir -p .brain/raw/{research,exploration,reviews,reports,retro,archive}
+mkdir -p .brain/wiki/{concepts,decisions}
+mkdir -p .brain/index
+# memory/ only if memory_backend = repo (Step 1.8's answer) — project backend
+# keeps memory outside the repo entirely, so an empty in-repo memory/ would
+# be dead structure nothing ever writes to.
+```
+
+Do **not** create `.brain/memory/` when Step 1.8 resolved `memory_backend` to
+`project` — that backend's whole point is memory living outside the repo, at
+`$HOME/.claude/projects/<slug>/memory/`; an unused sibling directory in the
+repo would just be confusing. Do not create `DISTILL-LOG.md` here either —
+`/distill` creates it on its own first run, and an empty log with no entries
+would misstate "a pass has run" before one ever has.
+
+If declined: leave `.brain/` exactly as shipped — `README.md` only. This is
+the documented default state, not a partial setup.
+
+### Step 4h: Build the First Backlog Dashboard (offer, never create unprompted)
+
+The repo ships `artifacts/` holding only `README.md` and `.gitkeep` — the
+convention, no content. Ask once:
+
+> "Build the first backlog dashboard from your `todos.md` / `backlog.md` now?"
+
+If yes:
+
+1. Run the two generators, in order:
+   ```bash
+   bash .logic-loom/scripts/bash/build-backlog-index.sh
+   bash .logic-loom/scripts/bash/build-backlog-dashboard.sh
+   ```
+   This writes `artifacts/backlog-dashboard.html` — open it directly in a
+   browser, no server needed.
+2. **Mention, do not silently derive:** the dashboard's issues panel reads
+   `.logic-loom/config/project.conf`'s `repo` key (`owner/repo`) to know
+   which GitHub repository to fetch open issues from at view time. That key
+   ships commented out (Step 1.6 leaves it alone unless asked). Offer to set
+   it now:
+   ```bash
+   # only if the user confirms the owner/repo string themselves —
+   # NEVER derive it from `git remote`. build-backlog-dashboard.sh's own
+   # header records why: an earlier version resolved it from `git remote
+   # get-url origin` inside the freshness-gate regeneration path, and that
+   # path regenerates WITHOUT the override — so the committed artifact
+   # carried the real repo while the gate's copy carried null, and the
+   # tracked file was permanently stale. The `repo` key in project.conf is
+   # the one place this value is allowed to come from, precisely because it
+   # is a value a human confirmed once rather than a value re-derived
+   # differently in different contexts.
+   sed -i.bak 's/^# *repo *= .*/repo         = <owner\/repo>/' \
+     .logic-loom/config/project.conf   # or edit the line by hand
+   ```
+   Without this key the issues panel renders a stated reason ("no repo
+   declared") rather than failing silently or showing nothing unexplained.
+3. If they run `SessionStart` regeneration (LOOM-0049 § 3.5) mention it here
+   too — the markdown half stays current on its own; the `repo` key and the
+   generated page's issues panel do not need re-running for that.
+
+If declined: leave `artifacts/` as shipped — `README.md` and `.gitkeep` only.
+This step depends on nothing else in this command; it can be answered "later"
+without blocking Step 5.
 
 ### Step 5: Validate Compliance
 Run `.logic-loom/scripts/bash/constitutional-check.sh`
@@ -316,5 +435,8 @@ Run `.logic-loom/scripts/bash/constitutional-check.sh`
 Show: VISION.md scaffolded/seeded (or skipped if author-filled), the approval
 posture chosen (and any refused lines), the memory backend chosen and whether
 distillation is by hand or a schedule prompt was printed, the maintainer-only
-CI workflows removed, customizations applied, agents created, MCP servers
+CI workflows removed (TEMPLATE CLONE) or which CI methodology templates were
+installed if any (ADOPTED), whether `.brain/` was scaffolded beyond its
+README, whether the first backlog dashboard was built and whether `repo` was
+set in `project.conf`, customizations applied, agents created, MCP servers
 recommended, next steps.

@@ -157,8 +157,14 @@ for f in "$INIT_CMD" "$INIT_SKILL"; do
     "grep -q 'logicloom/adopt-receipt@1' '$f'"
   assert "$n distinguishes TEMPLATE CLONE from ADOPTED by name" \
     "grep -q 'TEMPLATE CLONE' '$f' && grep -q 'ADOPTED' '$f'"
-  assert "$n SKIPS the maintainer-CI removal when adopted" \
-    "grep -qiE 'skip (this step )?entirely' '$f'"
+  # LOOM-0051: an adopted repo no longer "skips entirely" — it is offered the
+  # CI methodology templates instead. What must still hold is the invariant
+  # that made the old skip safe: nothing under .github/ is ever removed,
+  # overwritten, or touched for an adopted repo.
+  assert "$n NEVER removes/touches .github/ when adopted (no rm -f against it in the ADOPTED branch)" \
+    "grep -qiE 'never remove|never .* touch' '$f'"
+  assert "$n no longer tells an adopted repo to skip the CI step entirely (LOOM-0051)" \
+    "! grep -qiE 'skip (this step )?entirely' '$f'"
   assert "$n says WHY: .github/ is excluded from the payload, so that CI is the adopter's" \
     "grep -q 'excludes \`.github/\`' '$f' || grep -q 'payload excludes' '$f'"
   assert "$n protects the adopter's own CLAUDE.md from the framework-documents step" \

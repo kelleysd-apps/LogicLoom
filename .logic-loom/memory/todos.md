@@ -183,27 +183,44 @@ harness-dev-specific, so it carries a `stub:` entry in
       Idempotency proven: two consecutive hook runs on an unchanged backlog
       leave the tree untouched.
 
-- [ ] LOOM-0050 — Offer the CI methodology as templates the adopter can install and edit `status:open`
+- [x] LOOM-0050 — Offer the CI methodology as templates the adopter can install and edit `status:done`
       Raised 2026-08-31. `payload-manifest.txt` excludes `.github` wholesale and
       that stays — those workflows are our release loop and name our topology,
       and we must never write into someone's CI unasked. But the consequence
       today is that an adopter is never OFFERED the methodology at all:
       `initialize-project.md` step 4f skips CI entirely for an adopted repo.
-      Fix: ship the workflows as templates under
-      `.logic-loom/templates/workflows/`, and turn step 4f from "skip entirely"
-      into "offer, adapt, never install unprompted" — the same shape 1.5 already
-      uses for VISION.md.
+      DONE 2026-09-01. Maintainer chose the three CI GATES plus a written guide.
+      `.logic-loom/templates/workflows/{plugin-tests,leak-guard,
+      branch-topology-guard}.yml.template` — adapted, not copied, each with a
+      header saying what it does, what it assumes and what to change. Verified
+      zero occurrences of `dev-main`, `sdd-sync-ref`, `kelleysd-apps` or
+      `promote-to-main` in any of them.
+      `promote-to-main.yml`, `release-tag.yml` and `publish-adopt.yml` were NOT
+      templated — they are the release loop and name our topology. That pattern
+      is described in prose instead at `.docs/guides/release-loop-methodology.md`,
+      which ships via the existing `.docs/guides` wholesale include (checked for
+      the redundant-include trap; no new manifest line needed) and states plainly
+      that LogicLoom ships no machinery for it.
 
-- [ ] LOOM-0051 — `/initialize-project` does not get an adopter to parity `status:open`
+- [x] LOOM-0051 — `/initialize-project` does not get an adopter to parity `status:done`
       Raised 2026-08-31. The stated goal is that `npx logicloom init` followed by
       `/initialize-project` leaves an adopter with the same structure and systems
       we have, unless they choose otherwise. It does not today.
       Current steps: PRD, VISION.md, project.conf, gate posture, memory+distill,
       constitution, agents, MCP/keys/upstream, remove-maintainer-CI, validate.
-      Missing: the `.brain/` scaffold (LOOM-0048), `artifacts/` plus a first
-      dashboard build (LOOM-0049), and the CI methodology offer (LOOM-0050).
-      Depends on all three. The command is the single place these questions
-      should surface, so it is the last piece to land, not the first.
+      DONE 2026-09-01, last of the parity block as planned. Step 4f went from
+      "SKIP ENTIRELY" to "never touch .github/, offer the templates instead";
+      new steps 4g (.brain/ scaffold offer) and 4h (dashboard build offer, which
+      also offers to set `repo` in project.conf and carries the explicit warning
+      never to derive it from `git remote`). Each follows the offer-never-create
+      shape step 1.5 already uses for VISION.md.
+      `skills/project-initialization/SKILL.md` had to change in tandem —
+      `test_adopt_entrypoints.sh` holds the pair together, and the SKILL also
+      still said "skip this step entirely". The brief named only the command
+      file; that was incomplete.
+      One pre-existing assertion in test_adopt_entrypoints.sh REQUIRED the
+      "SKIP ENTIRELY" text and had to be repointed — a test pinning the defect,
+      the third instance of that pattern this week.
 
 ### Adopter-found defects — mirrored from GitHub (kori-beta, logicloom@6.6.1)
 

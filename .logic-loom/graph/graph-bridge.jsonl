@@ -29,6 +29,7 @@
 {"type":"entity","name":".docs/guides/adopt-smoke-test.md","entityType":"note","observations":["Adopt e2e smoke test — brief for a coding agent"]}
 {"type":"entity","name":".docs/guides/dev-main-template-split.md","entityType":"note","observations":["dev-main → sanitized `main`: release model + setup runbook"]}
 {"type":"entity","name":".docs/guides/git-push-guide.md","entityType":"note","observations":["Git Push Guide"]}
+{"type":"entity","name":".docs/guides/release-loop-methodology.md","entityType":"note","observations":["The dev-line → sanitized-release-line methodology"]}
 {"type":"entity","name":".docs/guides/unified-specification-guide.md","entityType":"note","observations":["Unified Specification Guide"]}
 {"type":"entity","name":".docs/policies/agent-creation-policy.md","entityType":"note","observations":["Agent Creation Policy & Standards"]}
 {"type":"entity","name":".docs/policies/agent-file-naming-convention.md","entityType":"note","observations":["Agent File Naming Convention"]}
@@ -82,6 +83,7 @@
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/testing.md","entityType":"code-path","observations":["testing.md"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","entityType":"code-path","observations":["git-safety-gate.sh"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/subagent-git-guard.sh","entityType":"code-path","observations":["subagent-git-guard.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/commands/initialize-project.md","entityType":"code-path","observations":["initialize-project.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/scaffold-environments.md","entityType":"code-path","observations":["scaffold-environments.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
@@ -145,6 +147,7 @@
 {"type":"relation","from":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".docs/guides/unified-specification-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}
+{"type":"relation","from":".docs/guides/release-loop-methodology.md","to":"plugins/loom-maintenance/commands/initialize-project.md","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/unified-specification-guide.md","to":".docs/guides/git-push-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/unified-specification-guide.md","to":"plugins/sdd-specification/README.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/unified-specification-guide.md","to":"plugins/sdd-specification/skills/unified-specification/SKILL.md","relationType":"links-to"}

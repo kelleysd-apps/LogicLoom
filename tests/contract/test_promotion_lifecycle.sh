@@ -472,6 +472,58 @@ assert "attestation template names who writes it" "grep -q 'WHO WRITES THIS FILE
 assert "attestation template carries the § 6.4 trap" "grep -q 'SECOND PARENT' '$ATT_TMPL'"
 echo ""
 
+# ── 12. LOOM-0050 / LOOM-0051 — CI methodology templates + init-project parity
+echo "12. CI methodology templates ship, and /initialize-project offers them"
+WF_TMPL_DIR="$ROOT/.logic-loom/templates/workflows"
+GUIDE="$ROOT/.docs/guides/release-loop-methodology.md"
+PAYLOAD_MANIFEST="$ROOT/packaging/adopt/payload-manifest.txt"
+INIT_CMD="$ROOT/plugins/loom-maintenance/commands/initialize-project.md"
+
+for tmpl in plugin-tests leak-guard branch-topology-guard; do
+  f="$WF_TMPL_DIR/$tmpl.yml.template"
+  assert "$tmpl.yml.template exists" "[ -f '$f' ]"
+  assert "$tmpl.yml.template carries an adaptation header (says it was adapted from LogicLoom's own CI)" \
+    "grep -qi 'adapted from' '$f'"
+  # None of our own topology strings may survive into a template an adopter
+  # would install verbatim into their own .github/.
+  for marker in 'dev-main' 'sdd-sync-ref' 'kelleysd-apps' 'promote-to-main'; do
+    assert "$tmpl.yml.template does not contain topology string '$marker'" \
+      "! grep -qi -- '$marker' '$f'"
+  done
+done
+
+assert "release-loop-methodology.md guide exists" "[ -f '$GUIDE' ]"
+assert "the guide is honest that LogicLoom ships no machinery for this pattern" \
+  "grep -qi 'ships none of this as reusable machinery\\|Nothing in this document is enforced' '$GUIDE'"
+# The guide ships via .docs/guides' EXISTING wholesale include — asserting no
+# NEW include/exclude line was added for it, and no exclude was added either
+# (the two mistakes this brief explicitly warned against).
+# packaging/ (and therefore this manifest) is a template-strip-manifest entry
+# — absent on a stripped/customer tree by design, same guard test_adopt_
+# entrypoints.sh uses for the identical file. Skip rather than fail there.
+if [ -f "$PAYLOAD_MANIFEST" ]; then
+  assert "payload manifest still wholesale-includes .docs/guides (the guide needs no new include line)" \
+    "grep -qE '^include:[[:space:]]+\\.docs/guides[[:space:]]*\$' '$PAYLOAD_MANIFEST'"
+  assert "payload manifest does not exclude the release-loop guide" \
+    "! grep -qE '^exclude:.*release-loop-methodology\\.md' '$PAYLOAD_MANIFEST'"
+  assert "payload manifest does not add a redundant include for the guide (would double-count in plan/apply reconciliation)" \
+    "! grep -qE '^include:.*release-loop-methodology\\.md' '$PAYLOAD_MANIFEST'"
+else
+  skip "payload manifest assertions (guide include/exclude)" "packaging/ is stripped on this tree (maintainer-only)"
+fi
+
+assert "initialize-project.md names the .brain/ scaffold step" \
+  "grep -qi 'Scaffold .\\.brain/.' '$INIT_CMD'"
+assert "initialize-project.md names the artifacts/ + dashboard step" \
+  "grep -qi 'Build the First Backlog Dashboard' '$INIT_CMD'"
+assert "initialize-project.md names the CI methodology offer step" \
+  "grep -qi 'CI Methodology' '$INIT_CMD'"
+assert "initialize-project.md step 4f no longer tells an adopted repo to SKIP ENTIRELY" \
+  "! grep -qiE 'skip (this step )?entirely' '$INIT_CMD'"
+assert "initialize-project.md still never removes an adopter's own .github/ content" \
+  "grep -qiE 'never remove|never .* touch' '$INIT_CMD'"
+echo ""
+
 echo "═══════════════════════════════════════════════════════════"
 echo "  Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"
 echo "═══════════════════════════════════════════════════════════"
