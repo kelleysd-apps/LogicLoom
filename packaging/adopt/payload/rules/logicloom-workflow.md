@@ -37,6 +37,12 @@ external model is strictly **advisory and read-only**: it returns findings, a
 governed Claude agent triages and decides. It never writes repository source,
 never runs git, and never makes a control-flow decision.
 
+This boundary governs **the harness's own orchestration and governance
+runtime** — the agents, commands, and workers LogicLoom itself dispatches. It
+says nothing about what models the project you are building may call; an
+application that legitimately calls OpenAI, Gemini, Mistral, or a local model
+is fully compliant.
+
 Select a model by **tier keyword** in frontmatter — `opus`, `sonnet`, `haiku`,
 `inherit` — never a pinned version string. The role-to-tier convention lives in
 `.logic-loom/config/models.conf`; it is a documented reference table, not a

@@ -1,9 +1,9 @@
 # Model Selection Policy
 
 **Status**: active · **Since**: 2026-07-02 · **Authority**: Constitution
-Principle XIV (AI Model Selection), Principle VI (provider boundary), Principle X
-(Delegation) · **Config**: `.logic-loom/config/models.conf` · **See also**:
-`.docs/architecture/orchestrator-worker-ladder.md`
+Principle XIV (AI Model Selection, which also states the provider boundary),
+Principle X (Delegation) · **Config**: `.logic-loom/config/models.conf` ·
+**See also**: `.docs/architecture/orchestrator-worker-ladder.md`
 
 This is the canonical policy for how LogicLoom selects models. It consolidates a
 four-surface audit (frontmatter executables, cross-provider verification layer,
@@ -298,4 +298,9 @@ doc** — this is its specification.
 - **Non-Claude stays advisory-only.** The cross-provider section added to
   models.conf is ids-for-reference at the verification layer; it does not, and
   must not, introduce a non-Claude orchestration tier or a non-Claude worker. The
-  Principle VI advisory + read-only boundary is unchanged.
+  Principle XIV advisory + read-only boundary is unchanged.
+- **Scope is the harness's own runtime, not the adopter's product.** Everything
+  in this policy governs the agents, commands, and workers LogicLoom itself
+  dispatches. It says nothing about what models the project being built may
+  call — an application that legitimately calls OpenAI, Gemini, Mistral, or a
+  local model is fully compliant.

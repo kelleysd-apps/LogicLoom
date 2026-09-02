@@ -43,6 +43,13 @@ adversarial reviewer, also the key-gated slot in `/review-team` and
 read-only** — it returns findings; the governed Claude agent triages and decides.
 It never writes repo source, runs git, or makes a control-flow decision.
 
+**Whose models this governs.** This boundary constrains **the harness's own
+orchestration and governance runtime** — the agents, commands, and workers
+LogicLoom itself dispatches. It says nothing about what models the project
+you are BUILDING may call: an application that legitimately calls OpenAI,
+Gemini, Mistral, or a local model is fully compliant; its provider choices are
+a product decision this boundary does not reach.
+
 **Portability (superseded stance).** The prior absolute "not a provider-portable
 orchestration runtime" is now scoped: the **policy** layer travels to any host —
 the constitution, the operating principles, and the Cross-Check Disposition are

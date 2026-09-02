@@ -217,6 +217,13 @@ never pinned version strings. See the Model & Provider Boundary note in
 cross-provider models are supported only at the delegated research/verification
 layer.
 
+**Whose models this governs.** This principle constrains **the harness's own
+orchestration and governance runtime** — the agents, commands, and workers
+LogicLoom itself dispatches. It says nothing about what models the project you
+are BUILDING may call. An application that legitimately calls OpenAI, Gemini,
+Mistral, or a local model is fully compliant; its provider choices are a product
+decision this constitution does not reach.
+
 ### Principle XV: File Organization
 
 **Status**: UNCHANGED

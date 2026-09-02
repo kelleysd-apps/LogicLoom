@@ -152,7 +152,8 @@ print_enabled_notice() {
   printf '%s\n' "   for you — gh's config is yours, and the harness writes nothing outside"
   printf '%s\n' "   this repository. To opt out, run this yourself:"
   printf '%b\n' "     ${C_GREEN}gh config set telemetry disabled${C_NC}"
-  printf '%s\n' "   Details: START_HERE.md § \"A note on GitHub CLI telemetry\""
+  printf '%s\n' "   (Telemetry sends anonymous gh command-usage data to GitHub. The setting"
+  printf '%s\n' "   lives in your gh config, not in this repository.)"
 }
 
 case "$STATUS" in

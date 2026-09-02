@@ -27,5 +27,11 @@ in your shell profile or the host's agent config:
   export PATH="$DIR/bin:\$PATH"
 
 Approve a mutation explicitly with:  LOOM_GIT_APPROVED=1 git <cmd>
-Verify enforcement:                  bash tests/contract/test_git_adapter.sh
+
+Verify the pre-push gate is actually installed (run from the repo root):
+  git config --get core.hooksPath
+  test -x "\$(git config --get core.hooksPath)/pre-push" && echo "pre-push hook OK"
+
+Full conformance suite (ships only inside the LogicLoom repository itself,
+not in a project that adopted LogicLoom): bash tests/contract/test_git_adapter.sh
 EOF
