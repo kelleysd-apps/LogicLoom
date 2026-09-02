@@ -226,6 +226,16 @@ generate_strict_preflight() {
 2. DOMAIN ANALYSIS: identify domain(s) from the request (see DOMAIN DETECTION below if present).
 3. DELEGATION: 0 domains → may execute directly; 1 → specialist/swarm; 2+ → /swarm or team orchestration.
 4. AUTHORIZE: confirm git ops will request approval, then proceed.
+5. REVIEW DEPTH: name it in one line BEFORE acting, and act on it.
+   Trivial / reversible in the working tree -> proceed, look it over yourself.
+   Correctness matters AND the ask invites scrutiny -> Cross-Check Disposition
+   applies: a DIFFERENT-PROVIDER second look via /cross-check, the cross-provider
+   slot in /review-team, or /plan-review --adversary — not a same-lineage
+   self-review.
+   Irreversible, or wide across many independent places -> say so out loud and
+   get that second look BEFORE deciding, not after.
+   Naming the depth and then skipping the review is the failure this step exists
+   to catch; the depth is only real if it changes what you do next.
 Note: hook enforcement (git-safety, dangerous-command guard, freeze-scope) is active regardless.
 
 STRICTEOF
