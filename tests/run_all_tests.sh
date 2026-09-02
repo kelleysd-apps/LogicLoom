@@ -138,6 +138,7 @@ run_suite "Plugin Command Bridge" "bash tests/contract/test_plugin_command_bridg
 run_suite "Orchestration Hook" "bash tests/contract/test_orchestration_hook.sh"
 run_suite "Memory Search" "bash tests/contract/test_memory_search.sh"
 run_suite "Update Framework" "bash tests/contract/test_update_framework.sh"
+run_suite "Update Framework Adopted" "bash tests/contract/test_update_framework_adopted.sh"
 run_suite "Spec 006 Integration" "bash tests/contract/test_spec006_integration.sh"
 run_suite "Product Workspace Boundary" "bash tests/contract/test_product_workspace_boundary.sh"
 run_suite "Model Agnosticism" "bash tests/contract/test_model_agnostic.sh"

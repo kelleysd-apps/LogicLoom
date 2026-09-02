@@ -116,8 +116,13 @@ Releases: v5.0.0 (2026-02-15), v5.1.0 (2026-03-01)
   EP-004: [governance] constitution.md — New Principle XVII added — Accept? [y/N]
 
 ── Untagged ─────────────────────────
-  EP-005: [config] CLAUDE.md — New command table entries — Accept? [y/N]
+  EP-005: [config] .logic-loom/AGENTS.md — New command table entries — Accept? [y/N]
 ```
+
+`.logic-loom/AGENTS.md` (harness-owned) is the correct example here, never
+root `CLAUDE.md` / `AGENTS.md` / `README.md` / `package.json` — those are the
+adopter's own and are never proposal targets. See Step 0 of
+`update-framework.md` for why and for the receipt-filtering mechanism.
 
 **Group proposals by release tag** when available. Each proposal's `release_tag`
 field comes from `extract-proposals.sh`. This lets users adopt per-release

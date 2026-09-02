@@ -35,6 +35,21 @@ UPSTREAM_CONF="$REPO_ROOT/.logic-loom/config/framework-upstream.conf"
 LOOM_UPSTREAM_REF="${LOOM_UPSTREAM_REF:-refs/loom-upstream/main}"
 
 # ============================================
+# Adopted-repo awareness (globals; safe defaults = TEMPLATE-CLONE / no-op)
+# ============================================
+#
+# A TEMPLATE CLONE (this repo included) must see COMPLETELY UNCHANGED behavior.
+# These globals default to the template-clone posture so that any caller which
+# never invokes detect_adopt_mode (e.g. a test sourcing this file and calling
+# extract_proposals directly) still gets the original behavior.
+ADOPT_MODE="TEMPLATE"
+ADOPT_DETECTED_BY=""
+ADOPT_WROTE=""              # newline list of "kind<TAB>path" from the receipt
+ADOPT_GENERATOR_VERSION=""
+ADOPT_RECEIPT_USABLE="false"
+ADOPT_PY_MISSING="false"
+
+# ============================================
 # Usage
 # ============================================
 
@@ -266,28 +281,240 @@ proposal_type() {
     esac
 }
 
+# ============================================
+# Adopted-repo detection
+# ============================================
+#
+# ADOPTED means: this checkout was produced by `npx logicloom init` into someone
+# ELSE'S existing repo (packaging/adopt), not cloned as a template. In that mode
+# most of a template's own upstream-diff proposals are wrong: they either target
+# a merge channel that must never be overwritten (a) or a path the adopter never
+# had installed in the first place ((c)/(d)) — see extract_proposals below.
+#
+# Primary signal: `.logicloom-adopt-receipt.json` at repo root, schema-checked.
+# Fallback signal (receipt is not committed by default, so a teammate's clone of
+# an adopted repo may lack it): `.logic-loom/AGENTS.md` — only the adopt path
+# ever installs AGENTS.md there (a template clone has AGENTS.md at repo root).
+# Anything else is a TEMPLATE CLONE — behavior must be identical to upstream.
+detect_adopt_mode() {
+    ADOPT_MODE="TEMPLATE"
+    ADOPT_DETECTED_BY=""
+    ADOPT_WROTE=""
+    ADOPT_GENERATOR_VERSION=""
+    ADOPT_RECEIPT_USABLE="false"
+    ADOPT_PY_MISSING="false"
+
+    local receipt_path="$REPO_ROOT/.logicloom-adopt-receipt.json"
+    local agents_marker="$REPO_ROOT/.logic-loom/AGENTS.md"
+
+    if [ -f "$receipt_path" ]; then
+        if command -v python3 >/dev/null 2>&1; then
+            local py_out first_line
+            py_out="$(python3 - "$receipt_path" <<'PY'
+import json, sys
+try:
+    path = sys.argv[1]
+    with open(path, 'r') as f:
+        data = json.load(f)
+    if not isinstance(data, dict) or data.get('schema') != 'logicloom/adopt-receipt@1' or not isinstance(data.get('runs'), list):
+        print('SCHEMA_MISMATCH')
+    else:
+        ok_statuses = ('complete', 'partial', 'in-progress')
+        wrote = []
+        seen = set()
+        gen_version = ''
+        for run in data['runs']:
+            if not isinstance(run, dict) or run.get('status') not in ok_statuses:
+                continue
+            gen = run.get('generator')
+            if isinstance(gen, str) and '@' in gen:
+                gen_version = gen.rsplit('@', 1)[-1]
+            for w in (run.get('wrote') or []):
+                if not isinstance(w, dict):
+                    continue
+                p = str(w.get('path') or '')
+                k = str(w.get('kind') or '')
+                if not p or not k:
+                    continue
+                key = k + '\t' + p
+                if key in seen:
+                    continue
+                seen.add(key)
+                wrote.append(key)
+        print('OK')
+        print(gen_version)
+        for line in wrote:
+            print(line)
+except Exception:
+    print('PARSE_ERROR')
+sys.exit(0)
+PY
+)"
+            first_line="$(printf '%s\n' "$py_out" | head -1)"
+            if [ "$first_line" = "OK" ]; then
+                ADOPT_MODE="ADOPTED"
+                ADOPT_DETECTED_BY="receipt"
+                ADOPT_RECEIPT_USABLE="true"
+                ADOPT_GENERATOR_VERSION="$(printf '%s\n' "$py_out" | sed -n '2p')"
+                ADOPT_WROTE="$(printf '%s\n' "$py_out" | tail -n +3)"
+            fi
+            # SCHEMA_MISMATCH / PARSE_ERROR falls through to the fallback tell below.
+        else
+            ADOPT_PY_MISSING="true"
+        fi
+    fi
+
+    if [ "$ADOPT_MODE" != "ADOPTED" ] && [ -f "$agents_marker" ]; then
+        ADOPT_MODE="ADOPTED"
+        ADOPT_DETECTED_BY="fallback"
+    fi
+}
+
+# Was $1 (a file path) recorded as a `kind:'file'` write?
+adopt_file_recorded() {
+    local target="$1"
+    [ -z "$ADOPT_WROTE" ] && return 1
+    local kind path
+    while IFS=$'\t' read -r kind path; do
+        [ -z "$kind" ] && continue
+        [ "$kind" = "file" ] && [ "$path" = "$target" ] && return 0
+    done <<< "$ADOPT_WROTE"
+    return 1
+}
+
+# Was $1 (a directory path, trailing slash optional) recorded as a `kind:'dir'`
+# write? Compared trailing-slash-insensitively per the receipt's own convention.
+adopt_dir_recorded() {
+    local target="${1%/}"
+    [ -z "$ADOPT_WROTE" ] && return 1
+    local kind path pstripped
+    while IFS=$'\t' read -r kind path; do
+        [ -z "$kind" ] && continue
+        if [ "$kind" = "dir" ]; then
+            pstripped="${path%/}"
+            [ "$pstripped" = "$target" ] && return 0
+        fi
+    done <<< "$ADOPT_WROTE"
+    return 1
+}
+
+# Was $1 recorded as a `kind:'merge'` write? When the receipt is unusable (no
+# receipt, unparsable, python3 absent, fallback-only detection) fall back to the
+# two merge targets that are ALWAYS merge channels per the payload manifest
+# (payload-manifest.txt: `.gitignore`, `.claude/settings.json`). CLAUDE.md is
+# only a merge target under --claude-md=import, so it is NOT guessed here —
+# without receipt data we cannot know that mode was used.
+adopt_merge_recorded() {
+    local target="$1"
+    if [ "$ADOPT_RECEIPT_USABLE" = "true" ]; then
+        local kind path
+        while IFS=$'\t' read -r kind path; do
+            [ -z "$kind" ] && continue
+            [ "$kind" = "merge" ] && [ "$path" = "$target" ] && return 0
+        done <<< "$ADOPT_WROTE"
+        return 1
+    fi
+    case "$target" in
+        .gitignore|.claude/settings.json) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Conservative DENY-LIST used ONLY when ADOPTED but the receipt is unusable
+# (fallback-tell detection, unparsable receipt, or python3 absent). With no
+# ownership data (`wrote` is empty), the whitelist rule ("owns nothing until
+# proven otherwise") suppresses EVERY proposal — a worse, invisible failure
+# mode. Here we invert the posture: suppress only paths that are known-
+# dangerous or known-not-adopter-owned, and offer everything else. $1 is the
+# (possibly re-addressed) path being evaluated.
+# Returns 0 = SUPPRESS (deny-listed), 1 = do not suppress on this basis.
+adopt_denylist_suppressed() {
+    local path="$1"
+    case "$path" in
+        CLAUDE.md|AGENTS.md|README.md|package.json) return 0 ;;
+        .github/*) return 0 ;;
+        tests/*) return 0 ;;
+        TEMPLATE_INIT.md) return 0 ;;
+    esac
+    return 1
+}
+
+# Ancestor directories of $1, deepest first, excluding "." and "/".
+adopt_ancestors() {
+    local p="$1" dir
+    dir="$(dirname "$p")"
+    while [ "$dir" != "." ] && [ "$dir" != "/" ] && [ -n "$dir" ]; do
+        echo "$dir"
+        dir="$(dirname "$dir")"
+    done
+}
+
+# ADDED-file rule (Task 3(d)): OFFER only when some ancestor dir is recorded in
+# `wrote`, AND no ancestor that existed upstream at sync_ref is missing from
+# `wrote` (a payload exclusion, e.g. `.logic-loom/tests`, `.docs/design`).
+# Returns 0 = OFFER, 1 = SUPPRESS.
+adopt_offer_added_path() {
+    local file_path="$1" sync_ref="$2"
+    local dir any_recorded="false"
+    while IFS= read -r dir; do
+        [ -z "$dir" ] && continue
+        if git -C "$REPO_ROOT" cat-file -e "${sync_ref}:${dir}" 2>/dev/null; then
+            if ! adopt_dir_recorded "$dir"; then
+                return 1
+            fi
+        fi
+        if adopt_dir_recorded "$dir"; then
+            any_recorded="true"
+        fi
+    done <<< "$(adopt_ancestors "$file_path")"
+    [ "$any_recorded" = "true" ] && return 0
+    return 1
+}
+
 extract_proposals() {
     local sync_ref="$1"
     local upstream_ref="${2:-$LOOM_UPSTREAM_REF}"
+    detect_adopt_mode
     local changes
     changes=$(git -C "$REPO_ROOT" diff --name-status "$sync_ref..$upstream_ref" 2>/dev/null || echo "")
     if [ -z "$changes" ]; then echo "[]"; return; fi
 
     local proposals="[" first=true id=1
-    while IFS=$'\t' read -r status file_path; do
+    local suppressed_merge=0 suppressed_unowned=0 suppressed_excluded=0
+    while IFS=$'\t' read -r status file_path new_path; do
         [ -z "$status" ] && continue
         [ -z "$file_path" ] && continue
+        # git diff --name-status emits a THIRD tab-separated field for renames/
+        # copies (`R100<TAB>old<TAB>new`, `C100<TAB>old<TAB>new`). Without reading
+        # it, a 2-field `read` folds "old<TAB>new" into file_path as garbage. Use
+        # the NEW path — that is the path that actually exists to propose.
+        case "$status" in
+            R*|C*)
+                [ -n "$new_path" ] && file_path="$new_path"
+                ;;
+        esac
         # The sync-ref marker is upstream bookkeeping, not an adoptable change.
         [ "$file_path" = ".sdd-sync-ref" ] && continue
 
         local change_type="${status:0:1}"
+
+        # Re-address the one manifest `rename:` row (AGENTS.md :: .logic-loom/AGENTS.md).
+        # When ADOPTED, upstream AGENTS.md installs at .logic-loom/AGENTS.md — the
+        # adopter's OWN root AGENTS.md is an unrelated file that merely shares a
+        # name, and must never be diffed against upstream's AGENTS.md content.
+        local compare_path="$file_path" is_readdressed="false"
+        if [ "$ADOPT_MODE" = "ADOPTED" ] && [ "$file_path" = "AGENTS.md" ]; then
+            compare_path=".logic-loom/AGENTS.md"
+            is_readdressed="true"
+        fi
+
         local category description ptype
         category=$(categorize_change "$file_path")
-        description=$(describe_change "$file_path" "$change_type" "$category")
+        description=$(describe_change "$compare_path" "$change_type" "$category")
         ptype=$(proposal_type "$change_type")
 
         local downstream_exists="false"
-        [ -f "$REPO_ROOT/$file_path" ] && downstream_exists="true"
+        [ -f "$REPO_ROOT/$compare_path" ] && downstream_exists="true"
 
         # 3-WAY CONFLICT AWARENESS — baseline (sync_ref blob) vs downstream (the
         # user's working file) vs upstream (the new version). Flags whether the
@@ -304,7 +531,22 @@ extract_proposals() {
         if [ "$downstream_exists" = "true" ]; then
             case "$change_type" in
                 M|R*)
-                    if git -C "$REPO_ROOT" cat-file -e "$sync_ref:$file_path" 2>/dev/null \
+                    if [ "$is_readdressed" = "true" ]; then
+                        # Cross-path compare: the readdressed rename means upstream's
+                        # content lives at $file_path (root AGENTS.md) in the
+                        # sync-ref tree, while downstream it lives at $compare_path
+                        # (.logic-loom/AGENTS.md) — `git diff <ref> -- <path>`
+                        # cannot compare two different paths, so compare blob hashes
+                        # directly instead.
+                        local sync_blob downstream_blob
+                        sync_blob="$(git -C "$REPO_ROOT" rev-parse "${sync_ref}:${file_path}" 2>/dev/null || true)"
+                        downstream_blob="$(git -C "$REPO_ROOT" hash-object "$REPO_ROOT/$compare_path" 2>/dev/null || true)"
+                        if [ -n "$sync_blob" ] && [ "$sync_blob" = "$downstream_blob" ]; then
+                            resolution="clean-apply"
+                        else
+                            downstream_modified="true"; conflict="true"; resolution="conflict-review"
+                        fi
+                    elif git -C "$REPO_ROOT" cat-file -e "$sync_ref:$file_path" 2>/dev/null \
                        && git -C "$REPO_ROOT" diff --quiet "$sync_ref" -- "$file_path" 2>/dev/null; then
                         resolution="clean-apply"
                     else
@@ -333,6 +575,63 @@ extract_proposals() {
             ptype="structural-change"; breaking="true"
         fi
 
+        # ── Adopted-repo filtering (Task 3). TEMPLATE mode: no-op, unchanged. ──
+        # Applied in order: (a) merge channels are never proposed as ordinary
+        # changes — re-address them to an info-* proposal pointing at the re-run
+        # channel; (c) M/D (and R, by the same ownership question) propose only
+        # if the (readdressed) path was actually written by the installer;
+        # (d) A (new upstream files) propose only per the ancestor-directory rule.
+        if [ "$ADOPT_MODE" = "ADOPTED" ]; then
+            if adopt_merge_recorded "$compare_path"; then
+                suppressed_merge=$((suppressed_merge + 1))
+                local version_hint="${ADOPT_GENERATOR_VERSION:-<version>}"
+                description="Upstream changed ${compare_path}, which this repo installed as a MERGE (appended additively, fenced) — never overwritten. Re-run: npx logicloom@${version_hint} init --apply --only=hooks,gitignore to pick up the update additively."
+                resolution="info-adopted-merge-channel"
+                ptype="info"
+                downstream_modified="false"; conflict="false"; breaking="false"
+            elif [ "$ADOPT_RECEIPT_USABLE" = "true" ]; then
+                case "$change_type" in
+                    M|D|R*)
+                        if ! adopt_file_recorded "$compare_path"; then
+                            suppressed_unowned=$((suppressed_unowned + 1))
+                            id=$((id + 1))
+                            continue
+                        fi
+                        ;;
+                    A)
+                        if ! adopt_offer_added_path "$file_path" "$sync_ref"; then
+                            suppressed_excluded=$((suppressed_excluded + 1))
+                            id=$((id + 1))
+                            continue
+                        fi
+                        ;;
+                esac
+            else
+                # RECEIPT UNUSABLE (fallback-tell detection, unparsable receipt,
+                # or python3 absent): there is no ownership data to whitelist
+                # against, so switch from whitelist to a conservative deny-list
+                # (adopt_denylist_suppressed) — suppress only known-dangerous/
+                # known-not-ours paths and OFFER everything else, rather than
+                # suppressing everything for lack of proof.
+                case "$change_type" in
+                    M|D|R*)
+                        if adopt_denylist_suppressed "$compare_path"; then
+                            suppressed_unowned=$((suppressed_unowned + 1))
+                            id=$((id + 1))
+                            continue
+                        fi
+                        ;;
+                    A)
+                        if adopt_denylist_suppressed "$file_path"; then
+                            suppressed_excluded=$((suppressed_excluded + 1))
+                            id=$((id + 1))
+                            continue
+                        fi
+                        ;;
+                esac
+            fi
+        fi
+
         if [ "$first" = true ]; then first=false; else proposals="${proposals},"; fi
         local padded_id; padded_id=$(printf "EP-%03d" "$id")
         local tag_json="null"; [ -n "$release_tag" ] && tag_json="\"$release_tag\""
@@ -343,7 +642,7 @@ extract_proposals() {
       \"type\": \"$ptype\",
       \"category\": \"$category\",
       \"description\": \"$description\",
-      \"upstream_file\": \"$file_path\",
+      \"upstream_file\": \"$compare_path\",
       \"downstream_exists\": $downstream_exists,
       \"downstream_modified\": $downstream_modified,
       \"conflict\": $conflict,
@@ -358,6 +657,25 @@ extract_proposals() {
 
     proposals="${proposals}
   ]"
+
+    # (e) Say what was hidden — never let silence be mistaken for "upstream
+    # changed nothing." Reported to stderr only, so stdout stays a pure JSON array.
+    if [ "$ADOPT_MODE" = "ADOPTED" ]; then
+        local detected_note="$ADOPT_DETECTED_BY"
+        if [ "$ADOPT_DETECTED_BY" = "fallback" ]; then
+            detected_note="fallback (.logic-loom/AGENTS.md present; no usable .logicloom-adopt-receipt.json)"
+        elif [ "$ADOPT_PY_MISSING" = "true" ]; then
+            detected_note="receipt file present but python3 is unavailable to parse it — treated as no usable receipt"
+        fi
+        echo "ADOPTED REPO (detected by: $detected_note) — adopted-repo proposal filtering active." >&2
+        if [ "$ADOPT_RECEIPT_USABLE" = "true" ]; then
+            echo "Suppressed: $suppressed_merge merge-channel (see info-adopted-merge-channel proposals), $suppressed_unowned not-installed-here (M/D/R), $suppressed_excluded payload-excluded (A)." >&2
+        else
+            echo "DEGRADED FILTERING: .logicloom-adopt-receipt.json is MISSING or UNREADABLE, so precise ownership-based filtering is unavailable this run. Filtering has fallen back to a CONSERVATIVE DENY-LIST — only known-dangerous/known-not-ours paths (root CLAUDE.md, AGENTS.md, README.md, package.json; anything under .github/ or tests/; TEMPLATE_INIT.md; merge channels) are suppressed, and every other upstream change is being OFFERED even though this repo's actual ownership is unverified. This is NOT the same as 'upstream changed nothing.' Restore .logicloom-adopt-receipt.json (or commit it to this repo) to get precise, ownership-based filtering back." >&2
+            echo "Suppressed: $suppressed_merge merge-channel (see info-adopted-merge-channel proposals), $suppressed_unowned deny-listed (M/D/R), $suppressed_excluded deny-listed (A)." >&2
+        fi
+    fi
+
     echo "$proposals"
 }
 

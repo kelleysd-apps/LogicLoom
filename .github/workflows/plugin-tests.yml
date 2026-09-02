@@ -230,6 +230,14 @@ jobs:
       - name: Run Adopt Plan/Apply Reconciliation Tests
         run: bash tests/contract/test_adopt_plan_reconciliation.sh
 
+      # Adopted-repo filtering in extract-proposals.sh (GitHub #84): detection
+      # (receipt vs .logic-loom/AGENTS.md fallback), the five added-path
+      # OFFER/SUPPRESS cases, and merge-target suppression. Sources the script
+      # directly (no --dry-run, no network I/O), so unlike test_update_framework.sh
+      # this one is safe to gate in CI.
+      - name: Run Update Framework Adopted Tests
+        run: bash tests/contract/test_update_framework_adopted.sh
+
       # FAIL-CLOSED staleness gate for THIS TREE's git-TRACKED generated
       # artifacts. It regenerates each and fails if the committed copy differs —
       # the licence for tracking a derived artifact at all, since a warn-only
