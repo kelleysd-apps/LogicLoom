@@ -33,6 +33,24 @@ skip() {
   echo "  ⏭  SKIP: $1 — $2"
 }
 
+# any_skip_missing_reason PLAN_TEXT — true (exit 0) if any "[SKIP      ] ..."
+# target line in the scaffolder's own PLAN output is not immediately followed
+# by a non-blank reason line. The scaffolder always prints the reason on the
+# line directly after the badge+target line (see scaffold-environments.sh's
+# `say "  [$(badge ...)] <target> ..."` followed by `say "  ...$R_..."`), so a
+# missing/blank reason line is a real defect in the scaffolder's own output —
+# this is NOT a tautology like the old `... || true` version was.
+any_skip_missing_reason() {
+  printf '%s\n' "$1" | awk '
+    /\[SKIP[[:space:]]*\]/ { want = 1; next }
+    want {
+      if ($0 ~ /^[[:space:]]*$/) { bad = 1 }
+      want = 0
+    }
+    END { exit !bad }
+  '
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :; else
   ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -73,11 +91,28 @@ mkrepo() {
   cp "$SHIPPED_CONF" "$d/.logic-loom/config/environments.conf" 2>/dev/null || true
 }
 
-# treehash DIR — one hash over every file's content AND path
+# SHACMD — same shasum/sha256sum fallback idiom as
+# .logic-loom/scripts/bash/build-backlog-index.sh's source-digest step. A host
+# lacking BOTH tools must make byte-identical assertions FAIL, not silently
+# compare empty to empty (LOOM-0038 #2) — so every caller of filehash()/
+# treehash() below asserts the result is non-empty before trusting an equality.
+SHACMD=""
+if command -v shasum >/dev/null 2>&1; then SHACMD="shasum -a 256"
+elif command -v sha256sum >/dev/null 2>&1; then SHACMD="sha256sum"; fi
+
+# filehash FILE — sha256 of one file's content, or empty if no tool is present.
+filehash() {
+  [ -n "$SHACMD" ] || return 0
+  $SHACMD "$1" 2>/dev/null | cut -d' ' -f1
+}
+
+# treehash DIR — one hash over every file's content AND path, or empty if no
+# hash tool is present.
 treehash() {
+  [ -n "$SHACMD" ] || return 0
   find "$1" -type f 2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do
-    printf '%s  %s\n' "$(shasum -a 256 "$f" 2>/dev/null | cut -d' ' -f1)" "${f#$1/}"
-  done | shasum -a 256 | cut -d' ' -f1
+    printf '%s  %s\n' "$(filehash "$f")" "${f#$1/}"
+  done | $SHACMD | cut -d' ' -f1
 }
 
 echo "╔═══════════════════════════════════════════════════════════╗"
@@ -180,7 +215,7 @@ assert "greenfield: SKIPS the CI guard — main legitimately takes feature branc
 assert "greenfield: SKIPS the branch-base check — no integration branch" \
   "grep -q 'SKIP.*branch-base-check' <<< \"\$GREEN_PLAN\""
 assert "every skip states a reason" \
-  "! grep -qE 'SKIP[[:space:]]*\\][^\$]*\$' <<< \"\$GREEN_PLAN\" || true"
+  "! any_skip_missing_reason \"\$GREEN_PLAN\""
 echo ""
 
 # ── 5. Declining leaves the tree BYTE-IDENTICAL ──────────────────────────────
@@ -192,7 +227,7 @@ bash "$DETECT" --root "$TMP/green" >/dev/null 2>&1
 rc=0; bash "$SCAFFOLD" --root "$TMP/green" --apply >/dev/null 2>&1 || rc=$?
 DECLINE_AFTER="$(treehash "$TMP/green")"
 assert "--plan (and the detector) write nothing: tree hash unchanged" \
-  "[ '$DECLINE_BEFORE' = '$DECLINE_AFTER' ]"
+  "[ -n '$DECLINE_BEFORE' ] && [ '$DECLINE_BEFORE' = '$DECLINE_AFTER' ]"
 assert "--apply without --only is a usage error, not a silent full write" "[ $rc -eq 2 ]"
 echo ""
 
@@ -322,10 +357,10 @@ printf 'name: my own guard\non: pull_request\n'   > "$TMP/conf/.github/workflows
 printf '# hand-written checklist\n'                > "$TMP/conf/.docs/policies/promotion-checklist.md"
 printf '#!/bin/sh\necho real deploy\n'             > "$TMP/conf/scripts/deploy/deploy-prod.sh"
 printf '\nenvironment = production\nbranch = main\n' >> "$TMP/conf/.logic-loom/config/environments.conf"
-H_GUARD="$(shasum -a 256 "$TMP/conf/.github/workflows/branch-boundary-guard.yml" | cut -d' ' -f1)"
-H_CHECK="$(shasum -a 256 "$TMP/conf/.docs/policies/promotion-checklist.md" | cut -d' ' -f1)"
-H_DEPL="$(shasum -a 256 "$TMP/conf/scripts/deploy/deploy-prod.sh" | cut -d' ' -f1)"
-H_CONF="$(shasum -a 256 "$TMP/conf/.logic-loom/config/environments.conf" | cut -d' ' -f1)"
+H_GUARD="$(filehash "$TMP/conf/.github/workflows/branch-boundary-guard.yml")"
+H_CHECK="$(filehash "$TMP/conf/.docs/policies/promotion-checklist.md")"
+H_DEPL="$(filehash "$TMP/conf/scripts/deploy/deploy-prod.sh")"
+H_CONF="$(filehash "$TMP/conf/.logic-loom/config/environments.conf")"
 
 CONF_PLAN="$(bash "$SCAFFOLD" --root "$TMP/conf" 2>&1)"
 assert "plan reports CONFLICT rather than proposing an overwrite" \
@@ -338,13 +373,13 @@ bash "$SCAFFOLD" --root "$TMP/conf" --apply \
   --only=envconf,ci-guard,checklist,deploy-stubs,branch-base-check --quiet >/dev/null 2>&1 || rc=$?
 assert "an explicit request for a conflicting target exits non-zero" "[ $rc -ne 0 ]"
 assert "pre-existing CI guard is byte-identical" \
-  "[ \"\$(shasum -a 256 '$TMP/conf/.github/workflows/branch-boundary-guard.yml' | cut -d' ' -f1)\" = '$H_GUARD' ]"
+  "[ -n '$H_GUARD' ] && [ \"\$(filehash '$TMP/conf/.github/workflows/branch-boundary-guard.yml')\" = '$H_GUARD' ]"
 assert "pre-existing checklist is byte-identical" \
-  "[ \"\$(shasum -a 256 '$TMP/conf/.docs/policies/promotion-checklist.md' | cut -d' ' -f1)\" = '$H_CHECK' ]"
+  "[ -n '$H_CHECK' ] && [ \"\$(filehash '$TMP/conf/.docs/policies/promotion-checklist.md')\" = '$H_CHECK' ]"
 assert "pre-existing deploy script is byte-identical" \
-  "[ \"\$(shasum -a 256 '$TMP/conf/scripts/deploy/deploy-prod.sh' | cut -d' ' -f1)\" = '$H_DEPL' ]"
+  "[ -n '$H_DEPL' ] && [ \"\$(filehash '$TMP/conf/scripts/deploy/deploy-prod.sh')\" = '$H_DEPL' ]"
 assert "pre-existing environments.conf is byte-identical" \
-  "[ \"\$(shasum -a 256 '$TMP/conf/.logic-loom/config/environments.conf' | cut -d' ' -f1)\" = '$H_CONF' ]"
+  "[ -n '$H_CONF' ] && [ \"\$(filehash '$TMP/conf/.logic-loom/config/environments.conf')\" = '$H_CONF' ]"
 assert "non-conflicting siblings still got written (partial adoption works)" \
   "[ -f '$TMP/conf/scripts/deploy/deploy-dev.sh' ]"
 # The doc comment says "there is no --force"; what must not exist is an
@@ -358,7 +393,7 @@ echo "10. A second run is a no-op and says so"
 IDEM_BEFORE="$(treehash "$TMP/full")"
 IDEM_OUT="$(bash "$SCAFFOLD" --root "$TMP/full" --apply --only=all --quiet 2>&1)"; IDEM_RC=$?
 IDEM_AFTER="$(treehash "$TMP/full")"
-assert "second run changes no file" "[ '$IDEM_BEFORE' = '$IDEM_AFTER' ]"
+assert "second run changes no file" "[ -n '$IDEM_BEFORE' ] && [ '$IDEM_BEFORE' = '$IDEM_AFTER' ]"
 assert "second run exits 0" "[ $IDEM_RC -eq 0 ]"
 assert "second run SAYS it did nothing (not silent)" \
   "grep -qi 'nothing to do\\|unchanged' <<< \"\$IDEM_OUT\""

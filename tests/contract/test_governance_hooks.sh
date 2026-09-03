@@ -243,6 +243,42 @@ floor_same "multi-line JSON still denies a subagent push" "$SGG" "$ML_JSON" deny
 floor_same "agent_type WITHOUT agent_id is the main agent, not a subagent" "$SGG" \
   '{"tool_name":"Bash","agent_type":"general","tool_input":{"command":"git push origin main"}}' allow
 
+# ── LOOM-0044 ──────────────────────────────────────────────────────────────
+# The degraded-parse fix (LOOM-0043) made the hooks restrictive about WHO is
+# calling but they stayed permissive about WHAT: an empty extraction fell through
+# to an explicit `allow`. With no structured parser an empty value is not
+# evidence the field is absent — it is evidence we cannot read it.
+#
+# These deliberately do NOT use floor_same: the decision SHOULD differ between a
+# healthy and a degraded host. On a healthy host an absent field is genuinely
+# absent (allow); on a degraded host it is unreadable (deny/ask).
+deg() { printf '%s' "$2" | PATH="$NOBIN" bash "$1" 2>/dev/null | decision; }
+hlt() { printf '%s' "$2" | bash "$1" 2>/dev/null | decision; }
+
+_d="$(deg "$SGG" '{"tool_name":"Bash","agent_id":"s1","tool_input":{}}')"
+assert "LOOM-0044: subagent with an UNREADABLE command is denied on a degraded host (got '$_d')" "[ '$_d' = 'deny' ]"
+_h="$(hlt "$SGG" '{"tool_name":"Bash","agent_id":"s1","tool_input":{}}')"
+assert "LOOM-0044: same payload on a HEALTHY host still allows — the field really is absent (got '$_h')" "[ '$_h' = 'allow' ]"
+
+_d="$(deg "$PGF" '{"tool_name":"Write","agent_id":"s1","tool_input":{}}')"
+assert "LOOM-0044: subagent with an UNREADABLE file_path is denied on a degraded host (got '$_d')" "[ '$_d' = 'deny' ]"
+_h="$(hlt "$PGF" '{"tool_name":"Write","agent_id":"s1","tool_input":{}}')"
+assert "LOOM-0044: same payload on a HEALTHY host still allows (got '$_h')" "[ '$_h' = 'allow' ]"
+
+_d="$(deg "$PGF" '{"tool_name":"Write","tool_input":{}}')"
+assert "LOOM-0044: MAIN agent with an unreadable file_path is ASKED, not denied (got '$_d')" "[ '$_d' = 'ask' ]"
+_d="$(deg "$PGF" '{"tool_name":"Bash","tool_input":{}}')"
+assert "LOOM-0044: MAIN agent with an unreadable command is ASKED, not denied (got '$_d')" "[ '$_d' = 'ask' ]"
+
+# ANTI-LOCKOUT. The whole risk of this change is turning a degraded host into an
+# unusable one. A readable, harmless command must still pass on a degraded host —
+# only genuinely unreadable payloads escalate. If this ever flips to ask/deny the
+# fix has become a lockout and must be reverted.
+_d="$(deg "$SGG" '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}')"
+assert "LOOM-0044 anti-lockout: a READABLE harmless command still allows on a degraded host (got '$_d')" "[ '$_d' = 'allow' ]"
+_d="$(deg "$PGF" '{"tool_name":"Write","tool_input":{"file_path":"README.md"}}')"
+assert "LOOM-0044 anti-lockout: a READABLE harmless write still allows on a degraded host (got '$_d')" "[ '$_d' = 'allow' ]"
+
 rm -rf "$NOBIN"
 
 echo ""

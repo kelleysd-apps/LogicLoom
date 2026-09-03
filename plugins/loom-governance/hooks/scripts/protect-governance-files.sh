@@ -158,16 +158,41 @@ gate() { # rel_path  verb-desc
   fi
 }
 
+# LOOM-0044. The degraded-parse branch above is restrictive about WHO is calling
+# but this dispatch was permissive about WHAT they are doing: an empty extraction
+# fell through to an explicit `allow`. With no structured parser we are reading
+# JSON with grep, so an empty value is NOT evidence the field is absent — it is
+# evidence we cannot read it, and "I cannot tell what this writes" must not
+# authorize a write to the governance surface.
+#
+# SCOPE, stated honestly because an external reviewer pushed on exactly this:
+# it closes the EMPTY case only. A grep rung keys on the last dot-segment, so a
+# WRONGLY-EXTRACTED NON-EMPTY value (`.tool_input.command` aliasing a nested
+# `.foo.command`) is still taken at face value. That residual is real, is NOT
+# fixed here, and is recorded in the threat model and the backlog rather than
+# papered over — closing it means not making security decisions from grep at all.
+undetermined_target() { # verb-desc
+  if [ -n "$AGENT_ID" ]; then
+    decide deny "Cannot determine the target of this $1: neither jq nor python3 is on PATH, so the governance hook is reading its payload with grep and got no value. A subagent is denied rather than allowed on an unreadable payload. Install jq or python3 (the adopt README lists it as a session-time requirement) and retry."
+  else
+    decide ask "Cannot determine the target of this $1: neither jq nor python3 is on PATH, so the governance hook cannot read its own payload and cannot tell whether this touches the governance surface. This is a hook-health problem, not a policy decision — install jq or python3 to restore normal gating."
+  fi
+}
+
 case "$TOOL" in
   Write|Edit|MultiEdit|NotebookEdit)
     FP="$(json_get '.tool_input.file_path' || true)"
     [ -z "$FP" ] && FP="$(json_get '.tool_input.notebook_path' || true)"
-    [ -z "$FP" ] && allow
+    if [ -z "$FP" ]; then
+      if have_structured_parser; then allow; else undetermined_target "write"; fi
+    fi
     gate "$(rel_of "$FP")" "write"
     ;;
   Bash)
     CMD="$(json_get '.tool_input.command' || true)"
-    [ -z "$CMD" ] && allow
+    if [ -z "$CMD" ]; then
+      if have_structured_parser; then allow; else undetermined_target "command"; fi
+    fi
     # Only MUTATING bash that TARGETS a protected path is gated. A read-only
     # command that merely MENTIONS a governance path (ls / find / cat / head /
     # grep / wc / stat / file …) must pass — an adversarial reviewer had a plain

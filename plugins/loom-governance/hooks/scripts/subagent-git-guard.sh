@@ -108,6 +108,22 @@ deny() {
   exit 0
 }
 
+# LOOM-0044. An empty COMMAND used to pass every check below simply because it
+# "does not look like git" — which is only sound when we can actually READ the
+# command. With no structured parser the payload is being scanned with grep, so
+# an empty extraction means we cannot tell what a subagent is about to run, and
+# the one thing this hook exists to prevent (a subagent's mutating git) is
+# exactly what an unreadable command could be. Deny the subagent; the main agent
+# is untouched, since its git is gated by git-safety-gate.sh regardless.
+#
+# Closes the EMPTY case only. A wrongly-extracted NON-EMPTY value from the grep
+# rung is still trusted here — see the note in protect-governance-files.sh and
+# the threat model; that residual needs the grep rung out of security decisions
+# entirely, not a wider patch.
+if [ -z "$COMMAND" ] && [ -n "$AGENT_ID" ] && ! have_structured_parser; then
+  deny "Cannot read the command for this subagent call: neither jq nor python3 is on PATH, so this hook is parsing its payload with grep and got no value. A subagent is denied rather than allowed on an unreadable payload, because mutating git is precisely what it may not run. Install jq or python3 (a session-time requirement in the adopt README) and retry."
+fi
+
 # Decision via the shared verdict lib (the L2 "verdict function" seam — see
 # .docs/architecture/governance-threat-model.md). This hook is the Claude Code
 # reference ADAPTER: it parses the payload, calls the verdict function, and maps

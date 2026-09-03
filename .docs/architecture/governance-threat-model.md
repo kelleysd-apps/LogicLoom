@@ -218,6 +218,37 @@ hidden; close them with the defense-in-depth stack above, not by trusting hooks.
    regardless of mode (it returns findings, never edits). Acceptable for an
    advisory read-only adversary; revisit if the provider CLI is ever granted
    write or auto-approval from this slot.
+7. **A degraded parse is now restrictive about the target, but a WRONGLY-EXTRACTED
+   value is still trusted (LOOM-0044, partial).** With neither `jq` nor `python3`
+   on PATH the hooks read their JSON payload with `grep`. Two fixes have landed
+   and they cover different halves:
+   - LOOM-0043 made an empty `agent_id` mean "cannot tell" rather than "main
+     agent", so a subagent cannot pass as the main agent. That covers **who**.
+   - LOOM-0044 stopped an empty `file_path` / `command` / target extraction from
+     reaching an explicit `allow`: a subagent is denied and the main agent is
+     asked, because "I cannot read what this touches" must not authorize it. That
+     covers **what**, but **only the empty case**.
+
+   **What remains, stated plainly.** The `grep` rung keys on the LAST dot-segment
+   of a field path, so `.tool_input.command` also matches a nested `.foo.command`
+   elsewhere in the payload. A wrongly-extracted **non-empty** value is still
+   taken at face value, and is now arguably more dangerous than before, because
+   the empty case being handled makes the extraction look more trustworthy than
+   it is. An external adversarial review (Codex, 2026-09-02) made exactly this
+   point and it is not fixed here.
+
+   Closing it properly means not making security decisions from `grep` at all —
+   treating "no structured parser" as a hook-health failure with a named
+   remediation rather than an input to policy. That is a larger change with real
+   lockout risk on a host lacking both parsers, so it is filed as **LOOM-0058**
+   rather than smuggled in here. The adopt README already states `jq` or
+   `python3` is a session-time requirement, which is the ground that change would
+   stand on.
+
+   The anti-lockout property of what DID land is regression-tested: on a degraded
+   host a readable, harmless command still resolves to `allow`, so only genuinely
+   unreadable payloads escalate.
+
 6. **The subagent read-only git allowlist is still a string gate (new in §7.3).**
    Two honest consequences of replacing the blanket subagent-git deny with an
    allowlist:

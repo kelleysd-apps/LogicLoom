@@ -855,7 +855,21 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
 
 ### Test suite defects
 
-- [ ] LOOM-0038 — Fix three known-false assertions in the test suite — two are false greens, one silently drops 91 assertions `status:open`
+- [x] LOOM-0038 — Fix three known-false assertions in the test suite — two are false greens, one silently drops 91 assertions `status:done`
+      RESOLVED 2026-09-02. Defects 1 and 2 fixed in
+      `tests/contract/test_environment_scaffolding.sh`: the `|| true` assertion
+      now actually inspects the reason line following each `[SKIP ]` badge, and
+      the hash comparison routes through the same `shasum`/`sha256sum` fallback
+      `build-backlog-index.sh` already uses, with non-empty guards on all six
+      assertions. The false green was PROVEN closed by running against a PATH
+      lacking both tools: all six flip from pass to FAIL and the suite exit code
+      goes 0 -> 1.
+      Defect 3 was ALREADY FIXED and this item was stale on that point. Commit
+      `4d88048` (which lands after this item's `66b2e1b` snapshot) added the
+      labelled `Total:|Passed:|Failed:` fallback to `parse_results()` and the
+      `UNPARSED_SUITES` fail-closed exit gate. Verified rather than assumed: all
+      52 suites were run through the real `parse_results()` and 0 are unparsed.
+      `run_all_tests.sh` was NOT modified.
       **Found during the v6.5.0 release (2026-08-25) and deliberately left**
       because a release PR was in flight and none of them is a product defect.
       All three are verified against `dev-main` at `66b2e1b`; do not re-derive.
@@ -948,7 +962,45 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
         non-empty before the merge — a fact the receipt does not record, so a
         later agent cannot reliably pick the branch.
 
-- [ ] LOOM-0044 — Degraded-parse mode is restrictive for agent_id but still permissive for the other fields `status:open`
+- [x] LOOM-0044 — Degraded-parse mode is restrictive for agent_id but still permissive for the other fields `status:done`
+      RESOLVED 2026-09-02 for the scope as filed; the non-empty mis-extraction it
+      already named as known-residual is carried as LOOM-0058. The EMPTY case is closed in both hooks: an
+      unreadable `file_path` / `command` / target no longer reaches an explicit
+      `allow`. A subagent is denied; the main agent is asked. 8 regression
+      assertions in `tests/contract/test_governance_hooks.sh`, including two
+      ANTI-LOCKOUT cases proving a readable harmless command still allows on a
+      degraded host — the risk of this change was making a degraded host unusable.
+      NOT closed: a wrongly-extracted NON-EMPTY value from the grep rung is still
+      trusted, and is arguably more dangerous now that the empty case looks
+      handled. Raised by external adversarial review (Codex, 2026-09-02) and
+      carried forward as LOOM-0058, not silently dropped. Recorded as residual #7
+      in `.docs/architecture/governance-threat-model.md`.
+
+- [ ] LOOM-0058 — Stop making security decisions from the grep rung; treat "no structured parser" as hook health `status:open`
+      Filed 2026-09-02 from the external adversarial review of LOOM-0044 (Codex,
+      read-only sandbox). Its strongest finding: patching only the EMPTY
+      extraction adds complexity and lockout risk while leaving the exploitable
+      path open, and risks false confidence. The grep rung keys on the LAST
+      dot-segment, so `.tool_input.command` aliases a nested `.foo.command`; a
+      wrongly-extracted NON-EMPTY value is authorized at face value.
+      Also flagged: `have_structured_parser` is the wrong trust boundary — it
+      asserts a BINARY EXISTS, not that this payload parsed or that this field
+      resolved unambiguously. Malformed JSON, a wrong type, or an invocation
+      failure all collapse to "empty" with jq installed.
+      Proposed direction: per-extraction status (`VALID` / `ABSENT` /
+      `INVALID_PAYLOAD` / `WRONG_TYPE` / `PARSER_UNAVAILABLE`), where only
+      structured parsing can yield a trusted `VALID` or `ABSENT`, and anything
+      else fails closed by caller role. Surface parser absence as ONE actionable
+      hook-health failure naming the remediation, not as routine `ask` prompts —
+      repeated approval prompts for an infrastructure fault train blind approval
+      and weaken every other gate.
+      DECISION REQUIRED BEFORE BUILDING: this can make a host lacking both `jq`
+      and `python3` unable to run governed operations at all. The adopt README
+      shipped with the npm package already states that one of them is a
+      session-time requirement and that without either "some guards cannot read
+      what they are guarding" — that is the ground to stand on. But it converts a
+      documented soft failure into a hard one, and that is a maintainer call, not
+      an implementation detail.
       Filed 2026-08-28, from the external review of the fail-open fix (LOOM-0043
       sibling work, commit that added the grep rung to `subagent-git-guard.sh`
       and `protect-governance-files.sh`).
