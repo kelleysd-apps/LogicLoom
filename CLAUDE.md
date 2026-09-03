@@ -380,10 +380,11 @@ existence alone is not registration.
 | `context-cap-warn.sh` | `.claude/hooks/` | `UserPromptSubmit` |
 | `worktree-port-namespace.sh` | `.claude/hooks/` | `SessionStart` |
 | `check-dev-branch-base.sh` | `.logic-loom/scripts/bash/` | `SessionStart` **and** `UserPromptSubmit` (via `--event`) |
+| `regenerate-backlog-dashboard.sh` | `.logic-loom/scripts/bash/` | `SessionStart` |
 
 What each one enforces (Principle mapping included) is in the **Governance**
 section above; that table covers the six governance hooks, while this one lists
-all nine wired hooks — the same set plus the three non-floor hooks below.
+all ten wired hooks — the same set plus the four non-floor hooks below.
 `check-dev-branch-base.sh` (LOOM-0024) is a detect-only branch-base advisory —
 it warns when a worktree was based on the sanitized `main` snapshot instead of
 `dev-main`, and by its own contract never runs git, never writes, and never
