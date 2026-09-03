@@ -179,9 +179,10 @@ bump (see §4) but are not selectors. Two lines should instead point at a tier:
     most bump-fragile line. Keep it (readers want it) but add a "(canonical:
     models.conf)" pointer so it's clearly a mirror, not a source. `CLAUDE.md:462`
     likewise mirrors the block.
-12. **`.docs/governance/hybrid-architecture.md:206,293`** — settings.json examples
-    pin `"model": "claude-opus-4-8"`; change to `"model": "opus"` (these are
-    illustrative config, tier keyword is valid and non-stale).
+12. **`.docs/governance/hybrid-architecture.md:206,293`** *(LogicLoom repository
+    only — this document is not part of the adopt payload)* — settings.json
+    examples pin `"model": "claude-opus-4-8"`; change to `"model": "opus"`
+    (illustrative config; the tier keyword is valid and non-stale).
 13. Remaining resync-only doc sites are enumerated in the §4 touch-list.
 
 ---
@@ -210,7 +211,7 @@ bump. Edit them together:
 | `AGENTS.md` | 181; changelog 528, 534 |
 | `.logic-loom/memory/constitution.md` | 29, 205 — **GOVERNANCE-PROTECTED: main-agent + user approval to edit** |
 | `.docs/architecture/orchestrator-worker-ladder.md` | 16, 17, 18, 20 (name + `$10/$50` pricing), 31, 32, 37, 102 (densest doc) |
-| `.docs/governance/hybrid-architecture.md` | 206, 293 (settings.json examples) |
+| `.docs/governance/hybrid-architecture.md` *(LogicLoom repo only, not shipped)* | 206, 293 (settings.json examples) |
 | `.claude/context/governance.md` | 315, 320 |
 | `.claude/context/agents.md` | 46, 143 |
 | `README.md` | 235 says "Opus-class" (tier-shaped, low-risk) |
@@ -224,7 +225,8 @@ bump — that's Step 1's advisory section.)
 
 ### Step 3 — Verify
 
-Run the guard (§5): `bash tests/contract/test_model_agnostic.sh`. It asserts no
+Run the guard (§5): `bash tests/contract/test_model_agnostic.sh` (LogicLoom-repo
+only — `tests/` is not installed into an adopting project). It asserts no
 frontmatter regressed to a pinned id and warns on any concrete id outside
 models.conf that isn't on the accepted touch-list.
 

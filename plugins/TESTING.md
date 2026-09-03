@@ -2,6 +2,11 @@
 
 All plugins MUST meet these testing standards before merge.
 
+This document is for people working inside a checkout of the LogicLoom
+repository itself — every `tests/contract/...` / `tests/integration/...` command
+below assumes that checkout. `tests/` is deliberately not installed into a
+project that has adopted LogicLoom, so these commands are not available there.
+
 ## Required Tests
 
 ### 1. Manifest Validation (Automated)

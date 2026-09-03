@@ -217,8 +217,8 @@ scoped form fails loudly when someone else has pushed; the bare form can
 succeed and overwrite them.
 
 **Governance note**: force-push is **`require_approval`**, not blocked — the
-hook must not stop the *ask* (see the `38b0144` disposition in
-`.docs/reports/backlog-2026-08-13.md`). Approval is still mandatory, and the
+hook must not stop the *ask* (see the `38b0144` disposition, recorded in the
+LogicLoom project's own internal history). Approval is still mandatory, and the
 autonomous force-push proposal was **REJECTED** as a direct Principle VI
 violation. This rule constrains *how* an approved force-push is spelled.
 
@@ -411,7 +411,7 @@ what this document is for.
 - Governance threat model: `.docs/architecture/governance-threat-model.md`
 - Testing Policy: `.docs/policies/testing-policy.md`
 - Code Review Policy: `.docs/policies/code-review-policy.md`
-- Backlog §3.5 (origin of this document): `.docs/reports/backlog-2026-08-13.md`
+- Origin of this document: recorded in the LogicLoom project's own internal history (not shipped in the adopt payload)
 - bash 3.2 floor gate: `tests/contract/test_bash32_floor.sh`
 
 ---

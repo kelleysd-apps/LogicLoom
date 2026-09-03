@@ -199,7 +199,8 @@ This file should be added to `.gitignore`. The gitignore edit is **deferred
 
 ## 9. Testing
 
-Automated contract test: `tests/contract/test_freeze_scope.sh`. It builds an
+Automated contract test: `tests/contract/test_freeze_scope.sh` (LogicLoom-repo
+only — `tests/` is not installed into an adopting project). It builds an
 isolated fake repo, copies the hook in, and drives it with synthetic
 PreToolUse Write/Edit payloads. Run it directly (`bash
 tests/contract/test_freeze_scope.sh`); it is bash-3.2 safe and needs no deps

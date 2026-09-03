@@ -178,9 +178,9 @@ undocumented anywhere else.** Stating it here plainly:
   says nothing about whether this repo carries an *index* of its own bundled
   plugins. It does not, and that was never written down.
 - `VISION.md` Thread #8 proposes adding a `marketplace.json`. That thread is
-  **unresolved and contested** — see `.docs/reports/backlog-2026-08-13.md` §8.1,
-  where the plugin-externalization proposal directly contradicts it. Do not
-  treat Thread #8 as a committed direction.
+  **unresolved and contested**: a separate plugin-externalization proposal,
+  recorded in the LogicLoom project's own internal history, directly
+  contradicts it. Do not treat Thread #8 as a committed direction.
 
 Until that is settled, a fork adding a plugin needs to do exactly one thing:
 create the directory with a conforming `plugin.json`. Nothing else registers it.
@@ -265,7 +265,7 @@ Validate it:
 
 ```bash
 python3 .logic-loom/scripts/python/validate-plugin-manifests.py
-bash tests/contract/test_plugin_manifest_schema.sh
+bash tests/contract/test_plugin_manifest_schema.sh   # LogicLoom repo only — not shipped in the adopt payload
 ```
 
 ---
@@ -275,9 +275,9 @@ bash tests/contract/test_plugin_manifest_schema.sh
 - Contributor how-to: [`plugins/CONTRIBUTING.md`](CONTRIBUTING.md)
 - CI step: `.github/workflows/plugin-tests.yml` → *Validate All Manifests*
 - Validator: `.logic-loom/scripts/python/validate-plugin-manifests.py`
-- Schema tests: `tests/contract/test_plugin_manifest_schema.sh`
+- Schema tests: `tests/contract/test_plugin_manifest_schema.sh` (not shipped in the adopt payload)
 - Constitution v3.3.0 (Principle XVI): `.logic-loom/memory/constitution.md`
-- Origin: `.docs/reports/backlog-2026-08-13.md` §3.6 and §3.4
+- Origin: recorded in the LogicLoom project's own internal history (not shipped in the adopt payload)
 
 ---
 

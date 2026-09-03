@@ -537,7 +537,7 @@ notes: "Implemented per data-model.md specification"
 - Tasks Template: `.logic-loom/templates/tasks-template.md`
 - SDD Specification Skill (tasks phase): `plugins/sdd-specification/skills/unified-specification/SKILL.md`
 - Specification Command: `.claude/commands/specification.md`
-- Historical record that motivated Level 0: `.docs/reports/backlog-2026-08-13.md`
+- Historical record that motivated Level 0: recorded in the LogicLoom project's own internal history (not shipped in the adopt payload)
 
 ---
 

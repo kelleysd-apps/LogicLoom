@@ -56,8 +56,13 @@ matrix reflects this — `adapter†`, not `ENFORCED`.
 
 ```bash
 bash .logic-loom/adapters/install.sh          # pre-push gate (+ instructions for the PATH wrapper)
-bash tests/contract/test_git_adapter.sh        # verify enforcement (conformance)
 ```
+
+Conformance is verified by `tests/contract/test_git_adapter.sh`, which lives
+only in the LogicLoom repository itself — `tests/` is not part of the npm
+payload installed into an adopting project, so this command is not available
+there. The install step above is what an adopting project actually runs; the
+conformance status below reflects results already verified upstream.
 
 ## Conformance status
 

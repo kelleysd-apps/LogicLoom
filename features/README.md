@@ -134,4 +134,4 @@ Both packs are first-class. Pick the one that matches the problem shape.
 ---
 
 *This convention is a Stage-5 addition to LogicLoom. No existing functionality
-is affected. See `.docs/plans/loom-migration.md` for the full migration plan.*
+is affected.*

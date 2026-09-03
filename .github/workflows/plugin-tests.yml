@@ -165,6 +165,14 @@ jobs:
       - name: Run Adopt Planner Tests
         run: bash tests/contract/test_adopt_planner.sh
 
+      # Closes the recurring defect class behind #81/#85: a SHIPPED file
+      # citing a `.md` document the payload manifest EXCLUDES sends an
+      # adopter to a file they do not have. Fail-closed; own fixtures prove
+      # the gate both fires on a genuine violation and stays silent on
+      # runtime write targets (dirs, .jsonl paths) regardless of repo state.
+      - name: Run Shipped Path References Tests
+        run: bash tests/contract/test_shipped_path_references.sh
+
       # The WRITE half. The planner suite pins that the read half writes
       # nothing; this one pins that when the tool does write it writes only what
       # was named, never over anything, never outside the repo root, and never

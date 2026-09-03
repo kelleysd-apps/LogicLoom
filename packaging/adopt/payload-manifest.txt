@@ -291,6 +291,13 @@ include: .docs/references
 include: .docs/agents/agent-registry.json
 exclude: .docs/agents/*/*/decisions
 #
+# .docs/agents/shared/task-handoffs/ is named as REQUIRED folder structure by
+# two shipped policies (file-structure-policy.md:227,
+# todo-architecture-policy.md:243) — an adopter told to create this layout
+# needs the two files (README.md + context-transfers.md, 48 lines, zero
+# private content) that explain what belongs in it, not just the bare path.
+include: .docs/agents/shared/task-handoffs
+#
 # Harness-dev record; not downstream-facing.
 exclude: .docs/history
 exclude: .docs/reviews
@@ -508,6 +515,24 @@ exclude: .docs/reports
 exclude: .docs/archive
 exclude: .docs/plans
 exclude: .docs/memory
+#
+# .docs/governance stays excluded WHOLESALE, and the reasoning is worth keeping
+# because the obvious fix is the wrong one. `hybrid-architecture.md` is cited by
+# four shipped files, two by exact line number, so the tempting move is to ship
+# just that file and make the citations true. We tried it and reverted it: the
+# document is STALE in ways that would actively mislead an adopter. It documents
+# a `.claude/settings.json` carrying an `"agent"` key and a PINNED
+# `"model": "claude-opus-4-8"` — a pinned version string is exactly what
+# Principle XIV forbids — and it points at `.claude/agents/governance/` and
+# `.claude/skills/governance/`, neither of which has existed since the plugin
+# reorganization. It also cites `browser-mcp-setup.md`, which stays excluded,
+# so shipping it would create a fresh instance of the very defect (#81) that
+# prompted the change.
+#
+# Shipping a stale document is worse than not shipping it: a dead link costs one
+# failed lookup, whereas a confident wrong instruction gets followed. The four
+# citations were rewritten instead. If this file is ever brought up to date, ship
+# it then — the citations, not the exclusion, are what to revisit.
 exclude: .docs/governance
 exclude: .logic-loom/plans
 exclude: .logic-loom/logs

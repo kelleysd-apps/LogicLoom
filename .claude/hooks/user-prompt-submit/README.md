@@ -362,8 +362,7 @@ Run monthly:
 ## Related Documentation
 
 - **Constitution**: `.logic-loom/memory/constitution.md` - All 16 principles
-- **Governance Skill**: `.claude/skills/governance/governance-preflight/SKILL.md`
-- **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`
+- **Governance Skill**: `plugins/loom-governance/skills/governance-preflight/SKILL.md`
 - **Hook Debugging**: `.logic-loom/scripts/bash/debug-hook.sh`
 - **Governance Metrics**: `.logic-loom/scripts/bash/governance-metrics.sh`
 

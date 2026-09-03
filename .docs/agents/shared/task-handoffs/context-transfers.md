@@ -45,4 +45,4 @@ This file tracks active task handoffs between agents. Clear entries once the rec
 
 ## Cleared Transfers
 
-*Archived transfers are moved to `handoff-log.md`*
+*Cleared transfers stay in this file, below this line — there is no separate log file.*

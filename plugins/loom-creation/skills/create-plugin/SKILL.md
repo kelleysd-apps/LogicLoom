@@ -117,7 +117,8 @@ the **Docker MCP Toolkit** gateway.
 
 ### Step 6: Validate
 
-Run plugin validation:
+Run plugin validation (LogicLoom repo only — `tests/` is not installed into an
+adopting project):
 ```bash
 bash tests/contract/plugins/test_plugin_lifecycle.sh
 ```

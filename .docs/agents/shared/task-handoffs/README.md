@@ -15,9 +15,12 @@ When tasks are transferred between agents, context must be preserved. This direc
 ```
 task-handoffs/
 ├── README.md                    # This file
-├── context-transfers.md         # Active context transfers
-└── handoff-log.md              # Historical handoff records
+└── context-transfers.md         # Active context transfers
 ```
+
+Archived transfers stay in `context-transfers.md` under "Cleared Transfers".
+There is no separate log file; an earlier draft of this document named one, but
+it was never created and nothing reads it.
 
 ## Handoff Protocol
 

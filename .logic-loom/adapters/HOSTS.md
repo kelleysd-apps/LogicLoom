@@ -60,4 +60,6 @@ PreToolUse hooks are. Off-host **subagent-git-deny** is only a heuristic (no
 and `freeze-write-scope` have no off-host adapter yet, so they remain
 **followed-only** (model-followed, unenforced) everywhere but Claude Code. Do not represent a host as fully governed until its
 adapters pass `tests/contract/test_git_adapter.sh` (and future per-guarantee
-conformance tests). This honesty is the point — see the threat-model matrix.
+conformance tests) — a suite that lives only in the LogicLoom repository itself
+and is not installed into an adopting project; conformance is verified upstream,
+not by adopters re-running it. This honesty is the point — see the threat-model matrix.

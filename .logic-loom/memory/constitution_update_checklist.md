@@ -143,8 +143,11 @@ After changing constitution, update ALL of the following:
       (`# Constitution:` header) — asserted by
       `tests/contract/test_plugin_command_bridge.sh`. Protected surface: the
       edit prompts for approval.
-- [ ] **Update `tests/contract/test_constitution.sh`** current-version
-      assertions (leave the historical version-history-row assertions alone)
+- [ ] **MAINTAINERS ONLY — skip this if the file is not present.** Update
+      `tests/contract/test_constitution.sh` current-version assertions (leave
+      the historical version-history-row assertions alone). This suite is
+      stripped from the template, so a cloned project has neither the file nor
+      that suite — there is nothing to do and nothing is missing.
 
 ### Step 2: Update Main Instruction Files
 

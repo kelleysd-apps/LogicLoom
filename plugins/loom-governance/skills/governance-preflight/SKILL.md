@@ -413,7 +413,6 @@ consolidated worker briefs in plugins/loom-governance/domain-briefs/<domain>.md
 - **Constitution**: `.logic-loom/memory/constitution.md` (v3.3.0)
 - **Hook Layer**: `.claude/hooks/user-prompt-submit/README.md`
 - **Agent Layer**: `plugins/loom-governance/agents/constitutional-governance-agent.md`
-- **Hybrid Architecture**: `.docs/governance/hybrid-architecture.md`
 - **Finalize Command**: `/finalize` skill for pre-commit validation
 
 ---

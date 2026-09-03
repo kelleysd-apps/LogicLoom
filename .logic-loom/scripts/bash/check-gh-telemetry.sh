@@ -152,8 +152,11 @@ print_enabled_notice() {
   printf '%s\n' "   for you — gh's config is yours, and the harness writes nothing outside"
   printf '%s\n' "   this repository. To opt out, run this yourself:"
   printf '%b\n' "     ${C_GREEN}gh config set telemetry disabled${C_NC}"
+  printf '%s\n' "   Or, if you prefer an environment variable to a config change:"
+  printf '%b\n' "     ${C_GREEN}export GH_TELEMETRY=0${C_NC}   (DO_NOT_TRACK=1 also works)"
   printf '%s\n' "   (Telemetry sends anonymous gh command-usage data to GitHub. The setting"
-  printf '%s\n' "   lives in your gh config, not in this repository.)"
+  printf '%s\n' "   lives in your gh config, not in this repository. Note gh EXTENSION"
+  printf '%s\n' "   telemetry is per-extension and is not covered by either opt-out.)"
 }
 
 case "$STATUS" in

@@ -1,5 +1,10 @@
 # Contributing to LogicLoom Plugins
 
+This guide is for people working inside a checkout of the LogicLoom repository
+itself. Every `tests/contract/...` command below assumes that checkout — `tests/`
+is deliberately not installed into a project that has adopted LogicLoom (it
+tests the harness's own internals), so these commands only work here.
+
 ## Naming
 
 New plugins use the `loom-` prefix (e.g. `loom-analytics`,
@@ -96,8 +101,9 @@ Two separate facts, previously conflated. Stated plainly:
    step anywhere. Until now this was simply undocumented, not decided.
 
 `VISION.md` Thread #8 proposes adding a `marketplace.json`. That thread is
-**unresolved** and is contradicted by the plugin-externalization proposal in
-`.docs/reports/backlog-2026-08-13.md` §8.1 — do not build against it yet.
+**unresolved** and is contradicted by a plugin-externalization proposal
+recorded in the LogicLoom project's own internal history — do not build
+against it yet.
 
 See [`plugins/MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) § *The absent plugin
 registry index*.

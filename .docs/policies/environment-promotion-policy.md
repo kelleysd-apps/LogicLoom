@@ -668,7 +668,7 @@ templates:
 | `.logic-loom/scripts/bash/scaffold-environments.sh` | Plan / apply. `--plan` writes nothing; `--apply` requires `--only=…`. |
 | `.logic-loom/templates/environment-promotion/` | The five things it can write, as templates. |
 | `plugins/loom-maintenance/commands/scaffold-environments.md` + `skills/environment-scaffolding/` | The command and its skill. |
-| `tests/contract/test_environment_scaffolding.sh` | The contract, including the boundary below. |
+| `tests/contract/test_environment_scaffolding.sh` | The contract, including the boundary below. Lives only in the LogicLoom repo — `tests/` is not part of the npm payload installed into an adopting project. |
 
 ### What it writes into a project, all opt-in, all named before writing
 
@@ -768,7 +768,7 @@ one template, and one contract suite:
 | `.logic-loom/scripts/bash/promote-gate.sh` | The gate all three run: reads the declaration, enforces order, checks the rehearsal contract, confirms. |
 | `.logic-loom/scripts/bash/promotion-record.sh` | Appends one outcome to the promotion ledger. The only thing these commands write. |
 | `.logic-loom/templates/environment-promotion/rehearsal-attestation.conf.tmpl` | The attestation contract the product's rehearsal seam fills in. |
-| `tests/contract/test_promotion_lifecycle.sh` | The contract, including the boundary below. |
+| `tests/contract/test_promotion_lifecycle.sh` | The contract, including the boundary below. Lives only in the LogicLoom repo — `tests/` is not part of the npm payload installed into an adopting project. |
 
 They are **guidance a project adopts and then changes** — which is why every
 strength on the ladder is read from `environments.conf` rather than written into
