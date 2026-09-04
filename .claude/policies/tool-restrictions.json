@@ -3,7 +3,6 @@
   "description": "Tool restriction policies for Claude Code operations",
   "last_updated": "2026-01-09",
   "constitutional_basis": "Principle VI (Git Approval), Principle XI (Input Validation)",
-
   "policies": {
     "dangerous_commands": {
       "description": "Commands that will crash VS Code Remote or cause data loss",
@@ -78,49 +77,11 @@
         }
       ]
     },
-
     "git_operations": {
       "description": "Git operations requiring user approval (Constitutional Principle VI)",
       "action": "require_approval",
-      "patterns": [
-        {
-          "pattern": "git.*push.*--force",
-          "reason": "Force push can overwrite remote history — requires explicit user approval (covers --force and --force-with-lease). Previously a hard block, which left the user no approval path: if the user asks for it, the hook must gate it, not refuse it.",
-          "approval_function": "request_git_approval"
-        },
-        {
-          "pattern": "git.*checkout.*-b",
-          "reason": "Branch creation requires approval",
-          "approval_function": "request_git_approval"
-        },
-        {
-          "pattern": "git.*commit",
-          "reason": "Commits require approval",
-          "approval_function": "request_git_approval_enhanced"
-        },
-        {
-          "pattern": "git.*push",
-          "reason": "Push operations require approval",
-          "approval_function": "request_git_approval"
-        },
-        {
-          "pattern": "git.*merge",
-          "reason": "Merge operations require approval",
-          "approval_function": "request_git_approval"
-        },
-        {
-          "pattern": "git.*rebase",
-          "reason": "Rebase operations require approval",
-          "approval_function": "request_git_approval"
-        },
-        {
-          "pattern": "git.*branch.*-D",
-          "reason": "Branch deletion requires approval",
-          "approval_function": "request_git_approval"
-        }
-      ]
+      "patterns": []
     },
-
     "file_operations": {
       "description": "File operations with safety checks",
       "action": "warn",
@@ -151,7 +112,6 @@
         }
       ]
     },
-
     "network_operations": {
       "description": "Network operations that may expose data",
       "action": "warn",
@@ -174,7 +134,6 @@
         }
       ]
     },
-
     "privileged_operations": {
       "description": "Operations requiring elevated privileges",
       "action": "warn",
@@ -200,7 +159,6 @@
       ]
     }
   },
-
   "metadata": {
     "total_policies": 5,
     "total_patterns": 24,

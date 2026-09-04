@@ -42,7 +42,7 @@ enforced-vs-followed honesty the framework applies to governance generally (see
 
 | Guarantee | Mechanism |
 |---|---|
-| No autonomous git mutation by the main agent — every `commit`/`push`/`merge`/`rebase`/branch create or delete raises an approval prompt | `plugins/loom-governance/hooks/scripts/git-safety-gate.sh` (Principle VI) |
+| No autonomous IRREVERSIBLE git by the main agent — `push`, history rewriting, `merge`, `rebase`, `reset`, and branch create/delete raise an approval prompt. `commit`, `add` and `checkout` are deliberately SILENT (cheap to undo; approval is taken at `/git-push`). The per-operation verdicts live in `.logic-loom/config/gate-policy.conf`, which is the arbiter — this row describes it, it does not define it | `plugins/loom-governance/hooks/scripts/git-safety-gate.sh` (Principle VI) |
 | No MUTATING git from a subagent (an allowlisted read-only subset — `status`, `log`, `diff`, … — is permitted; `gh` is categorically denied) | `plugins/loom-governance/hooks/scripts/subagent-git-guard.sh` (Principle VI) |
 
 Both scripts live under the governance plugin but load only because

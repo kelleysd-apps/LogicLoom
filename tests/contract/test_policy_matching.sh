@@ -128,11 +128,16 @@ expect_ec 2 "cd /tmp && $RM_ROOT" "cd /tmp && rm -rf /"
 expect_ec 2 "$RM_GLOB" "rm -rf /*"
 expect_ec 2 "pkill -f node" "pkill -f node"
 expect_ec 2 "chmod -R 777 /etc" "chmod -R 777 /etc"
-# Force push is deliberately NOT in group A. It moved out of `dangerous_commands`
-# (hard block, ec=2) into `git_operations` (require_approval, ec=3): a hard deny
-# left the user no approval path at all, which contradicts "if the user asks, the
-# hook should not stop the ask". It is still gated — see group F.
-expect_ec 3 "git push --force origin main" "git push --force origin main (approval-gated, not blocked)"
+# Force push is deliberately NOT in group A, and as of 2026-09-03 it is not in this
+# policy at all. Git decisions moved OUT of tool-restrictions.json entirely: they
+# were a second, regex-based implementation of a question the verdict library
+# already answers by tokenizing and classifying the subcommand. A regex cannot tell
+# an execution from the same word appearing as DATA, so a read-only ancestry query
+# and a log piped into grep both prompted.
+# Force push is STILL gated — by git-safety-gate.sh via gate-policy.conf, where
+# `git.push` is a FLOOR entry that cannot be set silent. That behaviour is asserted
+# in tests/contract/test_governance_hooks.sh, which is the right layer for it.
+expect_ec 0 "git push --force origin main" "git push --force: policy defers to git-safety-gate (ec=0 here, ask there)"
 
 echo ""
 
@@ -145,10 +150,10 @@ expect_ec 0 "gh pr create --body \"docs mention $RM_ROOT here\"" \
   'gh pr create --body "docs mention rm -rf / here"'
 expect_ec 0 "gh pr create --body \"line ends with $RM_ROOT\"" \
   'gh pr create --body "line ends with rm -rf /"'
-expect_ec 3 "git commit -m \"fix: stop matching $RM_ROOT in prose\"" \
-  'git commit -m "fix: stop matching rm -rf / in prose" (not blocked, approval-gated)'
-expect_ec 3 "git commit -m \"note about git push --force in docs\"" \
-  'git commit -m "note about git push --force in docs" (not blocked, approval-gated)'
+expect_ec 0 "git commit -m \"fix: stop matching $RM_ROOT in prose\"" \
+  'git commit -m "fix: stop matching rm -rf / in prose" (prose, not an execution)'
+expect_ec 0 "git commit -m \"note about git push --force in docs\"" \
+  'git commit -m "note about git push --force in docs" (prose, not an execution)'
 expect_ec 0 "jq -r '.x' file.json" "jq -r '.x' file.json"
 expect_ec 0 "gh pr create --body=\"text $RM_ROOT here\"" \
   'gh pr create --body="text rm -rf / here" (equals form)'
@@ -212,15 +217,27 @@ expect_ec 0 "rm $RF ./build/" "rm -rf ./build/  (ordinary relative path)"
 echo ""
 
 # ==========================================================================
-# GROUP F - force push is approval-gated (ec=3), never a silent allow, and
-# never an unappealable block. The rest of dangerous_commands is untouched.
+# GROUP F - this policy no longer decides ANY git question. It defers to
+# git-safety-gate.sh + subagent-git-guard.sh, which tokenize the command and
+# classify the subcommand instead of regex-matching the whole line.
+#
+# These assert ec=0 HERE. That is not lost coverage: the same commands are asserted
+# to gate in tests/contract/test_governance_hooks.sh, at the layer that owns the
+# decision. Asserting them in BOTH places is what let the duplicate implementation
+# survive as long as it did.
 # ==========================================================================
-echo "--- Group F: force push reclassified block -> require_approval ---"
+echo "--- Group F: git decisions delegated to the git hooks ---"
 
 FORCE="--$(printf 'force')"
-expect_ec 3 "git push $FORCE origin main" "git push --force origin main"
-expect_ec 3 "git push $FORCE-with-lease origin main" "git push --force-with-lease origin main"
-expect_ec 3 "git push origin main" "git push origin main (plain push still gated)"
+expect_ec 0 "git push $FORCE origin main" "git push --force: delegated to git-safety-gate"
+expect_ec 0 "git push $FORCE-with-lease origin main" "git push --force-with-lease: delegated"
+expect_ec 0 "git push origin main" "git push: delegated to git-safety-gate (FLOOR: ask)"
+
+# The one git-shaped rule KEPT here, because it is STRICTER than the git layer
+# (deny vs ask) and targets a single catastrophic form. Built from pieces so this
+# test file does not trip the very rule it is asserting.
+HARD="--$(printf 'hard')"
+expect_ec 2 "git reset $HARD origin/main" "reset to origin/main still hard-blocked here"
 
 echo ""
 echo "======================================="
