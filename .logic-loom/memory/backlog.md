@@ -976,6 +976,88 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       carried forward as LOOM-0058, not silently dropped. Recorded as residual #7
       in `.docs/architecture/governance-threat-model.md`.
 
+- [ ] LOOM-0067 — `constitution.md` states two enforcement facts that the shipped hooks contradict `status:open`
+      Filed 2026-09-04 from the codex cross-check; VERIFIED here. This is the
+      single best find of that round and NEITHER the 17-agent audit nor my own
+      re-verification surfaced it.
+      `.logic-loom/memory/constitution.md:161` states `subagent-git-guard.sh`
+      "denies ALL git from subagents", and that `git-safety-gate.sh` makes "git
+      mutations force an approval prompt". Both are false against shipped
+      behaviour: a subagent gets an allowlisted read-only subset (probed: `git
+      status` returns allow for a subagent), and a main-agent `git commit`
+      returns allow because `gate-policy.conf` sets `git.commit = silent`.
+      Severity is raised by WHICH document it is. CLAUDE.md and AGENTS.md are
+      already correct on both points; the constitution — the normative one, the
+      one the harness tells every agent to read first — is the stale copy. That
+      inverts the intended authority order.
+      BROADER THAN FIRST FILED (Antigravity cross-check, verified): it is not one
+      line. `constitution.md:109-110` states "CRITICAL: NO autonomous Git
+      operations / ALL git commands require explicit user approval", and
+      `CLAUDE.md:845` states `git-safety-gate.sh` "forces approval on git
+      mutations". Both are live and both are false for commit/add/checkout.
+      THIS ALSO CORRECTS ME. Earlier that day I disproved the audit's
+      CLAUDE.md-contradiction finding and attributed it wholly to a stale
+      worktree. I was right about `CLAUDE.md:100` — which is correct and says
+      the opposite — but wrong to dismiss the underlying claim. The claim has a
+      LIVE basis in the two sites above. Both external reviewers pushed back on
+      that dismissal independently; they were right and my retraction
+      over-reached.
+      Fix: correct both bullets, and add a contract test pinning the
+      constitution's enforcement claims to the verdict library's actual verdicts
+      so the two cannot drift again.
+
+- [ ] LOOM-0068 — The payload manifest's header says nothing reads it; the installer reads it `status:open`
+      Filed 2026-09-04. Found because an external reviewer BELIEVED the header
+      and used it to argue a real finding away.
+      `packaging/adopt/payload-manifest.txt:2` calls itself "(PROPOSAL, not a
+      settled decision)" and `:10-12` states "Nothing reads it yet — the
+      installer is not written. tests/contract/test_adopt_payload_manifest.sh is
+      the only current consumer."
+      Both sentences are now false. `packaging/adopt/lib/fsops.js:119` reports
+      paths "excluded by payload-manifest.txt", `packaging/adopt/bin/logicloom.js:96`
+      exposes `--manifest <file>` defaulting to it, and running the planner
+      produces a plan derived from it.
+      Impact is not cosmetic: the file is the arbiter of what every adopter
+      receives, and its header tells a reader it is inert. It caused a cross-check
+      to attempt to strike a valid finding (LOOM-0060). Same defect class as #81 —
+      a shipped document asserting something untrue about the code — except here
+      the document is describing itself.
+      Fix: rewrite the header to state that the installer consumes it and that
+      editing it changes what adopters receive.
+
+- [ ] LOOM-0070 — The governance contract test has ZERO verb-based Bash assertions, which is why every bypass went unnoticed `status:open`
+      Filed 2026-09-04 from the Antigravity cross-check; VERIFIED. This is the
+      root cause behind LOOM-0059 and LOOM-0069, and it should be fixed first.
+      `tests/contract/test_governance_hooks.sh` has exactly one Bash-mutation
+      assertion for the governance surface: `echo x > .claude/settings.json` — a
+      REDIRECT. A grep for verb-based mutation assertions (`rm`/`mv`/`cp`/`tee`/
+      `install`/`ln` as the command word) returns 0.
+      So the suite pins the one mechanism the implementation happens to use, and
+      asserts nothing about the CLASS "a subagent must not modify a governance
+      file by any means". Every bypass found this week — cp, ln, patch, rsync,
+      `cd` then rm, `bash -c`, `./` — sits in the space that test does not touch,
+      and all of them passed CI green.
+      Fix before either code fix: a table-driven test over verbs x path
+      spellings x agent kind, so a new evasion class fails CI rather than waiting
+      for an external reviewer to notice.
+
+- [ ] LOOM-0071 — Consider replacing shell-parsing in the governance guard with path-based enforcement `status:open`
+      Filed 2026-09-04. Both external reviewers converged on this independently,
+      which is the reason to record it rather than keep patching.
+      Codex: collapse the individual findings into one machine-readable
+      governance contract that hooks, policy config, payload and docs are all
+      tested against.
+      Antigravity: "replace heuristic Bash-verb parsing in
+      protect-governance-files.sh with path-based/OS-sandbox constraints instead
+      of parsing shell syntax."
+      The evidence for it is this week's pattern: LOOM-0044 and LOOM-0058 already
+      concluded the git tokenizer cannot be made correct by adding cases, and
+      LOOM-0059/0069 show the same for the governance guard. Every fix so far has
+      been another case in a list, and each list has been beaten within days.
+      NOT a decision to take casually — it is a rewrite of the floor, and the
+      floor currently works for the cases it knows. Recording the convergence and
+      the argument; the call is the maintainer's.
+
 - [ ] LOOM-0061 — The dangerous-command guard fails OPEN with a bare `allow` that is indistinguishable from a healthy one `status:open`
       Filed 2026-09-04, verified by reading the shipped code rather than probing
       (the probe would have required moving a live governance library).
@@ -1022,12 +1104,19 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       `worktree-upstream-contribution-review`) is gitignored, so it never appears
       in `git status`, but it is fully present on disk where every `grep -r`,
       `find` and agent read reaches it. It holds an OLDER copy of the whole repo.
-      It produced three false findings in one session: nine live git policy
-      patterns (live file has two), a CLAUDE.md that claims every commit prompts
-      (live line 100 says the opposite and is correct), and a matching stale
-      branching-strategy-policy. The Fable workflow's §3.4 asserts that same
-      CLAUDE.md contradiction, so its 17 agents were reading it too — which puts
-      an unknown share of that audit in doubt.
+      It produced false readings for me three times in one session: nine live git
+      policy patterns (the live file has two), a CLAUDE.md claiming every commit
+      prompts (live line 100 says the opposite), and a matching stale
+      branching-strategy-policy.
+      CAUSATION IS UNPROVEN, and both external reviewers said so independently.
+      That the workflow's §3.4 matches the worktree's stale text is consistent
+      with contamination but does not establish it — the agents' executed
+      commands were not captured, so the path they read is not in evidence. The
+      claim here is therefore: this worktree demonstrably corrupts repo-wide
+      reads, and it is a plausible but unproven explanation for that specific
+      audit finding. Do not cite it as the settled cause.
+      Separately, and this is what makes it worth an item at all: the audit's
+      underlying claim turned out to have a LIVE basis anyway — see LOOM-0067.
       Options: move it outside the repo, or teach the audit paths to exclude it.
       It holds an unpushed branch with real work, so it is a maintainer decision,
       not a cleanup. Until then, every repo-wide audit must exclude that path
@@ -1053,10 +1142,17 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       `"patterns": []`. `policy.sh:145` DOES iterate the section, so the wiring
       is fine; there is simply nothing in it.
       Consequence: `validate_tool_call` returns "allowed" for `git commit`,
-      `git merge` and `git push --force`. That is harmless today because
-      `git-safety-gate.sh` gates those per `gate-policy.conf` — but the file
-      states a guarantee it does not provide, which is the exact defect class the
-      shipped-path gate was built for.
+      `git merge` and `git push --force`.
+      RATIONALE CORRECTED (Antigravity cross-check). I first wrote that this is
+      "harmless because git-safety-gate.sh gates those". That is wrong for
+      `git commit` specifically: `gate-policy.conf` sets `git.commit = silent`,
+      so nothing prompts for it — by design. The accurate framing is the
+      reviewer's: this is a DEAD STUB, not a missing safety guarantee. `push`,
+      `merge` and `rebase` are genuinely covered by git-safety-gate; `commit` is
+      deliberately silent; the empty section removes nothing.
+      What survives is narrower and still real: the section's `description` and
+      `action: require_approval` assert an enforcement that does not exist, which
+      is the shipped-path defect class. LOW priority — reword or delete.
       Fix: delete the section, or add a comment stating that git approval is
       owned by `git-safety-gate.sh` and this section is intentionally empty.
       Also note this file is NOT on the protected-path list — a subagent may edit

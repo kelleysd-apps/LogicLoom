@@ -437,6 +437,13 @@ item is done, and say so here.
       `cat >` are caught. But a subagent running `cp`, `ln -sf`, `patch` or
       `rsync` onto a governance hook returns **allow**. Probed all seven verbs;
       four bypass.
+      SCOPE IS WIDER THAN FIRST RECORDED (found on a self-adversarial pass,
+      2026-09-04): the bypass is not limited to hook scripts. `cp` returns ALLOW
+      onto every protected surface — `.claude/settings.json`,
+      `.logic-loom/memory/constitution.md`, `.logic-loom/config/governance.conf`,
+      and `.logic-loom/lib/governance-verdicts.sh`. Overwriting settings.json is
+      the worst case: it is the single file that wires all ten hooks, so one
+      allowed `cp` disables the entire floor rather than one guard.
       This narrows the one guarantee adopters are told is hard: "the model can't
       silently rewrite its own rules". The threat model states the Bash path is
       covered; it is covered for a list, not for the class.
@@ -445,8 +452,17 @@ item is done, and say so here.
       it misses. `python3 -c "open(path,'w')"` also returns allow — that is the
       already-documented interpreter-indirection residual (#1), not new, and it
       is the reason the doc fix matters even after the code fix.
-      Contract test required: assert each added verb denies for a subagent, and
-      assert a main-agent write still only asks.
+      AGGRAVATOR (codex cross-check 2026-09-04, verified here): the bypass is not
+      a one-shot overwrite, it is PERSISTENT. `rel_of()` canonicalizes with
+      realpath before matching protected prefixes, so once `ln -sf` has pointed a
+      governance path at a file outside the repo, every SUBSEQUENT Write/Edit to
+      that path canonicalizes outside `$REPO_ROOT` and returns allow. Verified the
+      second half directly: a Write to `/tmp/decoy.sh` or to a `..`-escaping path
+      returns allow while the three real governance paths correctly deny. The two
+      halves were not chained live — that would mean symlinking a live hook.
+      Contract test required: assert each added verb denies for a subagent, assert
+      a main-agent write still only asks, and assert that a symlinked governance
+      path does NOT become writable.
 
 - [ ] LOOM-0060 — `mode = strict` is committed on dev-main and will ship to every adopter on the next release `status:open`
       Filed 2026-09-04. VERIFIED with `git show`: `dev-main` carries
@@ -459,10 +475,39 @@ item is done, and say so here.
       recitation on every prompt — correct for a weaker model, wrong as a
       shipped default for flagship users, and it contradicts every doc that
       names lean as the default.
+      CHALLENGED AND UPHELD. The codex cross-check moved to strike this item,
+      arguing `payload-manifest.txt` is "a PROPOSAL with no installer reading it"
+      — quoting the file's own header at :2 and :10-12, which says "Nothing reads
+      it yet — the installer is not written."
+      That header is STALE and the strike fails: the installer exists and reads
+      the manifest. `packaging/adopt/lib/fsops.js:119` emits "excluded by
+      payload-manifest.txt", `bin/logicloom.js:96` exposes `--manifest` defaulting
+      to it, and the planner was run against it directly today. Codex trusted a
+      comment over the code — the same failure the shipped-path gate exists for.
       Decision needed before the next release: flip back to lean, or make strict
       the documented default. Recommended: flip back AND add a release-time
       assertion that the shipped mode is lean, which closes the leak regardless
       of what is set locally.
+
+- [ ] LOOM-0069 — The Bash branch matches protected paths as RAW SUBSTRINGS, so `cd`, `bash -c` and `./` all evade it `status:open`
+      Filed 2026-09-04 from the Antigravity cross-check; VERIFIED here by live
+      probe. This is SIMPLER and therefore worse than LOOM-0059: it needs no
+      unusual verb at all, just `rm` and a trivial path spelling.
+      The Write/Edit branch canonicalizes with realpath (`rel_of`). The Bash
+      branch does not — it substring-matches the raw command against protected
+      tokens. Probed:
+        rm .claude/settings.json              -> deny   (control)
+        cd .claude && rm settings.json        -> ALLOW
+        bash -c "rm .claude/settings.json"    -> ALLOW
+        rm .claude/./settings.json            -> ALLOW
+        rm .claude/hooks/../settings.json     -> deny   (this one IS caught)
+      Three of four evade. `cd` splits the path off the mutating segment;
+      `bash -c` puts the command word `bash` in front, which is not a mutator;
+      `./` defeats the literal token compare.
+      This cannot be fixed by adding verbs or spellings — that is the same
+      whack-a-mole LOOM-0058 already rejected for the git tokenizer. The Bash
+      branch needs to resolve candidate paths the way `rel_of` already does for
+      Write/Edit, or the guard has to stop trying to parse shell.
 
 - [ ] LOOM-0004 — Archive `kelleysd-apps/sdd-plugins-marketplace` `status:blocked` `blocked_on:external:maintainer archiving that repository (outside this repo)`
       Separate repository, **maintainer action** — not something this branch or
