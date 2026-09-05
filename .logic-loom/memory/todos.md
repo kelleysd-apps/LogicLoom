@@ -429,6 +429,41 @@ item is done, and say so here.
 
 ### Release, distribution and externalization
 
+- [ ] LOOM-0059 — Governance-file Bash guard misses `cp`, `ln`, `patch`, `rsync`, so a subagent can overwrite a hook `status:open`
+      Filed 2026-09-04 from the Fable vision-vs-reality workflow, then VERIFIED
+      here by live probe against the live tree (not the stale worktree).
+      `protect-governance-files.sh` recognises a fixed mutator list —
+      `tee|truncate|chmod|chown|install|rm|mv` plus `dd of=` — and `sed -i` and
+      `cat >` are caught. But a subagent running `cp`, `ln -sf`, `patch` or
+      `rsync` onto a governance hook returns **allow**. Probed all seven verbs;
+      four bypass.
+      This narrows the one guarantee adopters are told is hard: "the model can't
+      silently rewrite its own rules". The threat model states the Bash path is
+      covered; it is covered for a list, not for the class.
+      Two parts, and the second is not optional: extend the mutator list AND
+      correct the threat model to say the coverage is a fixed list, naming what
+      it misses. `python3 -c "open(path,'w')"` also returns allow — that is the
+      already-documented interpreter-indirection residual (#1), not new, and it
+      is the reason the doc fix matters even after the code fix.
+      Contract test required: assert each added verb denies for a subagent, and
+      assert a main-agent write still only asks.
+
+- [ ] LOOM-0060 — `mode = strict` is committed on dev-main and will ship to every adopter on the next release `status:open`
+      Filed 2026-09-04. VERIFIED with `git show`: `dev-main` carries
+      `mode = strict` (set 2026-09-01 to close a maintainer compliance gap, not
+      because a weaker model needed the assist), while `origin/main` and tag
+      `v6.6.2` both carry `mode = lean`. So no adopter has it yet.
+      The leak is latent, not present: `payload-manifest.txt:108` ships
+      `.logic-loom` wholesale and no release step resets the mode, so the next
+      `/promote` ships strict to everyone. Strict re-injects the 5-step
+      recitation on every prompt — correct for a weaker model, wrong as a
+      shipped default for flagship users, and it contradicts every doc that
+      names lean as the default.
+      Decision needed before the next release: flip back to lean, or make strict
+      the documented default. Recommended: flip back AND add a release-time
+      assertion that the shipped mode is lean, which closes the leak regardless
+      of what is set locally.
+
 - [ ] LOOM-0004 — Archive `kelleysd-apps/sdd-plugins-marketplace` `status:blocked` `blocked_on:external:maintainer archiving that repository (outside this repo)`
       Separate repository, **maintainer action** — not something this branch or
       any in-repo change can do. Private, not archived, last pushed 2026-02-06,

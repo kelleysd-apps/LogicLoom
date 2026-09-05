@@ -976,6 +976,92 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       carried forward as LOOM-0058, not silently dropped. Recorded as residual #7
       in `.docs/architecture/governance-threat-model.md`.
 
+- [ ] LOOM-0061 — The dangerous-command guard fails OPEN with a bare `allow` that is indistinguishable from a healthy one `status:open`
+      Filed 2026-09-04, verified by reading the shipped code rather than probing
+      (the probe would have required moving a live governance library).
+      `guard-dangerous-commands.sh:27-30` defines `fail_open()`, which emits a
+      decision carrying NO `permissionDecisionReason` — byte-identical to a
+      normal allow. It is reached on three paths at `:55-62`: the policy library
+      missing, `source` failing, and `validate_tool_call` undefined.
+      The same file is internally inconsistent about this: its jq-missing path
+      emits `ask` WITH a stated reason. So one degradation is loud and fails
+      safe, three are silent and fail open, in one script.
+      Cheap fix: give the three fail-open paths a reason string so a degraded
+      allow is distinguishable in the transcript. Whether they should instead
+      fail to `ask` is a separate, larger call — a dangerous-command guard that
+      cannot evaluate arguably should not authorize, but that risks the same
+      lockout tradeoff adjudicated in LOOM-0044/0058.
+
+- [ ] LOOM-0062 — Delete `.logic-loom/lib/parallel.sh`; it contradicts a stated invariant and nothing calls it `status:open`
+      Filed 2026-09-04, verified. 345 lines implementing a background-process
+      manager with a shared state directory, while CLAUDE.md Pillar 2 states
+      there is "no process manager, no shared swarm-state file". The repo's own
+      memory flagged it in June.
+      Confirmed dead: nothing sources or executes it anywhere in the tree. The
+      three surviving references are prose — a `/graph query` example in
+      `commands/graph.md:61` and two graph-bridge entity samples in
+      `project-graph/SKILL.md:57-58`. Those example strings need updating with
+      the deletion, or the graph freshness gate will cite a path that is gone.
+
+- [ ] LOOM-0063 — Memory retrieval never searches `.brain/wiki/`, so distilled decisions are unreachable `status:open`
+      Filed 2026-09-04, verified: zero references to `brain/wiki` in either
+      backend (`plugins/loom-memory/lib/keyword-backend.sh`,
+      `plugins/loom-memory/lib/bm25-search.sh`).
+      `/distill` promotes captures into cited `.brain/wiki/` pages, and nothing
+      on the automatic retrieval path ever reads them — the distillation pass
+      writes to a shelf no query touches. The workflow also reports that scores
+      saturate at 1.0 so `.docs/` hits fill every slot, and that the keyword path
+      depends on GNU `timeout`, which stock macOS does not ship (silent empty
+      result); both are plausible and were NOT independently verified here.
+      Fix is a direction, not a one-liner: add `.brain/wiki/` to the searched set
+      in both backends and break score ties by recency.
+
+- [ ] LOOM-0064 — A stale 1,180-file git worktree inside `.claude/` silently contaminates every grep-based audit `status:open`
+      Filed 2026-09-04. NOT a workflow finding — found while disproving one.
+      `.claude/worktrees/upstream-contribution-review` (commit `9b07d9d`, branch
+      `worktree-upstream-contribution-review`) is gitignored, so it never appears
+      in `git status`, but it is fully present on disk where every `grep -r`,
+      `find` and agent read reaches it. It holds an OLDER copy of the whole repo.
+      It produced three false findings in one session: nine live git policy
+      patterns (live file has two), a CLAUDE.md that claims every commit prompts
+      (live line 100 says the opposite and is correct), and a matching stale
+      branching-strategy-policy. The Fable workflow's §3.4 asserts that same
+      CLAUDE.md contradiction, so its 17 agents were reading it too — which puts
+      an unknown share of that audit in doubt.
+      Options: move it outside the repo, or teach the audit paths to exclude it.
+      It holds an unpushed branch with real work, so it is a maintainer decision,
+      not a cleanup. Until then, every repo-wide audit must exclude that path
+      explicitly and say so.
+
+- [ ] LOOM-0065 — `VISION.md` header is two minor versions stale `status:open`
+      Filed 2026-09-04, verified: `VISION.md:18-19` states framework state
+      v6.4.1 / last updated 2026-08-24, against `package.json` 6.6.2 and roughly
+      forty commits since. The workflow also reports Threads #2 and #5 listed as
+      open but actually closed, and the whole npm distribution track
+      (`npx logicloom init`, `publish-adopt.yml`, ~15 commits) absent from Recent
+      Shifts — plausible, spot-checked only.
+      The document sets its own maintenance contract at `VISION.md:511-512`, so
+      this is a contract it is breaking rather than mere drift. Either bring it
+      current, or declare explicitly that the backlog is the live list and VISION
+      records direction only.
+
+- [ ] LOOM-0066 — `git_operations` is a dead policy section that reads as governance `status:open`
+      Filed 2026-09-04, verified. `.claude/policies/tool-restrictions.json`
+      declares a `git_operations` section with
+      `"description": "Git operations requiring user approval (Constitutional
+      Principle VI)"` and `"action": "require_approval"` — and
+      `"patterns": []`. `policy.sh:145` DOES iterate the section, so the wiring
+      is fine; there is simply nothing in it.
+      Consequence: `validate_tool_call` returns "allowed" for `git commit`,
+      `git merge` and `git push --force`. That is harmless today because
+      `git-safety-gate.sh` gates those per `gate-policy.conf` — but the file
+      states a guarantee it does not provide, which is the exact defect class the
+      shipped-path gate was built for.
+      Fix: delete the section, or add a comment stating that git approval is
+      owned by `git-safety-gate.sh` and this section is intentionally empty.
+      Also note this file is NOT on the protected-path list — a subagent may edit
+      the policy that drives the dangerous-command guard. Worth its own decision.
+
 - [ ] LOOM-0058 — Stop making security decisions from the grep rung; treat "no structured parser" as hook health `status:open`
       Filed 2026-09-02 from the external adversarial review of LOOM-0044 (Codex,
       read-only sandbox). Its strongest finding: patching only the EMPTY
