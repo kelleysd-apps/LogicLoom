@@ -37,7 +37,7 @@ no new clone-time dependency. Fail-open: if the script is absent, say so and sto
 Answer a cross-half question by walking `graph-bridge.jsonl` with `jq` (1-2 hops):
 "what covers `<path>`", "what does `<note>` cover", "blast radius / what mentions
 `<path>`", "neighbors of `<note>`". If a code-graph MCP (Codegraph,
-`@optave/ops-codegraph-tool`) is registered in the **product workspace**
+`@optave/codegraph`) is registered in the **product workspace**
 `.mcp.json`, escalate code questions to it; otherwise answer text-only from the
 bridge + `rg`. Always degrade gracefully — an agent must always get an answer.
 

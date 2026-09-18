@@ -454,7 +454,16 @@ Promote both together when the exploration is done.
 
 ### Release, distribution and externalization
 
-- [ ] LOOM-0005 — Decide the plugin-externalization direction `status:blocked` `blocked_on:LOOM-0010`
+- [ ] LOOM-0005 — Decide the plugin-externalization direction `status:open`
+      **Unblocked 2026-09-17.** LOOM-0010 resolved: VISION Thread #8's
+      marketplace.json side (this repo becoming its own marketplace) is
+      withdrawn — the code already chose externalize (no in-repo marketplace;
+      defer to Anthropic's Claude Code Plugin Marketplace + Docker MCP Toolkit,
+      per `CLAUDE.md`). That settles the *discovery-mechanism* question, but
+      this item is a narrower, still-open decision: whether LogicLoom's own
+      eight in-repo plugins should themselves be externalized to third-party
+      sources. Not moot — the constraints below are unchanged and the decision
+      has not been made.
       A **decision, not an implementation** (backlog §8.1). The in-repo residue is
       already cleared; what remains is the direction itself. Constraints, restated
       because they govern the decision:
@@ -471,9 +480,10 @@ Promote both together when the exploration is done.
         dependency** — which a harness-agnostic third-party plugin cannot do.
         Externalization therefore needs a **constitutional amendment**, not just
         tooling.
-      - **VISION Thread #8 points the opposite way** (make this repo its own
-        marketplace via `marketplace.json`). One direction must be withdrawn
-        before either is designed — hence the block on LOOM-0010.
+      - **VISION Thread #8 pointed the opposite way** (make this repo its own
+        marketplace via `marketplace.json`). One direction had to be withdrawn
+        before either could be designed — hence the former block on LOOM-0010,
+        now resolved (Thread #8 withdrawn 2026-09-17).
       *(constitutional)*
 
 - [ ] LOOM-0006 — Resolve the `/promote <env>` name collision `status:open`
@@ -1081,6 +1091,51 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       NOT a decision to take casually — it is a rewrite of the floor, and the
       floor currently works for the cases it knows. Recording the convergence and
       the argument; the call is the maintainer's.
+      **2026-09-17:** Function hooks / Mods (LOOM-0074) were evaluated as a
+      possible mechanism for this and do NOT close it — see LOOM-0074 for why.
+      The host's built-in Bash sandbox is now being evaluated as the remaining
+      structural option; a separate research capture on that evaluation will
+      land in `.brain/raw/research/`.
+      **2026-09-17 (research capture):** verdict is to adopt Claude Code's
+      built-in Bash sandbox (Seatbelt/bubblewrap) as a SECOND structural layer
+      UNDER the existing string-parsing hook, not as its replacement. Why: it
+      closes the residual-#8 Bash-indirection bypasses (`eval`, `$VAR`
+      expansion, `xargs`, `find -delete`, interpreter indirection, etc.) by
+      OS-level enforcement on the mutating syscall itself, regardless of how the
+      command string is spelled. Limits, stated plainly: it is Bash-only, so
+      `Edit`/`Write` tool calls still need the existing hook; it cannot express
+      the subagent-deny/main-agent-ask asymmetry the current hook provides; and
+      a project-shipped sandbox block in `.claude/settings.json` is a DEFAULT a
+      developer's own `settings.local.json` can override, not an enforced
+      floor. Next step: a spike branch with a contract test that asserts file
+      BYTES/inode state after each bypass attempt, not exit codes — the capture
+      found `find -delete` returns exit 0 even when the delete was actually
+      denied by the sandbox, so exit-code-only assertions would be a false
+      negative. Both Codex and Antigravity (external CLI reviewers) were
+      consulted as part of this research and their findings are recorded in the
+      capture. Full detail: `.brain/raw/research/2026-09-17-loom-0071-bash-sandbox.md`.
+
+- [ ] LOOM-0073 — Jev (TypeSafe AI "System One" typed-decision model) as escalation router or finding triager `status:open`
+      Parked 2026-09-17. Rejected as a control-flow router:
+      `.logic-loom/config/models.conf` states external models never make a
+      control-flow decision, and rung/escalation selection is one. The one
+      independent benchmark found (github.com/anisselbd/jev-phishing-bench — a
+      single third-party repo, not peer-reviewed) placed it below Claude Haiku
+      4.5 on both accuracy (62.6% vs 81.3%) and calibration error (0.154 vs
+      0.097). It also cannot triage findings the way `/cross-check` does because
+      it has no file access.
+      Reopen triggers (both required): a self-serve API key exists, AND a
+      published independent calibration result on a non-synthetic task.
+
+- [ ] LOOM-0074 — Function hooks / Mods (anthropics/claude-code#91870) as a governance mechanism `status:open`
+      Parked 2026-09-17. On claude 2.1.252, a plugin-declared hooks module
+      validates green and never executes, while the same plugin's shell hook
+      does. It would also NOT close LOOM-0071: Bash still arrives at the guard
+      as one opaque command string, so `eval`, `$VAR`, `xargs`, and
+      `find -delete` indirection all arrive identical to a hooks module the same
+      way they do to the current shell-parsing guard.
+      Reopen trigger: a hooks module demonstrably executes on an installed
+      version AND the feature appears in the public changelog.
 
 - [ ] LOOM-0061 — The dangerous-command guard fails OPEN with a bare `allow` that is indistinguishable from a healthy one `status:open`
       Filed 2026-09-04, verified by reading the shipped code rather than probing
@@ -1127,7 +1182,13 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       Fix is a direction, not a one-liner: add `.brain/wiki/` to the searched set
       in both backends and break score ties by recency.
 
-- [ ] LOOM-0064 — A stale 1,180-file git worktree inside `.claude/` silently contaminates every grep-based audit `status:open`
+- [x] LOOM-0064 — A stale 1,180-file git worktree inside `.claude/` silently contaminates every grep-based audit `status:done`
+      RESOLVED 2026-09-17. Inventoried before removal: clean (no uncommitted
+      changes), 0 commits not present on dev-main, and its HEAD is a strict
+      ancestor of dev-main. Removed via `git worktree remove`. Its branch
+      `worktree-upstream-contribution-review` was KEPT, not deleted — the
+      unpushed-work concern below is resolved by keeping the branch, not by
+      deleting it.
       Filed 2026-09-04. NOT a workflow finding — found while disproving one.
       `.claude/worktrees/upstream-contribution-review` (commit `9b07d9d`, branch
       `worktree-upstream-contribution-review`) is gitignored, so it never appears

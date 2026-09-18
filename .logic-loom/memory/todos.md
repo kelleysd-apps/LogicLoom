@@ -528,6 +528,9 @@ item is done, and say so here.
       containing the pre-rename `sdd-*` generation including plugins deleted
       months ago. **Zero in-repo references remain** (cleared in `d8716d1`), so
       archiving is now zero-risk. Blocked on maintainer action outside the repo.
+      **2026-09-17:** maintainer approved archiving. Left OPEN/blocked — the
+      orchestrator archives the repo itself afterwards; this item closes once
+      that archive action is confirmed done.
 
 - [x] LOOM-0017 — Add a `stub:` entry for this backlog file to the strip manifest `status:done`
       `.logic-loom/memory/backlog.md` ships as machinery but its **content is
@@ -574,12 +577,15 @@ Direction lives in `VISION.md`; these are the *work* those threads imply.
       `.gitkeep` is shipped, so the directory is created on first use exactly like
       `web/`. Guarded by `tests/contract/test_backlog_dashboard.sh`.
 
-- [ ] LOOM-0010 — Withdraw one side of the contested marketplace direction (VISION #8) `status:open`
-      Thread #8 remains **CONTESTED**: it proposes making this repo its own
-      marketplace via `marketplace.json`, which points the opposite way from the
-      externalization direction in LOOM-0005. Neither can be designed until one is
-      withdrawn. This item is the withdrawal decision itself; LOOM-0005 is blocked
-      on it.
+- [x] LOOM-0010 — Withdraw one side of the contested marketplace direction (VISION #8) `status:done`
+      RESOLVED 2026-09-17. Thread #8 was **CONTESTED**: it proposed making this
+      repo its own marketplace via `marketplace.json`, which pointed the opposite
+      way from the externalization direction in LOOM-0005. Maintainer decision:
+      WITHDRAW the marketplace-in-repo thread — the code already chose
+      externalize (no in-repo marketplace; defer to Anthropic's Claude Code
+      Plugin Marketplace + Docker MCP Toolkit, per `CLAUDE.md`). VISION.md
+      thread #8 marked withdrawn (history kept, not deleted); LOOM-0005 unblocked
+      to reflect the externalize direction standing.
 
 - [x] LOOM-0016 — Audit VISION threads #9–#18 `status:done`
       Threads #1–#8 were audited or resolved during the 2026-08-13 pass (#1 closed,

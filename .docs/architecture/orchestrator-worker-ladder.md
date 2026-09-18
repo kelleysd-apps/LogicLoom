@@ -75,6 +75,39 @@ await parallel(design.tasks.map(t => () =>
   agent(t.prompt, { agentType: 'fast-worker', phase: 'Implement', effort: 'medium' })))
 ```
 
+## Effort follows cost, fan-out follows width
+
+A convention for choosing worker **effort** and **fan-out**, for any project
+that adopts this ladder — generic, not tied to any individual's own config:
+
+- **Cost sets effort; width sets how many workers** — never the other way. A
+  wide, cheap, reversible sweep gets many low-effort workers; a narrow,
+  irreversible change gets one high-effort worker.
+- **Mechanics**: raw Task-spawned subagents only honour *static* frontmatter
+  `effort:` (see `deep-reasoner` = high, `fast-worker` = medium above); a
+  **dynamic** per-dispatch effort needs `/workflow`'s `agent()` call, as shown
+  above.
+- **External CLIs**: when an orchestrator invokes a CLI *directly* as an ad-hoc
+  advisor (the escalation-ladder pattern — e.g. from a personal CLAUDE.md
+  escalation section), pass the matching effort explicitly: Codex via
+  `-c model_reasoning_effort=<level>`, Antigravity via `--effort low|medium|high`.
+  `/cross-check` (the governed, shipped skill) is a **different case**: its
+  Mode B `codex exec` invocation passes no effort flag today, so it runs at
+  whatever `codex exec` defaults to — see
+  `plugins/loom-orchestrator/skills/cross-check/SKILL.md`.
+- **Antigravity headless caveat**: `agy -p` in `--mode plan` auto-denies its own
+  tool calls, including file reads — so material must be **inlined in the
+  prompt**, not left for the CLI to read from disk (verified via probes in
+  `.brain/raw/research/2026-09-17-loom-0071-bash-sandbox.md`).
+
+This is a **followed convention, not an enforced one**: no hook can see the
+effort a Task or `agent()` call requested, so nothing here fails closed the
+way the git-approval and protected-path hooks do. It is also **not a config
+resolver** — a prior review rejected a parsed `effort-policy.conf`, because
+nothing would enforce it and an account-specific model/effort table baked
+into a shipped config would be wrong for every cloner with a different
+account. Pick the mapping that fits your own escalation policy and models.
+
 ## The advisory boundary is unchanged
 
 Non-Claude models (OpenAI/Codex, Gemini) remain **advisory + read-only**, at the

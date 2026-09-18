@@ -11,6 +11,12 @@ empty repo both read zero captures.
 Grammar and the four promotion outcomes: `.brain/README.md` and
 `plugins/loom-orchestrator/skills/distillation-pass/SKILL.md`.
 
+## 2026-09-14
+
+- run: /distill
+- scanned: 1 captures under .brain/raw/ (0 unprocessed)
+- result: zero-op
+
 ## 2026-09-07
 
 - run: /distill

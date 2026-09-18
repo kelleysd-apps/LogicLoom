@@ -130,6 +130,7 @@
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"plugins/loom-orchestrator/commands/research.md","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/model-selection-policy.md","to":"tests/contract/test_model_agnostic.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/architecture/orchestration-hook-enforcement.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
+{"type":"relation","from":".docs/architecture/orchestrator-worker-ladder.md","to":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/package.json","relationType":"mentions"}
 {"type":"relation","from":".docs/design/adopt-package-research.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}

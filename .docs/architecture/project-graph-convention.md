@@ -119,7 +119,7 @@ on explicit opt-in (Phase 3).
 
 ### 3.1 Default engine — Codegraph (documented, not vendored)
 
-**Default: Codegraph (`@optave/ops-codegraph-tool`).**
+**Default: Codegraph (`@optave/codegraph`).**
 
 | Property | Value |
 |---|---|

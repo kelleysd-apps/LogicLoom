@@ -56,6 +56,9 @@ jobs:
       - name: Run Memory Search Tests
         run: bash tests/contract/test_memory_search.sh
 
+      - name: Run Keyword Backend Scoring Tests
+        run: bash tests/contract/test_keyword_backend_scoring.sh
+
       - name: Run Spec 006 Integration Tests
         run: bash tests/contract/test_spec006_integration.sh
 
@@ -172,6 +175,14 @@ jobs:
       # runtime write targets (dirs, .jsonl paths) regardless of repo state.
       - name: Run Shipped Path References Tests
         run: bash tests/contract/test_shipped_path_references.sh
+
+      # Two shipped defects this closes: /cross-check's Mode B codex invocation
+      # carried no model flag (silently ran whatever `codex exec` defaults to
+      # instead of the documented CROSS_CHECK_OPENAI_MODEL / models.conf
+      # resolution), and project-graph's skill + /graph command named an npm
+      # package, @optave/ops-codegraph-tool, that 404s on the registry.
+      - name: Run Shipped Skill Commands Tests
+        run: bash tests/contract/test_shipped_skill_commands.sh
 
       # The WRITE half. The planner suite pins that the read half writes
       # nothing; this one pins that when the tool does write it writes only what
