@@ -22,14 +22,40 @@ installs start recording what `/update-framework` writes.
   as `clean-add` and carry your `CLAUDE.md` edits by hand.
 - Adopted installs (`npx logicloom init`): run
   `bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile`
-  once (the scan proposes it as an `MG-…` item on the first run). Files you
-  accepted through `/update-framework` before 7.0.0 never received later
-  upstream edits; this records them as yours.
+  once (the scan proposes it as an `MG-…` item on the first run of the
+  v7.0.0 procedure — your second invocation, since the first one still
+  runs the 6.x command that fetches it). The ownership filter is new in
+  7.0.0: a 6.x `/update-framework` filtered nothing, so a file it added is
+  not in the receipt, and from 7.0.0 on an upstream edit to it would be
+  suppressed. Reconciling records those files as yours before that happens.
 - Pre-v6.2 clones: re-baseline first (`FRAMEWORK_SYNC_GUIDE.md` "Broken sync
   baseline"); the `.specify/` → `.logic-loom/` rename is not covered by the
   registry.
 - Decisions: `.logic-loom/config/migration-decisions.conf` is project-owned;
   commit it.
+- Both a template clone still on 6.x and an already-adopted 6.x install
+  receive all of the above through their **existing** `/update-framework` —
+  the new files ride the same clean-add/clean-apply path every prior upstream
+  file has always used; see `.docs/guides/MIGRATION_GUIDE.md`
+  § *How a 6.x install receives this*.
+- Project-owned content checks are new: `.logic-loom/config/project-migrations.conf`
+  is yours to write, LogicLoom ships none and makes no claim about your own
+  project's text. A row there only ever proposes (`PROPOSE`) — never applies —
+  the same as an upstream `content` row. See `.docs/guides/MIGRATION_GUIDE.md`
+  § *The project-owned registry*.
+- One **advisory** row ships (`PROPOSE-ADVISORY`), on
+  `.logic-loom/memory/amendments.md`: an upstream suggestion about text
+  your fork wrote — LogicLoom did not ship this text and says so on the
+  item itself. It only ever proposes, never applies, fires in template and
+  adopted installs alike, and produces nothing if the file or the matched
+  line is absent. A row of this kind may name only `amendments.md`,
+  `CLAUDE.md`, `CLAUDE.local.md` or `AGENTS.md`; `lint` rejects any other
+  target. See `.docs/guides/MIGRATION_GUIDE.md` § *The advisory row*.
+- Maintainer-only, tightened at the gate: `release-migrations.sh
+  check-release --since auto` (or `--since <tag>`) now also fails a release
+  that dropped a `plugins/<x>` or `mcp-servers/<x>` directory since the
+  previous tag without a registry row declaring it — see
+  `.docs/guides/MIGRATION_GUIDE.md` § *For maintainers*.
 
 ### Added
 
@@ -58,8 +84,11 @@ installs start recording what `/update-framework` writes.
 - **`tests/contract/test_release_migrations.sh`** and
   **`tests/contract/test_update_framework_ownership.sh`** — registry
   integrity, the scan/convert fixtures, the release gate, and the
-  adopted-repo recorder/reconcile fixtures, registered in
-  `tests/run_all_tests.sh` and the promote gate.
+  adopted-repo recorder/reconcile fixtures. Precisely what runs where: both
+  suites are registered in `tests/run_all_tests.sh` (the local full suite)
+  and in `.github/workflows/plugin-tests.yml` (CI, every push); both are
+  also in the promote gate's contract-suite list in
+  `.github/workflows/promote-to-main.yml`.
 - `plugin-tests.yml` checks out full history (`fetch-depth: 0`) so the
   release-removal and tag-consistency checks run with teeth on every push,
   not only at the cut.
@@ -80,6 +109,19 @@ installs start recording what `/update-framework` writes.
 - `extract-proposals.sh` names the suppressed not-installed-here paths on
   stderr (first 20, then a count) with the `--reconcile` hint, instead of a
   bare count.
+- `record-update-writes.sh` deletes the receipt's cached `uninstall` key on
+  every run it appends, instead of leaving it stale: `uninstall` is derived
+  fresh from the complete `runs[]` by `packaging/adopt/lib/apply.js`'s
+  `uninstallProcedure()` (`packaging` itself never ships to an adopted
+  repo), and a cached list computed before this run's append cannot name a
+  path this run just recorded. A file `/update-framework` added or
+  reconciled is covered by `uninstall.remove.files` /
+  `uninstall.remove.dirsIfEmpty` again the next time the adopter runs
+  `npx logicloom init . --apply --only=<the targets you installed>`
+  (`--only` is required with `--apply`; over an installed tree it is a
+  no-op that says so and still appends the run that recomputes the list) —
+  until then it is absent from that list rather than wrongly listed as safe
+  to delete.
 - `CLAUDE.md` trimmed: the directory tree moved to
   `.docs/architecture/loom-architecture.md`, the amendments doctrine to
   `.docs/policies/project-amendments-policy.md`, and the `.brain/` narrative

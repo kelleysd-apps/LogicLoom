@@ -181,6 +181,7 @@ run_suite "Adopt Re-Apply + Self-Caused Preconditions" "bash tests/contract/test
 run_suite "Adopt Plan/Apply Reconciliation" "bash tests/contract/test_adopt_plan_reconciliation.sh"
 run_suite "Release Migrations" "bash tests/contract/test_release_migrations.sh"
 run_suite "Update-Framework Ownership" "bash tests/contract/test_update_framework_ownership.sh"
+run_suite "Update-Framework from 6.x" "bash tests/contract/test_update_from_6x.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

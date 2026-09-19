@@ -112,23 +112,185 @@ assert "reports all manifests valid" \
 # Expected checked count = manifests on disk MINUS registry-listed (legacy,
 # pending-migration) plugin dirs — the validator deliberately skips those
 # (§ addition 5 in the validator's own docstring).
-MANIFESTS_ON_DISK=$(ls -d "$ROOT"/plugins/*/.claude-plugin/plugin.json 2>/dev/null | wc -l | tr -d ' ')
-LEGACY_ON_DISK=0
-LOOM_LIB="$ROOT/.logic-loom/lib/release-migrations.sh"
-LOOM_REG="$ROOT/.logic-loom/config/release-migrations.conf"
-if [ -f "$LOOM_LIB" ] && [ -f "$LOOM_REG" ]; then
-  # shellcheck source=/dev/null
-  source "$LOOM_LIB"
-  LEGACY_ROWS="$(loom_deprecation_rows "$LOOM_REG" 2>/dev/null | awk -F'\t' '$1 == "plugin" { print $2 }')"
-  for legacy_name in $LEGACY_ROWS; do
-    [ -d "$ROOT/plugins/$legacy_name" ] && LEGACY_ON_DISK=$((LEGACY_ON_DISK + 1))
+#
+# The validator's success line has TWO shapes (validate-plugin-manifests.py:
+# 308 vs 310): "(N checked)" when nothing was skipped, "(N checked, M legacy
+# skipped)" when something was. A literal `grep -q '(N checked)'` matches the
+# first shape but NOT the second — the ')' the pattern demands never follows
+# "checked" once a suffix is present; a comma does. On THIS maintainer tree
+# LEGACY_ON_DISK is always 0 so that never bites here, but it bites on any
+# sanitized/adopted customer tree that still holds a registry-listed legacy
+# plugin directory on disk — exactly the population this release's migration
+# feature targets. expected_checked_line() below builds the shape-correct
+# string; count_legacy_on_disk() computes LEGACY_ON_DISK for an arbitrary
+# root (reused by §3b's dedicated customer-tree fixture further down).
+#
+# SECOND half of the same finding: what counts as "on disk" must be the
+# validator's definition, not a looser one. validate() only ever accounts for
+# a name whose `.claude-plugin/plugin.json` EXISTS (it `continue`s past a
+# bare directory before the legacy check runs), so a registry-listed legacy
+# plugin left on disk WITHOUT a manifest is neither checked nor skipped —
+# invisible to the count. A test that counted bare directories (`-d`) would
+# expect "(N-1 checked, 1 legacy skipped)" against a real "(N checked)" and
+# fail falsely. That is not hypothetical: sdd-memory and sdd-orchestrator-hook
+# shipped at v4.1.0 as directories with NO manifest (git cat-file -e
+# v4.1.0:plugins/sdd-memory/.claude-plugin/plugin.json fails), so a customer
+# tree from that era has exactly this shape. Count manifests, as the
+# validator does. §3b plants a manifest-less legacy dir to hold this.
+# Registry-listed (legacy, pending-migration) plugin names for a root, one per
+# line — the validator's own skip set. Empty when the lib or registry is
+# absent, so every sweep below degrades to "inspect everything", exactly what
+# it did before the registry existed.
+legacy_plugin_names() {  # $1 = root
+  local root="$1"
+  local lib="$root/.logic-loom/lib/release-migrations.sh"
+  local reg="$root/.logic-loom/config/release-migrations.conf"
+  if [ -f "$lib" ] && [ -f "$reg" ]; then
+    # shellcheck source=/dev/null
+    source "$lib"
+    loom_deprecation_rows "$reg" 2>/dev/null | awk -F'\t' '$1 == "plugin" { print $2 }'
+  fi
+  return 0
+}
+count_legacy_on_disk() {  # $1 = root
+  local root="$1" count=0 legacy_name
+  for legacy_name in $(legacy_plugin_names "$root"); do
+    [ -f "$root/plugins/$legacy_name/.claude-plugin/plugin.json" ] && count=$((count + 1))
   done
-fi
+  echo "$count"
+}
+# The looser, WRONG accounting (bare directories), kept only so §3b can prove
+# its fixture actually tells the two apart — never used for an expectation.
+count_legacy_dirs_naive() {  # $1 = root
+  local root="$1" count=0 legacy_name
+  for legacy_name in $(legacy_plugin_names "$root"); do
+    [ -d "$root/plugins/$legacy_name" ] && count=$((count + 1))
+  done
+  echo "$count"
+}
+# Every manifest the validator actually INSPECTS for a root: plugins/*/
+# .claude-plugin/plugin.json minus the registry-listed legacy ones. A whole-
+# tree `grep -l … plugins/*/.claude-plugin/plugin.json` sweep is NOT that set:
+# it also reads the manifest of a customer's leftover legacy plugin, which the
+# validator skips on purpose (§ addition 5) precisely because it carries an
+# OLD shape — `git show v5.0.0:plugins/sdd-git/.claude-plugin/plugin.json`
+# still declares `"count"` three times. A sweep that reads it fails a customer
+# tree for a manifest the harness no longer ships and told them to migrate.
+# One path per line; space-safe (no word-splitting of paths).
+non_legacy_manifests() {  # $1 = root
+  local root="$1" m name legacy
+  legacy="$(legacy_plugin_names "$root")"
+  for m in "$root"/plugins/*/.claude-plugin/plugin.json; do
+    [ -f "$m" ] || continue
+    name="${m%/.claude-plugin/plugin.json}"; name="${name##*/}"
+    grep -qx "$name" <<< "$legacy" && continue
+    printf '%s\n' "$m"
+  done
+  return 0
+}
+# Manifests among non_legacy_manifests that contain the literal key $2
+# (e.g. '"count"'). Prints matching paths, one per line; empty = clean.
+manifest_sweep_hits() {  # $1 = root, $2 = literal key incl. quotes
+  local m
+  while IFS= read -r m; do
+    [ -n "$m" ] || continue
+    grep -qF -- "$2" "$m" 2>/dev/null && printf '%s\n' "$m"
+  done <<< "$(non_legacy_manifests "$1")"
+  return 0
+}
+expected_checked_line() {  # $1 = checked count, $2 = legacy-skipped count
+  if [ "$2" -gt 0 ]; then
+    echo "($1 checked, $2 legacy skipped)"
+  else
+    echo "($1 checked)"
+  fi
+}
+
+MANIFESTS_ON_DISK=$(ls -d "$ROOT"/plugins/*/.claude-plugin/plugin.json 2>/dev/null | wc -l | tr -d ' ')
+LEGACY_ON_DISK=$(count_legacy_on_disk "$ROOT")
 MANIFEST_COUNT=$((MANIFESTS_ON_DISK - LEGACY_ON_DISK))
+EXPECTED_LINE="$(expected_checked_line "$MANIFEST_COUNT" "$LEGACY_ON_DISK")"
 assert "checked count matches manifests on disk minus registry-listed legacy ($MANIFEST_COUNT)" \
-  "grep -q '($MANIFEST_COUNT checked)' <<< \"$REAL_OUT\""
-assert "no bundled manifest declares eval (none has a genuine suite)" \
-  "! grep -l '\"eval\"' $ROOT/plugins/*/.claude-plugin/plugin.json >/dev/null 2>&1"
+  "grep -qF \"\$EXPECTED_LINE\" <<< \"$REAL_OUT\""
+# Legacy-aware sweep (non_legacy_manifests): a customer's leftover legacy
+# manifest is the validator's blind spot by design, so it is this sweep's too.
+EVAL_HITS="$(manifest_sweep_hits "$ROOT" '"eval"')"
+[ -n "$EVAL_HITS" ] && printf '%s\n' "$EVAL_HITS" | sed 's/^/     eval declared in: /'
+assert "no bundled (non-legacy) manifest declares eval (none has a genuine suite)" \
+  "[ -z \"\$EVAL_HITS\" ]"
+echo ""
+
+# ── 3b. The checked-count assertion holds on a CUSTOMER tree ────────────────
+#
+# §3's own real-tree assertion can't exercise the buggy shape above because
+# this maintainer repo has zero legacy plugins on disk. Build a fixture that
+# actually has one (a registry-listed legacy plugin directory alongside two
+# normal ones — the shape a sanitized/adopted customer tree has mid-migration)
+# and run the SAME count-matching logic §3 uses. Proof this is a real,
+# previously-failing check, not a tautology: with the pre-fix literal pattern
+# `grep -q '($COUNT checked)'` (no shape awareness), this fixture's real
+# validator output — "(2 checked, 1 legacy skipped)" — does NOT match, because
+# no ')' follows "checked" once the suffix is present. That is the false CI
+# failure finding #1 reports; expected_checked_line() (§3, above) closes it.
+echo "3b. Checked-count assertion holds on a customer tree with a legacy plugin on disk"
+CUSTFIX="$TMP/customer-tree-legacy"
+mkdir -p "$CUSTFIX/.logic-loom/config" "$CUSTFIX/.logic-loom/lib" \
+         "$CUSTFIX/plugins/sdd-legacy-count/.claude-plugin" \
+         "$CUSTFIX/plugins/sdd-legacy-nomanifest/scripts" \
+         "$CUSTFIX/plugins/loom-normal-a/.claude-plugin" \
+         "$CUSTFIX/plugins/loom-normal-b/.claude-plugin"
+cp "$ROOT/.logic-loom/lib/release-migrations.sh" "$CUSTFIX/.logic-loom/lib/release-migrations.sh"
+{
+  echo "plugin | sdd-legacy-count | removed | none | REMOVE | v1.0.0 | v2.0.0 | synthetic legacy row"
+  echo "plugin | sdd-legacy-nomanifest | removed | none | REMOVE | v1.0.0 | v2.0.0 | synthetic legacy row, dir with NO manifest (the v4.1.0 sdd-memory shape)"
+} > "$CUSTFIX/.logic-loom/config/release-migrations.conf"
+# The legacy manifest carries the OLD inventory shape — the one a customer's
+# leftover plugin really has (`git show v5.0.0:plugins/sdd-git/.claude-plugin/
+# plugin.json` declares "count" three times). The validator must skip it
+# (exit 0 below), and §8b holds the test's own whole-tree sweeps to the same
+# skip — a sweep that read this file would fail the customer for it.
+cat > "$CUSTFIX/plugins/sdd-legacy-count/.claude-plugin/plugin.json" <<'JSON'
+{ "name": "sdd-legacy-count", "version": "1.0.0", "dependencies": [],
+  "agents": { "count": 0, "list": [] },
+  "commands": { "count": 2, "list": ["git-push", "finalize"] } }
+JSON
+# A second registry-listed legacy plugin that is on disk but has NO
+# .claude-plugin/plugin.json — exactly how sdd-memory / sdd-orchestrator-hook
+# shipped at v4.1.0. The validator neither checks nor skips it (no manifest to
+# open), so it must not be counted on either side of the subtraction.
+echo 'echo legacy' > "$CUSTFIX/plugins/sdd-legacy-nomanifest/scripts/x.sh"
+cat > "$CUSTFIX/plugins/loom-normal-a/.claude-plugin/plugin.json" <<'JSON'
+{ "name": "loom-normal-a", "version": "1.0.0", "dependencies": [] }
+JSON
+cat > "$CUSTFIX/plugins/loom-normal-b/.claude-plugin/plugin.json" <<'JSON'
+{ "name": "loom-normal-b", "version": "1.0.0", "dependencies": [] }
+JSON
+run_validator "$CUSTFIX"; CUST_RC=$RC; CUST_OUT="$OUT"
+echo "     [customer-tree-legacy] rc=$CUST_RC :: $CUST_OUT"
+assert "exit 0 on a customer tree with a legacy plugin present" "[ $CUST_RC -eq 0 ]"
+
+CUST_MANIFESTS=$(ls -d "$CUSTFIX"/plugins/*/.claude-plugin/plugin.json 2>/dev/null | wc -l | tr -d ' ')
+CUST_LEGACY=$(count_legacy_on_disk "$CUSTFIX")
+CUST_LEGACY_NAIVE=$(count_legacy_dirs_naive "$CUSTFIX")
+CUST_COUNT=$((CUST_MANIFESTS - CUST_LEGACY))
+assert "the customer-tree fixture actually has a legacy plugin on disk (LEGACY_ON_DISK=1)" \
+  "[ $CUST_LEGACY -eq 1 ]"
+# The fixture genuinely exercises the manifest-less shape: counting bare
+# directories would see TWO legacy plugins, the validator only ever sees one.
+assert "…and a second, manifest-less legacy dir is present (naive dir count = 2) yet NOT counted (validator-consistent count = 1)" \
+  "[ $CUST_LEGACY_NAIVE -eq 2 ] && [ $CUST_LEGACY -eq 1 ]"
+assert "the validator itself reports exactly 1 legacy skipped (it cannot skip a manifest it cannot open)" \
+  "grep -qF ', 1 legacy skipped)' <<< \"$CUST_OUT\" && ! grep -qF 'sdd-legacy-nomanifest' <<< \"$CUST_OUT\""
+CUST_EXPECTED="$(expected_checked_line "$CUST_COUNT" "$CUST_LEGACY")"
+CUST_EXPECTED_NAIVE="$(expected_checked_line "$((CUST_MANIFESTS - CUST_LEGACY_NAIVE))" "$CUST_LEGACY_NAIVE")"
+assert "the bare-directory accounting would have falsely failed here (expects '$CUST_EXPECTED_NAIVE', validator prints '$CUST_EXPECTED')" \
+  "! grep -qF \"\$CUST_EXPECTED_NAIVE\" <<< \"$CUST_OUT\""
+# Sanity: the naive pre-fix pattern (no shape awareness) genuinely fails here —
+# proves this fixture exercises the bug, not a no-op.
+assert "pre-fix literal pattern would have falsely failed on this customer tree" \
+  "! grep -q '($CUST_COUNT checked)' <<< \"$CUST_OUT\""
+assert "checked count matches manifests on disk minus registry-listed legacy on a customer tree" \
+  "grep -qF \"\$CUST_EXPECTED\" <<< \"$CUST_OUT\""
 echo ""
 
 # ── 4. eval ABSENT is accepted ───────────────────────────────────────────────
@@ -261,12 +423,42 @@ echo ""
 # what stops it drifting back.
 echo "8. Inventory blocks (agents/skills/commands) are verified against disk"
 
-assert "no manifest in tree still declares a count field" \
-  "! grep -l '\"count\"' $ROOT/plugins/*/.claude-plugin/plugin.json >/dev/null 2>&1"
+COUNT_HITS="$(manifest_sweep_hits "$ROOT" '"count"')"
+[ -n "$COUNT_HITS" ] && printf '%s\n' "$COUNT_HITS" | sed 's/^/     count field in: /'
+assert "no shipped (non-legacy) manifest in tree still declares a count field" \
+  "[ -z \"\$COUNT_HITS\" ]"
 assert "the drift that started this is declared: loom-orchestrator ships graph" \
   "grep -q '\"graph\"' '$ROOT/plugins/loom-orchestrator/.claude-plugin/plugin.json'"
 assert "…and project-graph" \
   "grep -q '\"project-graph\"' '$ROOT/plugins/loom-orchestrator/.claude-plugin/plugin.json'"
+
+# ── 8a. The count-field sweep is legacy-aware on a CUSTOMER tree ────────────
+#
+# Same customer-tree fixture as §3b: its registry-listed legacy manifest
+# carries the v5.0.0 sdd-git shape ("count" declared). The validator skips it
+# (§3b: exit 0; §8b below holds that skip for the validator itself). The
+# sweep above must skip it too — the pre-fix bare-glob sweep
+# `grep -l '"count"' plugins/*/.claude-plugin/plugin.json` read it and failed
+# the customer for a manifest the harness no longer ships. Proof this is a
+# real, previously-failing check: the bare-glob form is asserted to hit.
+echo ""
+echo "8a. Count-field sweep ignores a registry-listed legacy manifest on a customer tree"
+assert "pre-fix bare-glob sweep DOES read the legacy manifest's count field (bug reproduced)" \
+  "grep -l '\"count\"' \"\$CUSTFIX\"/plugins/*/.claude-plugin/plugin.json >/dev/null 2>&1"
+CUST_COUNT_HITS="$(manifest_sweep_hits "$CUSTFIX" '"count"')"
+assert "legacy-aware sweep reports NO count field on the customer tree (legacy manifest skipped, as the validator does)" \
+  "[ -z \"\$CUST_COUNT_HITS\" ]"
+# …and it is a skip of the LEGACY manifest only, not a blanket blind spot: a
+# count field in a shipped (non-legacy) manifest on the same tree is still
+# caught. Planted AFTER §3b's validator run, so that run's exit-0 assertion
+# stays a statement about the legacy skip alone.
+cat > "$CUSTFIX/plugins/loom-normal-b/.claude-plugin/plugin.json" <<'JSON'
+{ "name": "loom-normal-b", "version": "1.0.0", "dependencies": [],
+  "agents": { "count": 1, "list": [] } }
+JSON
+CUST_COUNT_HITS2="$(manifest_sweep_hits "$CUSTFIX" '"count"')"
+assert "…while a count field in a NON-legacy manifest on the same customer tree IS still caught" \
+  "grep -q 'loom-normal-b' <<< \"\$CUST_COUNT_HITS2\" && ! grep -q 'sdd-legacy-count' <<< \"\$CUST_COUNT_HITS2\""
 
 # Fixture with a real commands/ directory holding two commands.
 inv_fixture() {  # $1 = fixture name; manifest body on stdin

@@ -40,12 +40,39 @@
 # silent suppression of every future proposal for it — a false negative is
 # expensive and invisible. When in doubt, this tool records.
 #
-# HONEST LIMIT: this script only ever APPENDS to runs[]. It never rebuilds the
-# receipt's derived `uninstall` object (that logic lives in the npm package,
-# packaging/adopt/lib/apply.js, which regenerates it on its next --apply).
-# Until an adopter runs `npx logicloom init --apply` again, a path this script
-# records is visible to extract-proposals.sh's ownership filter (so it can
-# receive proposals) but is NOT yet listed under `uninstall.remove.files`.
+# UNINSTALL: runs[] is the single source of truth; `uninstall` is a VIEW over
+# it, not a second copy of the record. `packaging/adopt/lib/apply.js`'s
+# uninstallProcedure() derives `uninstall` fresh from the COMPLETE receipt.runs
+# every time it runs (readReceipt() loads the full on-disk runs[] — including
+# any this script appended — before recomputing), so a run this script adds is
+# already correctly covered the next time it runs. This script therefore never
+# tries to reimplement that derivation (its prose steps, its anchor text, its
+# sha256/pre-merge-state handling) as a second writer in bash/python/node that
+# would have to be kept byte-for-byte in sync with apply.js forever. Instead,
+# every `append-run` REPLACES the receipt's `uninstall` with a STALE MARKER:
+# a cached `uninstall` computed from a SHORTER runs[] is now provably
+# incomplete — it cannot list a path this run just recorded — and a wrong list
+# that looks authoritative is worse than none. The marker carries nothing
+# runnable (no remove.files, no steps): `stale: true`, `invalidatedByRun`, why,
+# the exact command that regenerates it, and what the record still holds
+# meanwhile. It is written INTO the receipt rather than only into this comment
+# because the receipt is where the install report told the adopter the
+# procedure lives — a key that silently vanished would leave them with nothing
+# to explain it. `packaging` is stripped from every adopted/customer tree
+# (payload-manifest.txt), so apply.js itself never ships there; a fresh,
+# complete `uninstall` comes back the next time the adopter runs
+#     npx logicloom init --apply --only=<the targets the install used>
+# (`--only` is REQUIRED with `--apply`; a bare `--apply` is refused with exit
+# 2). On a clean tree with everything already installed that re-apply exits 0
+# and writes no files. It is NOT unconditional: it is REFUSED — nothing
+# written, the marker stays — while a merge target (.gitignore,
+# .claude/settings.json, CLAUDE.md) has uncommitted changes, which is exactly
+# the state right after an /update-framework that touched one; commit first.
+# And a newer package payload may add files that are new to it (never
+# overwriting an existing one). Until regenerated, a path this script records
+# is still visible to extract-proposals.sh's ownership filter (so it can
+# receive proposals); it is just not listed under `uninstall.remove.files`. A
+# 6.x-installer receipt that never goes through this script is untouched.
 #
 # Docs: .docs/guides/MIGRATION_GUIDE.md, .docs/guides/FRAMEWORK_SYNC_GUIDE.md
 #
@@ -135,9 +162,21 @@ THE DELIBERATE ASYMMETRY: recording a byte-identical copy costs at most one
 extra user-gated proposal on a later upstream edit; not recording costs
 permanent silent suppression.
 
-HONEST LIMIT: this script only appends to runs[]. It does not rebuild the
-receipt's derived `uninstall` object — the npm tool (packaging/adopt/lib/
-apply.js) regenerates that on its next `--apply`.
+UNINSTALL: runs[] is the single source of truth. This script never rebuilds
+the receipt's derived `uninstall` object (packaging/adopt/lib/apply.js's
+uninstallProcedure() is the one place that does, and `packaging` never ships
+to an adopted repo) — instead, every run this script appends REPLACES
+`uninstall` with a stale marker (stale: true, invalidatedByRun, why,
+regenerate, untilThen — nothing runnable), so the receipt never carries a
+cached list that a just-recorded path is provably missing from, and still
+says in-file why and how to get it back. A fresh, complete `uninstall` comes
+back the next time you run
+  npx logicloom init --apply --only=<the targets your install used>
+(`--only` is required; a bare `--apply` is refused). On a clean tree with
+everything already installed it exits 0 and writes nothing. It is REFUSED —
+nothing written, the marker stays — while .gitignore, .claude/settings.json
+or CLAUDE.md has uncommitted changes: commit them, then re-run. Until then, a
+recorded path is still visible to extract-proposals.sh's ownership filter.
 
 Docs: .docs/guides/MIGRATION_GUIDE.md, .docs/guides/FRAMEWORK_SYNC_GUIDE.md
 EOF
@@ -205,6 +244,31 @@ def sha256_hex(path):
 def load_receipt(path):
     with open(path, 'r', encoding='utf-8') as f:
         return json.load(f)
+
+def stale_uninstall_marker(run_index):
+    return {
+        "stale": True,
+        "invalidatedByRun": run_index,
+        "why": ("runs[" + str(run_index) + "] was appended by plugins/loom-maintenance/scripts/"
+                "record-update-writes.sh (/update-framework) after this object was last derived. "
+                "`uninstall` is a VIEW over runs[], not a second record: a copy derived from a "
+                "shorter runs[] cannot list the paths that run recorded, so it was replaced by "
+                "this marker rather than left looking complete. Nothing in this marker is a list "
+                "to run."),
+        "regenerate": ("npx logicloom init --apply --only=<the targets your install runs used; see "
+                       "each runs[].only above, e.g. all> -- when everything is already installed "
+                       "and the working tree is clean it exits 0, writes no files, and rewrites this "
+                       "object from the complete runs[]. It is REFUSED (nothing written, this marker "
+                       "stays) while a merge target (.gitignore, .claude/settings.json, CLAUDE.md) "
+                       "has uncommitted changes: commit them, then re-run. A newer package payload "
+                       "may also add files that are new to it; it never overwrites an existing one."),
+        "untilThen": ("runs[].wrote[] above is the complete record: every kind:file entry carries "
+                      "the sha256 of the bytes this harness left there (a mismatch means the file "
+                      "changed since -- yours to review, never something to delete on this "
+                      "record's word), every kind:dir entry is a directory it created, and a "
+                      "kind:merge entry is a file it only edited inside a fence, never one to "
+                      "delete by path.")
+    }
 
 def main():
     args = sys.argv[1:]
@@ -291,6 +355,19 @@ def main():
             "notAttempted": []
         }
         data['runs'].append(run)
+        # A cached 'uninstall' (from a prior `npx logicloom init --apply
+        # --only=...`) was derived from a SHORTER runs[] than this one -- it
+        # cannot list the path(s) just appended, so it is now provably
+        # incomplete. Replace it with a marker that carries NOTHING runnable
+        # (no remove.files, no steps) but says, in the receipt itself, why the
+        # list is gone and how to get it back -- the receipt is where the
+        # install report told the adopter to look. See the UNINSTALL comment
+        # near the top of this file for why this script does not recompute it.
+        # Text is ASCII-only and built identically in the node helper below, so
+        # both JSON tools write byte-identical receipts.
+        if 'uninstall' in data:
+            del data['uninstall']
+        data['uninstall'] = stale_uninstall_marker(len(data['runs']) - 1)
         with open(receipt_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
             f.write('\n')
@@ -314,6 +391,33 @@ function sha256Hex(p) {
 
 function loadReceipt(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
+}
+
+// Byte-for-byte the same text as the python helper's stale_uninstall_marker.
+function staleUninstallMarker(runIndex) {
+  return {
+    stale: true,
+    invalidatedByRun: runIndex,
+    why: 'runs[' + runIndex + '] was appended by plugins/loom-maintenance/scripts/' +
+         'record-update-writes.sh (/update-framework) after this object was last derived. ' +
+         '`uninstall` is a VIEW over runs[], not a second record: a copy derived from a ' +
+         'shorter runs[] cannot list the paths that run recorded, so it was replaced by ' +
+         'this marker rather than left looking complete. Nothing in this marker is a list ' +
+         'to run.',
+    regenerate: 'npx logicloom init --apply --only=<the targets your install runs used; see ' +
+                'each runs[].only above, e.g. all> -- when everything is already installed ' +
+                'and the working tree is clean it exits 0, writes no files, and rewrites this ' +
+                'object from the complete runs[]. It is REFUSED (nothing written, this marker ' +
+                'stays) while a merge target (.gitignore, .claude/settings.json, CLAUDE.md) ' +
+                'has uncommitted changes: commit them, then re-run. A newer package payload ' +
+                'may also add files that are new to it; it never overwrites an existing one.',
+    untilThen: 'runs[].wrote[] above is the complete record: every kind:file entry carries ' +
+               'the sha256 of the bytes this harness left there (a mismatch means the file ' +
+               'changed since -- yours to review, never something to delete on this ' +
+               'record\'s word), every kind:dir entry is a directory it created, and a ' +
+               'kind:merge entry is a file it only edited inside a fence, never one to ' +
+               'delete by path.'
+  };
 }
 
 function main() {
@@ -391,6 +495,13 @@ function main() {
       notAttempted: []
     };
     data.runs.push(run);
+    // See the matching comment in the python helper's 'append-run' above --
+    // a cached 'uninstall' was derived from a shorter runs[] and is now
+    // provably incomplete, so it is replaced by the stale marker (nothing
+    // runnable; says why and how to regenerate) rather than left stale or
+    // silently dropped.
+    if (Object.prototype.hasOwnProperty.call(data, 'uninstall')) delete data.uninstall;
+    data.uninstall = staleUninstallMarker(data.runs.length - 1);
     fs.writeFileSync(receiptPath, JSON.stringify(data, null, 2) + '\n');
     process.stdout.write(String(data.runs.length) + '\n');
     return 0;

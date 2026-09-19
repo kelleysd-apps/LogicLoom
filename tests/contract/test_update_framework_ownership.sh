@@ -158,6 +158,31 @@ print(json.dumps(d.get(sys.argv[2]), sort_keys=True))
 " "$1" "$2"
 }
 
+json_uninstall_stale_shape() {
+  # $1 = receipt path. One line, five space-separated fields, describing the
+  # receipt's top-level 'uninstall' as the recorder is expected to leave it:
+  #   stale=<true|false|absent>   runnable=<yes|no>   byrun=<n|none>
+  #   only=<yes|no>  (regenerate command names --apply --only)
+  #   refusal=<yes|no> (it states the uncommitted-merge-target refusal)
+  # 'runnable=yes' means a remove.files / dirsIfEmpty / steps list is present
+  # -- i.e. something a reader could execute -- which a STALE marker must
+  # never carry.
+  python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+u = d.get('uninstall')
+if u is None:
+    print('stale=absent runnable=no byrun=none only=no refusal=no'); sys.exit(0)
+stale = 'true' if u.get('stale') is True else 'false'
+runnable = 'yes' if ('remove' in u or 'steps' in u) else 'no'
+byrun = u.get('invalidatedByRun', 'none')
+regen = str(u.get('regenerate', ''))
+only = 'yes' if '--apply --only' in regen else 'no'
+refusal = 'yes' if ('REFUSED' in regen and 'uncommitted' in regen) else 'no'
+print('stale=%s runnable=%s byrun=%s only=%s refusal=%s' % (stale, runnable, byrun, only, refusal))
+" "$1"
+}
+
 json_all_recorded_file_paths() {
   python3 -c "
 import json, sys
@@ -465,8 +490,65 @@ d = json.load(open('$RECEIPT'))
 print(json.dumps(d['runs'][0], sort_keys=True))
 ")"
 assert "run[0] is byte-identical (structurally) before/after recording" "[ '$RUN0_BEFORE' = '$RUN0_AFTER' ]"
-UNINSTALL_AFTER="$(json_snapshot "$RECEIPT" "uninstall")"
-assert "'uninstall' key is untouched" "[ '$UNINSTALL_BEFORE' = '$UNINSTALL_AFTER' ]"
+
+# PRE-uninstall-rot fix: a cached 'uninstall' object was derived from runs[0]
+# alone -- it cannot possibly list the paths just recorded into runs[1], so it
+# is now provably stale. record-update-writes.sh replaces it with a STALE
+# MARKER (rather than reimplementing apply.js's uninstallProcedure() as a
+# second writer in bash, and rather than silently deleting the key) so the
+# receipt never carries a wrong list under a key everything else treats as
+# authoritative, yet still answers -- from the receipt itself, which is where
+# the install report told the adopter to look -- why the list is gone and how
+# to get it back; see the UNINSTALL comment near the top of the recorder.
+assert "fixture's 'uninstall' sentinel is present before recording (sanity check)" \
+  "[ '$UNINSTALL_BEFORE' = '{\"marker\": \"left as is\"}' ]"
+UNINSTALL_SHAPE_AFTER="$(json_uninstall_stale_shape "$RECEIPT")"
+assert "'uninstall' is replaced by a stale marker (stale=true) after recording, not left as the old cache" \
+  "[ '$(printf '%s' "$UNINSTALL_SHAPE_AFTER" | cut -d' ' -f1)' = 'stale=true' ]"
+assert "the stale marker carries NOTHING runnable (no remove.files, no steps)" \
+  "[ '$(printf '%s' "$UNINSTALL_SHAPE_AFTER" | cut -d' ' -f2)' = 'runnable=no' ]"
+assert "the stale marker names the run that invalidated it (invalidatedByRun == 1)" \
+  "[ '$(printf '%s' "$UNINSTALL_SHAPE_AFTER" | cut -d' ' -f3)' = 'byrun=1' ]"
+# `--only` is REQUIRED with `--apply` (packaging/adopt/bin/logicloom.js refuses
+# a bare `--apply` with exit 2), so a regenerate command that omits it is one
+# the adopter cannot run. Pin that the marker's command is a runnable one.
+assert "the stale marker's regenerate command names --apply --only (a bare --apply is refused by the CLI)" \
+  "[ '$(printf '%s' "$UNINSTALL_SHAPE_AFTER" | cut -d' ' -f4)' = 'only=yes' ]"
+# A re-apply is REFUSED (nothing written, the marker stays) while a merge
+# target has uncommitted changes -- the marker must say so rather than promise
+# an unconditional no-op.
+assert "the stale marker states the refusal condition (uncommitted merge-target changes)" \
+  "[ '$(printf '%s' "$UNINSTALL_SHAPE_AFTER" | cut -d' ' -f5)' = 'refusal=yes' ]"
+HELP_ONLY="$(bash "$RECORDER_SCRIPT" --help 2>/dev/null | grep -c -- '--apply --only' || true)"
+assert "--help's regenerate command names --apply --only, never a bare --apply" "[ '$HELP_ONLY' -gt 0 ]"
+HELP_NOOP_CLAIM="$(bash "$RECORDER_SCRIPT" --help 2>/dev/null | grep -ci 'idempotent' || true)"
+assert "--help does not promise an unconditional 'idempotent' re-apply (it is refused on a dirty merge target)" \
+  "[ '$HELP_NOOP_CLAIM' -eq 0 ]"
+HELP_REFUSAL="$(bash "$RECORDER_SCRIPT" --help 2>/dev/null | grep -c 'REFUSED' || true)"
+assert "--help states that the regenerate re-apply can be REFUSED (and when)" "[ '$HELP_REFUSAL' -gt 0 ]"
+
+# And the property that makes deleting it safe: apply.js's uninstallProcedure()
+# — the single source of truth — DOES cover the just-recorded paths when it is
+# next computed fresh from the complete on-disk runs[] (i.e. what the adopter's
+# next `npx logicloom init --apply` does). This is read-only: it only requires
+# packaging/adopt/lib/apply.js, never runs it as a CLI, and proves runs[] alone
+# (not the deleted cache) is what a correct uninstall listing is built from.
+APPLY_LIB="$REAL_ROOT/packaging/adopt/lib/apply.js"
+if [ -f "$APPLY_LIB" ] && command -v node >/dev/null 2>&1; then
+  FRESH_HAS_B="$(node -e '
+    const a = require(process.argv[1]);
+    const fs = require("fs");
+    const receipt = JSON.parse(fs.readFileSync(process.argv[2], "utf8"));
+    const u = a.uninstallProcedure(receipt);
+    const has = u.remove.files.some(f => f.path === ".logic-loom/scripts/bash/b.sh")
+      && u.remove.files.some(f => f.path === ".logic-loom/newdir/n.sh");
+    process.stdout.write(has ? "yes" : "no");
+  ' "$APPLY_LIB" "$RECEIPT")"
+  assert "apply.js's uninstallProcedure(), recomputed fresh from runs[], DOES cover the update-framework-recorded paths" \
+    "[ '$FRESH_HAS_B' = 'yes' ]"
+else
+  skip "uninstallProcedure() covers update-framework-recorded paths" "packaging/adopt/lib/apply.js not present (stripped tree) or node unavailable"
+fi
 
 BC2_OUT="$WORKDIR/bc2.json"; BC2_ERR="$WORKDIR/bc2.err"
 extract_between "$MAIN_F" "$MAIN_SHA_B" "$MAIN_SHA_C" "$BC2_OUT" "$BC2_ERR"
@@ -566,6 +648,17 @@ RECON_APPLY_HAS_RERUN="$(printf '%s\n' "$RECON_APPLY_OUT" | grep -c -- 're-run w
 assert "--reconcile --apply does not tell the user to re-run with --apply" "[ '$RECON_APPLY_HAS_RERUN' -eq 0 ]"
 RECON_RUNS="$(json_runs_count "$RECON_RECEIPT")"
 assert "--reconcile --apply appends run 2" "[ '$RECON_RUNS' = '2' ]"
+
+# Same PRE-uninstall-rot property as section C's record mode, exercised
+# through --reconcile --apply's shared append-run path: the fixture's
+# 'uninstall': {} is now stale (derived from run[0] alone) and must be
+# replaced by the same stale marker, pointing at run 1.
+RECON_UNINSTALL_SHAPE="$(json_uninstall_stale_shape "$RECON_RECEIPT")"
+assert "--reconcile --apply also replaces the now-stale 'uninstall' with the stale marker" \
+  "[ '$(printf '%s' "$RECON_UNINSTALL_SHAPE" | cut -d' ' -f1)' = 'stale=true' ]"
+assert "--reconcile --apply's marker carries nothing runnable and names run 1" \
+  "[ '$(printf '%s' "$RECON_UNINSTALL_SHAPE" | cut -d' ' -f2,3)' = 'runnable=no byrun=1' ]"
+
 RECON_RUN1_GEN="$(json_run_field "$RECON_RECEIPT" 1 generator)"
 assert "reconcile-apply run generator uses the fixture's own stamp (6.6.2)" \
   "[ '$RECON_RUN1_GEN' = 'logicloom-update-framework@6.6.2' ]"
@@ -604,6 +697,74 @@ RECON_CKSUM_BEFORE2="$(cksum "$RECON_RECEIPT")"
 bash "$RECORDER_SCRIPT" --root "$RECON_F" --reconcile --apply >/dev/null
 RECON_CKSUM_AFTER2="$(cksum "$RECON_RECEIPT")"
 assert "a second --reconcile --apply appends no run" "[ '$RECON_CKSUM_BEFORE2' = '$RECON_CKSUM_AFTER2' ]"
+
+# ─────────────────────────────────────────────────────────────────────────
+# E2. Same-run re-extraction after recording (finding: Step 3 extracts
+# against the OLD sync-ref; Step 7b records/reconciles; Step 8 then advances
+# .sdd-sync-ref straight past the recording with no re-extraction in between,
+# so a real upstream change to a path unowned at Step 3 was permanently
+# stranded even though this run's own recording would have unblocked it).
+# The docs fix (WP2) inserts a re-check step, "Proposals unlocked by this
+# run's recording", that re-runs extraction ONCE MORE against the SAME
+# (still-unmoved) .sdd-sync-ref before Step 6/Step 8 moves it, and instructs
+# comparing the result by path against Step 3's original list: any path Step
+# 3 never listed is the unlock.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "E2. Same-run re-extraction after recording (the Step 3->7b->8 gap, closed)"
+
+CMD_DOC="$REAL_ROOT/plugins/loom-maintenance/commands/update-framework.md"
+SKILL_DOC="$REAL_ROOT/plugins/loom-maintenance/skills/framework-updater/SKILL.md"
+assert "update-framework.md carries the phrase verbatim" \
+  "grep -qF \"Proposals unlocked by this run's recording\" '$CMD_DOC'"
+assert "framework-updater/SKILL.md carries the phrase verbatim" \
+  "grep -qF \"Proposals unlocked by this run's recording\" '$SKILL_DOC'"
+# Ordering, by line number (same idiom as test_release_migrations.sh §F): the
+# re-check step must sit AFTER the recorder is invoked (Step 5 / Step 7b) and
+# BEFORE the sync-ref is moved (Step 6 / Step 8) — a re-check step placed
+# after the sync-ref already moved would be checking a ref that has already
+# advanced past the very commits it needs to re-scan.
+CMD_STEP5_LN="$(grep -n '^### Step 5:' "$CMD_DOC" | head -1 | cut -d: -f1)"
+CMD_STEP6_LN="$(grep -n '^### Step 6:' "$CMD_DOC" | head -1 | cut -d: -f1)"
+CMD_UNLOCK_LN="$(grep -nF "Proposals unlocked by this run's recording" "$CMD_DOC" | head -1 | cut -d: -f1)"
+assert "update-framework.md: the re-check sits between Step 5 and Step 6 ($CMD_STEP5_LN < $CMD_UNLOCK_LN < $CMD_STEP6_LN)" \
+  "[ '$CMD_STEP5_LN' -lt '$CMD_UNLOCK_LN' ] && [ '$CMD_UNLOCK_LN' -lt '$CMD_STEP6_LN' ]"
+SKILL_STEP7B_LN="$(grep -n '^### Step 7b:' "$SKILL_DOC" | head -1 | cut -d: -f1)"
+SKILL_STEP8_LN="$(grep -n '^### Step 8:' "$SKILL_DOC" | head -1 | cut -d: -f1)"
+SKILL_UNLOCK_LN="$(grep -nF "Proposals unlocked by this run's recording" "$SKILL_DOC" | head -1 | cut -d: -f1)"
+assert "SKILL.md: the re-check sits between Step 7b and Step 8 ($SKILL_STEP7B_LN < $SKILL_UNLOCK_LN < $SKILL_STEP8_LN)" \
+  "[ '$SKILL_STEP7B_LN' -lt '$SKILL_UNLOCK_LN' ] && [ '$SKILL_UNLOCK_LN' -lt '$SKILL_STEP8_LN' ]"
+assert "the re-check instructs re-running extraction against the SAME (unmoved) sync-ref (both docs)" \
+  "grep -qF 'the same \`.sdd-sync-ref\`' '$CMD_DOC' && grep -qF 'the same \`.sdd-sync-ref\`' '$SKILL_DOC'"
+assert "the re-check instructs comparing by path against Step 3's list (both docs), and the command doc names the unlock rule" \
+  "grep -qF 'compare by path against' '$CMD_DOC' && grep -qF 'compare by path against' '$SKILL_DOC' \
+   && grep -qF 'A path Step 3 never listed is the unlock' '$CMD_DOC'"
+
+# The mechanism itself, proven end-to-end against the EXACT scenario the
+# fixture above just built — not a fresh fixture, so this is provably the
+# SAME single run the reconcile/apply assertions above just exercised, with
+# .sdd-sync-ref never touched (still RECON_SHA_B; nothing in this suite ever
+# runs the real Step 6/Step 8 "git rev-parse ... > .sdd-sync-ref" write):
+#   RBC_OUT  = "Step 3" — extraction at B before this run recorded anything
+#              (asserted above: m.sh silently suppressed, not even listed).
+#   RBC2_OUT = "the re-check" — extraction at the SAME B, after --reconcile
+#              --apply recorded newdir/ (asserted above: m.sh now offered).
+# The doc's own algorithm is "a path Step 3 never listed is the unlock" — so
+# assert that literally: m.sh must be ABSENT from RBC_OUT's path set and
+# PRESENT in RBC2_OUT's, and it must be the ONLY path that differs between
+# the two (the re-check does not spuriously unlock anything else).
+assert "\$RECON_F/.sdd-sync-ref is still B — this is genuinely the SAME run, sync-ref never advanced" \
+  "[ \"\$(cat '$RECON_F/.sdd-sync-ref')\" = '$RECON_SHA_B' ]"
+assert "the unlock is EXACTLY the delta between Step 3's list (RBC_OUT) and the re-check (RBC2_OUT): {.logic-loom/newdir/m.sh}" \
+  "python3 -c '
+import json
+before = json.load(open(\"$RBC_OUT\"))
+after = json.load(open(\"$RBC2_OUT\"))
+before_paths = {p[\"upstream_file\"] for p in before}
+after_paths = {p[\"upstream_file\"] for p in after}
+unlocked = after_paths - before_paths
+assert unlocked == {\".logic-loom/newdir/m.sh\"}, unlocked
+'"
 
 # ─────────────────────────────────────────────────────────────────────────
 # F. Refusals

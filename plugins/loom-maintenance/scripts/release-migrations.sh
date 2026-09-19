@@ -322,6 +322,136 @@ framework_version() {
     printf '%s' "${line#FRAMEWORK_VERSION=}"
 }
 
+# ── content-row execution proof (finding 7: the release gate must EXECUTE
+#    every content row of the release it checks, not merely count it) ─────
+
+# The `fixture:<name>` token from a content row's note, or "".
+_loom_rm_fixture_ref() {
+    local note="$1" rest
+    case "$note" in
+        *fixture:*)
+            rest="${note#*fixture:}"
+            rest="${rest%%[;[:space:]]*}"
+            printf '%s' "$rest" ;;
+        *) printf '' ;;
+    esac
+    return 0
+}
+
+# Files under <tag>'s tree matching a literal path or glob `name` (one per
+# line; empty when none). Read-only git only (ls-tree/cat-file).
+_loom_rm_tag_matches() {
+    local tag="$1" name="$2"
+    case "$name" in
+        *\**|*\?*)
+            local all f
+            all="$(git -C "$REPO_ROOT" ls-tree -r --name-only "$tag" -- . 2>/dev/null)" || all=""
+            [ -z "$all" ] && return 0
+            while IFS= read -r f; do
+                [ -z "$f" ] && continue
+                case "$f" in $name) printf '%s\n' "$f" ;; esac
+            done <<< "$all" ;;
+        *)
+            git -C "$REPO_ROOT" cat-file -e "$tag:$name" 2>/dev/null && printf '%s\n' "$name" ;;
+    esac
+    return 0
+}
+
+# rc 0 iff <content> exhibits the row's claimed PRE-FIX ("problem") state:
+# fate=present -> the pattern must match (the bad content is there);
+# fate=absent  -> the pattern must NOT match (the fix/marker is missing).
+_loom_rm_is_problem_state() {
+    local fate="$1" pattern="$2" content="$3"
+    if printf '%s\n' "$content" | grep -qIE -- "$pattern"; then
+        [ "$fate" = "present" ]
+    else
+        [ "$fate" = "absent" ]
+    fi
+}
+
+# Every content row of <version> must prove itself: its pattern is grounded
+# in a real problem state (a copy from the previous release's tree, or a
+# named fixture when no LogicLoom-shipped prior copy can exist), and it does
+# not still match wherever the row claims the content is now fixed. Prints
+# one precise "check-release: ..." line per failure; rc 1 if any. Never
+# writes; every git call is read-only (ls-tree/cat-file/show).
+verify_content_rows_execution() {
+    local version="$1" content_prev="$2"
+    local rows rc=0
+    rows="$(loom_migration_rows_for_release "$version" "$REGISTRY_FILE" 2>/dev/null)" || rows=""
+    [ -z "$rows" ] && return 0
+    while IFS=$'\t' read -r kind name fate repl default first release note; do
+        [ "$kind" = "content" ] || continue
+        local pattern="${repl#pattern:}"
+        local label="content row $name@$release"
+        local fixture; fixture="$(_loom_rm_fixture_ref "$note")"
+
+        # BEFORE: the pattern is grounded in a real prior/problem state.
+        local before_src="" before_found="false" before_ok="false"
+        if [ -n "$fixture" ]; then
+            local bf="$REPO_ROOT/tests/fixtures/release-migrations/${fixture}.before"
+            if [ -f "$bf" ]; then
+                before_found="true"; before_src="fixture ${fixture}.before"
+                _loom_rm_is_problem_state "$fate" "$pattern" "$(cat "$bf")" && before_ok="true"
+            fi
+        elif [ -n "$content_prev" ]; then
+            # A glob names many files at the previous tag; the row is
+            # grounded when ANY of them exhibits the problem state (the
+            # first ls-tree match being clean proves nothing about the
+            # rest), so every match is checked, not just the first.
+            local bpaths bpath
+            bpaths="$(_loom_rm_tag_matches "$content_prev" "$name")"
+            while IFS= read -r bpath; do
+                [ -z "$bpath" ] && continue
+                before_found="true"
+                before_src="${before_src}${before_src:+, }$content_prev:$bpath"
+                if [ "$before_ok" != "true" ] \
+                   && _loom_rm_is_problem_state "$fate" "$pattern" "$(git -C "$REPO_ROOT" show "${content_prev}:${bpath}" 2>/dev/null)"; then
+                    before_ok="true"
+                fi
+            done <<< "$bpaths"
+        fi
+        if [ "$before_found" != "true" ]; then
+            echo "check-release: $label: cannot verify — no copy of $name in ${content_prev:-<no previous release resolvable>} and no fixture: reference in its note"
+            rc=1
+        elif [ "$before_ok" != "true" ]; then
+            echo "check-release: $label: pattern does not reproduce the claimed prior state (checked $before_src) — the pattern may be wrong"
+            rc=1
+        fi
+
+        # AFTER: proof the content is now fixed, wherever that is checkable.
+        if [ -n "$fixture" ]; then
+            local af="$REPO_ROOT/tests/fixtures/release-migrations/${fixture}.after"
+            if [ ! -f "$af" ]; then
+                echo "check-release: $label: fixture ${fixture}.after is missing — a fixture: row needs both .before and .after"
+                rc=1
+            else
+                local after_content; after_content="$(cat "$af")"
+                if _loom_rm_is_problem_state "$fate" "$pattern" "$after_content"; then
+                    echo "check-release: $label: its own fixture ${fixture}.after still exhibits the pre-fix pattern — the row claims this is fixed but the fixture doesn't show it"
+                    rc=1
+                fi
+            fi
+        else
+            local current_matches; current_matches="$(content_matches "$name")"
+            if [ -z "$current_matches" ]; then
+                echo "check-release: $label: (no shipped current copy of $name — after-proof skipped)"
+            else
+                local cf
+                while IFS= read -r cf; do
+                    [ -z "$cf" ] && continue
+                    local cur_content; cur_content="$(cat "$REPO_ROOT/$cf" 2>/dev/null)"
+                    if _loom_rm_is_problem_state "$fate" "$pattern" "$cur_content"; then
+                        echo "check-release: $label: current tree's own shipped copy ($cf) still exhibits the pattern's target state — the row claims this is fixed but it isn't"
+                        rc=1
+                    fi
+                done <<< "$current_matches"
+            fi
+        fi
+    done <<< "$rows"
+    return $rc
+}
+
 cmd_check_release() {
     local registry_arg="" version_arg="" since_arg=""
     local positional=()
@@ -374,11 +504,22 @@ cmd_check_release() {
             echo "previous release: none resolvable — removal guard skipped"
         else
             echo "previous release: $prev"
-            local removed_dirs="" removed_declared=""
+            local removed_dirs="" removed_declared="" removed_misdeclared="" misdeclared_detail=""
             local kind name dirpath
             local ls dep_rows
             ls="$(git -C "$REPO_ROOT" ls-tree -d --name-only "$prev" -- plugins/ mcp-servers/ 2>/dev/null)" || ls=""
             dep_rows="$(loom_deprecation_rows "$REGISTRY_FILE" 2>/dev/null)" || dep_rows=""
+            # A deprecation row's `release` is "the first shipped tag that
+            # lacks it" (registry header). An item present at $prev and gone
+            # now was therefore removed in some release in ($prev, $version]
+            # — a row dated outside that window is a STALE row (it claims an
+            # earlier release already lacked the item, yet $prev still had
+            # it) or a FUTURE row (it pre-declares a release not being cut),
+            # and neither declares THIS release's removal. Only checkable
+            # when $prev is version-shaped (an explicit --since may name any
+            # tag); otherwise the (kind, name) match alone stands.
+            local prev_is_version="false"
+            case "$prev" in v[0-9]*.[0-9]*.[0-9]*) prev_is_version="true" ;; esac
             local d
             for d in $ls; do
                 [ -d "$REPO_ROOT/$d" ] && continue
@@ -388,20 +529,30 @@ cmd_check_release() {
                     *) continue ;;
                 esac
                 name="${name%/}"
-                local has_row="false"
-                if [ -n "$dep_rows" ] && printf '%s\n' "$dep_rows" \
-                     | awk -F'\t' -v k="$kind" -v n="$name" '$1 == k && $2 == n { found=1 } END { exit(found ? 0 : 1) }'; then
-                    has_row="true"
+                local row_release=""
+                if [ -n "$dep_rows" ]; then
+                    row_release="$(printf '%s\n' "$dep_rows" \
+                        | awk -F'\t' -v k="$kind" -v n="$name" '$1 == k && $2 == n { print $7; exit }')"
                 fi
-                if [ "$has_row" = "true" ]; then
-                    removed_declared="$removed_declared $d"
-                else
+                if [ -z "$row_release" ]; then
                     removed_dirs="$removed_dirs $d"
+                elif [ "$prev_is_version" = "true" ] \
+                     && { ! _loom_version_lt "$prev" "$row_release" || _loom_version_lt "$version" "$row_release"; }; then
+                    removed_misdeclared="$removed_misdeclared $d"
+                    misdeclared_detail="$misdeclared_detail $d (row says $row_release)"
+                else
+                    removed_declared="$removed_declared $d"
                 fi
             done
+            if [ -n "$removed_misdeclared" ]; then
+                echo "check-release: removed since $prev but its registry row dates the removal outside ($prev, $version]:$misdeclared_detail — a deprecation row's release is the first shipped tag that lacks the item"
+                overall_rc=1
+            fi
             if [ -n "$removed_dirs" ]; then
                 echo "check-release: removed since $prev without a registry row:$removed_dirs"
                 overall_rc=1
+            elif [ -n "$removed_misdeclared" ]; then
+                :
             else
                 if [ -n "$removed_declared" ]; then
                     echo "removals since $prev:$removed_declared (declared)"
@@ -411,9 +562,9 @@ cmd_check_release() {
             fi
             local none_row_here
             none_row_here="$(loom_migration_rows_for_release "$version" "$REGISTRY_FILE" 2>/dev/null | awk -F'\t' '$1 == "none"')" || none_row_here=""
-            if [ -n "$none_row_here" ] && { [ -n "$removed_dirs" ] || [ -n "$removed_declared" ]; }; then
+            if [ -n "$none_row_here" ] && { [ -n "$removed_dirs" ] || [ -n "$removed_declared" ] || [ -n "$removed_misdeclared" ]; }; then
                 local any_removed_dir
-                any_removed_dir="$(printf '%s %s' "$removed_dirs" "$removed_declared" | awk '{print $1}')"
+                any_removed_dir="$(printf '%s %s %s' "$removed_dirs" "$removed_declared" "$removed_misdeclared" | awk '{print $1}')"
                 echo "check-release: contradiction: $version declares none but ${any_removed_dir} was removed since $prev"
                 overall_rc=1
             fi
@@ -444,6 +595,17 @@ cmd_check_release() {
         echo "check-release: $version declares none AND $((row_count - 1)) other row(s) — contradiction"
         overall_rc=1
     fi
+
+    # Every content row of the release being checked must be EXECUTED, not
+    # merely declared (finding 7): prove its pattern is grounded in a real
+    # prior/problem state, and that it does not still match the current
+    # tree's own shipped "fixed" copy. A row whose target LogicLoom never
+    # ships (a customer-generated file, or a PROPOSE-ADVISORY/KORI-CLASS row
+    # on a fork-owned file) carries a `fixture:` note instead — see the
+    # registry header comment.
+    local content_prev
+    content_prev="$(loom_latest_tag_at_or_below "$version" "$REPO_ROOT" 2>/dev/null)" || content_prev=""
+    verify_content_rows_execution "$version" "$content_prev" || overall_rc=1
 
     local changelog="$REPO_ROOT/CHANGELOG.md"
     if [ -f "$changelog" ]; then
@@ -535,7 +697,43 @@ build_remove_cmd() {
     esac
 }
 
-# Newest local tag:path baseline, then upstream. Read-only git only.
+# A local `v[0-9]*` tag is a baseline candidate ONLY when its own tree
+# carries LogicLoom's own version stamp for that version: "name":"logic-loom"
+# AND "version":"<T>" in the tag's root package.json (framework-owned in a
+# TEMPLATE clone; see CLAUDE.md "Harness <-> product boundary"), or
+# FRAMEWORK_VERSION=<T> in its .logic-loom/config/architecture.conf (the
+# stamp bump-version.sh writes; the one that carries an ADOPTED install,
+# whose root package.json is the adopter's own product manifest and never
+# names logic-loom). Either is proof the tag is a LogicLoom release, not an
+# adopter's own product tag that happens to share the vX.Y.Z shape (finding
+# 1: an adopter's own semver release tag must never be mistaken for ours —
+# that would let their customized plugin bytes be judged "pristine"). The
+# version must MATCH the tag: name alone would re-admit a template clone's
+# own product tags (its package.json still says logic-loom). Known cost: the
+# pre-v6.2 tags (package name sdd-agentic-framework, versions that lag the
+# tag, no architecture.conf) are rejected too — they carry no stamp that
+# discriminates, and no shipped tree has both those tags and a retired
+# plugin still on disk, so the fall-through to `none` costs nothing real.
+_loom_rm_tag_is_logicloom() {
+    local tag="$1" t="$2"
+    local pkg
+    if pkg="$(git -C "$REPO_ROOT" show "${tag}:package.json" 2>/dev/null)"; then
+        if printf '%s' "$pkg" | grep -qF '"name": "logic-loom"' \
+           && printf '%s' "$pkg" | grep -qF "\"version\": \"$t\""; then
+            return 0
+        fi
+    fi
+    local arch
+    if arch="$(git -C "$REPO_ROOT" show "${tag}:.logic-loom/config/architecture.conf" 2>/dev/null)"; then
+        if printf '%s' "$arch" | grep -qE "^FRAMEWORK_VERSION=$t\$"; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+# Newest local tag:path baseline (LogicLoom-provable tags only), then
+# upstream. Read-only git only.
 # Prints "sync-ref:S" | "tag:vT" | "upstream:D^" | "none".
 resolve_baseline() {
     local path="$1"
@@ -555,6 +753,7 @@ resolve_baseline() {
             sorted="$(printf '%s\n' "$stripped" | sort -t. -k1,1nr -k2,2nr -k3,3nr)"
             while IFS= read -r t; do
                 [ -z "$t" ] && continue
+                _loom_rm_tag_is_logicloom "v$t" "$t" || continue
                 if git -C "$REPO_ROOT" cat-file -e "v$t:$path" 2>/dev/null; then
                     printf 'tag:v%s' "$t"
                     return 0
@@ -570,6 +769,11 @@ resolve_baseline() {
             return 0
         fi
     fi
+    # No provable LogicLoom baseline: never let an unproven baseline read as
+    # pristine (that would authorize REMOVE on a customized item). "none" ->
+    # resolve_state() -> STATE=unknown, which compute_recommendation() always
+    # routes through the SAME branch as "customized" (never through the
+    # `state = pristine` branch that leads to REMOVE).
     printf 'none'
     return 0
 }
@@ -642,10 +846,15 @@ scan_references() {
                    ":(exclude).logic-loom/config/release-migrations.conf"
                    ":(exclude).logic-loom/config/migration-decisions.conf"
                    ":(exclude).logic-loom/config/project-migrations.conf")
-    if [ "${ADOPT_MODE:-TEMPLATE}" = "ADOPTED" ]; then
-        # An adopter's CI is never listed (update-framework.md Step 4).
-        exclude+=(":(exclude).github")
-    fi
+    # .github/ is scanned in BOTH modes (finding 2): an adopter's own CI
+    # referencing a retired plugin's path must block REMOVE and be reported
+    # as theirs, same as any other reference. This scan only ever READS
+    # .github — it never proposes or writes a change under it (the plan/
+    # convert text for a REMOVE names only `git rm`/`.mcp.json` for the
+    # retired item itself). The unrelated "skip the inherited-maintainer-CI
+    # check" in update-framework.md Step 4 is a different, narrower thing:
+    # not treating LogicLoom's own leftover maintainer CI as the adopter's —
+    # it never blinds this reference scan.
     # An explicit --registry file that lives inside the root is registry
     # text, not a dependency.
     case "${REGISTRY_FILE:-}" in
@@ -653,6 +862,20 @@ scan_references() {
     esac
     local hits
     hits="$(git -C "$REPO_ROOT" grep -nI --untracked -E -- "${escaped}([^A-Za-z0-9_.-]|\$)" -- . "${exclude[@]}" 2>/dev/null)" || hits=""
+    # `git grep --untracked` never surfaces a GITIGNORED file (only untracked
+    # but NOT ignored) — .claude/settings.local.json is gitignored by design
+    # (versioning personal/local config is out of scope for this repo), so a
+    # locally wired hook that points at a retired plugin is otherwise
+    # invisible to this scan even though the classifier below already knows
+    # how to read a settings.local.json hit once it has one (finding 3).
+    local local_settings="$REPO_ROOT/.claude/settings.local.json"
+    if [ -f "$local_settings" ]; then
+        local local_hits
+        local_hits="$(grep -nI -E -- "${escaped}([^A-Za-z0-9_.-]|\$)" "$local_settings" 2>/dev/null | sed 's|^|.claude/settings.local.json:|')" || local_hits=""
+        if [ -n "$local_hits" ]; then
+            if [ -n "$hits" ]; then hits="${hits}"$'\n'"${local_hits}"; else hits="$local_hits"; fi
+        fi
+    fi
     # mcp-server rows: the .mcp.json entry is keyed "<name>": — a line the
     # path pattern above never matches.
     if [ "$kind" = "mcp-server" ] && [ -f "$REPO_ROOT/.mcp.json" ]; then
@@ -1115,10 +1338,18 @@ emit_content_item() {
     matched_files="$(content_matches "$name")"
     [ -z "$matched_files" ] && return 1
 
+    local is_advisory="false"
+    [ "$default" = "PROPOSE-ADVISORY" ] && is_advisory="true"
+
     local f
     while IFS= read -r f; do
         [ -z "$f" ] && continue
-        if [ "${ADOPT_MODE:-TEMPLATE}" = "ADOPTED" ] && [ "$source" != "project" ]; then
+        # Ownership scoping (ADOPTED mode) only applies to content the
+        # harness itself might have written — an advisory (KORI CLASS) row
+        # targets a fork-owned file update-framework never wrote a byte of,
+        # so there is no adopt-receipt entry to require and this row must
+        # fire the same way in TEMPLATE and ADOPTED alike.
+        if [ "$is_advisory" != "true" ] && [ "${ADOPT_MODE:-TEMPLATE}" = "ADOPTED" ] && [ "$source" != "project" ]; then
             if [ "$f" != ".logicloom-adopt-receipt.json" ] && ! adopt_file_recorded "$f"; then
                 continue
             fi
@@ -1134,15 +1365,18 @@ emit_content_item() {
         local decision=""
         decision="$(lookup_decision "$name" "$release" "$f" 2>/dev/null)" || decision=""
         local recommended="PROPOSE" reason=""
-        local proposal="${note#*proposal: }"; proposal="${proposal%%; why:*}"
-        local why="${note#*why: }"
+        local proposal="${note#*proposal: }"; proposal="${proposal%%; why:*}"; proposal="${proposal%%; fixture:*}"
+        local why="${note#*why: }"; why="${why%%; fixture:*}"
+        local advisory_prefix=""
+        [ "$is_advisory" = "true" ] && advisory_prefix="ADVISORY — LogicLoom did not ship this text (it is your own file); this proposal is informational only and is never applied automatically: "
         if [ "$decision" = "keep" ]; then
             recommended="KEEP-AS-IS"
             reason="acknowledged"
             KEPT_N=$((KEPT_N + 1))
         else
+            [ "$is_advisory" = "true" ] && recommended="PROPOSE-ADVISORY"
             PENDING_N=$((PENDING_N + 1))
-            reason="$why"
+            reason="${advisory_prefix}${why}"
         fi
 
         if [ "$json_mode" = "true" ]; then
@@ -1158,12 +1392,15 @@ emit_content_item() {
                 done <<< "$(printf '%s\n' "$hits" | head -20)"
             fi
             jmatches="${jmatches}]"
-            local item="{\"id\":\"$id\",\"kind\":\"content\",\"source\":\"$source\",\"path\":\"$(json_escape "$f")\",\"release\":\"$release\",\"fate\":\"$fate\",\"pattern\":\"$(json_escape "$pattern")\",\"matches\":$jmatches,\"proposal\":\"$(json_escape "$proposal")\",\"why\":\"$(json_escape "$why")\",\"decision\":\"$decision\",\"recommended\":\"$recommended\",\"reason\":\"$(json_escape "$reason")\",\"blocked\":false,\"blocked_by\":[],\"remove_command\":\"\",\"move_command\":\"\"}"
+            local item="{\"id\":\"$id\",\"kind\":\"content\",\"source\":\"$source\",\"path\":\"$(json_escape "$f")\",\"release\":\"$release\",\"fate\":\"$fate\",\"pattern\":\"$(json_escape "$pattern")\",\"advisory\":$( [ "$is_advisory" = "true" ] && echo true || echo false ),\"matches\":$jmatches,\"proposal\":\"$(json_escape "$proposal")\",\"why\":\"$(json_escape "$why")\",\"decision\":\"$decision\",\"recommended\":\"$recommended\",\"reason\":\"$(json_escape "$reason")\",\"blocked\":false,\"blocked_by\":[],\"remove_command\":\"\",\"move_command\":\"\"}"
             [ -n "$ITEMS_JSON" ] && ITEMS_JSON="${ITEMS_JSON},"
             ITEMS_JSON="${ITEMS_JSON}${item}"
         else
             local block
             block="$id  $f   content check ($release)"$'\n'
+            if [ "$is_advisory" = "true" ]; then
+                block="${block}        ADVISORY — LogicLoom did not ship this text (it is your own file); this proposal is informational only and is never applied automatically"$'\n'
+            fi
             if [ -n "$hits" ]; then
                 while IFS= read -r hl; do
                     [ -z "$hl" ] && continue
@@ -1532,6 +1769,7 @@ cmd_plan() {
             esac ;;
         MOVE)
             echo "${REC_MOVE_CMD} (gate policy git.mv = ask, so you approve it). Replaced by: $(printf '%s' "$row" | awk -F'\t' '{print $4}')."
+            echo "this MOVE is computed fresh as of right now; if the destination has since appeared on disk (e.g. a clean-add applied since this was printed), git mv fails cleanly rather than overwriting it — re-run plan $name first if time has passed."
             ;;
         CONVERT-TO-LOCAL|ADOPT-REPLACEMENT)
             echo ""
@@ -1671,10 +1909,15 @@ frontmatter_differs() {
 # ── write helpers: every write in --apply is checked; a failure prints an
 #    ERROR line, marks the run stopped, and nothing records `converted =`.
 WRITE_FAILED="false"
-write_text_target() {   # $1 = repo-relative target, $2 = content (newline appended)
-    local target="$1" content="$2"
+write_text_target() {   # $1 = repo-relative target, $2 = content (newline appended), $3 = optional source path whose +x bit to preserve
+    local target="$1" content="$2" srcfile="${3:-}"
     if mkdir -p "$REPO_ROOT/$(dirname "$target")" 2>/dev/null \
        && printf '%s\n' "$content" > "$REPO_ROOT/$target" 2>/dev/null; then
+        # A rewritten text file (path rewrites, marker insertion, model
+        # pin rewrite) still goes through the `>` redirect above, which
+        # never carries over the source's mode — preserve the executable
+        # bit explicitly so a converted helper script stays runnable.
+        [ -n "$srcfile" ] && [ -x "$srcfile" ] && chmod +x "$REPO_ROOT/$target" 2>/dev/null
         return 0
     fi
     echo "ERROR $target: write failed"
@@ -1779,7 +2022,7 @@ convert_skill_unit() {
             echo "WRITE $target <- plugins/$plugin/skills/$skill/$relf [rewrites: $nrw]$modelnote"
         else
             if [ -n "$rendered" ]; then
-                write_text_target "$target" "$rendered" || return 1
+                write_text_target "$target" "$rendered" "$f" || return 1
             else
                 copy_target "$target" "$f" || return 1
             fi
@@ -1955,7 +2198,7 @@ convert_command_unit() {
         echo "MKDIR .claude/skills/$cmd"
         echo "WRITE $target <- plugins/$plugin/commands/$cmd.md [rewrites: $nrw]$RW_MODEL_NOTE"
     else
-        write_text_target "$target" "$rendered" || return 1
+        write_text_target "$target" "$rendered" "$src" || return 1
         echo "WROTE $target <- plugins/$plugin/commands/$cmd.md [rewrites: $nrw]$RW_MODEL_NOTE"
     fi
     return 0
@@ -1994,7 +2237,7 @@ convert_agent_unit() {
     if [ "$mode" = "dry-run" ]; then
         echo "WRITE $target <- plugins/$plugin/agents/$agent.md [rewrites: $nrw]$modelnote"
     else
-        write_text_target "$target" "$content" || return 1
+        write_text_target "$target" "$content" "$src" || return 1
         echo "WROTE $target <- plugins/$plugin/agents/$agent.md [rewrites: $nrw]$modelnote"
     fi
     return 0
@@ -2051,8 +2294,7 @@ convert_hooks_and_support() {
                 echo "WRITE $target <- plugins/$plugin/$relf [rewrites: $nrw]"
             else
                 if [ "$is_text" = "true" ]; then
-                    write_text_target "$target" "$rendered" || { rc=1; continue; }
-                    [ -x "$f" ] && chmod +x "$REPO_ROOT/$target" 2>/dev/null
+                    write_text_target "$target" "$rendered" "$f" || { rc=1; continue; }
                 else
                     copy_target "$target" "$f" || { rc=1; continue; }
                 fi

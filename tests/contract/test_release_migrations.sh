@@ -83,7 +83,7 @@ assert "'lint' reports clean" "grep -q 'lint: clean' '$TMP/a-lint.out'"
 DEP_N="$(loom_deprecation_rows "$REG" 2>/dev/null | grep -c . || true)"
 MIG_N="$(loom_migration_rows "$REG" 2>/dev/null | grep -c . || true)"
 assert "exactly 23 deprecation-kind rows (found $DEP_N)" "[ '$DEP_N' -eq 23 ]"
-assert "exactly 24 total rows: 23 deprecation + 1 v7.0.0 content (found $MIG_N)" "[ '$MIG_N' -eq 24 ]"
+assert "exactly 25 total rows: 23 deprecation + 2 v7.0.0 content (receipt + KORI-CLASS ladder) (found $MIG_N)" "[ '$MIG_N' -eq 25 ]"
 
 # named fates
 assert "sdd-dev-loop is native" \
@@ -130,7 +130,13 @@ assert "v7.0.0 row release: v7.0.0" "[ \"\$V7_REL\" = v7.0.0 ]"
 assert "v7.0.0 row note contains proposal:" "case \"\$V7_NOTE\" in *proposal:*) true;; *) false;; esac"
 assert "v7.0.0 row note contains why:" "case \"\$V7_NOTE\" in *why:*) true;; *) false;; esac"
 V7REL_N="$(loom_migration_rows_for_release v7.0.0 "$REG" 2>/dev/null | grep -c . || true)"
-assert "loom_migration_rows_for_release v7.0.0 = 1 row" "[ '$V7REL_N' -eq 1 ]"
+assert "loom_migration_rows_for_release v7.0.0 = 2 rows (receipt + KORI-CLASS ladder)" "[ '$V7REL_N' -eq 2 ]"
+
+# finding 6: the KORI-CLASS row itself
+KORIROW="$(loom_migration_row .logic-loom/memory/amendments.md "$REG" 2>/dev/null)" || KORIROW=""
+assert "the KORI-CLASS row exists (name .logic-loom/memory/amendments.md)" "[ -n \"\$KORIROW\" ]"
+KORI_DEF="$(printf '%s' "$KORIROW" | awk -F'\t' '{print $5}')"
+assert "its default is PROPOSE-ADVISORY" "[ \"\$KORI_DEF\" = PROPOSE-ADVISORY ]"
 
 # every plugin:/path: replacement resolves
 BAD_REPL="$(bash -c "
@@ -398,6 +404,15 @@ JSON
   cp "$LIB" "$F/.logic-loom/lib/release-migrations.sh"
   echo "FRAMEWORK_VERSION=7.0.0" > "$F/.logic-loom/config/architecture.conf"
 
+  # finding 1: a local vX.Y.Z tag is only a provable LogicLoom baseline when
+  # its own package.json carries the "logic-loom" name + matching version
+  # stamp — stamp it at v9.0.0, then bump it for v9.1.0 (below), so the
+  # pre-existing tag-fallback assertions keep exercising a REAL LogicLoom tag
+  # instead of accidentally exercising the bug this fixes.
+  cat > "$F/package.json" <<'JSON'
+{ "name": "logic-loom", "version": "9.0.0" }
+JSON
+
   cat > "$F/CLAUDE.md" <<'MD'
 # CLAUDE.md — fixture
 
@@ -420,6 +435,9 @@ MD
   git -C "$F" update-ref refs/tags/v9.0.0 "$A"
 
   echo "touched" > "$F/UNRELATED.txt"
+  cat > "$F/package.json" <<'JSON'
+{ "name": "logic-loom", "version": "9.1.0" }
+JSON
   ( cd "$F" && git add -A >/dev/null && git commit -q -m "commit A2" )
   local A2; A2="$(git -C "$F" rev-parse HEAD)"
   git -C "$F" update-ref refs/tags/v9.1.0 "$A2"
@@ -911,19 +929,212 @@ d = json.load(open(\"$TMP/ctmpl-up.json\"))
 assert any(i.get(\"kind\") == \"content\" and i[\"path\"] == \"plugins/sdd-debug/skills/sdd-debug/SKILL.md\" for i in d[\"items\"]), d[\"items\"]
 '"
 
-# §15.2-B: in ADOPTED mode .github/ is excluded from the reference scan
-# entirely (an adopter's CI is never listed), so a workflow that names the
-# plugin neither blocks REMOVE nor appears as a ci-workflow reference.
+# finding 2 (fixed): .github/ is SCANNED in ADOPTED mode too — an adopter's
+# own CI referencing a retired plugin's path must block REMOVE and be
+# reported as theirs (this script still never proposes or writes a change
+# under .github/ — it only reads it, same as every other reference class).
 mkdir -p "$FIX_ADOPT/.github/workflows"
 echo "run: bash plugins/sdd-dev-loop/scripts/run.sh" > "$FIX_ADOPT/.github/workflows/ci.yml"
 bash "$RM" scan --json --root "$FIX_ADOPT" > "$TMP/cadopt-ci.json" 2>&1
-assert "ADOPTED + ci.yml naming the plugin: sdd-dev-loop is NOT blocked and no reference has class ci-workflow" \
+assert "ADOPTED + ci.yml naming the plugin: sdd-dev-loop IS blocked, blocked_by names ci.yml, class ci-workflow" \
   "python3 -c '
 import json
 d = json.load(open(\"$TMP/cadopt-ci.json\"))
 it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
-assert it[\"blocked\"] is False, it
-assert not any(r[\"class\"] == \"ci-workflow\" for r in it[\"references\"]), it[\"references\"]
+assert it[\"blocked\"] is True, it
+assert any(b[\"file\"] == \".github/workflows/ci.yml\" for b in it[\"blocked_by\"]), it[\"blocked_by\"]
+assert any(r[\"class\"] == \"ci-workflow\" for r in it[\"references\"]), it[\"references\"]
+'"
+bash "$RM" plan sdd-dev-loop --root "$FIX_ADOPT" > "$TMP/cadopt-ci.plan.out" 2>&1
+assert "ADOPTED plan text also names the workflow as BLOCKED until:" \
+  "grep -q 'BLOCKED until: .*\\.github/workflows/ci\\.yml' '$TMP/cadopt-ci.plan.out'"
+assert "…and the remove_command it prints still targets only the plugin, never a .github path" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/cadopt-ci.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"remove_command\"] == \"git rm -r plugins/sdd-dev-loop\", it
+'"
+
+echo ""
+echo "C. finding 3: a gitignored .claude/settings.local.json hook is scanned explicitly"
+FIX_LOCAL="$TMP/fixture-local"; cp -R "$FIX1" "$FIX_LOCAL"
+LOCAL_SETTINGS_NAME=".claude/settings.local.json"
+printf '{\n  \"hooks\": { \"PreToolUse\": [ { \"matcher\": \"Bash\", \"hooks\": [\n    { \"type\": \"command\", \"command\": \"bash plugins/sdd-dev-loop/hooks/scripts/local.sh\" }\n  ]}]}\n}\n' > "$FIX_LOCAL/$LOCAL_SETTINGS_NAME"
+echo "$LOCAL_SETTINGS_NAME" > "$FIX_LOCAL/.gitignore"
+( cd "$FIX_LOCAL" && git add -A >/dev/null && git commit -q -m "gitignore local settings" )
+assert "the fixture's local settings file really is gitignored (git grep --untracked would miss it)" \
+  "git -C '$FIX_LOCAL' check-ignore -q '$LOCAL_SETTINGS_NAME'"
+bash "$RM" scan --json --root "$FIX_LOCAL" > "$TMP/clocal.json" 2>&1
+assert "sdd-dev-loop is blocked by the gitignored settings.local.json hook, class wired-hook" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/clocal.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"blocked\"] is True, it
+assert any(b[\"file\"] == \".claude/settings.local.json\" for b in it[\"blocked_by\"]), it[\"blocked_by\"]
+assert any(w[\"file\"] == \".claude/settings.local.json\" for w in it[\"wired_hooks\"]), it[\"wired_hooks\"]
+'"
+
+echo ""
+echo "C. finding 1: resolve_baseline rejects an unproven local vX.Y.Z tag"
+FIX_FAKETAG="$TMP/fixture-faketag"
+mkdir -p "$FIX_FAKETAG/.logic-loom/config" "$FIX_FAKETAG/.logic-loom/lib" "$FIX_FAKETAG/plugins/sdd-dev-loop"
+git init -q "$FIX_FAKETAG"
+cp "$REG" "$FIX_FAKETAG/.logic-loom/config/release-migrations.conf"
+cp "$LIB" "$FIX_FAKETAG/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=6.6.2" > "$FIX_FAKETAG/.logic-loom/config/architecture.conf"
+echo "pristine plugin body" > "$FIX_FAKETAG/plugins/sdd-dev-loop/marker.txt"
+# an ADOPTER'S OWN product, tagged v2.3.1 — the vX.Y.Z shape a customer's own
+# semver release tag is very likely to have, and NOT a LogicLoom release.
+cat > "$FIX_FAKETAG/package.json" <<'JSON'
+{ "name": "acme-widgets", "version": "2.3.1" }
+JSON
+( cd "$FIX_FAKETAG" && git add -A >/dev/null && git commit -q -m "customer release 2.3.1" )
+git -C "$FIX_FAKETAG" update-ref refs/tags/v2.3.1 HEAD
+bash "$RM" scan --json --root "$FIX_FAKETAG" > "$TMP/cfaketag.json" 2>&1
+assert "an adopter's own v2.3.1 product tag is NEVER accepted as a baseline: baseline none, state unknown, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/cfaketag.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+# the positive control: a tag whose package.json DOES carry LogicLoom's own
+# stamp (name=logic-loom, version matching the tag) IS accepted.
+cat > "$FIX_FAKETAG/package.json" <<'JSON'
+{ "name": "logic-loom", "version": "2.3.1" }
+JSON
+( cd "$FIX_FAKETAG" && git add -A >/dev/null && git commit -q -m "stamp it as a real LogicLoom tag" )
+git -C "$FIX_FAKETAG" update-ref refs/tags/v2.3.1 HEAD
+bash "$RM" scan --json --root "$FIX_FAKETAG" > "$TMP/crealtag.json" 2>&1
+assert "…but a genuinely LogicLoom-stamped v2.3.1 tag IS accepted: baseline tag:v2.3.1, pristine, REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/crealtag.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"baseline\"] == \"tag:v2.3.1\", it
+assert it[\"state\"] == \"pristine\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+
+echo ""
+echo "C. finding 5a: MOVE guidance carries a staleness/re-check caveat (git mv itself fails closed, never overwrites — verified separately below)"
+assert "the printed MOVE line tells the agent to re-run plan if time has passed" \
+  "grep -q 're-run plan \\\$name first if time has passed' '$RM'"
+# reproduction: git mv onto an existing destination is a clean, non-destructive
+# failure (confirms the 'silent overwrite' framing in the original finding was
+# overstated — the residual gap is staleness of the PRINTED recommendation,
+# which this caveat addresses; the git-level operation itself was never unsafe).
+MVTEST="$TMP/movetest"
+mkdir -p "$MVTEST"; git init -q "$MVTEST"
+echo old > "$MVTEST/old.txt"; ( cd "$MVTEST" && git add -A >/dev/null && git commit -qm init )
+echo new > "$MVTEST/new.txt"; ( cd "$MVTEST" && git add -A >/dev/null && git commit -qm addnew )
+( cd "$MVTEST" && git mv old.txt new.txt >/dev/null 2>"$TMP/mv.err" )
+MV_RC=$?
+assert "git mv onto an existing destination fails (non-zero), not silently" "[ $MV_RC -ne 0 ]"
+assert "…and the freshly-added destination's content is untouched (no overwrite)" \
+  "[ \"\$(cat '$MVTEST/new.txt')\" = new ]"
+
+echo ""
+echo "C. finding 5b (investigated, refuted as a live exploit): the removal guard's"
+echo "   has_row check matches on (kind,name) only, not the row's release field —"
+echo "   but the registry lint enforces AT MOST ONE row per (kind,name) globally,"
+echo "   so within a single linted registry file there is no 'wrong release' row"
+echo "   to collide with; check-release's has_row only ever reads REGISTRY_FILE"
+echo "   (never project-migrations.conf), so a project-side collision cannot"
+echo "   reach it either. Reproduced: lint rejects a duplicate (kind,name) pair."
+DUPREG="$TMP/dup-registry.conf"
+printf 'plugin | sdd-dup | removed | none | REMOVE | v4.0.0 | v5.0.0 | first\nplugin | sdd-dup | removed | none | REMOVE | v4.0.0 | v9.0.0 | second, different release\n' > "$DUPREG"
+bash "$RM" lint --registry "$DUPREG" --root "$ROOT" > "$TMP/duplint.out" 2>&1
+DUP_RC=$?
+assert "a second row for the same (kind,name) at a different release: lint fails, 'duplicate deprecation name'" \
+  "[ $DUP_RC -eq 1 ] && grep -q 'duplicate deprecation name sdd-dup' '$TMP/duplint.out'"
+
+echo ""
+echo "C. finding 6 (KORI CLASS): PROPOSE-ADVISORY content row on a fork-owned file"
+FIX_KORI="$TMP/fixture-kori"; cp -R "$FIX1" "$FIX_KORI"
+mkdir -p "$FIX_KORI/.logic-loom/memory"
+cp "$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.before" "$FIX_KORI/.logic-loom/memory/amendments.md"
+bash "$RM" scan --json --root "$FIX_KORI" > "$TMP/ckori-old.json" 2>&1
+assert "old alternative-line wording: fires, kind content, advisory true, recommended PROPOSE-ADVISORY" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/ckori-old.json\"))
+it = next((i for i in d[\"items\"] if i.get(\"kind\") == \"content\" and i[\"path\"] == \".logic-loom/memory/amendments.md\"), None)
+assert it is not None, d[\"items\"]
+assert it[\"advisory\"] is True, it
+assert it[\"recommended\"] == \"PROPOSE-ADVISORY\", it
+assert \"LogicLoom did not ship this text\" in it[\"reason\"], it[\"reason\"]
+'"
+bash "$RM" scan --root "$FIX_KORI" > "$TMP/ckori-old.human" 2>&1
+assert "human output states plainly LogicLoom did not ship this text (advisory banner)" \
+  "grep -q 'ADVISORY .*LogicLoom did not ship this text' '$TMP/ckori-old.human'"
+cp "$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.after" "$FIX_KORI/.logic-loom/memory/amendments.md"
+bash "$RM" scan --json --root "$FIX_KORI" > "$TMP/ckori-new.json" 2>&1
+assert "new additive '+3' wording: does NOT fire" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/ckori-new.json\"))
+assert not any(i.get(\"kind\") == \"content\" and i[\"path\"] == \".logic-loom/memory/amendments.md\" for i in d[\"items\"]), d[\"items\"]
+'"
+# fires the same way in ADOPTED mode, with NO adopt-receipt entry for
+# amendments.md — the ownership-scoping rule the receipt-based rows use does
+# not apply to an advisory row (the harness never wrote this file).
+mkdir -p "$FIX_ADOPT/.logic-loom/memory"
+cp "$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.before" "$FIX_ADOPT/.logic-loom/memory/amendments.md"
+bash "$RM" scan --json --root "$FIX_ADOPT" > "$TMP/ckori-adopted.json" 2>&1
+assert "fires the same way in ADOPTED mode with no receipt entry for amendments.md (never ownership-scoped)" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/ckori-adopted.json\"))
+it = next((i for i in d[\"items\"] if i.get(\"kind\") == \"content\" and i[\"path\"] == \".logic-loom/memory/amendments.md\"), None)
+assert it is not None, d[\"items\"]
+assert it[\"advisory\"] is True, it
+'"
+assert "lint rejects PROPOSE-ADVISORY on a non-fork-owned target" \
+  "printf 'content | some/random/file.md | present | pattern:x | PROPOSE-ADVISORY | - | v9.9.9 | proposal: a; why: b\n' > '$TMP/kori-bad.conf' \
+   && ! bash '$RM' lint --registry '$TMP/kori-bad.conf' --root '$ROOT' >/dev/null 2>&1"
+assert "…and accepts it on CLAUDE.local.md (an allowed fork-owned basename)" \
+  "printf 'content | CLAUDE.local.md | present | pattern:x | PROPOSE-ADVISORY | - | v9.9.9 | proposal: a; why: b\n' > '$TMP/kori-ok.conf' \
+   && bash '$RM' lint --registry '$TMP/kori-ok.conf' --root '$ROOT' >/dev/null 2>&1"
+# reviewer (finding 6): the fork's REAL line is a markdown list item —
+# `- 3 = it changes auth, payment, or customer-data logic` (kori-beta
+# amendments.md:148; design §14.3 shows the same bulleted form). A pattern
+# anchored `^[[:space:]]*3` never matched it. These assert the SHIPPED
+# pattern (read back through the lib, so `\|` decoding is exercised too)
+# against the real forms, and that no `+3` spelling fires.
+KORI_PAT="$(printf '%s' "$KORIROW" | awk -F'\t' '{print $4}')"; KORI_PAT="${KORI_PAT#pattern:}"
+kori_pat_hits() { printf '%s\n' "$1" | grep -qE -- "$KORI_PAT"; }
+assert "KORI pattern matches the real fork form: '- 3 = it changes auth, payment, or customer-data logic' (bulleted)" \
+  "kori_pat_hits '- 3 = it changes auth, payment, or customer-data logic'"
+assert "…and the master doc's indented bare form: '  3 = it changes …'" \
+  "kori_pat_hits '  3 = it changes auth, payment, or customer-data logic'"
+assert "…and an em-dash separator: '  3 — it changes …'" \
+  "kori_pat_hits '  3 — it changes auth, payment, or customer-data logic'"
+assert "…and an asterisk bullet: '* 3 = it changes …'" \
+  "kori_pat_hits '* 3 = it changes auth, payment, or customer-data logic'"
+assert "…but NOT the new additive form: '  +3 — it changes …'" \
+  "! kori_pat_hits '  +3 — it changes auth, payment, or customer-data logic'"
+assert "…nor its bulleted spelling: '- +3 = it changes …'" \
+  "! kori_pat_hits '- +3 = it changes auth, payment, or customer-data logic'"
+assert "…nor a different score on the same line: '- 1 = it changes …'" \
+  "! kori_pat_hits '- 1 = it changes auth, payment, or customer-data logic'"
+assert "the .before fixture carries the real bulleted form (so check-release's fixture proof is of the real form, not a reconstruction)" \
+  "grep -qF -- '- 3 = it changes auth, payment, or customer-data logic' '$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.before'"
+assert "the .after fixture carries the new form in BOTH spellings and neither fires" \
+  "grep -qF -- '+3 — it changes auth' '$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.after' \
+   && grep -qF -- '- +3 = it changes auth' '$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.after' \
+   && ! grep -qE -- \"\$KORI_PAT\" '$ROOT/tests/fixtures/release-migrations/kori-amendments-ladder.after'"
+# the human/JSON output reports the REAL matched line (bullet included)
+assert "scan on the real bulleted form reports the matched line verbatim, bullet and all" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/ckori-old.json\"))
+it = next(i for i in d[\"items\"] if i.get(\"kind\") == \"content\" and i[\"path\"] == \".logic-loom/memory/amendments.md\")
+assert any(m[\"text\"].startswith(\"- 3 = it changes auth\") for m in it[\"matches\"]), it[\"matches\"]
 '"
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1011,6 +1222,35 @@ d = json.load(open(\"$TMP/d1.postscan.json\"))
 it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-debug\")
 assert it[\"decision\"] == \"converted\", it
 '"
+
+echo ""
+echo "D. finding 4: convert preserves the executable bit on a rewritten skill file"
+FD_EXE="$TMP/fixtureD-exe"
+mkdir -p "$FD_EXE/.logic-loom/config" "$FD_EXE/.logic-loom/lib" "$FD_EXE/plugins/sdd-exe/skills/sdd-exe" "$FD_EXE/.claude"
+cp "$REG" "$FD_EXE/.logic-loom/config/release-migrations.conf"
+cp "$LIB" "$FD_EXE/.logic-loom/lib/release-migrations.sh"
+cat >> "$FD_EXE/.logic-loom/config/release-migrations.conf" <<'EOF'
+plugin | sdd-exe | removed | none | REMOVE | v4.0.0 | v6.2.0 | test fixture for the +x preservation defect
+EOF
+echo "FRAMEWORK_VERSION=6.6.2" > "$FD_EXE/.logic-loom/config/architecture.conf"
+cat > "$FD_EXE/plugins/sdd-exe/skills/sdd-exe/SKILL.md" <<'MD'
+---
+name: sdd-exe
+description: fixture for the write_text_target +x defect
+---
+Body.
+MD
+cat > "$FD_EXE/plugins/sdd-exe/skills/sdd-exe/run.sh" <<'SH'
+#!/usr/bin/env bash
+echo hi
+SH
+chmod +x "$FD_EXE/plugins/sdd-exe/skills/sdd-exe/run.sh"
+bash "$RM" convert sdd-exe --apply --root "$FD_EXE" > "$TMP/dexe.apply.out" 2>&1
+assert "convert --apply exits 0" "[ $? -eq 0 ]"
+assert "the converted run.sh under .claude/skills/ is still executable (the source's +x bit survived the rewrite)" \
+  "[ -x '$FD_EXE/.claude/skills/sdd-exe/run.sh' ]"
+assert "…and its content still went through the (no-op) path-rewrite pass — not a plain byte copy" \
+  "grep -q 'echo hi' '$FD_EXE/.claude/skills/sdd-exe/run.sh'"
 
 echo ""
 echo "D. convert sdd-dev-loop: the append path (command into an existing same-named skill)"
@@ -1264,14 +1504,127 @@ bash "$RM" check-release --root "$E4" > "$TMP/e4c.out" 2>&1
 assert "…with the heading present: exit 0" "[ $? -eq 0 ]"
 
 E5="$TMP/e-contentrow"
-mk_temp_root "$E5" "9.9.9" "content | x.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b"
+mk_temp_root "$E5" "9.9.9" "content | x.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e5xfix"
 echo "x foo" > "$E5/x.md"
+mkdir -p "$E5/tests/fixtures/release-migrations"
+printf 'has foo (the problem state)\n' > "$E5/tests/fixtures/release-migrations/e5xfix.before"
+printf 'no longer has it (fixed)\n' > "$E5/tests/fixtures/release-migrations/e5xfix.after"
 echo "## [9.9.9]" > "$E5/CHANGELOG.md"
 bash "$RM" check-release --root "$E5" > "$TMP/e5.out" 2>&1
 assert "a content row + CHANGELOG heading with no ### Migrat subsection: exit 1" "[ $? -eq 1 ]"
 { echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E5/CHANGELOG.md"
 bash "$RM" check-release --root "$E5" > "$TMP/e5b.out" 2>&1
 assert "…with the ### Migrating subsection present: exit 0" "[ $? -eq 0 ]"
+
+echo ""
+echo "E. finding 7: check-release EXECUTES every content row of the release it checks"
+
+E8="$TMP/e-execute-noproof"
+mk_temp_root "$E8" "9.9.9" "content | y.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b"
+echo "y foo" > "$E8/y.md"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E8/CHANGELOG.md"
+bash "$RM" check-release --root "$E8" > "$TMP/e8.out" 2>&1
+assert "a content row with NO fixture: and NO git history at all: fails closed with a precise message" \
+  "[ $? -eq 1 ] && grep -q 'content row y.md@v9.9.9: cannot verify' '$TMP/e8.out'"
+assert "…and it ALSO reports the current shipped copy still shows the un-fixed state (both proofs run)" \
+  "grep -q 'content row y.md@v9.9.9: current tree.*still exhibits the pattern' '$TMP/e8.out'"
+
+E9="$TMP/e-execute-fixture-ok"
+mk_temp_root "$E9" "9.9.9" "content | z.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e9zfix"
+mkdir -p "$E9/tests/fixtures/release-migrations"
+printf 'has foo\n' > "$E9/tests/fixtures/release-migrations/e9zfix.before"
+printf 'fixed, no longer has it\n' > "$E9/tests/fixtures/release-migrations/e9zfix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9/CHANGELOG.md"
+bash "$RM" check-release --root "$E9" > "$TMP/e9.out" 2>&1
+assert "a content row with a well-formed fixture: pair passes execution (exit 0)" "[ $? -eq 0 ]"
+
+E10="$TMP/e-execute-fixture-broken-before"
+mk_temp_root "$E10" "9.9.9" "content | w.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e10wfix"
+mkdir -p "$E10/tests/fixtures/release-migrations"
+printf 'does not have the target text at all\n' > "$E10/tests/fixtures/release-migrations/e10wfix.before"
+printf 'fixed\n' > "$E10/tests/fixtures/release-migrations/e10wfix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E10/CHANGELOG.md"
+bash "$RM" check-release --root "$E10" > "$TMP/e10.out" 2>&1
+assert "a fixture .before that does NOT reproduce the claimed problem state: fails closed, names the row" \
+  "[ $? -eq 1 ] && grep -q 'content row w.md@v9.9.9: pattern does not reproduce the claimed prior state' '$TMP/e10.out'"
+
+E11="$TMP/e-execute-fixture-broken-after"
+mk_temp_root "$E11" "9.9.9" "content | v.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e11vfix"
+mkdir -p "$E11/tests/fixtures/release-migrations"
+printf 'has foo\n' > "$E11/tests/fixtures/release-migrations/e11vfix.before"
+printf 'still has foo — not actually fixed\n' > "$E11/tests/fixtures/release-migrations/e11vfix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E11/CHANGELOG.md"
+bash "$RM" check-release --root "$E11" > "$TMP/e11.out" 2>&1
+assert "a fixture .after that still exhibits the pre-fix pattern: fails closed, names the row" \
+  "[ $? -eq 1 ] && grep -q 'content row v.md@v9.9.9: its own fixture e11vfix.after still exhibits the pre-fix pattern' '$TMP/e11.out'"
+
+E12="$TMP/e-execute-history"
+mkdir -p "$E12/.logic-loom/config" "$E12/.logic-loom/lib"
+git init -q "$E12"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E12/.logic-loom/config/architecture.conf"
+cp "$LIB" "$E12/.logic-loom/lib/release-migrations.sh"
+: > "$E12/.logic-loom/config/release-migrations.conf"
+echo "no foo here" > "$E12/u.md"
+( cd "$E12" && git add -A >/dev/null && git commit -q -m "commit 1: u.md pre-fix" )
+git -C "$E12" update-ref refs/tags/v9.0.0 HEAD
+echo "content | u.md | absent | pattern:fixed-marker | PROPOSE | - | v9.0.1 | proposal: a; why: b" > "$E12/.logic-loom/config/release-migrations.conf"
+echo "fixed-marker now present" > "$E12/u.md"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E12/CHANGELOG.md"
+( cd "$E12" && git add -A >/dev/null && git commit -q -m "commit 2: registry row + u.md fixed" )
+bash "$RM" check-release --since auto --root "$E12" > "$TMP/e12.out" 2>&1
+assert "a content row with NO fixture:, proven purely from git history (prev tag + current tree): exit 0" \
+  "[ $? -eq 0 ] && grep -q 'previous release: v9.0.0' '$TMP/e12.out'"
+rm -f "$E12/u.md"
+bash "$RM" check-release --since auto --root "$E12" > "$TMP/e12b.out" 2>&1
+assert "…and once the current shipped copy is deleted entirely, the after-proof is explicitly skipped (not a failure)" \
+  "[ $? -eq 0 ] && grep -q 'content row u.md@v9.0.1: (no shipped current copy' '$TMP/e12b.out'"
+
+E13="$TMP/e-execute-glob"
+mkdir -p "$E13/.logic-loom/config" "$E13/.logic-loom/lib" "$E13/docs"
+git init -q "$E13"
+cp "$LIB" "$E13/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E13/.logic-loom/config/architecture.conf"
+echo "old text foo here" > "$E13/docs/a.md"
+: > "$E13/.logic-loom/config/release-migrations.conf"
+( cd "$E13" && git add -A >/dev/null && git commit -q -m "commit 1: pre-fix" )
+git -C "$E13" update-ref refs/tags/v9.0.0 HEAD
+echo 'content | docs/*.md | present | pattern:foo | PROPOSE | - | v9.0.1 | proposal: a; why: b' > "$E13/.logic-loom/config/release-migrations.conf"
+echo "fixed text, no marker" > "$E13/docs/a.md"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E13/CHANGELOG.md"
+( cd "$E13" && git add -A >/dev/null && git commit -q -m "commit 2: registry row (glob) + a.md fixed" )
+bash "$RM" check-release --since auto --root "$E13" > "$TMP/e13.out" 2>&1
+assert "a GLOB content row (docs/*.md), proven via git ls-tree at the prev tag + the current tree: exit 0" "[ $? -eq 0 ]"
+echo "still has foo, not fixed" > "$E13/docs/a.md"
+bash "$RM" check-release --since auto --root "$E13" > "$TMP/e13b.out" 2>&1
+assert "…and once the glob's current copy regresses to the un-fixed state: fails closed, names the matched file" \
+  "[ $? -eq 1 ] && grep -q 'content row docs/\\*.md@v9.0.1: current tree.*(docs/a.md)' '$TMP/e13b.out'"
+
+# reviewer (finding 7): the before-proof for a GLOB row must be satisfied by
+# ANY file at the previous tag, not only the first ls-tree match — a clean
+# docs/a.md ahead of the problem-bearing docs/b.md was a false fail-closed.
+E14="$TMP/e-execute-glob-anymatch"
+mkdir -p "$E14/.logic-loom/config" "$E14/.logic-loom/lib" "$E14/docs"
+git init -q "$E14"
+cp "$LIB" "$E14/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E14/.logic-loom/config/architecture.conf"
+echo "clean, nothing here" > "$E14/docs/a.md"
+echo "old text foo here" > "$E14/docs/b.md"
+: > "$E14/.logic-loom/config/release-migrations.conf"
+( cd "$E14" && git add -A >/dev/null && git commit -q -m "commit 1: a.md clean, b.md pre-fix" )
+git -C "$E14" update-ref refs/tags/v9.0.0 HEAD
+echo 'content | docs/*.md | present | pattern:foo | PROPOSE | - | v9.0.1 | proposal: a; why: b' > "$E14/.logic-loom/config/release-migrations.conf"
+echo "fixed" > "$E14/docs/b.md"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E14/CHANGELOG.md"
+( cd "$E14" && git add -A >/dev/null && git commit -q -m "commit 2: registry row (glob) + b.md fixed" )
+bash "$RM" check-release --since auto --root "$E14" > "$TMP/e14.out" 2>&1
+assert "a GLOB content row whose FIRST match at the prev tag (docs/a.md) is clean but a LATER one (docs/b.md) has the pattern: grounded, exit 0" \
+  "[ $? -eq 0 ] && ! grep -q 'does not reproduce' '$TMP/e14.out'"
+echo "nothing here either" > "$E14/docs/b.md"
+( cd "$E14" && git add -A >/dev/null && git commit -q -m "commit 3: b.md never had it" )
+git -C "$E14" update-ref refs/tags/v9.0.0 HEAD
+bash "$RM" check-release --since auto --root "$E14" > "$TMP/e14b.out" 2>&1
+assert "…and when NO file at the prev tag has it, the failure names every file it checked" \
+  "[ $? -eq 1 ] && grep -q 'does not reproduce the claimed prior state (checked v9.0.0:docs/a.md, v9.0.0:docs/b.md)' '$TMP/e14b.out'"
 
 echo ""
 echo "E. removal guard — throwaway repo (git tags, real removal)"
@@ -1310,6 +1663,31 @@ echo "plugin | sdd-foo | removed | none | REMOVE | v9.0.0 | v9.0.1 | x" > "$E6/.
 bash "$RM" check-release --since v9.0.0 --root "$E6" > "$TMP/e6d.out" 2>&1
 assert "explicit --since v9.0.0 behaves the same as --since auto" \
   "[ $? -eq 0 ] && grep -q 'previous release: v9.0.0' '$TMP/e6d.out'"
+
+# finding 5b (reviewer: reproduced as REAL, then fixed): the guard matched a
+# row on (kind, name) alone. Registry lint's one-row-per-name rule does not
+# help here — the ONE row can simply carry the wrong release. An item present
+# at the previous tag and gone now was removed in (prev, version]; a row dated
+# outside that window (a FUTURE pre-declaration, or a STALE row claiming an
+# earlier release already lacked it) does not declare THIS release's removal.
+echo "plugin | sdd-foo | removed | none | REMOVE | v9.0.0 | v9.9.0 | pre-declared for a future release" > "$E6/.logic-loom/config/release-migrations.conf"
+bash "$RM" check-release --since auto --root "$E6" > "$TMP/e6e.out" 2>&1
+assert "5b: the only row for sdd-foo is dated v9.9.0 (future) while it was removed in v9.0.1: exit 1, names the window and the row's release" \
+  "[ $? -eq 1 ] && grep -q 'removed since v9.0.0 but its registry row dates the removal outside (v9.0.0, v9.0.1]: plugins/sdd-foo (row says v9.9.0)' '$TMP/e6e.out'"
+echo "plugin | sdd-foo | removed | none | REMOVE | v8.0.0 | v8.5.0 | stale: claims v8.5.0 lacked it, but v9.0.0 still had it" > "$E6/.logic-loom/config/release-migrations.conf"
+bash "$RM" check-release --since auto --root "$E6" > "$TMP/e6f.out" 2>&1
+assert "5b: …dated v8.5.0 (stale, not after the v9.0.0 tree that still had it): exit 1, same precise message" \
+  "[ $? -eq 1 ] && grep -q 'plugins/sdd-foo (row says v8.5.0)' '$TMP/e6f.out'"
+echo "plugin | sdd-foo | removed | none | REMOVE | v9.0.0 | v9.0.1 | x" > "$E6/.logic-loom/config/release-migrations.conf"
+bash "$RM" check-release --since auto --root "$E6" > "$TMP/e6g.out" 2>&1
+assert "5b: …and the correctly dated v9.0.1 row still passes (window is (prev, version], inclusive of version)" \
+  "[ $? -eq 0 ] && grep -q 'removals since v9.0.0: plugins/sdd-foo (declared)' '$TMP/e6g.out'"
+echo "none | - | none | none | - | - | v9.0.1 | nothing" > "$E6/.logic-loom/config/release-migrations.conf"
+echo "plugin | sdd-foo | removed | none | REMOVE | v9.0.0 | v9.9.0 | future" >> "$E6/.logic-loom/config/release-migrations.conf"
+bash "$RM" check-release --since auto --root "$E6" > "$TMP/e6h.out" 2>&1
+assert "5b: a misdated row still counts as a removal against a v9.0.1 none row (contradiction reported, exit 1)" \
+  "[ $? -eq 1 ] && grep -qi 'contradiction' '$TMP/e6h.out'"
+echo "plugin | sdd-foo | removed | none | REMOVE | v9.0.0 | v9.0.1 | x" > "$E6/.logic-loom/config/release-migrations.conf"
 
 E7="$TMP/e-notags"
 mkdir -p "$E7/.logic-loom/config" "$E7/.logic-loom/lib"

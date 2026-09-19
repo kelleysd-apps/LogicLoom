@@ -323,13 +323,41 @@ ADOPTED repo — record what this run wrote.
    the user may record one explicitly, if they accepted it through
    `/update-framework` and edited it afterwards, with
    `bash plugins/loom-maintenance/scripts/record-update-writes.sh <path>`.
-4. After a `c` conversion: delete `plugins/<name>` once the converted
+4. **Re-check for changes this run's own recording just unblocked, before
+   Step 8 moves the sync ref.** Step 3's extraction ran against the OLD
+   `.sdd-sync-ref` — before task 2's record or task 3's reconcile made any
+   path owned for the first time. An upstream change to a path that was
+   still unowned at Step 3 stays suppressed unless it is checked again now;
+   Step 8 moves `.sdd-sync-ref` straight past it, so a missed check here is
+   permanent, not merely delayed to next run. Skip this task when tasks 2
+   and 3 recorded or reconciled nothing (a TEMPLATE repo, or an ADOPTED repo
+   with nothing new to record this run). Otherwise, re-run extraction once
+   more against the same `.sdd-sync-ref` (Step 8 has not run yet, so it is
+   still the old value); the script fetches upstream again, so if upstream
+   moved in the meantime the re-run simply covers those commits too — the
+   same tip Step 8 then records:
+   ```bash
+   bash plugins/loom-maintenance/scripts/extract-proposals.sh
+   ```
+   To tell what is new, **compare by path against Step 3's list**
+   (`upstream_file`): every path Step 3 already showed reappears, and a
+   file this run just applied now reads `conflict-review` or
+   `already-present` (its working copy matches upstream, not the sync-ref)
+   — none of that is new and none of it is applied again. A path Step 3
+   never listed is the unlock. Present those as their own short list,
+   **Proposals unlocked by this run's recording**, and apply each per
+   Step 7's resolution rules on the user's yes — before Step 8 runs. Then
+   **record any path this re-check writes** with task 2's command — an
+   unlocked `clean-add` is a new file the receipt does not know yet. No new
+   proposal appears → say so in one line and continue.
+5. After a `c` conversion: delete `plugins/<name>` once the converted
    command/skill works, then run `sync-plugin-commands.sh prune` — reminded
    again in Step 9.
 
 **Validation**: Every accepted migration item applied per its action; in an
 ADOPTED repo the recorder ran over the accepted write set with no git
-invoked by the script.
+invoked by the script; any proposal unlocked by this run's recording was
+re-checked and resolved before Step 8 moved `.sdd-sync-ref`.
 
 ---
 

@@ -275,13 +275,26 @@ _loom_lint_fate_ok() {
 _loom_lint_default_ok() {
     local kind="$1" default="$2"
     case "$kind" in
-        content) [ "$default" = "PROPOSE" ] && return 0 ; return 1 ;;
+        content)
+            case "$default" in PROPOSE|PROPOSE-ADVISORY) return 0 ;; *) return 1 ;; esac ;;
         none) [ "$default" = "-" ] && return 0 ; return 1 ;;
         *)
             case "$default" in
                 REMOVE|ADOPT-REPLACEMENT|CONVERT-TO-LOCAL|KEEP-AS-IS|MOVE) return 0 ;;
                 *) return 1 ;;
             esac ;;
+    esac
+}
+
+# PROPOSE-ADVISORY content rows are the KORI CLASS (§ project-amendments):
+# LogicLoom never shipped this text, so the row MAY only target a fork-owned
+# file — the harness has no authority to declare anyone else's file stale.
+_loom_lint_advisory_target_ok() {
+    local name="$1" base
+    base="${name##*/}"
+    case "$base" in
+        amendments.md|CLAUDE.md|CLAUDE.local.md|AGENTS.md) return 0 ;;
+        *) return 1 ;;
     esac
 }
 
@@ -364,6 +377,9 @@ loom_migration_lint() {
         fi
         if ! _loom_lint_default_ok "$kind" "$default"; then
             echo "LINT: line $lineno: default '$default' is not valid for kind '$kind'" >&2; had_error=1
+        fi
+        if [ "$kind" = "content" ] && [ "$default" = "PROPOSE-ADVISORY" ] && ! _loom_lint_advisory_target_ok "$name"; then
+            echo "LINT: line $lineno: PROPOSE-ADVISORY (KORI CLASS) may only target a fork-owned file (amendments.md, CLAUDE.md, CLAUDE.local.md, AGENTS.md) — got '$name'" >&2; had_error=1
         fi
         if ! _loom_lint_first_shipped_ok "$first"; then
             echo "LINT: line $lineno: first_shipped '$first' must be vX.Y.Z, 'never' or '-'" >&2; had_error=1

@@ -65,7 +65,7 @@ that's correct, which is why this section states it in prose:
 | 3 · Extract Proposals | as written | as written — `extract-proposals.sh` filters out any path the adopt receipt never wrote, including root `CLAUDE.md`/`AGENTS.md`/`README.md`/`package.json` |
 | 3b · Release migration scan | as written | as written — the registry is read from the fetched ref, so it is current even when the receipt filter would suppress the file's proposal; content checks apply only to files the receipt recorded (plus the receipt itself) |
 | 4 · Present Proposals | as written, including the inherited-maintainer-CI check | **skip the inherited-maintainer-CI check** — nothing under `.github/` in an adopted repo came from LogicLoom (see Step 4 below); if filtering emptied the visible set, say so plainly rather than showing nothing unexplained |
-| 5 · Apply Accepted | as written | as written, **plus**: after writing accepted files, this install records what it wrote (the recorder) so a later update can reach those files instead of silently suppressing the next upstream edit to them — see Step 5 below |
+| 5 · Apply Accepted | as written | as written, **plus**: after writing accepted files, this install records what it wrote (the recorder), then re-checks for anything that recording just unblocked, before Step 6 moves the sync ref — see Step 5 below |
 | 6 · Update Sync Reference | as written | as written, **plus**: if the visible proposal set is empty solely because filtering removed everything, advance `.sdd-sync-ref` anyway — see Step 6 below |
 | 7 · Validate | as written | as written |
 
@@ -294,6 +294,34 @@ recorded automatically) it prints; on a second yes, re-run with
 the user may record one explicitly, if they accepted it through
 `/update-framework` and edited it afterwards, with
 `bash plugins/loom-maintenance/scripts/record-update-writes.sh <path>`.
+
+**Re-check for changes this run's own recording just unblocked, before Step
+6 moves the sync ref.** Step 3 extracted proposals against the OLD
+`.sdd-sync-ref`, before the record/reconcile calls above made any path
+owned for the first time this run — an upstream change to a path that was
+still unowned at Step 3 stays suppressed unless it is checked again now,
+and Step 6 moves `.sdd-sync-ref` straight past it, so a missed check here
+is permanent, not merely delayed to next run. Skip this when nothing was
+recorded or reconciled above. Otherwise, re-run extraction once more against
+the same `.sdd-sync-ref` (unchanged; Step 6 has not run yet); the script
+fetches upstream again, so if upstream moved in the meantime the re-run
+simply covers those commits too — the same tip Step 6 then records:
+
+```bash
+bash plugins/loom-maintenance/scripts/extract-proposals.sh
+```
+
+To tell what is new, **compare by path against Step 3's list**
+(`upstream_file`): every path Step 3 already showed reappears, and a file
+this run just applied now reads `conflict-review` or `already-present` (its
+working copy matches upstream, not the sync-ref) — none of that is new and
+none of it is applied again. A path Step 3 never listed is the unlock.
+Present those as their own short list,
+**Proposals unlocked by this run's recording**, and apply each per this
+step's resolution rules above, on the user's yes — before Step 6 runs.
+Then **record any path this re-check writes** with the recorder command
+above — an unlocked `clean-add` is a new file the receipt does not know
+yet. Nothing new appears → say so in one line and continue.
 
 ### Step 6: Update Sync Reference (only if ≥1 proposal accepted)
 ```bash

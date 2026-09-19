@@ -41,12 +41,30 @@ if [ "$TREE_KIND" = "inconsistent" ]; then
 fi
 
 # ── Monolithic skills removed ──
-# .claude/skills/ is now a SANCTIONED location for project-local skills
-# converted from a retired plugin (release-migration registry, v7.0.0 —
-# .docs/guides/MIGRATION_GUIDE.md). A converted skill carries a
-# `converted-from:` marker; anything under .claude/skills/ WITHOUT that
-# marker is either a stray or one of the 32 pre-v4.0 monolithic legacy
-# skills reappearing, and both are violations.
+# .claude/skills/ is now a SANCTIONED location for TWO kinds of legitimate,
+# project-owned skill in a customer repo:
+#   1. a skill CONVERTED from a retired plugin by the release-migration
+#      registry's `convert` command (release-migrations.sh,
+#      .docs/guides/MIGRATION_GUIDE.md) — carries a `converted-from:` marker;
+#   2. an ORDINARY USER-AUTHORED project skill (written by hand — note that
+#      /create-skill writes under plugins/<plugin>/skills/, not here) that
+#      has nothing to do with any retired plugin, and carries no marker at
+#      all — this is normal, expected, and not this suite's business.
+#
+# THE INVARIANT this suite actually enforces (deliberately, not by omission):
+# only the 32 specific pre-v4.0 monolithic skill NAMES below (any layout —
+# depth-1 `.claude/skills/<name>/SKILL.md` or the old depth-2 department
+# layout) must never reappear under .claude/skills/ without a
+# `converted-from:` marker. This suite does NOT, and must not, fail on an
+# unmarked skill under any OTHER name — doing so would misclassify an
+# ordinary user-authored project skill (kind 2 above) as a "stray legacy
+# reappearance" and break a legitimate customer repo for using .claude/skills/
+# as intended. A stray unmarked skill under a name outside this list is a
+# provenance-HYGIENE concern, not a legacy-REAPPEARANCE concern, and is
+# covered separately — softly, as a warning, never a hard fail here — by
+# .logic-loom/scripts/bash/constitutional-check.sh's UNMARKED_PROJECT_SKILLS
+# check. The assertion right after the scan below proves that delegation is
+# real, not just claimed in this comment.
 echo "Monolithic skills removed"
 case "$TREE_KIND" in
   maintainer)
@@ -64,20 +82,63 @@ esac
 # technical, validation — are depth-3 and are NOT skill names).
 LEGACY_SKILLS="api-design backend-operations constitutional-compliance create-skill create-template database-operations debug devops-operations domain-detection file-organization framework-updater frontend-operations full-stack-feature git-push-workflow governance-preflight mcp-server-setup message-preflight migration-workflow monitoring multi-skill-workflow performance-operations planning-agent qa-validation schema-design sdd-planning sdd-specification sdd-tasks security-operations service-architecture system-design testing-operations unified-specification"
 
-LEGACY_HITS=""
-if [ -d "$ROOT/.claude/skills" ]; then
+# THE detection logic — one function, used for the real tree here AND for the
+# scope-proof fixture below, so the fixture provably exercises the same code
+# path (not a copy that could drift). Prints one hit path per line: a
+# LEGACY-named SKILL.md (either layout) whose first 20 lines carry no
+# `converted-from:` marker. Names outside $LEGACY_SKILLS are never inspected.
+scan_legacy_skill_names() {  # $1 = a .claude/skills/ directory to scan
+  local skills_root="$1" hits="" name candidate
   for name in $LEGACY_SKILLS; do
-    for candidate in "$ROOT/.claude/skills/$name/SKILL.md" "$ROOT"/.claude/skills/*/"$name"/SKILL.md; do
+    for candidate in "$skills_root/$name/SKILL.md" "$skills_root"/*/"$name"/SKILL.md; do
       [ -f "$candidate" ] || continue
-      if ! head -20 "$candidate" 2>/dev/null | grep -q "converted-from:"; then
-        LEGACY_HITS="${LEGACY_HITS}${candidate}"$'\n'
-      fi
+      head -20 "$candidate" 2>/dev/null | grep -q "converted-from:" || hits="${hits}${candidate}"$'\n'
     done
   done
+  printf '%s' "$hits"
+}
+
+LEGACY_HITS=""
+if [ -d "$ROOT/.claude/skills" ]; then
+  LEGACY_HITS="$(scan_legacy_skill_names "$ROOT/.claude/skills")"
 fi
 [ -n "$LEGACY_HITS" ] && printf '%s' "$LEGACY_HITS" | sed 's/^/     legacy skill without converted-from: marker: /'
 assert "No legacy monolithic skill reappeared in .claude/skills/ (converted project-local skills are OK)" \
   "[ -z \"\$LEGACY_HITS\" ]"
+
+# The delegation this suite's comment claims must be real, not aspirational:
+# constitutional-check.sh is what actually warns on an unmarked .claude/skills/
+# entry OUTSIDE the 32-name legacy list (a general provenance-hygiene concern
+# this suite deliberately leaves alone — see the comment above).
+assert "the broader 'any unmarked .claude/skills/ entry' concern is covered elsewhere (constitutional-check.sh warns; this suite intentionally does not hard-fail on it)" \
+  "grep -q 'UNMARKED_PROJECT_SKILLS' '$ROOT/.logic-loom/scripts/bash/constitutional-check.sh'"
+
+# Scope proof by EXECUTION, not just description: build a synthetic
+# .claude/skills/ with (a) an ordinary user-authored skill under a name
+# OUTSIDE the legacy list and (b) an unmarked LEGACY-named skill reappearing,
+# and confirm scan_legacy_skill_names — the SAME function the real-tree scan
+# above just ran — tells them apart correctly.
+DEPFIX="$(mktemp -d)"
+mkdir -p "$DEPFIX/my-custom-project-skill" "$DEPFIX/debug"
+cat > "$DEPFIX/my-custom-project-skill/SKILL.md" <<'EOF'
+---
+name: my-custom-project-skill
+---
+An ordinary user-authored skill, unrelated to any retired plugin. No marker.
+EOF
+cat > "$DEPFIX/debug/SKILL.md" <<'EOF'
+---
+name: debug
+---
+Looks exactly like the reappeared pre-v4.0 monolithic "debug" skill. Carries
+no provenance marker of any kind.
+EOF
+DEPFIX_HITS="$(scan_legacy_skill_names "$DEPFIX")"
+assert "scope proof: a user-authored skill under a name OUTSIDE the legacy list is NOT flagged by this suite" \
+  "! grep -q 'my-custom-project-skill' <<< \"\$DEPFIX_HITS\""
+assert "scope proof: an unmarked LEGACY-named skill IS flagged by this suite" \
+  "grep -q \"\$DEPFIX/debug/SKILL.md\" <<< \"\$DEPFIX_HITS\""
+rm -rf "$DEPFIX"
 
 # ── Monolithic agents removed ──
 # NOTE: .claude/agents/ is now a SANCTIONED location for project-level ladder

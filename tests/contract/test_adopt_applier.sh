@@ -558,6 +558,35 @@ assert "step 1 instructs rmdir (non-recursive removal)" \
 assert "step 1 does NOT contain the string 'rm -rf'" \
   "! printf '%s' \"\$SD_STEP1\" | grep -qF 'rm -rf'"
 
+# ── uninstall-rot fix (v7.0.0): the receipt's 'uninstall' is a VIEW over
+# runs[], and plugins/loom-maintenance/scripts/record-update-writes.sh (a
+# bash script, run against an ADOPTED customer repo where packaging/ never
+# ships) deliberately never reimplements this derivation — it only appends to
+# runs[] and deletes any now-stale cached 'uninstall'. That design is only
+# safe if uninstallProcedure() itself — the single source of truth — already
+# covers a run shaped exactly like the one record-update-writes.sh appends
+# (generator "logicloom-update-framework@X", status "complete", "only":
+# ["update-framework"], no "merge" kind ever). Pin that here, independent of
+# the bash script, so a future change to uninstallProcedure() cannot silently
+# stop covering update-framework-recorded runs.
+echo ""
+echo "── uninstall-rot fix: uninstallProcedure() covers a record-update-writes.sh-shaped run ──"
+ADOPT_THEN_UPDATE='[
+  {"generator":"logicloom-adopt@1.0.0","status":"complete","only":["harness"],
+   "wrote":[{"target":"harness","path":".logic-loom/x","kind":"file","sha256":"sha256:aaaa"},
+            {"target":"harness","path":"plugins/","kind":"dir"}]},
+  {"generator":"logicloom-update-framework@7.0.0","status":"complete","only":["update-framework"],
+   "wrote":[{"target":"harness","path":".logic-loom/newdir/n.sh","kind":"file","sha256":"sha256:bbbb"},
+            {"target":"harness","path":".logic-loom/newdir/","kind":"dir"}]}
+]'
+OUT_UPDFW="$(UN "$ADOPT_THEN_UPDATE")"
+assert "uninstall.remove.files includes the path from the update-framework-generated run" \
+  "printf '%s' \"\$OUT_UPDFW\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(f=>f.path===\".logic-loom/newdir/n.sh\")?0:1))'"
+assert "uninstall.remove.dirsIfEmpty includes the dir from the update-framework-generated run" \
+  "printf '%s' \"\$OUT_UPDFW\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.dirsIfEmpty.indexOf(\".logic-loom/newdir/\")!==-1?0:1))'"
+assert "...and still includes the original adopt run's path (union across runs, not last-run-only)" \
+  "printf '%s' \"\$OUT_UPDFW\" | node -e 'let s=\"\";process.stdin.on(\"data\",d=>s+=d).on(\"end\",()=>process.exit(JSON.parse(s).remove.files.some(f=>f.path===\".logic-loom/x\")?0:1))'"
+
 # ── DEFECT 2: the "byte-identical" / "nothing above it was changed" claims must
 # be made TRUE, not merely repeated, by instructing removal of the blank line the
 # merge inserts before the fence — worded conditionally so it holds when no such

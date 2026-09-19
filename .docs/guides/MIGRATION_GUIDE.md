@@ -36,7 +36,7 @@ kind | name | fate | replacement | default | first_shipped | release | note
 | `name` | for `plugin`/`mcp-server`/`path`: a directory name or repo-relative path; for `content`: a repo-relative path or shell glob (`*`, `?`); for `none`: `-` |
 | `fate` | `renamed` \| `folded` \| `native` \| `removed` (component kinds); `present` \| `absent` (content — propose when the pattern IS / is NOT found); `none` (the `none` kind) |
 | `replacement` | `plugin:<name>` \| `path:<repo-relative>` \| `command:/<name>` \| `native:<comma list>` \| `external:<text>` \| `pattern:<POSIX ERE>` (content only) \| `none` |
-| `default` | the recommended action when the copy is pristine: `REMOVE` \| `ADOPT-REPLACEMENT` \| `CONVERT-TO-LOCAL` \| `KEEP-AS-IS` \| `MOVE` \| `PROPOSE` |
+| `default` | the recommended action when the copy is pristine: `REMOVE` \| `ADOPT-REPLACEMENT` \| `CONVERT-TO-LOCAL` \| `KEEP-AS-IS` \| `MOVE` \| `PROPOSE` \| `PROPOSE-ADVISORY` (content rows only; see § *The advisory row*) |
 | `first_shipped` | first release tag that contains it, `never` (alias row), or `-` |
 | `release` | for a component row, the first release tag that **lacks** it; for a `content`/`none` row, the release the row belongs to |
 | `note` | free text — for a `content` row it **must** contain both `proposal:` and `why:` |
@@ -80,6 +80,13 @@ none | - | none | none | - | - | v6.6.2 | No plugin, mcp-server, or path removed
 
 ## The project-owned registry — `.logic-loom/config/project-migrations.conf`
 
+**Advisory only, and never LogicLoom's claim.** A row in this file is your
+own text, describing your own project's own content — LogicLoom did not
+write it, ship it, or assert anything about what it checks. It follows the
+same `content` grammar as an upstream row and takes the same single action,
+`PROPOSE`: shown to you, and applied by nobody but you (or the main agent, on
+your yes) — never the script.
+
 Same 8-field grammar, same parser, same evaluation — but this file is
 **yours**: LogicLoom never ships one, and the maintainer-tree registry test
 asserts it is absent from LogicLoom's own repository. Every item it produces
@@ -98,11 +105,44 @@ of the same ladder, can declare a row that catches the drift:
 content | .logic-loom/memory/amendments.md | present | pattern:^- 3 = it changes auth, payment, or customer-data logic | PROPOSE | - | v7.0.0 | proposal: rescale the fourth cost line to "+3 on top of the reversibility score" so the rung matches the ladder this mandate was ported from; why: fork-authored text drifted from its source and nothing upstream can update it
 ```
 
-LogicLoom does not ship this row and cannot. `amendments.md` is fork-authored
-text — the registry names no row about its content, upstream never diffs the
-file (it is never part of the adopt payload or the template), and the only
-mechanisms that ever reach it are the fork's own row above and the fork's own
-edit.
+`amendments.md` is fork-authored text: upstream never diffs the file (it is
+never part of the adopt payload or the template), so the only mechanisms
+that ever reach it are a row like the one above, an upstream
+`PROPOSE-ADVISORY` row (next section — the shipped v7.0.0 registry carries
+exactly one, on this very file), and the fork's own edit. Neither kind of
+row ever writes to it.
+
+## The advisory row — `PROPOSE-ADVISORY`
+
+A `content` row whose `default` is `PROPOSE-ADVISORY` is the one kind of
+upstream row that points at a file **LogicLoom did not ship this text** for:
+a file your fork wrote (`.logic-loom/memory/amendments.md`, `CLAUDE.md`,
+`CLAUDE.local.md`, or `AGENTS.md` — the only four basenames the linter
+accepts for it; a row naming any other file fails `lint`) that has drifted
+from a convention LogicLoom now documents. In plain terms:
+
+- **What it is.** A shipped, upstream-authored *suggestion* about your own
+  text — "if your file still says X, consider Y, because Z" — carried in the
+  registry so `/update-framework` can surface it once, in context, instead
+  of leaving it in a changelog you would have to go and read.
+- **What LogicLoom is not claiming.** That it wrote, shipped, or owns the
+  text. It did not. The scan says so on the item itself, every time, with
+  the line `ADVISORY — LogicLoom did not ship this text (it is your own
+  file); this proposal is informational only and is never applied
+  automatically`, and the JSON carries `advisory: true`.
+- **What it does.** Proposes, exactly like `PROPOSE` — the `proposal:` and
+  `why:` text is shown; the script never edits the file; you (or the main
+  agent, on your yes, diff shown first) do, or you record
+  `keep = <name>@<release>` to acknowledge it without editing. The menu is
+  the content menu, `[k]eep [s]kip`.
+- **Where it fires.** In **both** a template clone and an adopted install —
+  it is never scoped by the adopt receipt, because the harness never wrote
+  the file it names. A file that does not exist, or whose text does not
+  match the row's `pattern:`, produces no item at all.
+
+The one such row v7.0.0 ships names `.logic-loom/memory/amendments.md` and
+matches an escalation-ladder line that a fork ported by hand; a fork that
+never wrote that line sees nothing.
 
 ## The four actions (plus MOVE for a moved path, PROPOSE for content)
 
@@ -154,7 +194,8 @@ edit.
   note's `proposal:` and `why:` text is shown to you; nothing is written by
   the script. You (or the main agent, on your yes, diff shown first) edit
   the file, or you record `keep = <name>@<release>` to acknowledge it
-  without editing.
+  without editing. `PROPOSE-ADVISORY` is the same action on a file LogicLoom
+  never shipped — see § *The advisory row* above.
 
 ## Converting a plugin to a project-local skill
 
@@ -261,12 +302,16 @@ a change to a path the receipt never recorded is suppressed, because
 offering it would mean proposing an edit to a file that may not even be the
 adopter's own.
 
-**Why files `/update-framework` added before v7.0.0 never received later
-updates.** Before v7.0.0, applying an accepted `clean-add` wrote the file to
-disk but never touched the receipt. The next time that same file changed
-upstream, the proposal filter saw a path the receipt had never recorded and
-suppressed it — silently, as a count on stderr, forever. It was not a reader
-defect: nothing ever wrote the missing entry.
+**Why a file `/update-framework` added before v7.0.0 would stop receiving
+updates from v7.0.0 on.** The ownership filter itself is new in v7.0.0 —
+every published 6.x `extract-proposals.sh` offered every upstream change,
+filter or no filter — so nothing was suppressed *before* v7.0.0. The gap
+opens the moment the filter is in place: applying an accepted `clean-add`
+before v7.0.0 wrote the file to disk but never touched the receipt (there
+was no recorder), so the first filtered run would see a path the receipt
+never recorded and suppress its next upstream edit — silently, as a count on
+stderr, from then on. It was not a reader defect: nothing ever wrote the
+missing entry.
 
 **What `record-update-writes.sh` does, from v7.0.0 on.** After every
 `/update-framework` run that writes an accepted `clean-add`/`clean-apply`
@@ -294,13 +339,99 @@ permanent, silent suppression. When the tool cannot tell provenance for
 certain, it errs toward the mistake that costs you one more prompt, never the
 one that costs you a file you never hear about again.
 
-**Requirements and the stated limit.** The recorder needs `python3` or
-`node` to write JSON — every adopted install has `node`, because `node` wrote
-the receipt in the first place; it refuses only when neither is on `PATH`.
-It appends to `runs[]` only — it does **not** regenerate the receipt's
-derived `uninstall` object (that logic belongs to the npm package and runs
-again on its next `--apply`). Until then, a recorded file is visible to the
-proposal filter but not yet part of what `logicloom uninstall` would remove.
+**Requirements, and how uninstall sees a recorded path.** The recorder needs
+`python3` or `node` to write JSON — every adopted install has `node`,
+because `node` wrote the receipt in the first place; it refuses only when
+neither is on `PATH`. It appends to `runs[]` only — `runs[]` is the single
+source of truth, and `uninstall` is a *view* over it, not a second copy of
+the record. `packaging/adopt/lib/apply.js`'s `uninstallProcedure()` (the one
+place that derives `uninstall`; `packaging` itself never ships to an
+adopted repo) walks **every** run, regardless of which tool wrote it, so a
+path this script records is already correctly covered the next time that
+procedure runs. Rather than reimplement that derivation a second time in
+bash/python/node, `record-update-writes.sh` instead **deletes** any existing
+`uninstall` key on every run it appends — a cached list computed before this
+run cannot name a path this run just recorded, and a wrong list that looks
+authoritative is worse than an absent one. A fresh, complete `uninstall`
+comes back the next time the adopter runs
+`npx logicloom init . --apply --only=<the targets you installed>` (`--only`
+is required with `--apply`; over an installed tree the run is a no-op that
+says so — `NO-OP`, `WROTE 0`, exit 0 — and still appends a run, which is
+what recomputes `uninstall`); until then, a
+recorded path is still visible to `extract-proposals.sh`'s ownership filter
+(so it can receive proposals) — it is just not listed under
+`uninstall.remove.files` in the interim, rather than wrongly listed as safe
+to delete.
+
+## How a 6.x install receives this
+
+Everything above — the registry, its lib, the scan/convert script, the
+recorder, **and the ownership filter itself** — is new in v7.0.0. Neither a
+6.x template clone nor a 6.x adopted install has a `/update-framework` that
+knows Step 3b or Step 7b exist, and neither has an `extract-proposals.sh`
+that reads the adopt receipt: every 6.x release tag ships the same
+unfiltered extractor, which diffs `sync-ref..refs/loom-upstream/main` in
+full and offers every changed or new path. Both kinds of install therefore
+receive all of it through their **existing, unmodified** `/update-framework`,
+on the first run that fetches past v7.0.0, because every new v7.0.0 file is
+an ordinary proposal to that extractor — nothing about receiving them
+depends on the new machinery already being in place. What differs is only
+what that first run shows alongside them.
+
+**A 6.x template clone.** `.logic-loom/config/release-migrations.conf`,
+`.logic-loom/lib/release-migrations.sh`,
+`plugins/loom-maintenance/scripts/release-migrations.sh`, and
+`plugins/loom-maintenance/scripts/record-update-writes.sh` are new paths
+upstream of v7.0.0 — the 6.x extractor offers them as ordinary `clean-add`
+proposals (absent downstream), no different from any other new file it has
+ever offered. The updated `plugins/loom-maintenance/commands/update-framework.md`,
+`plugins/loom-maintenance/skills/framework-updater/SKILL.md` (carrying Step
+3b and Step 7b) and `plugins/loom-maintenance/scripts/extract-proposals.sh`
+(carrying the ownership filter) are `clean-apply` proposals on files the
+clone already has and did not customise (`conflict-review` if it did — never
+overwritten). Accept them, and the run's own commit lands the new text; the
+**next** invocation of `/update-framework` is the v7.0.0 procedure.
+
+**A 6.x adopted install (`npx logicloom init`).** The payload `npx logicloom
+init` installs is assembled from the release tag's tree, so an install made
+with `logicloom@6.6.x` runs the 6.6.x `extract-proposals.sh` — the one that
+**has no ownership filter**. On the first run that fetches past v7.0.0 it
+behaves exactly as the template clone above: the four new v7.0.0 files
+arrive as `clean-add`, the updated command, skill and extractor as
+`clean-apply`/`conflict-review`. One caution for that single run, stated
+because it is true of the 6.x extractor and not of the v7.0.0 one: with no
+filter, it also offers upstream paths the payload never installed — new
+files under `tests/` and `.github/`, root `README.md`, `package.json`,
+`CLAUDE.md`, `AGENTS.md` — as `clean-add` when you have no such file, or
+`conflict-review` when you have your own (never overwritten). **Decline
+those**; they are LogicLoom's own, not yours. From the next invocation on,
+the v7.0.0 extractor reads your receipt and suppresses them itself.
+
+That next, first-v7.0.0 invocation is where the receipt starts to matter.
+Every published installer (`logicloom@6.6.0` onward) recorded each
+directory it created as a `kind:"dir"` entry in `runs[].wrote` — `plugins/`,
+`plugins/loom-maintenance/`, `.logic-loom/`, `.logic-loom/config/`,
+`.logic-loom/lib/` and the rest — so the v7.0.0 filter's ancestor rule
+(`adopt_offer_added_path`: offer a **new** upstream path once any recorded
+ancestor directory exists) keeps offering new upstream files under those
+trees with no further action. The four files the 6.x run added, however,
+were added by a procedure that had no recorder, so the receipt does not list
+them: an upstream **edit** to one of them would now be suppressed
+(`adopt_file_recorded` finds nothing). That is precisely the gap the
+Step 3b scan's `MG-` item on `.logicloom-adopt-receipt.json` names on that
+run — accept it, run `record-update-writes.sh --reconcile` (each such file
+lists as `RECONCILE` if it is still byte-identical to its sync-ref copy,
+as `DIFFERS` if you edited it since — record those by name), then
+`--reconcile --apply`, and Step 7b's re-check offers anything that recording
+just unblocked before the sync ref moves.
+
+**What this guide will not claim beyond the code above.** The 6.x behaviour
+is read from the extractor at the 6.x release tags (no receipt logic at any
+of them); the v7.0.0 behaviour from today's `extract-proposals.sh`
+(`adopt_offer_added_path`, `adopt_file_recorded`) and the installer's
+`copyTree` at the commits the 6.6.x packages were published from. It is not
+a substitute for `tests/contract/test_update_framework_ownership.sh`
+actually exercising a pre-v7.0.0-shaped fixture end to end.
 
 ## Pre-v6.2 clones
 

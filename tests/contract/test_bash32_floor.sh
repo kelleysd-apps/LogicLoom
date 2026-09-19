@@ -416,10 +416,56 @@ for d in $SR_ROOTS2; do
   found="$(scan_tree "$d")"
   [ -n "$found" ] && SR_HITS2="${SR_HITS2}${found}"$'\n'
 done
-assert "sdd-legacy's planted 'declare -A' is NOT scanned (registry-listed, customer-owned)" \
+# NOTE, stated honestly: this only proves floor_scan_roots() never emits
+# plugins/sdd-legacy as a scan root at all — true whether or not the legacy-
+# exemption logic exists, since floor_scan_roots is scoped to CLAUDE.md-
+# DECLARED plugins only (see "Ownership" above), and sdd-legacy is
+# deliberately never declared there. It does NOT exercise
+# loom_is_deprecated_plugin_dir; kept only as a sanity check that the scan
+# roots themselves stay correctly scoped.
+assert "floor_scan_roots never emits plugins/sdd-legacy as a root (undeclared in CLAUDE.md, independent of the exemption)" \
        "! grep -q 'sdd-legacy' <<< \"\$SR_HITS2\""
 assert "…while loom-example's planted 'declare -A' still IS (the exemption is not a blanket one)" \
        "grep -q 'loom-example/scripts/ours.sh' <<< \"\$SR_HITS2\""
+
+# The REAL test of the exemption: undeclared_harness_shaped()/
+# legacy_plugins_pending() consult loom_is_deprecated_plugin_dir directly (not
+# floor_scan_roots), and BOTH functions re-source "$r/.logic-loom/lib/
+# release-migrations.sh" on every call — so `unset -f` on the current shell's
+# copy of the function is pointless, it would just get re-sourced back. The
+# only way to genuinely plant this regression is to neuter the copy of the
+# library the fixture itself points at, exactly as a real regression in
+# release-migrations.sh would. With the exemption neutered, the outcome must
+# FLIP — sdd-legacy stops being exempted and is reported as a genuine orphan
+# (which section 1b would fail the suite on), same as an undeclared
+# loom-*/sdd-* dir with NO registry row already is. This is what finding #2
+# ("show it fails when the exemption logic is removed") demands: a planted
+# regression in the exemption itself must break this suite, not just leave a
+# vacuous scan-root check green.
+cp "$SR/.logic-loom/lib/release-migrations.sh" "$TMP/release-migrations.sh.orig"
+{
+  cat "$SR/.logic-loom/lib/release-migrations.sh"
+  printf '\n# PLANTED REGRESSION (test-only): neuter the legacy-plugin exemption.\n'
+  printf 'loom_is_deprecated_plugin_dir() { return 1; }\n'
+} > "$SR/.logic-loom/lib/release-migrations.sh.neutered"
+mv "$SR/.logic-loom/lib/release-migrations.sh.neutered" "$SR/.logic-loom/lib/release-migrations.sh"
+SR_UNDECLARED_NOEXEMPT="$(undeclared_harness_shaped "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+SR_LEGACY_NOEXEMPT="$(legacy_plugins_pending "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+assert "exemption REMOVED: sdd-legacy IS now reported as an undeclared/orphan plugin (proves the exemption was load-bearing)" \
+       "grep -qw 'sdd-legacy' <<< \"\$SR_UNDECLARED_NOEXEMPT\""
+assert "exemption REMOVED: the genuinely-undeclared, non-registry loom-orphan is STILL reported either way" \
+       "grep -qw 'loom-orphan' <<< \"\$SR_UNDECLARED_NOEXEMPT\""
+assert "exemption REMOVED: legacy_plugins_pending reports nothing (it is the sole caller of that function)" \
+       "[ -z \"\$SR_LEGACY_NOEXEMPT\" ]"
+# Restore the fixture's library and confirm the original, correct outcome
+# returns — the "passes after the fix" half of the same proof.
+cp "$TMP/release-migrations.sh.orig" "$SR/.logic-loom/lib/release-migrations.sh"
+SR_UNDECLARED_RESTORED="$(undeclared_harness_shaped "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+SR_LEGACY_RESTORED="$(legacy_plugins_pending "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+assert "exemption RESTORED: undeclared_harness_shaped again excludes sdd-legacy (only loom-orphan reported)" \
+       "[ \"\$SR_UNDECLARED_RESTORED\" = 'loom-orphan' ]"
+assert "exemption RESTORED: legacy_plugins_pending reports sdd-legacy again" \
+       "[ \"\$SR_LEGACY_RESTORED\" = 'sdd-legacy' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures for the /specification quality gates. Written here rather than
