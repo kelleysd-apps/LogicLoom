@@ -26,6 +26,7 @@
 {"type":"entity","name":".docs/governance/browser-mcp-setup.md","entityType":"note","observations":["Browser MCP Integration Setup Guide"]}
 {"type":"entity","name":".docs/governance/hybrid-architecture.md","entityType":"note","observations":["3-Layer Hybrid Governance Architecture"]}
 {"type":"entity","name":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","entityType":"note","observations":["Framework Synchronization Guide"]}
+{"type":"entity","name":".docs/guides/MIGRATION_GUIDE.md","entityType":"note","observations":["Migration Guide"]}
 {"type":"entity","name":".docs/guides/adopt-smoke-test.md","entityType":"note","observations":["Adopt e2e smoke test — brief for a coding agent"]}
 {"type":"entity","name":".docs/guides/dev-main-template-split.md","entityType":"note","observations":["dev-main → sanitized `main`: release model + setup runbook"]}
 {"type":"entity","name":".docs/guides/git-push-guide.md","entityType":"note","observations":["Git Push Guide"]}
@@ -39,6 +40,7 @@
 {"type":"entity","name":".docs/policies/environment-promotion-policy.md","entityType":"note","observations":["Environment Promotion Policy"]}
 {"type":"entity","name":".docs/policies/file-structure-policy.md","entityType":"note","observations":["File Structure & Organization Policy"]}
 {"type":"entity","name":".docs/policies/instruction-files-policy.md","entityType":"note","observations":["Instruction Files Policy (CLAUDE.md & AGENTS.md)"]}
+{"type":"entity","name":".docs/policies/project-amendments-policy.md","entityType":"note","observations":["Project Amendments — Doctrine and Rationale"]}
 {"type":"entity","name":".docs/policies/release-management-policy.md","entityType":"note","observations":["Release Management Policy"]}
 {"type":"entity","name":".docs/policies/security-policy.md","entityType":"note","observations":["Security Policy"]}
 {"type":"entity","name":".docs/policies/shell-idiom-policy.md","entityType":"note","observations":["Shell Idiom Policy"]}
@@ -116,6 +118,7 @@
 {"type":"entity","name":"tests/contract/test_graph_bridge.sh","entityType":"code-path","observations":["test_graph_bridge.sh"]}
 {"type":"entity","name":"tests/contract/test_model_agnostic.sh","entityType":"code-path","observations":["test_model_agnostic.sh"]}
 {"type":"entity","name":"tests/contract/test_promotion_lifecycle.sh","entityType":"code-path","observations":["test_promotion_lifecycle.sh"]}
+{"type":"entity","name":"tests/contract/test_release_migrations.sh","entityType":"code-path","observations":["test_release_migrations.sh"]}
 {"type":"entity","name":"tests/contract/test_shipped_gates_vs_strip.sh","entityType":"code-path","observations":["test_shipped_gates_vs_strip.sh"]}
 {"type":"entity","name":"tests/contract/test_spec006_integration.sh","entityType":"code-path","observations":["test_spec006_integration.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
@@ -146,6 +149,7 @@
 {"type":"relation","from":".docs/design/claude-md-split.md","to":"packaging/adopt/payload/rules/logicloom-governance.md","relationType":"mentions"}
 {"type":"relation","from":".docs/design/claude-md-split.md","to":"tests/contract/test_adopt_payload_manifest.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/FRAMEWORK_SYNC_GUIDE.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":".docs/guides/MIGRATION_GUIDE.md","to":"tests/contract/test_release_migrations.sh","relationType":"mentions"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".docs/guides/unified-specification-guide.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/git-push-guide.md","to":".logic-loom/memory/constitution.md","relationType":"links-to"}
 {"type":"relation","from":".docs/guides/release-loop-methodology.md","to":"plugins/loom-maintenance/commands/initialize-project.md","relationType":"mentions"}

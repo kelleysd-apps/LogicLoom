@@ -149,6 +149,23 @@ at template release either way.
 
 ---
 
+## Where memory lives
+
+The setting is `memory_backend = repo | project` in
+`.logic-loom/config/memory-backend.conf`, resolved by
+`.logic-loom/scripts/bash/resolve-memory-backend.sh`; the two options, the
+`repo` default, and the stranded-memory advisory are described under
+*`memory/` — the default backend* above. What `repo` buys: lessons travel
+with the code, survive a machine change, and are readable by any tool with
+filesystem access. What `project` gives up is exactly that.
+
+`/retro` and both loom-memory search backends (`keyword-backend.sh`,
+`bm25-search.sh`) resolve the setting rather than assuming it, so retrieval
+follows the write target; the BM25 index directory is keyed to the resolved
+backend so a change of setting cannot serve stale hits from the previous store.
+
+---
+
 ## `DISTILL-LOG.md`
 
 Append-only, newest entry first, **one dated entry per `/distill` run including
@@ -181,6 +198,18 @@ auto-merges.
 | Liveness | Did the pass run recently? | preflight advisory | never blocks |
 | Load | Is there a backlog? | preflight advisory | never blocks |
 
+The advisory thresholds (`load_max_unprocessed`, `load_max_age_days`,
+`liveness_max_age_days`, `advisory_enabled`) live in
+`.logic-loom/config/brain.conf` and are silent when there are no unprocessed
+captures and no run log. The advisory reaches the model through the existing
+`UserPromptSubmit` preflight injection, riding the loom-memory search output
+`governance-preflight.sh` already injects as `additionalContext`.
+`check-brain-signals.sh` is not a hook and is not part of the governance floor.
+
+**Protected**: `memory-backend.conf` and `brain.conf` govern behaviour, so both
+are on `.logic-loom/config/governance.conf`'s `protected_paths` list. A
+subagent is DENIED writes to either; a main-agent edit prompts for approval.
+
 The gate is vacuous — and green — on a `.brain/` holding only this README. It is
 live from day one rather than switched on later by a step nobody remembers.
 
@@ -211,6 +240,12 @@ there.
 ---
 
 ## In this repo (dev line)
+
+The `repo` default replaced `project` on this line, and the third,
+external-path backend was deleted, not deprecated — it made a one-machine
+directory a product feature (the rationale is under *`memory/` — the default
+backend* above). The default changed and nothing was stranded silently:
+`check-brain-signals.sh` is what makes that true.
 
 Capture is wired for two commands. `/cross-check` writes its report to
 `.brain/raw/reviews/YYYYMMDD-HHMMSS-<scope-slug>/cross-check-report.md` by

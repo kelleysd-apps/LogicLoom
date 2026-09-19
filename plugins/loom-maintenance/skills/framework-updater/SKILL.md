@@ -90,7 +90,21 @@ Use `/update-framework` when:
 history). It does NOT diff `HEAD..upstream` (which would show downstream
 customizations as conflicts), and it NEVER adds an `upstream` git remote.
 
-**Validation**: Proposals extracted as JSON
+2. Run the release migration scan — **regardless of extraction's exit code**
+   above (also when it emits `[]`, when it exits 3 because the sync-ref is
+   unreachable from upstream, and under `--check-only`):
+   ```bash
+   bash plugins/loom-maintenance/scripts/release-migrations.sh scan
+   ```
+   Read-only; never runs a mutating git command. It reads
+   `.logic-loom/config/release-migrations.conf` from the fetched
+   `refs/loom-upstream/main` ref first (falling back to the local copy),
+   then the project-owned `.logic-loom/config/project-migrations.conf`
+   (never shipped upstream), then
+   `.logic-loom/config/migration-decisions.conf`. Presented in Step 4b.
+
+**Validation**: Proposals extracted as JSON; the migration scan ran and its
+output is available for Step 4b regardless of the proposal count.
 
 ---
 
@@ -135,6 +149,68 @@ extract-proposals.sh — mark every `conflict: true` item with
 adopting it would touch their own work. Suggested grouping: clean
 additions/updates · ⚠️ conflicts (your customizations) · already-present (skip) ·
 informational (upstream deletions). The user accepts or rejects each independently.
+
+---
+
+### Step 4b: Present release migrations and decisions
+
+**Action**: Show the release migration scan's output as its own section,
+**before** the enhancement-proposal list in Step 4 above — on every run,
+including `--check-only`, and even when nothing else is pending.
+
+**Tasks**:
+1. The scan itself runs in Step 3 (`release-migrations.sh scan`), regardless
+   of whether extraction produced any enhancement proposals.
+2. Present one block per item, `MG-NNN` ids in registry order:
+
+```
+Release migrations for this repository   (registry: upstream refs/loom-upstream/main, 24 rows)
+──────────────────────────────────────────────────────────────────────────────
+MG-001  plugins/sdd-dev-loop   removed in v6.2.0 · replaced by native /workflow, /loop, /goal
+        state: PRISTINE (baseline sync-ref 7d1c2e0 — 0 changed, 0 added)
+        contains: 1 command (/dev-loop), 1 skill (core-loop), 3 config files
+        referenced by: .claude/commands/dev-loop.md (bridge wrapper — pruned by sync-plugin-commands.sh prune)
+        recommended: REMOVE            [r]emove  [c]onvert-to-local  [k]eep  [s]kip
+MG-002  plugins/sdd-debug      removed in v5.1.0 · no successor
+        state: CUSTOMIZED (baseline sync-ref 7d1c2e0 — 1 changed: commands/debug.md; 1 added: skills/sdd-debug/notes.md)
+        contains: 1 command (/debug), 1 skill (sdd-debug), 1 agent (auto-debug-agent), 1 hook script
+        wired hooks: .claude/settings.json:47 bash plugins/sdd-debug/hooks/scripts/debug-capture.sh  ← will dangle
+        recommended: CONVERT-TO-LOCAL  (dry-run shown before anything is written)
+MG-003  .logicloom-adopt-receipt.json   content check (v7.0.0, ADOPTED repos only)
+        proposal: run bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile once
+        why: before v7.0.0 the adopt receipt was never written after install, so every later upstream edit to an update-added file was silently suppressed
+        recommended: PROPOSE           [k]eep  [s]kip
+Dangling hook wiring (plugin already gone): .claude/settings.json:73 bash plugins/sdd-governance/hooks/scripts/git-safety-gate.sh
+Summary: 3 pending, 0 kept, 0 converted
+```
+
+3. The menu is per item **kind**, not per item: plugin →
+   `[r]emove [c]onvert-to-local [k]eep [s]kip`; mcp-server / path →
+   `[r]emove [k]eep [s]kip`; a moved path recommended MOVE →
+   `[m]ove [k]eep [s]kip`; content → `[k]eep [s]kip`. A REMOVE line shows
+   `blocked-by: <file:line>` in place of the menu when a settings.json hook
+   or a `.github/` workflow still references the path — repointing or
+   removing that reference is the plan's first step, before any `git rm`.
+4. When `.logic-loom/config/migration-decisions.conf` holds at least one
+   line, show it next — on every run, `--check-only` included, even when
+   every item above reads `none pending`:
+
+```
+Decisions in force (.logic-loom/config/migration-decisions.conf — edit or delete a line to revisit)
+  keep       sdd-dev-loop       plugins/sdd-dev-loop stays as-is: no upstream updates ever; CI notices it raises: floor test 1b info line, manifest validator SKIPPED line, lifecycle suite pending-migration notice; /dev-loop resolves only through its bridge wrapper
+  keep       CLAUDE.md@v7.0.0   content check silenced for v7.0.0 only; nothing else is affected
+  converted  sdd-debug          plugins/sdd-debug still on disk — delete it once /debug works, then run sync-plugin-commands.sh prune
+  stale      sdd-foo            names nothing on disk and no registry row — remove the line
+```
+
+5. State the rule every time this block is shown: a decision suppresses a proposal, never the fact that one was suppressed.
+6. When the scan finds nothing pending, the section is exactly one line,
+   `Release migrations: none pending.`, plus the *Decisions in force* block
+   above whenever a decision exists.
+
+**Validation**: Release-migration section shown before the enhancement
+proposals, every menu is kind-appropriate, and the decisions block (when
+non-empty) is never skipped.
 
 ---
 
@@ -192,6 +268,71 @@ NEVER run `git merge` or `git cherry-pick`. All writes go to the current branch 
 
 ---
 
+### Step 7b: Apply migration decisions and record adopted writes
+
+**Action**: Apply accepted release-migration items (Step 4b), then — in an
+ADOPTED repo — record what this run wrote.
+
+**Principle VI throughout**: the script never runs git. The main agent runs
+`git rm` / `git mv` only on the user's per-item yes.
+
+**Tasks**:
+
+1. Apply migration items **after** the enhancement-proposal apply above, so
+   any accepted clean-add lands before a MOVE that depends on it:
+   - **`r` (remove)** — the main agent runs the item's `remove_command` on
+     the user's yes. plugin → `git rm -r plugins/<name>` (gate policy
+     `git.rm = ask`), then
+     `.logic-loom/scripts/bash/sync-plugin-commands.sh prune`. mcp-server →
+     first remove the `"<name>":` entry from `.mcp.json` (main agent edits
+     it on the user's yes, diff shown first), then
+     `git rm -r mcp-servers/<name>`. path → `git rm <path>` (`git rm -r
+     <path>` for a directory). A **blocked** REMOVE (a settings.json hook or
+     a `.github/` workflow still points under the path) is skipped until the
+     blocker is gone — the main agent re-checks immediately before running
+     `git rm`.
+   - **`c` (convert-to-local)** — `convert <name> --dry-run`, show it, a
+     second explicit yes runs `--apply`.
+   - **`k` (keep)** — append `keep = <name>` (or `keep = <name>@<release>`
+     for a content item — silences every content row for that file and
+     release only) to `.logic-loom/config/migration-decisions.conf`.
+   - **`m` (move)** — the main agent runs `git mv <old> <new>` on the
+     user's yes (gate policy `git.mv = ask`).
+   - **content `PROPOSE`** — the user edits the file (or the main agent
+     does, on the user's yes, diff shown first); the script never edits it.
+   - **`s` (skip)** — nothing recorded; reappears next run.
+   - Migration decisions never touch `.sdd-sync-ref` (Step 8 is unchanged
+     by any of this).
+2. **ADOPTED repos only — record what this run wrote.** After writing every
+   accepted `clean-add` / `clean-apply` file (Step 7):
+   ```bash
+   bash plugins/loom-maintenance/scripts/record-update-writes.sh --version <upstream FRAMEWORK_VERSION> <each written path>
+   ```
+   One JSON file, no git; committed together with the rest of the update
+   (Step 10). This is what lets a later `/update-framework` run reach these
+   files instead of silently suppressing their next upstream edit.
+3. If the Step 4b scan showed the `MG-` item on
+   `.logicloom-adopt-receipt.json` itself and the user accepted it, run:
+   ```bash
+   bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile
+   ```
+   Show the user the `RECONCILE` lines (byte-identical to the sync-ref copy
+   — safe to record) and the `DIFFERS` lines (differs from upstream — never
+   recorded automatically). On a second yes, re-run with
+   `--reconcile --apply`. A `DIFFERS` file is never recorded automatically —
+   the user may record one explicitly, if they accepted it through
+   `/update-framework` and edited it afterwards, with
+   `bash plugins/loom-maintenance/scripts/record-update-writes.sh <path>`.
+4. After a `c` conversion: delete `plugins/<name>` once the converted
+   command/skill works, then run `sync-plugin-commands.sh prune` — reminded
+   again in Step 9.
+
+**Validation**: Every accepted migration item applied per its action; in an
+ADOPTED repo the recorder ran over the accepted write set with no git
+invoked by the script.
+
+---
+
 ### Step 8: Update Sync Reference
 
 Update the sync ref after completion **only if ≥1 proposal was accepted** (or the
@@ -228,6 +369,10 @@ fi
 harness suite did not run, say so in the update summary and treat the applied
 enhancements as **unvalidated by regression** — review the diff manually rather
 than reporting the update as verified.
+
+If Step 7b converted any release-migration item, remind the user once more
+here: delete `plugins/<name>` once its converted command/skill works, then
+run `sync-plugin-commands.sh prune` — neither cleanup happens automatically.
 
 ---
 

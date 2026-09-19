@@ -7,7 +7,7 @@ enforced, lifted out of an inline heredoc so it can be run and tested locally:
   1. the manifest parses as JSON
   2. `name`, `version`, `dependencies` are present
 
-plus TWO additions:
+plus THREE additions:
 
   3. IF an optional `eval` block is present, its SHAPE is valid (backlog §3.4).
      If it is absent, nothing is checked and nothing is reported.
@@ -19,6 +19,17 @@ plus TWO additions:
      corresponding directory holds nothing; omitting it to silence the check is
      itself an error. Before this, `count` and `list` were verified against
      neither each other nor disk, and both had silently drifted.
+
+  5. A plugin directory NAMED in the release-migration registry
+     (.logic-loom/config/release-migrations.conf, a `plugin`-kind row) is a
+     customer-owned, pending-migration dir on a sanitized/adopted tree — the
+     harness stopped shipping it, so its manifest (which may use the pre-v6.1
+     shape, e.g. a legacy `"agents": {"count": N, "list": []}` block) is
+     SKIPPED, not validated, and reported as such (`SKIPPED legacy (pending
+     migration): plugins/<name>`). This is a DELIBERATE BLIND SPOT, not a
+     loosened rule: a registry-listed dir is customer-owned, and the
+     release-migration scan (`release-migrations.sh scan`, run by
+     /update-framework) is what evaluates it — never this validator.
 
 Scope guard: this validates METADATA ONLY. LogicLoom ships no eval judge, no
 eval runner, and no scoring engine — shipping one would make the harness an
@@ -191,18 +202,62 @@ def _validate_inventory(data, plugin_dir, errors, plugin):
             errors.append(f"{where}.list does not match disk — " + "; ".join(detail))
 
 
+# --- release-migration registry: legacy plugin names to skip ---------------
+#
+# A `plugin`-kind row in .logic-loom/config/release-migrations.conf names a
+# plugin the harness no longer ships. On a sanitized/adopted tree, a customer
+# may still hold that directory (pending /update-framework migration) with its
+# OLD manifest shape (e.g. a pre-v6.1 `"agents": {"count": N, "list": []}`
+# block that this validator would otherwise reject). Skipping it here is a
+# deliberate blind spot (see the module docstring, addition 5) — not a
+# loosened rule for anything the harness still ships.
+#
+# Minimal, standalone parser (does not shell out to the bash lib): same 8-field
+# grammar as .logic-loom/lib/release-migrations.sh, `\|` decoded to a literal
+# `|` after splitting, blank/comment lines skipped, only `kind == "plugin"`
+# rows matter here.
+def _legacy_plugin_names(root):
+    registry = os.path.join(root, ".logic-loom", "config", "release-migrations.conf")
+    names = set()
+    if not os.path.isfile(registry):
+        return names
+    placeholder = "\x1f"
+    with open(registry, encoding="utf-8") as fh:
+        for line in fh:
+            line = line.rstrip("\n")
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            fields = stripped.replace("\\|", placeholder).split("|")
+            if len(fields) != 8:
+                continue
+            fields = [f.strip().replace(placeholder, "|") for f in fields]
+            kind, name = fields[0], fields[1]
+            if kind == "plugin":
+                names.add(name)
+    return names
+
+
 def validate(root):
-    """Return (errors, checked_count) for every manifest under <root>/plugins."""
+    """Return (errors, checked_count, skipped_names) for every manifest under
+    <root>/plugins. `skipped_names` are registry-listed legacy plugins whose
+    manifest was intentionally NOT validated (see addition 5 above)."""
     errors = []
     checked = 0
+    skipped = []
     plugins_dir = os.path.join(root, "plugins")
+    legacy = _legacy_plugin_names(root)
 
     if not os.path.isdir(plugins_dir):
-        return [f"no plugins/ directory under {root}"], 0
+        return [f"no plugins/ directory under {root}"], 0, []
 
     for name in sorted(os.listdir(plugins_dir)):
         manifest = os.path.join(plugins_dir, name, ".claude-plugin", "plugin.json")
         if not os.path.exists(manifest):
+            continue
+
+        if name in legacy:
+            skipped.append(name)
             continue
 
         checked += 1
@@ -227,7 +282,7 @@ def validate(root):
 
         _validate_inventory(data, os.path.join(plugins_dir, name), errors, name)
 
-    return errors, checked
+    return errors, checked, skipped
 
 
 def main():
@@ -239,14 +294,20 @@ def main():
     )
     args = parser.parse_args()
 
-    errors, checked = validate(args.root)
+    errors, checked, skipped = validate(args.root)
+
+    for name in sorted(skipped):
+        print(f"⏭️  SKIPPED legacy (pending migration): plugins/{name}")
 
     if errors:
         for err in errors:
             print(f"❌ {err}")
         return 1
 
-    print(f"✅ All plugin manifests valid ({checked} checked)")
+    if skipped:
+        print(f"✅ All plugin manifests valid ({checked} checked, {len(skipped)} legacy skipped)")
+    else:
+        print(f"✅ All plugin manifests valid ({checked} checked)")
     return 0
 
 

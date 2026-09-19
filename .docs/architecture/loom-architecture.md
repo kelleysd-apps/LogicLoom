@@ -32,6 +32,8 @@ namespace of layer-1 changes (`.specify/` → `.logic-loom/`).
 (vision.md, prd.md, plan.md, sprint output); the SDD-waterfall pack uses
 `specs/###-name/` from v5.0.0. Both coexist — one per pack.
 
+Full annotated tree: §15.
+
 ## 3. Vision / swarm pack — vision / PRD / plan / swarm
 
 One workflow pack. Its loop is a 12-step pipeline; each step is gated by a
@@ -304,3 +306,81 @@ shipped as of v6.1.0):
   grader protocol.
 - `.docs/architecture/freeze-scope-protocol.md` — freeze-write-scope hook
   protocol.
+
+## 15. Directory structure
+
+The annotated repository tree. `plugins/` entries are listed in CLAUDE.md §
+Plugin Registry, which tests parse; this section is not parsed.
+
+```
+VISION.md                              # Foundational product north-star (living; peer to the constitution)
+
+.logic-loom/
+  memory/
+    constitution.md                    # 16 principles (v3.3.0) — upstream core, do not fork-edit
+    amendments.md                      # OPTIONAL, fork-owned: project named mandates (additive only)
+    todos.md                           # Level-0 SSOT, ACTIVE half — cross-cutting non-feature work
+                                       # being worked / next up / waiting on an answer already asked for
+    backlog.md                         # Level-0 SSOT, DEFERRED half — same grammar, same id space,
+                                       # different question: "what should I bring up later".
+                                       # Split so today's item isn't buried between two you
+                                       # decided six weeks ago not to do. Grammar is normative
+                                       # in backlog.md; todos.md points at it (one parser, one id
+                                       # space, next id DERIVED via lint-backlog.sh --next-id)
+    constitution_update_checklist.md
+  scripts/bash/                        # Workflow automation + plugin bridge
+  templates/                           # vision-template, prd-template, plan-template, ...
+  config/
+    governance.conf                    # Governance mode (lean / strict)
+    models.conf                        # Documented role→tier convention + current flagship
+    gate-policy.conf                   # LIVE — which git/gh operations ask vs run silent
+    project.conf                       # Project identity (slug / name / id_prefix). Ships UNSTAMPED
+                                       # (`__UNSET__`) so no cloner inherits our slug
+    environments.conf                  # Environment + promotion-order DECLARATION. Ships FULLY
+                                       # COMMENTED OUT — an active default would assert a topology
+                                       # a cloner does not have. Declaration only; no deploy engine
+    memory-backend.conf                # LIVE — one key, memory_backend = repo | project.
+                                       # PROTECTED (declared via protected_paths in governance.conf)
+    brain.conf                         # Advisory thresholds for the .brain/ liveness/load signal.
+                                       # PROTECTED, same as memory-backend.conf above
+    architecture.conf, framework-upstream.conf
+  lib/                                 # Shared shell libs (policy.sh, logging.sh)
+
+plugins/                               # Harness plugins — registry: CLAUDE.md § Plugin Registry
+
+.claude/
+  commands/                            # Bridge-generated from plugins
+  context/                             # Modular context loaders
+  hooks/                               # Governance + LogicLoom hooks
+
+features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
+specs/                                 # SDD pack: waterfall specs
+
+.brain/                                # Project knowledge layer: raw/ (immutable captures), wiki/
+                                       # (concepts/ + decisions/, cited sources), index/ (human
+                                       # pointers), memory/ (durable memory; the default backend),
+                                       # DISTILL-LOG.md. Ships holding only README.md; created on
+                                       # first use, same treatment as artifacts/ and web/. Stripped
+                                       # at template release except the README, which is stubbed.
+                                       # Contract: `.brain/README.md` — the promotion path and the
+                                       # three-signal table live there (§ What checks what)
+
+artifacts/                             # Standalone deliverables: who/what/why/where —
+                                       # vision, research, forensics, docs. NEVER a plan
+                                       # (sequencing belongs to plan.md / tasks.md).
+                                       # Create on first use; contents are project-owned
+                                       # and are stripped at template release.
+                                       # Mostly hand-authored + committed; a GENERATED
+                                       # deliverable belongs here too and is ALSO tracked
+                                       # (artifacts/backlog-dashboard.html) — licensed by
+                                       # the fail-closed freshness gate
+                                       # .logic-loom/scripts/bash/check-generated-freshness.sh.
+                                       # Its machine intermediate (.logic-loom/backlog-index.json)
+                                       # stays gitignored: track only what a human opens.
+
+web/  (or apps/<name>/)                # Product app (own package.json) — see Harness ↔ product boundary
+
+.docs/
+  architecture/loom-architecture.md    # Full architectural reference (LogicLoom shape)
+  policies/
+```

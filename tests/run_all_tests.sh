@@ -179,6 +179,8 @@ run_suite "Adopt Entry Points + Post-Install" "bash tests/contract/test_adopt_en
 run_suite "Adopt Agent-Drivable Install" "bash tests/contract/test_adopt_agent_mode.sh"
 run_suite "Adopt Re-Apply + Self-Caused Preconditions" "bash tests/contract/test_adopt_reapply.sh"
 run_suite "Adopt Plan/Apply Reconciliation" "bash tests/contract/test_adopt_plan_reconciliation.sh"
+run_suite "Release Migrations" "bash tests/contract/test_release_migrations.sh"
+run_suite "Update-Framework Ownership" "bash tests/contract/test_update_framework_ownership.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

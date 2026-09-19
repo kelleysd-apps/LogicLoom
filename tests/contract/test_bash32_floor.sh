@@ -197,16 +197,58 @@ floor_scan_roots() {
 
 # The anti-decorative backstop: a plugin directory carrying OUR namespace that
 # the registry table does not declare. Such a plugin would be silently unscanned.
+#
+# A customer's leftover legacy plugin (registry-listed in
+# .logic-loom/config/release-migrations.conf, e.g. a stale plugins/sdd-domain-*
+# left over pre-v7.0.0) is neither harness-owned (it is customer-owned — the
+# floor never scanned it, see the header) NOR an orphan (it is declared,
+# just not in CLAUDE.md's table) — so it is excluded from BOTH the scan and
+# the orphan report, and surfaced instead as an informational
+# "legacy plugins pending migration" line (1b, below). This is the one place
+# `.logic-loom/lib/release-migrations.sh`'s `loom_is_deprecated_plugin_dir` is
+# consulted from this suite.
 undeclared_harness_shaped() {
-  local r="$1" d name declared
+  local r="$1" d name declared reg
   declared="$(declared_harness_plugins "$r")"
+  reg="$r/.logic-loom/config/release-migrations.conf"
+  if [ -f "$r/.logic-loom/lib/release-migrations.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$r/.logic-loom/lib/release-migrations.sh"
+  fi
   for d in "$r"/plugins/*/; do
     [ -d "$d" ] || continue
     name="${d%/}"; name="${name##*/}"
     case "$name" in loom-*|sdd-*) ;; *) continue ;; esac
     # here-string, not a pipe: `grep -q` exits early and pipefail would score a
     # MATCH as a pipeline failure (shell-idiom-policy §6).
-    grep -qx "$name" <<< "$declared" || printf '%s\n' "$name"
+    grep -qx "$name" <<< "$declared" && continue
+    if command -v loom_is_deprecated_plugin_dir >/dev/null 2>&1 \
+       && loom_is_deprecated_plugin_dir "$name" "$reg" 2>/dev/null; then
+      continue
+    fi
+    printf '%s\n' "$name"
+  done
+  return 0
+}
+
+# Registry-listed plugin dirs present on disk but undeclared in CLAUDE.md — the
+# customer-owned, not-scanned, pending-migration set undeclared_harness_shaped
+# above now excludes. A separate function (not folded into the printed
+# ORPHANS/undeclared set above) so the two lists never merge into one meaning.
+legacy_plugins_pending() {
+  local r="$1" d name declared reg
+  [ -f "$r/.logic-loom/lib/release-migrations.sh" ] || return 0
+  declared="$(declared_harness_plugins "$r")"
+  reg="$r/.logic-loom/config/release-migrations.conf"
+  # shellcheck source=/dev/null
+  source "$r/.logic-loom/lib/release-migrations.sh"
+  command -v loom_is_deprecated_plugin_dir >/dev/null 2>&1 || return 0
+  for d in "$r"/plugins/*/; do
+    [ -d "$d" ] || continue
+    name="${d%/}"; name="${name##*/}"
+    case "$name" in loom-*|sdd-*) ;; *) continue ;; esac
+    grep -qx "$name" <<< "$declared" && continue
+    loom_is_deprecated_plugin_dir "$name" "$reg" 2>/dev/null && printf '%s\n' "$name"
   done
   return 0
 }
@@ -249,6 +291,10 @@ assert "every declared plugin is a real directory under plugins/ (${MISSING_DIR:
 ORPHANS="$(undeclared_harness_shaped "$ROOT" | tr '\n' ' ')"
 assert "no loom-*/sdd-* plugin on disk is missing from the registry (${ORPHANS:-none})" \
        "[ -z \"\$(printf '%s' \"\$ORPHANS\" | tr -d ' ')\" ]"
+LEGACY_PENDING="$(legacy_plugins_pending "$ROOT" | tr '\n' ' ')"
+if [ -n "$(printf '%s' "$LEGACY_PENDING" | tr -d ' ')" ]; then
+  echo "     legacy plugins pending migration (customer-owned, not scanned, run /update-framework): $LEGACY_PENDING"
+fi
 # The wholesale roots must actually be in the computed set, or the scoping
 # change quietly narrowed the floor to plugins alone.
 #
@@ -342,6 +388,38 @@ mkdir -p "$SR/plugins/loom-orphan/scripts"
 printf '#!/usr/bin/env bash\ndeclare -A ORPHAN\n' > "$SR/plugins/loom-orphan/scripts/o.sh"
 assert "an UNDECLARED loom-* plugin is flagged by name (registry drift is loud)" \
        "[ \"\$(undeclared_harness_shaped \"\$SR\")\" = 'loom-orphan' ]"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A registry-listed legacy plugin (customer-owned, pending migration) must be
+# excluded from BOTH the floor scan and the orphan report — it is neither
+# harness-owned nor an orphan, just undeclared-but-known. loom-orphan (above)
+# must still be caught: a real registry alongside it proves the exemption did
+# not swallow genuine drift.
+mkdir -p "$SR/.logic-loom/config" "$SR/.logic-loom/lib"
+cp "$ROOT/.logic-loom/lib/release-migrations.sh" "$SR/.logic-loom/lib/release-migrations.sh"
+echo "plugin | sdd-legacy | removed | none | REMOVE | v1.0.0 | v2.0.0 | synthetic legacy row" \
+  > "$SR/.logic-loom/config/release-migrations.conf"
+mkdir -p "$SR/plugins/sdd-legacy/scripts"
+printf '#!/usr/bin/env bash\ndeclare -A LEGACY\n' > "$SR/plugins/sdd-legacy/scripts/x.sh"
+SR_UNDECLARED="$(undeclared_harness_shaped "$SR" | tr '\n' ' ' | sed 's/ $//')"
+assert "with a real registry present, undeclared_harness_shaped prints EXACTLY loom-orphan (sdd-legacy excluded)" \
+       "[ \"\$SR_UNDECLARED\" = 'loom-orphan' ]"
+SR_LEGACY="$(legacy_plugins_pending "$SR" | tr '\n' ' ' | sed 's/ $//')"
+assert "legacy_plugins_pending reports sdd-legacy (customer-owned, not scanned)" \
+       "[ \"\$SR_LEGACY\" = 'sdd-legacy' ]"
+# "not scanned" is a claim about the floor scan itself, not only about the
+# orphan report: re-derive the scan roots with sdd-legacy on disk and prove its
+# planted `declare -A` never reaches the scanner (loom-example's still does).
+SR_ROOTS2="$(floor_scan_roots "$SR" | tr '\n' ' ')"
+SR_HITS2=""
+for d in $SR_ROOTS2; do
+  found="$(scan_tree "$d")"
+  [ -n "$found" ] && SR_HITS2="${SR_HITS2}${found}"$'\n'
+done
+assert "sdd-legacy's planted 'declare -A' is NOT scanned (registry-listed, customer-owned)" \
+       "! grep -q 'sdd-legacy' <<< \"\$SR_HITS2\""
+assert "…while loom-example's planted 'declare -A' still IS (the exemption is not a blanket one)" \
+       "grep -q 'loom-example/scripts/ours.sh' <<< \"\$SR_HITS2\""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures for the /specification quality gates. Written here rather than

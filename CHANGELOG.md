@@ -5,6 +5,93 @@ All notable changes to LogicLoom (formerly the SDD Agent Framework) will be docu
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Next release: **7.0.0** — major. The update path gains a release-migration
+registry that `/update-framework` evaluates against your tree, and adopted
+installs start recording what `/update-framework` writes.
+
+### Migrating from 6.x
+
+- Template clones: run `/update-framework`. Accept the `.logic-loom/config`,
+  `.logic-loom/lib` and `plugins/loom-maintenance` proposals first; the Step
+  3b scan then runs on every later run. `CLAUDE.md` shrank (sections moved to
+  `.docs/architecture/loom-architecture.md`,
+  `.docs/policies/project-amendments-policy.md` and `.brain/README.md`) — a
+  customised `CLAUDE.md` arrives as `conflict-review`; take the moved files
+  as `clean-add` and carry your `CLAUDE.md` edits by hand.
+- Adopted installs (`npx logicloom init`): run
+  `bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile`
+  once (the scan proposes it as an `MG-…` item on the first run). Files you
+  accepted through `/update-framework` before 7.0.0 never received later
+  upstream edits; this records them as yours.
+- Pre-v6.2 clones: re-baseline first (`FRAMEWORK_SYNC_GUIDE.md` "Broken sync
+  baseline"); the `.specify/` → `.logic-loom/` rename is not covered by the
+  registry.
+- Decisions: `.logic-loom/config/migration-decisions.conf` is project-owned;
+  commit it.
+
+### Added
+
+- **Release-migration registry** (`.logic-loom/config/release-migrations.conf`)
+  and its parser lib (`.logic-loom/lib/release-migrations.sh`) — one grammar
+  for a retired plugin/mcp-server/path, a moved path, a content check, or a
+  release's `none` row, evaluated the same way for the upstream registry and
+  a project-owned `.logic-loom/config/project-migrations.conf`.
+- **`plugins/loom-maintenance/scripts/release-migrations.sh`** —
+  `scan [--json]`, `plan <name>`, `convert <name> --dry-run|--apply
+  [--customized-only]`, `lint`, and `check-release [<vX.Y.Z>]
+  [--since <tag>|auto]` (the removal guard, maintainer-only).
+- **`/update-framework` Step 3b / 4b / 7b** — the scan, the presentation
+  (per-kind menu including `[m]ove` for a moved path), and the apply step,
+  wired into both `plugins/loom-maintenance/commands/update-framework.md`
+  and the `framework-updater` skill.
+- **`plugins/loom-maintenance/scripts/record-update-writes.sh`** — records
+  what an adopted install's `/update-framework` run just wrote; `--reconcile`
+  proposes recording the past (`RECONCILE` vs `DIFFERS`, never auto-recording
+  a file that differs from upstream).
+- **`.docs/guides/MIGRATION_GUIDE.md`** — the registry, the four actions plus
+  MOVE and PROPOSE, plugin-to-skill conversion, the decisions file, and the
+  adopted-repo recorder, all in one place.
+- **`.docs/policies/project-amendments-policy.md`** — the fork-amendments
+  doctrine, moved out of `CLAUDE.md`.
+- **`tests/contract/test_release_migrations.sh`** and
+  **`tests/contract/test_update_framework_ownership.sh`** — registry
+  integrity, the scan/convert fixtures, the release gate, and the
+  adopted-repo recorder/reconcile fixtures, registered in
+  `tests/run_all_tests.sh` and the promote gate.
+- `plugin-tests.yml` checks out full history (`fetch-depth: 0`) so the
+  release-removal and tag-consistency checks run with teeth on every push,
+  not only at the cut.
+
+### Changed
+
+- `tests/contract/test_deprecation.sh`, `tests/contract/test_bash32_floor.sh`,
+  `tests/contract/plugins/test_plugin_lifecycle.sh`,
+  `tests/contract/test_plugin_manifest_schema.sh`,
+  `tests/contract/test_model_agnostic.sh`, and
+  `.logic-loom/scripts/python/validate-plugin-manifests.py` now treat a
+  registry-listed legacy plugin as a pending-migration notice on a customer
+  tree instead of a hard failure; the maintainer-tree absence guarantee moved
+  to `test_release_migrations.sh`.
+- `.logic-loom/scripts/bash/constitutional-check.sh` distinguishes a
+  converted project-local skill (carries the `converted-from:` marker) from
+  one without provenance.
+- `extract-proposals.sh` names the suppressed not-installed-here paths on
+  stderr (first 20, then a count) with the `--reconcile` hint, instead of a
+  bare count.
+- `CLAUDE.md` trimmed: the directory tree moved to
+  `.docs/architecture/loom-architecture.md`, the amendments doctrine to
+  `.docs/policies/project-amendments-policy.md`, and the `.brain/` narrative
+  to `.brain/README.md` and its template. `tests/contract/test_backlog_dashboard.sh`
+  greps retargeted to the new locations.
+
+### Removed
+
+- The two "What changed in v6.x" sections of `CLAUDE.md` (this file is the
+  durable record now) and the two `history-scrub-rules.json` ops that scrubbed
+  them.
+
 ## [6.6.2] - 2026-08-31
 
 ### Added

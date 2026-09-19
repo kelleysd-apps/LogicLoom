@@ -5,6 +5,53 @@ For the full update mechanics see `.docs/guides/FRAMEWORK_SYNC_GUIDE.md`.
 
 ---
 
+## Plugins removed upstream stayed in your tree with no notice
+
+**Status:** FIXED in **v7.0.0**.
+**Affects:** every project installed before the plugin it held was retired
+upstream (any `sdd-*` plugin renamed, folded, or removed before v6.2.0, and
+every future retirement going forward).
+
+**Symptom** — `/update-framework` never mentioned that a plugin you were
+still holding had been renamed, folded into a domain brief, replaced by a
+native Claude Code feature, or removed outright. The directory sat in
+`plugins/` indefinitely, invisible to the update flow.
+
+**Cause** — `extract-proposals.sh` only ever diffs upstream's *own* history
+against your sync point; a plugin's removal from upstream never produced a
+proposal for a customer who already held a copy of it, because there was
+nothing left upstream to diff against.
+
+**Fix** — `/update-framework` Step 3b now scans a release-migration registry
+against your tree on every run and offers REMOVE / ADOPT-REPLACEMENT /
+CONVERT-TO-LOCAL / KEEP-AS-IS per item, with a standing-decisions briefing on
+every subsequent run. See `.docs/guides/MIGRATION_GUIDE.md`.
+
+---
+
+## Adopted installs never received updates to files added by `/update-framework`
+
+**Status:** FIXED in **v7.0.0**.
+**Affects:** every `npx logicloom init` install (6.6.0+) that accepted a
+`clean-add` proposal through `/update-framework`.
+
+**Symptom** — later upstream edits to a file that `/update-framework` had
+added to your repository never appeared as a proposal again; the only trace
+was a `Suppressed: … not-installed-here` count on stderr.
+
+**Cause** — the adopt receipt's `wrote` list, which the proposal filter
+checks, was written only by the `npx logicloom init` installer itself.
+Applying an accepted `clean-add` through `/update-framework` wrote the file
+to disk but never recorded it in the receipt, so every later upstream change
+to that path looked like a file the adopter never owned.
+
+**Fix** — `plugins/loom-maintenance/scripts/record-update-writes.sh` runs
+after every update from v7.0.0 on, recording what `/update-framework` just
+wrote. `--reconcile` records the past once, for files added before v7.0.0
+(the scan proposes running it). See `.docs/guides/MIGRATION_GUIDE.md`.
+
+---
+
 ## `/update-framework` fails: `.sdd-sync-ref` is NOT reachable from upstream main
 
 **Status:** FIXED in **v6.4.1** (repair is automatic from that version on).

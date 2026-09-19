@@ -139,7 +139,8 @@ jobs:
                    tests/contract/plugins/test_plugin_lifecycle.sh \
                    tests/contract/plugins/test_swarm_lifecycle.sh \
                    tests/contract/test_governance_hooks.sh \
-                   tests/contract/test_freeze_scope.sh; do
+                   tests/contract/test_freeze_scope.sh \
+                   tests/contract/test_release_migrations.sh; do
             [ -f "$t" ] && bash "$t"
           done
       - name: Constitutional check

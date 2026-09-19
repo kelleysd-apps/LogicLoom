@@ -11,18 +11,6 @@
           "note": "Removed-subsystem narrative paragraph; the domain-brief registry is documented elsewhere in present tense. Drop the whole paragraph and its trailing blank line."
         },
         {
-          "op": "drop-section",
-          "match": "## What changed in v6.2 (dev-loop removed)",
-          "replacement": "",
-          "note": "Embedded changelog. Drop heading through the line before the next '## What changed in v6.1' heading."
-        },
-        {
-          "op": "drop-section",
-          "match": "## What changed in v6.1 (Opus 4.8 re-base + agnostic core)",
-          "replacement": "",
-          "note": "Embedded changelog. Drop heading through the trailing '---' before the Framework/Constitution footer; collapse the resulting duplicate '---' separators."
-        },
-        {
           "op": "delete-line-regex",
           "match": "^\\*\\*Last Updated\\*\\*: \\d{4}-\\d{2}-\\d{2}",
           "replacement": "",

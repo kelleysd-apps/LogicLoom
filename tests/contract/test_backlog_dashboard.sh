@@ -453,8 +453,8 @@ assert "the manifest entry carries its reason" \
 assert "artifacts/README.md and .gitkeep are NOT stripped (they ship, LOOM-0049)" \
   "! grep -qxF 'artifacts/README.md' '$MANIFEST' && ! grep -qxF 'artifacts/.gitkeep' '$MANIFEST' && ! grep -qxE 'artifacts[[:space:]]*(#.*)?' '$MANIFEST'"
 fi
-assert "artifacts/ is documented in CLAUDE.md's directory structure" \
-  "grep -q '^artifacts/' '$ROOT/CLAUDE.md'"
+assert "artifacts/ is documented in the annotated directory structure" \
+  "grep -q '^artifacts/' '$ROOT/.docs/architecture/loom-architecture.md'"
 assert "artifacts/ has its own section in the file-structure policy" \
   "grep -q '^### artifacts/' '$ROOT/.docs/policies/file-structure-policy.md'"
 assert "the policy states artifacts are never a plan" \
@@ -472,8 +472,8 @@ assert "the policy names the gate as the licence to track a generated file" \
   "grep -q 'check-generated-freshness.sh' '$ROOT/.docs/policies/file-structure-policy.md'"
 assert "the policy warns that .gitignore is not branch-scoped" \
   "grep -qi 'not branch-scoped' '$ROOT/.docs/policies/file-structure-policy.md'"
-assert "CLAUDE.md's directory block records the same exception" \
-  "grep -q 'artifacts/backlog-dashboard.html' '$ROOT/CLAUDE.md'"
+assert "the annotated directory structure records the same exception" \
+  "grep -q 'artifacts/backlog-dashboard.html' '$ROOT/.docs/architecture/loom-architecture.md'"
 # Now that the dashboard is TRACKED, the wholesale `artifacts` strip is the ONE
 # thing keeping it out of a customer's tree — it is no longer belt-and-braces.
 # The strip walks `git ls-files`, so a tracked artifact IS a strip candidate.

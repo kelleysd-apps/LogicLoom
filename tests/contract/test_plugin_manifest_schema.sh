@@ -108,8 +108,24 @@ echo "     $REAL_OUT"
 assert "exit 0 on the real tree" "[ $REAL_RC -eq 0 ]"
 assert "reports all manifests valid" \
   "grep -q 'All plugin manifests valid' <<< \"$REAL_OUT\""
-MANIFEST_COUNT=$(ls -d "$ROOT"/plugins/*/.claude-plugin/plugin.json 2>/dev/null | wc -l | tr -d ' ')
-assert "checked count matches manifests on disk ($MANIFEST_COUNT)" \
+
+# Expected checked count = manifests on disk MINUS registry-listed (legacy,
+# pending-migration) plugin dirs — the validator deliberately skips those
+# (§ addition 5 in the validator's own docstring).
+MANIFESTS_ON_DISK=$(ls -d "$ROOT"/plugins/*/.claude-plugin/plugin.json 2>/dev/null | wc -l | tr -d ' ')
+LEGACY_ON_DISK=0
+LOOM_LIB="$ROOT/.logic-loom/lib/release-migrations.sh"
+LOOM_REG="$ROOT/.logic-loom/config/release-migrations.conf"
+if [ -f "$LOOM_LIB" ] && [ -f "$LOOM_REG" ]; then
+  # shellcheck source=/dev/null
+  source "$LOOM_LIB"
+  LEGACY_ROWS="$(loom_deprecation_rows "$LOOM_REG" 2>/dev/null | awk -F'\t' '$1 == "plugin" { print $2 }')"
+  for legacy_name in $LEGACY_ROWS; do
+    [ -d "$ROOT/plugins/$legacy_name" ] && LEGACY_ON_DISK=$((LEGACY_ON_DISK + 1))
+  done
+fi
+MANIFEST_COUNT=$((MANIFESTS_ON_DISK - LEGACY_ON_DISK))
+assert "checked count matches manifests on disk minus registry-listed legacy ($MANIFEST_COUNT)" \
   "grep -q '($MANIFEST_COUNT checked)' <<< \"$REAL_OUT\""
 assert "no bundled manifest declares eval (none has a genuine suite)" \
   "! grep -l '\"eval\"' $ROOT/plugins/*/.claude-plugin/plugin.json >/dev/null 2>&1"
@@ -322,6 +338,31 @@ assert "schema doc declares the count field gone" \
   "grep -q 'There is no .count. field' '$SCHEMA_DOC'"
 assert "schema doc worked example declares no count" \
   "! grep -q '\"count\": 0' '$SCHEMA_DOC'"
+echo ""
+
+# ── 8b. Registry-listed legacy plugins are SKIPPED, not validated ────────────
+echo "8b. A registry-listed legacy plugin's manifest is skipped, not rejected"
+LEGACY_FIX="$TMP/legacy-fixture"
+mkdir -p "$LEGACY_FIX/.logic-loom/config" "$LEGACY_FIX/.logic-loom/lib" \
+         "$LEGACY_FIX/plugins/sdd-legacy/.claude-plugin" \
+         "$LEGACY_FIX/plugins/loom-fixture/.claude-plugin"
+cp "$ROOT/.logic-loom/lib/release-migrations.sh" "$LEGACY_FIX/.logic-loom/lib/release-migrations.sh"
+echo "plugin | sdd-legacy | removed | none | REMOVE | v1.0.0 | v2.0.0 | synthetic legacy row" \
+  > "$LEGACY_FIX/.logic-loom/config/release-migrations.conf"
+cat > "$LEGACY_FIX/plugins/sdd-legacy/.claude-plugin/plugin.json" <<'JSON'
+{ "name": "sdd-legacy", "version": "1.0.0", "dependencies": [],
+  "agents": { "count": 1, "list": [] } }
+JSON
+cat > "$LEGACY_FIX/plugins/loom-fixture/.claude-plugin/plugin.json" <<'JSON'
+{ "name": "loom-fixture", "version": "1.0.0", "dependencies": [] }
+JSON
+run_validator "$LEGACY_FIX"
+echo "     [legacy-fixture] rc=$RC :: $OUT"
+assert "a legacy manifest with a pre-v6.1 'count' key does NOT fail validation" "[ $RC -eq 0 ]"
+assert "the legacy plugin is reported SKIPPED, not validated" \
+  "grep -q 'SKIPPED legacy (pending migration): plugins/sdd-legacy' <<< \"$OUT\""
+assert "the non-legacy plugin is still checked (1 checked, 1 legacy skipped)" \
+  "grep -q '(1 checked, 1 legacy skipped)' <<< \"$OUT\""
 echo ""
 
 # ── 9. Scope guard: metadata only, no engine ─────────────────────────────────

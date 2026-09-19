@@ -155,6 +155,8 @@ weaken.
 
 Run `/update-framework` inside Claude Code to pull upstream framework enhancements as reviewable, **proposal-based** changes. It is **fetch-only** — it never adds an `upstream` git remote, never pushes/pulls/merges upstream, and commits accepted changes only to **your** current branch. The upstream is configured in `.logic-loom/config/framework-upstream.conf`. See `.docs/guides/FRAMEWORK_SYNC_GUIDE.md`.
 
+`/update-framework` also evaluates a release-migration registry against your tree — retired plugins you still hold, paths upstream moved, and text-content checks — and offers remove/convert/keep/move per item, briefs you on every standing decision, and, in an adopted install, records what it wrote so later updates can still reach those files. See `.docs/guides/MIGRATION_GUIDE.md`.
+
 ---
 
 ## The swarm pack — 14-step loop

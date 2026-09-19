@@ -1,0 +1,342 @@
+# Migration Guide
+
+What a **release migration** is, how `/update-framework` evaluates one
+against your tree, and what to do about each kind of item it finds. This
+guide stands alone — read it whether you arrived from `/update-framework`'s
+own output, from `KNOWN_ISSUES.md`, or from `.docs/guides/FRAMEWORK_SYNC_GUIDE.md`.
+
+## What a release migration is
+
+A **release migration** is anything a LogicLoom release does that an older
+install cannot absorb by taking a file diff alone: a plugin upstream stopped
+shipping, a path upstream renamed, or a piece of text a customer's tree
+should change by hand even though LogicLoom will never overwrite it.
+
+**The standing principle:** every release is evaluated against *your* tree by
+`/update-framework`, and that evaluation produces a **proposal — never an
+automatic change** — for every kind of migration, including for files
+upstream must never overwrite (a fork's own `.logic-loom/memory/amendments.md`,
+or your customised root `CLAUDE.md`). The tool that diffs upstream's history
+against your sync point (`extract-proposals.sh`) already never edits a file
+without your yes; the release-migration scan holds to exactly the same
+promise for the things a file diff cannot express on its own.
+
+## The registry — `.logic-loom/config/release-migrations.conf`
+
+Upstream-owned, line-oriented, `#` comments, blank lines ignored, **exactly 8
+pipe-separated fields**, whitespace around each field trimmed:
+
+```
+kind | name | fate | replacement | default | first_shipped | release | note
+```
+
+| Field | Meaning |
+|---|---|
+| `kind` | `plugin` \| `mcp-server` \| `path` \| `content` \| `none` |
+| `name` | for `plugin`/`mcp-server`/`path`: a directory name or repo-relative path; for `content`: a repo-relative path or shell glob (`*`, `?`); for `none`: `-` |
+| `fate` | `renamed` \| `folded` \| `native` \| `removed` (component kinds); `present` \| `absent` (content — propose when the pattern IS / is NOT found); `none` (the `none` kind) |
+| `replacement` | `plugin:<name>` \| `path:<repo-relative>` \| `command:/<name>` \| `native:<comma list>` \| `external:<text>` \| `pattern:<POSIX ERE>` (content only) \| `none` |
+| `default` | the recommended action when the copy is pristine: `REMOVE` \| `ADOPT-REPLACEMENT` \| `CONVERT-TO-LOCAL` \| `KEEP-AS-IS` \| `MOVE` \| `PROPOSE` |
+| `first_shipped` | first release tag that contains it, `never` (alias row), or `-` |
+| `release` | for a component row, the first release tag that **lacks** it; for a `content`/`none` row, the release the row belongs to |
+| `note` | free text — for a `content` row it **must** contain both `proposal:` and `why:` |
+
+**Escaping.** A raw `|` is the field separator. To put a literal `|` inside a
+field — most often needed for a `pattern:` alternation — write `\|`; the
+parser decodes it back to `|` after splitting. A raw, unescaped `|` still
+counts as a field boundary and an 8-field row that turns into 9 fails `lint`.
+
+**Uniqueness.** `name` is unique **only among the three component kinds**
+(`plugin`/`mcp-server`/`path`) — the registry can never carry two rows
+claiming to be the authority on the same plugin directory. A `content` row's
+identity is `(name, release, pattern)`: two content rows may name the same
+file (checking two different things, or the same thing across two releases)
+and are two separate items.
+
+**Read upstream-first.** The scan reads this file from the fetched
+`refs/loom-upstream/main` ref before falling back to your local copy, so the
+registry it evaluates against is current even on a run whose enhancement
+proposals were filtered down to nothing (adopted repos — see § *Adopted
+installs* below).
+
+### One example row per kind
+
+```
+# plugin — real, shipped
+plugin | sdd-dev-loop | native | native:/workflow,/loop,/goal | REMOVE | v4.0.0 | v6.2.0 | Autonomous edit-test-debug loop; superseded by native /workflow, /loop, /goal (CHANGELOG 6.2.0 calls it loom-dev-loop)
+
+# mcp-server — real, shipped
+mcp-server | sdd-marketplace | removed | external:Anthropic Claude Code Plugin Marketplace + Docker MCP Toolkit | REMOVE | v4.0.0 | v6.2.0 | In-house marketplace MCP; also remove its .mcp.json entry
+
+# path, fate=renamed — hypothetical, illustrates the MOVE action (no shipped row uses it yet)
+path | .logic-loom/scripts/bash/old-name.sh | renamed | path:.logic-loom/scripts/bash/new-name.sh | MOVE | v6.0.0 | v7.1.0 | Example only — a real moved-path row reads the same way
+
+# content — real, shipped in v7.0.0
+content | .logicloom-adopt-receipt.json | absent | pattern:"generator": "logicloom-update-framework@ | PROPOSE | - | v7.0.0 | proposal: run bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile once, so files you accepted through /update-framework before v7.0.0 are recorded as yours and receive upstream updates again; why: before v7.0.0 the adopt receipt was never written after install, so every later upstream edit to an update-added file was silently suppressed (see .docs/guides/MIGRATION_GUIDE.md)
+
+# none — illustrative; a real release with nothing adopter-facing carries exactly one of these and no other row
+none | - | none | none | - | - | v6.6.2 | No plugin, mcp-server, or path removed; no content check applies to this release
+```
+
+## The project-owned registry — `.logic-loom/config/project-migrations.conf`
+
+Same 8-field grammar, same parser, same evaluation — but this file is
+**yours**: LogicLoom never ships one, and the maintainer-tree registry test
+asserts it is absent from LogicLoom's own repository. Every item it produces
+carries `source: project` instead of `source: upstream`, and it is evaluated
+identically — same proposal shape, same decisions file, same briefing rule.
+This is how a fork gets a generic content check without LogicLoom inventing a
+row about text it does not own.
+
+### Worked example — the fork-declared row
+
+A fork that ported an escalation-cost mandate into its own
+`.logic-loom/memory/amendments.md`, then separately drifted its personal copy
+of the same ladder, can declare a row that catches the drift:
+
+```
+content | .logic-loom/memory/amendments.md | present | pattern:^- 3 = it changes auth, payment, or customer-data logic | PROPOSE | - | v7.0.0 | proposal: rescale the fourth cost line to "+3 on top of the reversibility score" so the rung matches the ladder this mandate was ported from; why: fork-authored text drifted from its source and nothing upstream can update it
+```
+
+LogicLoom does not ship this row and cannot. `amendments.md` is fork-authored
+text — the registry names no row about its content, upstream never diffs the
+file (it is never part of the adopt payload or the template), and the only
+mechanisms that ever reach it are the fork's own row above and the fork's own
+edit.
+
+## The four actions (plus MOVE for a moved path, PROPOSE for content)
+
+- **REMOVE** — the component is gone from upstream and your copy is
+  pristine. The command per kind:
+  - `plugin` → `git rm -r plugins/<name>` (gate policy `git.rm = ask`, so you
+    approve it), then `.logic-loom/scripts/bash/sync-plugin-commands.sh prune`
+    to drop the bridge wrapper(s) and regenerate the bridge manifest.
+  - `mcp-server` → first remove the `"<name>":` entry from `.mcp.json` (the
+    main agent edits it on your yes, diff shown first — `.mcp.json` is not a
+    protected file), then `git rm -r mcp-servers/<name>`.
+  - `path` → `git rm <path>` for a file, `git rm -r <path>` for a directory.
+
+  **REMOVE is blocked** while a `.claude/settings.json` (or
+  `settings.local.json`) hook, or a `.github/workflows/` step, still points
+  under the item's path — deleting the directory would silently thin the
+  governance floor or turn a workflow red. Every other reference (a bridge
+  wrapper, a cross-reference from another plugin, a project agent/skill/rule,
+  a docs mention) is listed but never blocks; the plan's first step is always
+  to repoint or remove the blocking reference, never to run `git rm` through
+  it.
+- **ADOPT-REPLACEMENT** — the component was renamed or folded and your copy
+  is customized: for each changed or added file, the plan shows the
+  counterpart under the replacement's path so you can carry your diff by
+  hand; a file with no counterpart converts to local instead
+  (`convert <name> --apply --customized-only`).
+- **CONVERT-TO-LOCAL** — the fate is `folded`/`native`/`removed`, or the
+  component was renamed but you customized it and there is no counterpart
+  file to carry the diff into. See § *Converting a plugin* below.
+- **KEEP-AS-IS** — you decide to hold onto the customer-owned copy as-is.
+  Writes `keep = <name>` to `.logic-loom/config/migration-decisions.conf` on
+  request. Consequence, stated plainly: no upstream updates to it, ever; the
+  harness floor test, manifest validator, and lifecycle suite print an
+  informational pending-migration notice on every run (never a failure);
+  commands from it keep working only through their bridge wrapper. The
+  manual alternative to KEEP-AS-IS: rename the directory out of the
+  `loom-*`/`sdd-*` namespace and fix its manifest — it becomes an ordinary
+  customer plugin the harness no longer has any opinion about.
+- **MOVE** — only for a `path` row with `fate = renamed`
+  (`replacement = path:<new>`). Proposed only when upstream does **not**
+  ship the new path itself: the main agent runs `git mv <old> <new>` on your
+  yes (gate policy `git.mv = ask`). When upstream *does* ship `<new>` as its
+  own clean-add, MOVE is not offered — accept that clean-add first, then the
+  old copy is simply REMOVEd (blocked, with the reason stated, until `<new>`
+  exists on disk). If your copy is customized, the recommendation is
+  KEEP-AS-IS with "carry your diff into `<new>`, then re-run" — the tool
+  never guesses which half of a rename is the one you edited.
+- **PROPOSE** — the only action a `content` row ever takes. The registry
+  note's `proposal:` and `why:` text is shown to you; nothing is written by
+  the script. You (or the main agent, on your yes, diff shown first) edit
+  the file, or you record `keep = <name>@<release>` to acknowledge it
+  without editing.
+
+## Converting a plugin to a project-local skill
+
+**Mapping** (`convert <name> --dry-run` / `--apply`):
+
+| Source | Target |
+|---|---|
+| `plugins/<p>/skills/<s>/**` | `.claude/skills/<s>/**` |
+| `plugins/<p>/commands/<c>.md` | `.claude/skills/<c>/SKILL.md` — a skill, not a `.claude/commands/` file |
+| `plugins/<p>/agents/<a>.md` | `.claude/agents/<a>.md` (a strict upgrade: project agents keep `hooks`/`mcpServers`/`permissionMode`, which plugin agents never had) |
+| `plugins/<p>/hooks/hooks.json`, `hooks/scripts/*` | `.claude/skills/<p>/hooks/…` — copied, **never wired** |
+| `scripts/`, `lib/`, `config/`, `templates/`, `tests/`, `README.md` | `.claude/skills/<p>/<same relative path>` |
+| `.claude-plugin/plugin.json` | `.claude/skills/<p>/plugin.json.orig` (renamed so nothing mistakes it for a live manifest) |
+| (generated) | `.claude/skills/<p>/CONVERTED.md` — the record: registry row, every path written, the hooks-wiring snippet, the follow-ups |
+
+Every copied markdown file gets a provenance marker on the line after the
+closing `---` of its frontmatter (or as line 1 when there is none):
+
+```
+<!-- converted-from: plugins/<p>/<rel> | logicloom-plugin-deprecations v1 | project-owned: upstream never updates this file -->
+```
+
+**The same-named command-and-skill case.** When `plugins/<p>/commands/<c>.md`
+would convert into a skill directory that a same-named
+`plugins/<p>/skills/<c>/` already occupies, the command's body is **appended**
+to that skill's `SKILL.md` instead of creating a second directory — not
+merged. The appended section is a `## Command procedure` section delimited
+by its own start and end `converted-from:` markers; it carries the command's
+original YAML frontmatter verbatim inside a `yaml` fence (labelled "not
+merged — this skill's frontmatter governs; carry `allowed-tools`/`model` over
+by hand if you need them"), then the command's body. A `NOTE` line calls out
+when the command's `allowed-tools:`/`model:`
+differ from the skill's own frontmatter, so nothing is silently lost — you
+decide whether to carry either value over by hand.
+
+**Why a command becomes a skill, not a `.claude/commands/` file.** In Claude
+Code 2.x, `.claude/skills/<name>/SKILL.md` is invocable as `/<name>` and
+accepts `description`, `allowed-tools`, and `model` — a converted command
+loses nothing (the floor for this conversion is Claude Code >= 2.0).
+`.claude/commands/` in this repository is the command bridge's own
+territory: `sync-plugin-commands.sh prune` deletes any file there
+carrying the bridge marker once its source plugin is gone, and several
+shipped invariants assert that no file remains there **without** that
+marker. Writing a static file into `.claude/commands/` would require
+weakening a shipped guarantee; writing a skill requires nothing.
+
+**Hooks are never wired.** A converted plugin's hook scripts are copied to
+`.claude/skills/<p>/hooks/scripts/…` with their executable bit preserved, but
+nothing in `.claude/settings.json` is touched — that file is protected, and
+this tool never edits it. `CONVERTED.md` carries the ready-to-paste snippet
+for each script, for you to add by hand if you want it wired:
+
+```
+{"type":"command","command":"bash .claude/skills/<p>/hooks/scripts/<x>"}
+```
+
+**Collisions never overwrite.** A target that already exists and is not this
+tool's own untouched output stops **that one unit** with `STOP <unit>:
+<reason>` and exit code `2` — everything else in the same conversion still
+writes. This is normal for a renamed or folded plugin whose command name
+collides with an existing one (e.g. `/git-push` provided by both a legacy
+plugin and its replacement): the STOP names the counterpart plugin and tells
+you to carry your diff there instead. **Always run `--dry-run` first** — a
+partial conversion is a normal, expected outcome to read, not a bug.
+
+**The two follow-ups, always:** delete `plugins/<p>` once the converted
+command or skill works, then run `sync-plugin-commands.sh prune` to drop the
+now-orphaned bridge wrapper. Prune **before** relying on the converted
+command — during the short window where both the old bridge wrapper and the
+new skill exist, which one Claude Code resolves `/<c>` to first is not
+guaranteed.
+
+## The decisions file — `.logic-loom/config/migration-decisions.conf`
+
+Project-owned, never shipped upstream, created on first use (like
+`amendments.md`). Grammar:
+
+```
+# comments allowed
+keep = <name>
+keep = <name>@<release>
+converted = <name>
+```
+
+`keep = <name>` acknowledges KEEP-AS-IS for a component row, for every
+release. `keep = <name>@<release>` is narrower — it silences every `content`
+row for that one file **and** that one release only; nothing else is
+affected ("one file, one release, one acknowledgment"). `converted = <name>`
+is written by `convert --apply` on success, never by hand.
+
+**Briefing rule, every run:** whenever this file holds at least one line,
+`/update-framework` lists each decision with its consequence — including
+under `--check-only`, and even when every migration item reads `none
+pending`. The rule stated once: a decision suppresses a proposal, never the
+fact that one was suppressed. Commit this file — decisions travel with the
+repository, the same way `.sdd-sync-ref` does.
+
+## Adopted installs (`npx logicloom init`)
+
+**The receipt.** `.logicloom-adopt-receipt.json` is the record of what the
+npm installer wrote into your repository. `extract-proposals.sh` uses its
+`runs[].wrote` list to decide which upstream file changes are yours to see —
+a change to a path the receipt never recorded is suppressed, because
+offering it would mean proposing an edit to a file that may not even be the
+adopter's own.
+
+**Why files `/update-framework` added before v7.0.0 never received later
+updates.** Before v7.0.0, applying an accepted `clean-add` wrote the file to
+disk but never touched the receipt. The next time that same file changed
+upstream, the proposal filter saw a path the receipt had never recorded and
+suppressed it — silently, as a count on stderr, forever. It was not a reader
+defect: nothing ever wrote the missing entry.
+
+**What `record-update-writes.sh` does, from v7.0.0 on.** After every
+`/update-framework` run that writes an accepted `clean-add`/`clean-apply`
+file in an adopted repo, `record-update-writes.sh --version <vX.Y.Z> <paths…>`
+appends one run to the receipt recording those paths (and their ancestor
+directories) as yours — one JSON file, no git, committed together with the
+rest of the update.
+
+**What `--reconcile` proposes.** `record-update-writes.sh --reconcile` scans
+every tracked file under an already-recorded top-level directory that the
+receipt does **not** yet list, and prints two lists: `RECONCILE <path>` for a
+file whose bytes are byte-identical to the file at your `.sdd-sync-ref` copy
+— it can only have come from upstream, and is safe to record — and
+`DIFFERS <path>` for a file that differs from that copy and is **never**
+recorded automatically, because it may be entirely your own. `--reconcile`
+alone only prints; `--reconcile --apply` records the `RECONCILE` list. If you
+accepted a `DIFFERS` file through `/update-framework` and edited it
+afterwards, record it explicitly and by name:
+`record-update-writes.sh <path>`.
+
+**The deliberate asymmetry.** Recording a byte-identical copy costs at most
+one extra, still user-gated *proposal* later, if upstream ever edits it
+again — nothing is ever applied without your yes. Not recording it costs
+permanent, silent suppression. When the tool cannot tell provenance for
+certain, it errs toward the mistake that costs you one more prompt, never the
+one that costs you a file you never hear about again.
+
+**Requirements and the stated limit.** The recorder needs `python3` or
+`node` to write JSON — every adopted install has `node`, because `node` wrote
+the receipt in the first place; it refuses only when neither is on `PATH`.
+It appends to `runs[]` only — it does **not** regenerate the receipt's
+derived `uninstall` object (that logic belongs to the npm package and runs
+again on its next `--apply`). Until then, a recorded file is visible to the
+proposal filter but not yet part of what `logicloom uninstall` would remove.
+
+## Pre-v6.2 clones
+
+If your install predates v6.2.0, re-baseline first — see "Broken sync
+baseline" in `.docs/guides/FRAMEWORK_SYNC_GUIDE.md`. The `.specify/` →
+`.logic-loom/` framework-directory rename is a separate migration and is
+**not** covered by this registry or by the release-migration scan.
+
+## Principle XVI — why a converted skill is still compliant
+
+Principle XVI requires framework capabilities to be organized as installable
+plugins, but its own scope is *framework* capabilities — and a component
+upstream has stopped shipping is, by definition, no longer one. The
+precedent already stands in this repository: plugin agents never actually
+loaded through any plugin marketplace mechanism, so moving them to
+`.claude/agents/` (project-owned) was ruled *more* native than what it
+replaced, not a Principle XVI exception; a converted `.claude/skills/`
+directory, carrying its `converted-from:` marker, is the same move applied to
+skills and commands. The manual alternative when you would rather not carry
+that marker forever: rename the plugin's directory out of the `loom-*`/
+`sdd-*` namespace and fix its manifest — it is then an ordinary customer
+plugin, with no special treatment and no notice from this tooling at all.
+
+## For maintainers — shipping a release
+
+A release must declare its migrations: at least one row whose `release`
+field names it, or exactly one `none` row (never both — a `none` row sharing
+its release with any other row is a contradiction the linter rejects). When
+any non-`none` row names the release, the `CHANGELOG.md` entry for it must
+carry a `### Migrating from …` subsection. `release-migrations.sh
+check-release --since auto` additionally fails a release that dropped a
+`plugins/<x>` or `mcp-servers/<x>` directory since the previous tag without a
+registry row for it, and — whether or not it fails — prints the
+adopter-facing diff-stat followed by this exact line:
+`structure verified; whether the declared rows are the right rows for those files is your call`
+— the tool can verify that a removal was declared, never that a `content` row's
+`proposal:`/`why:` text is the *correct* text for what changed — that
+judgment stays yours. `tests/contract/test_release_migrations.sh` runs this
+check in the promote gate and on every push.
