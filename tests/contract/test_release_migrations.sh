@@ -194,6 +194,39 @@ assert "the parsed replacement carries a literal | (got: $ESC_REPL)" \
   "[ \"\$ESC_REPL\" = 'pattern:foo|bar' ]"
 
 echo ""
+echo "A. round-3 finding 5: a row name must not be absolute or contain a '..' path segment"
+mk_reg "path | ../../../etc/passwd | removed | none | REMOVE | v1.0.0 | v2.0.0 | traversal attempt" "badtraversal.conf"
+assert "a row name containing a '..' path segment fails lint, naming the reason" \
+  "! bash '$RM' lint --root '$ROOT' --registry '$TMP/badtraversal.conf' >'$TMP/l6.out' 2>&1; grep -q \"must not be absolute or contain a '..' path segment\" '$TMP/l6.out'"
+
+mk_reg "path | /etc/passwd | removed | none | REMOVE | v1.0.0 | v2.0.0 | absolute path attempt" "badabsolute.conf"
+assert "an ABSOLUTE row name fails lint, naming the reason" \
+  "! bash '$RM' lint --root '$ROOT' --registry '$TMP/badabsolute.conf' >'$TMP/l7.out' 2>&1; grep -q \"must not be absolute or contain a '..' path segment\" '$TMP/l7.out'"
+
+if command -v loom_path_traversal_safe >/dev/null 2>&1; then
+  assert "loom_path_traversal_safe: rejects '../x'" "! loom_path_traversal_safe '../x'"
+  assert "loom_path_traversal_safe: rejects 'a/../b' (a '..' segment mid-path, not just a prefix)" "! loom_path_traversal_safe 'a/../b'"
+  assert "loom_path_traversal_safe: rejects '/etc/passwd' (absolute)" "! loom_path_traversal_safe '/etc/passwd'"
+  assert "loom_path_traversal_safe: accepts a normal relative path" "loom_path_traversal_safe 'docs/notes.md'"
+  assert "loom_path_traversal_safe: accepts the none-row placeholder '-'" "loom_path_traversal_safe '-'"
+  assert "loom_path_traversal_safe: does NOT reject '..' as a mere substring of a real filename ('foo..bar')" "loom_path_traversal_safe 'foo..bar'"
+else
+  skip "loom_path_traversal_safe direct unit checks" "function not defined (lib not sourced, or not yet implemented)"
+fi
+
+echo ""
+echo "A. round-4 review, finding-6 class: first_shipped / release fields require STRICT vX.Y.Z, not a loose glob"
+mk_reg "plugin | x | removed | none | REMOVE | v1.0.0 | v8.0.0-rc1 | loose release shape" "badrelrc.conf"
+assert "release 'v8.0.0-rc1' fails lint (the old v[0-9]*.[0-9]*.[0-9]* glob let it through)" \
+  "! bash '$RM' lint --root '$ROOT' --registry '$TMP/badrelrc.conf' >'$TMP/l8.out' 2>&1; grep -q \"release 'v8.0.0-rc1' must be vX.Y.Z\" '$TMP/l8.out'"
+mk_reg "plugin | x | removed | none | REMOVE | v9x.0.0 | v8.0.0 | loose first_shipped shape" "badfirstx.conf"
+assert "first_shipped 'v9x.0.0' fails lint" \
+  "! bash '$RM' lint --root '$ROOT' --registry '$TMP/badfirstx.conf' >'$TMP/l9.out' 2>&1; grep -q \"first_shipped 'v9x.0.0' must be\" '$TMP/l9.out'"
+mk_reg "plugin | x | removed | none | REMOVE | v1.0.0 | v8.0.0 | strict shapes still pass" "goodver.conf"
+assert "…and a strict vX.Y.Z row still lints clean" \
+  "bash '$RM' lint --root '$ROOT' --registry '$TMP/goodver.conf' >'$TMP/l10.out' 2>&1"
+
+echo ""
 echo "A. Maintainer-tree-only assertions (release-removal guard, tag consistency)"
 
 case "$TREE_KIND" in
@@ -1207,6 +1240,102 @@ assert wit[\"baseline\"] != mit[\"baseline\"], (wit[\"baseline\"], mit[\"baselin
 '"
 
 echo ""
+echo "C. round-3 finding 2: a receipt digest is trusted ONLY from LogicLoom's own writers, status=complete"
+FIX_RECEIPT3="$TMP/fixture-receipt-provenance"
+mkdir -p "$FIX_RECEIPT3/.logic-loom/config" "$FIX_RECEIPT3/.logic-loom/lib" "$FIX_RECEIPT3/docs"
+git init -q "$FIX_RECEIPT3"
+cp "$LIB" "$FIX_RECEIPT3/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.0" > "$FIX_RECEIPT3/.logic-loom/config/architecture.conf"
+echo "path | docs/old-note.md | removed | command:/replacement-cmd | REMOVE | v6.0.0 | v9.0.0 | receipt-provenance fixture" \
+  > "$FIX_RECEIPT3/.logic-loom/config/release-migrations.conf"
+printf 'exactly what LogicLoom wrote here\n' > "$FIX_RECEIPT3/docs/old-note.md"
+RECEIPT3_SHA="$(python3 -c '
+import hashlib
+print(hashlib.sha256(open("'"$FIX_RECEIPT3"'/docs/old-note.md", "rb").read()).hexdigest())
+')"
+mk_receipt3() {  # $1 = generator string  $2 = status
+  cat > "$FIX_RECEIPT3/.logicloom-adopt-receipt.json" <<JSON
+{
+  "schema": "logicloom/adopt-receipt@1",
+  "runs": [
+    {
+      "at": "2026-01-01T00:00:00.000Z",
+      "generator": "$1",
+      "status": "$2",
+      "only": [],
+      "wrote": [
+        { "target": "harness", "path": "docs/old-note.md", "kind": "file", "sha256": "sha256:$RECEIPT3_SHA" }
+      ],
+      "skipped": [], "failed": [], "notAttempted": []
+    }
+  ]
+}
+JSON
+}
+( cd "$FIX_RECEIPT3" && git add -A >/dev/null && git commit -q -m "adopted install" )
+
+# A run written by a FOREIGN generator (not one of LogicLoom's own two
+# writers) must never establish a baseline, even with byte-identical content
+# and a well-formed digest — the receipt is adopter-editable, so "the
+# generator string says LogicLoom" proves nothing on its own.
+mk_receipt3 "some-other-tool@3.1.4" "complete"
+bash "$RM" scan --json --root "$FIX_RECEIPT3" > "$TMP/creceipt3-foreign.json" 2>&1
+assert "a FOREIGN generator (some-other-tool@3.1.4), status complete, byte-identical + well-formed digest: baseline none, state unknown, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt3-foreign.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+
+# The npm installer's own generator shape (\"logicloom@<version>\" — see
+# packaging/adopt/lib/plan.js's default pkgName) IS trusted, distinct from
+# the v7 recorder's \"logicloom-update-framework@<version>\" (already proven
+# above). status complete.
+mk_receipt3 "logicloom@2.0.0" "complete"
+bash "$RM" scan --json --root "$FIX_RECEIPT3" > "$TMP/creceipt3-npm.json" 2>&1
+assert "the npm installer's generator shape (logicloom@2.0.0), status complete: baseline receipt-sha256:<hash>, pristine, REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt3-npm.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"receipt-sha256:$RECEIPT3_SHA\", it
+assert it[\"state\"] == \"pristine\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+
+# A TRUSTED generator whose run never finished (status partial/in-progress)
+# is not vouching for the bytes it left behind — never a baseline either.
+for badstatus in partial in-progress; do
+  mk_receipt3 "logicloom-update-framework@2.0.0" "$badstatus"
+  bash "$RM" scan --json --root "$FIX_RECEIPT3" > "$TMP/creceipt3-$badstatus.json" 2>&1
+  assert "a trusted generator but status=$badstatus (run never finished): baseline none, state unknown, never REMOVE" \
+    "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt3-$badstatus.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+done
+
+# Sanity delta (same shape as the malformed-digest proof above): the SAME
+# fixture/path resolves to a DIFFERENT baseline depending purely on
+# generator/status, proving the provenance check actually fired.
+assert "…and the trusted-generator, status=complete run really is what makes the difference (delta vs the foreign-generator run above)" \
+  "python3 -c '
+import json
+trusted = json.load(open(\"$TMP/creceipt3-npm.json\"))
+foreign = json.load(open(\"$TMP/creceipt3-foreign.json\"))
+tit = next(i for i in trusted[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+fit = next(i for i in foreign[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert tit[\"baseline\"] != fit[\"baseline\"], (tit[\"baseline\"], fit[\"baseline\"])
+'"
+
+echo ""
 echo "C. cross-file finding: a receipt-sha256 candidate that MATCHES DISK must win over a"
 echo "   sync-ref candidate that merely EXISTS but does not — the mid-run clean-apply case"
 echo "   (.sdd-sync-ref advances at Step 6/8, AFTER record-update-writes.sh runs at Step"
@@ -1817,6 +1946,210 @@ assert more[\"decision\"] == \"converted\" and more[\"recommended\"] == \"REMOVE
 '"
 
 echo ""
+echo "D. round-3 finding 3 + finding 4: converted-plugin briefing consistency + gitignored files count as edits"
+FIX_CONV5="$TMP/fixture-converted-ignored"
+mkdir -p "$FIX_CONV5/.logic-loom/config" "$FIX_CONV5/.logic-loom/lib" "$FIX_CONV5/plugins/sdd-conv5/skills/sdd-conv5"
+git init -q "$FIX_CONV5"
+cp "$LIB" "$FIX_CONV5/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=7.0.0" > "$FIX_CONV5/.logic-loom/config/architecture.conf"
+echo "plugin | sdd-conv5 | native | native:/workflow | REMOVE | v4.0.0 | v6.2.0 | round-3 finding 3/4 fixture" \
+  > "$FIX_CONV5/.logic-loom/config/release-migrations.conf"
+cat > "$FIX_CONV5/plugins/sdd-conv5/skills/sdd-conv5/SKILL.md" <<'MD'
+---
+name: sdd-conv5
+description: round-3 finding 3/4 fixture
+---
+
+Body.
+MD
+echo "*.local" > "$FIX_CONV5/.gitignore"
+( cd "$FIX_CONV5" && git add -A >/dev/null && git commit -q -m "plugin present" )
+bash "$RM" convert sdd-conv5 --apply --root "$FIX_CONV5" >/dev/null 2>&1
+( cd "$FIX_CONV5" && git add -A >/dev/null && git commit -q -m "convert sdd-conv5" )
+
+bash "$RM" scan --json --root "$FIX_CONV5" > "$TMP/conv5-clean.json" 2>&1
+assert "finding 3 baseline: unchanged converted plugin -> REMOVE, and the decisions briefing's consequence agrees ('delete it')" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv5-clean.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv5\")
+assert it[\"recommended\"] == \"REMOVE\", it
+dec = next(x for x in d[\"decisions\"] if x[\"name\"] == \"sdd-conv5\")
+assert \"delete it\" in dec[\"consequence\"], dec
+assert dec[\"stale\"] == False, dec
+'"
+
+# A GITIGNORED file added under plugins/sdd-conv5 after the committed
+# conversion decision — invisible to a plain `ls-files --others
+# --exclude-standard` (finding 4), but it is still a customer's bytes no
+# commit vouches for.
+echo "customer local state" > "$FIX_CONV5/plugins/sdd-conv5/scratch.local"
+assert "sanity: scratch.local is untracked AND git-ignored ('git status --ignored' shows it as '!!')" \
+  "git -C '$FIX_CONV5' status --porcelain=v1 --ignored -- plugins/sdd-conv5 | grep -qxF '!! plugins/sdd-conv5/scratch.local'"
+
+bash "$RM" scan --json --root "$FIX_CONV5" > "$TMP/conv5-ignored.json" 2>&1
+assert "finding 4: a GITIGNORED file added under plugins/sdd-conv5 flips the recommendation to KEEP-AS-IS (never REMOVE)" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv5-ignored.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv5\")
+assert it[\"recommended\"] == \"KEEP-AS-IS\", it
+assert it[\"remove_command\"] == \"\", it
+'"
+assert "finding 3: …and the decisions briefing stays in sync — it no longer says 'delete it', it says KEEP-AS-IS" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv5-ignored.json\"))
+dec = next(x for x in d[\"decisions\"] if x[\"name\"] == \"sdd-conv5\")
+assert \"delete it\" not in dec[\"consequence\"], dec
+assert \"KEEP-AS-IS\" in dec[\"consequence\"], dec
+'"
+rm -f "$FIX_CONV5/plugins/sdd-conv5/scratch.local"
+
+# ─────────────────────────────────────────────────────────────────────────
+# Round-4 adversarial review. Three more routes to "REMOVE recommended over
+# a customer's bytes", each reproduced against the round-3 tree before the
+# fix and closed by it. Shared fixture builder: a plugin row with a genuine
+# sync-ref baseline (refs/loom-upstream/main reaches the sync-ref commit).
+# ─────────────────────────────────────────────────────────────────────────
+mk_r4_fixture() {  # $1 = dir
+  local d="$1"
+  mkdir -p "$d/.logic-loom/config" "$d/.logic-loom/lib" "$d/plugins/sdd-r4/skills/sdd-r4" "$d/plugins/sdd-r4/commands"
+  echo "FRAMEWORK_VERSION=7.0.0" > "$d/.logic-loom/config/architecture.conf"
+  cp "$LIB" "$d/.logic-loom/lib/release-migrations.sh"
+  echo "plugin | sdd-r4 | native | native:/workflow | REMOVE | v4.0.0 | v6.2.0 | round-4 fixture" \
+    > "$d/.logic-loom/config/release-migrations.conf"
+  printf -- '---\nname: sdd-r4\ndescription: round-4 fixture\n---\n\nBody.\n' > "$d/plugins/sdd-r4/skills/sdd-r4/SKILL.md"
+  printf -- '---\ndescription: r4 cmd\n---\n\nDo the thing.\n' > "$d/plugins/sdd-r4/commands/r4.md"
+  echo "*.local" > "$d/.gitignore"
+  git init -q "$d"
+  ( cd "$d" && git add -A >/dev/null && git commit -q -m "A" )
+  printf '%s\n' "$(git -C "$d" rev-parse HEAD)" > "$d/.sdd-sync-ref"
+  ( cd "$d" && git add -A >/dev/null && git commit -q -m "stamp sync-ref" )
+  git -C "$d" update-ref refs/loom-upstream/main "$(git -C "$d" rev-parse HEAD)"
+}
+
+echo ""
+echo "D. round-4: finding 4's OTHER half — resolve_state() (every non-converted row) also ignored gitignored files"
+R4A="$TMP/r4-ignored-not-converted"
+mk_r4_fixture "$R4A"
+bash "$RM" scan --json --root "$R4A" > "$TMP/r4a-clean.json" 2>&1
+assert "control: pristine plugins/sdd-r4 against its sync-ref baseline -> REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/r4a-clean.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-r4\")
+assert it[\"baseline\"].startswith(\"sync-ref:\"), it
+assert it[\"state\"] == \"pristine\" and it[\"recommended\"] == \"REMOVE\", it
+'"
+echo "customer local state" > "$R4A/plugins/sdd-r4/scratch.local"
+assert "sanity: scratch.local is untracked AND git-ignored" \
+  "git -C '$R4A' status --porcelain=v1 --ignored -- plugins/sdd-r4 | grep -qxF '!! plugins/sdd-r4/scratch.local'"
+bash "$RM" scan --json --root "$R4A" > "$TMP/r4a-ignored.json" 2>&1
+assert "a GITIGNORED file under a NOT-converted plugins/sdd-r4 (sync-ref baseline): state customized, never REMOVE, no remove_command, and the file is listed under added" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/r4a-ignored.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-r4\")
+assert it[\"state\"] == \"customized\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+assert it[\"remove_command\"] == \"\", it
+assert \"plugins/sdd-r4/scratch.local\" in it[\"added_files\"], it
+'"
+
+echo ""
+echo "D. round-4: converted plugin whose source was edited AFTER convert --apply but committed WITH the decision"
+# The ordinary flow: /update-framework runs convert --apply, the user commits
+# later at /git-push. An edit to the plugin in between lands in the SAME
+# commit as CONVERTED.md, so \"unchanged since the decision commit\" is true
+# and the edit — never carried into .claude/ — was recommended for git rm -r.
+# The converter's own re-run classification (convert --dry-run: SKIP vs
+# KEEP/WRITE/STOP) is what proves the on-disk conversion reflects the source.
+R4B="$TMP/r4-edit-before-commit"
+mk_r4_fixture "$R4B"
+bash "$RM" convert sdd-r4 --apply --root "$R4B" >/dev/null 2>&1
+echo "-- customer edit AFTER convert --apply, BEFORE the decision commit --" >> "$R4B/plugins/sdd-r4/skills/sdd-r4/SKILL.md"
+( cd "$R4B" && git add -A >/dev/null && git commit -q -m "conversion + a later edit, committed together" )
+assert "sanity: the working tree is byte-identical to the decision commit (the old gate saw nothing)" \
+  "git -C '$R4B' diff --quiet HEAD -- plugins/sdd-r4 && [ -z \"\$(git -C '$R4B' ls-files --others --exclude-standard -- plugins/sdd-r4)\" ]"
+bash "$RM" convert sdd-r4 --dry-run --root "$R4B" > "$TMP/r4b-dryrun.out" 2>&1 || true
+assert "sanity: convert --dry-run re-render reports the drift (a KEEP line), so the evidence exists" \
+  "grep -q '^KEEP .claude/skills/sdd-r4/SKILL.md modified-after-conversion' '$TMP/r4b-dryrun.out'"
+bash "$RM" scan --json --root "$R4B" > "$TMP/r4b.json" 2>&1
+assert "the un-converted edit is caught: KEEP-AS-IS, reason names the stale re-render and the decision commit, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/r4b.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-r4\")
+assert it[\"recommended\"] == \"KEEP-AS-IS\", it
+assert it[\"remove_command\"] == \"\", it
+assert \"re-render\" in it[\"reason\"] and \"decision commit\" in it[\"reason\"], it
+'"
+assert "…and the decisions briefing says the same (KEEP-AS-IS, never 'delete it') — one shared status, two surfaces" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/r4b.json\"))
+dec = next(x for x in d[\"decisions\"] if x[\"name\"] == \"sdd-r4\")
+assert \"KEEP-AS-IS\" in dec[\"consequence\"], dec
+assert \"delete it\" not in dec[\"consequence\"], dec
+assert dec[\"stale\"] == False, dec
+'"
+# Control: a clean, unedited conversion still re-renders all-SKIP -> REMOVE.
+R4C="$TMP/r4-clean-conversion"
+mk_r4_fixture "$R4C"
+bash "$RM" convert sdd-r4 --apply --root "$R4C" >/dev/null 2>&1
+( cd "$R4C" && git add -A >/dev/null && git commit -q -m "clean conversion" )
+bash "$RM" scan --json --root "$R4C" > "$TMP/r4c.json" 2>&1
+assert "control: a clean, unedited conversion still re-renders all-SKIP -> REMOVE (the gate is not a blanket KEEP)" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/r4c.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-r4\")
+assert it[\"recommended\"] == \"REMOVE\", it
+dec = next(x for x in d[\"decisions\"] if x[\"name\"] == \"sdd-r4\")
+assert \"delete it\" in dec[\"consequence\"], dec
+'"
+# The re-render runs cmd_convert in a command-substitution subshell; the
+# parent's EXIT trap must not fire there. mk_r4_fixture commits the registry
+# and points refs/loom-upstream/main at it, so every r4 scan serves the
+# registry from a mktemp copy the trap removes — a converted row's nested
+# dry-run must not delete the parent's copy out from under the decisions
+# briefing, which re-reads the registry file after every item is scanned.
+assert "…with the registry served from refs/loom-upstream/main (a temp copy): the converted row's nested dry-run does not remove the parent's temp registry — the briefing still resolves the row (stale=false) after the item" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/r4c.json\"))
+assert d[\"registry\"] == \"upstream\", d[\"registry\"]
+dec = next(x for x in d[\"decisions\"] if x[\"name\"] == \"sdd-r4\")
+assert dec[\"stale\"] == False, dec
+'"
+
+echo ""
+echo "D. round-4: finding 5 at EVERY use — a traversing name in an unlinted project registry never reaches scan/plan/convert"
+R4D="$TMP/r4-project-traversal"
+mk_r4_fixture "$R4D"
+mkdir -p "$R4D/victim/skills/evil"
+echo "customer bytes" > "$R4D/victim/keep.txt"
+printf -- '---\nname: evil\n---\nx\n' > "$R4D/victim/skills/evil/SKILL.md"
+( cd "$R4D" && git add -A >/dev/null && git commit -q -m "victim" )
+git -C "$R4D" update-ref refs/loom-upstream/main "$(git -C "$R4D" rev-parse HEAD)"
+echo "path | plugins/../victim | removed | none | REMOVE | v1.0.0 | v7.0.0 | traversal via project registry" \
+  > "$R4D/.logic-loom/config/project-migrations.conf"
+bash "$RM" scan --root "$R4D" > "$TMP/r4d-scan.out" 2>&1
+assert "scan never lists an item for the traversing path row — no 'plugins/../victim' item, no git rm on it" \
+  "! grep -q 'plugins/\.\./victim' '$TMP/r4d-scan.out'"
+# scan reads registry rows with stderr silenced (every malformed row is
+# dropped the same way, by design); `lint` is the surface that names it, and
+# cmd_lint lints project-migrations.conf too.
+assert "…and \`lint\` names the project-registry row as malformed with the finding-5 message (it is a parse error now, not only a lint rule)" \
+  "! bash '$RM' lint --root '$R4D' >'$TMP/r4d-lint.out' 2>&1; grep -q \"must not be absolute or contain a '..' path segment\" '$TMP/r4d-lint.out'"
+echo "plugin | ../victim | native | native:/x | REMOVE | v1.0.0 | v7.0.0 | traversal" \
+  > "$R4D/.logic-loom/config/project-migrations.conf"
+bash "$RM" convert ../victim --apply --root "$R4D" > "$TMP/r4d-conv.out" 2>&1
+assert "convert refuses the traversing plugin name (no such row parses) and writes nothing: no .claude/victim/CONVERTED.md, no .claude/skills/evil/" \
+  "grep -q 'no plugin-kind registry row' '$TMP/r4d-conv.out' && [ ! -e '$R4D/.claude/victim/CONVERTED.md' ] && [ ! -e '$R4D/.claude/skills/evil/SKILL.md' ]"
+
+echo ""
 echo "D. finding 4: convert preserves the executable bit on a rewritten skill file"
 FD_EXE="$TMP/fixtureD-exe"
 mkdir -p "$FD_EXE/.logic-loom/config" "$FD_EXE/.logic-loom/lib" "$FD_EXE/plugins/sdd-exe/skills/sdd-exe" "$FD_EXE/.claude"
@@ -2197,6 +2530,62 @@ printf 'fixed\n' > "$E9F/tests/fixtures/release-migrations/e9ffix.after"
 bash "$RM" check-release --root "$E9F" > "$TMP/e9f.out" 2>&1
 assert "a row whose name (docs/) content_matches can never match: the scan-path proof cannot place the fixture and FAILS loudly (exit 1) instead of passing vacuously" \
   "[ $? -eq 1 ] && grep -q 'cannot place the fixture at docs/' '$TMP/e9f.out' && ! grep -q 'declares 1 migration row' '$TMP/e9f.out'"
+
+# round-3 finding 5, at-use half: check-release never runs `lint` itself, so
+# a bad row reaches _loom_rm_verify_fixture_scan_path directly even in a
+# registry nobody linted. A name with a '..' segment must be refused BEFORE
+# any mkdir/cp is attempted from it — never silently walked into a real path
+# outside the scratch tree.
+E9G="$TMP/e-execute-fixture-traversal"
+mk_temp_root "$E9G" "9.9.9" "content | ../outside.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e9gfix"
+mkdir -p "$E9G/tests/fixtures/release-migrations"
+printf 'has foo\n' > "$E9G/tests/fixtures/release-migrations/e9gfix.before"
+printf 'fixed, no longer has it\n' > "$E9G/tests/fixtures/release-migrations/e9gfix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9G/CHANGELOG.md"
+[ -e "$E9G/../outside.md" ] && rm -f "$E9G/../outside.md"
+bash "$RM" check-release --root "$E9G" > "$TMP/e9g.out" 2>&1
+# Round-4: the row is now refused one layer earlier — by the parser every
+# consumer shares (_loom_parse_row) — so check-release never builds a proof
+# from it at all; the gate names the refused row and exits 1 instead of the
+# misleading "declares no migration". The at-use guard inside
+# _loom_rm_verify_fixture_scan_path stays as defense in depth.
+assert "a fixture-backed content row whose name contains a '..' segment: check-release refuses the ROW outright (exit 1), naming the traversal" \
+  "[ $? -eq 1 ] && grep -q \"registry row refused: LINT: line 1: name '../outside.md' must not be absolute or contain a '..' path segment\" '$TMP/e9g.out' && ! grep -q 'declares no migration' '$TMP/e9g.out'"
+assert "…and nothing was ever written outside the scratch tree (no file materialized at \$E9G/../outside.md)" \
+  "[ ! -e '$E9G/../outside.md' ]"
+rm -f "$E9G/../outside.md" 2>/dev/null || true
+
+# round-3 finding 1: the EXIT-trap cleanup for the scan-path proof's scratch
+# trees must never word-split a TMPDIR containing a space. Reproduction: put
+# TMPDIR at "<parent>/with space" — the scratch tree mktemp creates sits
+# UNDER it, so its own path contains that same space — and put a REAL
+# sibling directory at "<parent>/with" (the exact bogus first "word" an
+# unquoted `for d in $list; do rm -rf "$d"; done` would produce by
+# splitting on the embedded space). The sibling must survive; nothing under
+# TMPDIR should be left behind either.
+G1="$TMP/g-space-content"
+mk_temp_root "$G1" "9.9.9" "content | w.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:g1fix"
+mkdir -p "$G1/tests/fixtures/release-migrations"
+printf 'has foo\n' > "$G1/tests/fixtures/release-migrations/g1fix.before"
+printf 'fixed, no longer has it\n' > "$G1/tests/fixtures/release-migrations/g1fix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$G1/CHANGELOG.md"
+
+G1_TMPDIR_PARENT="$TMP/g-space-tmpdir"
+mkdir -p "$G1_TMPDIR_PARENT"
+G1_SIBLING="$G1_TMPDIR_PARENT/with"
+mkdir -p "$G1_SIBLING"
+echo "must survive cleanup" > "$G1_SIBLING/marker.txt"
+G1_TMPDIR="$G1_TMPDIR_PARENT/with space"
+mkdir -p "$G1_TMPDIR"
+
+TMPDIR="$G1_TMPDIR" bash "$RM" check-release --root "$G1" > "$TMP/g1.out" 2>&1
+G1_RC=$?
+assert "TMPDIR containing a space: check-release still exits 0 (the fixture proof itself passes)" \
+  "[ $G1_RC -eq 0 ]"
+assert "TMPDIR containing a space: the sibling directory '.../with' (the bogus word-split target) survives the EXIT-trap cleanup, with its content intact" \
+  "[ -f '$G1_SIBLING/marker.txt' ] && grep -qF 'must survive cleanup' '$G1_SIBLING/marker.txt'"
+assert "TMPDIR containing a space: no scan-path proof scratch tree is left behind under TMPDIR after the run" \
+  "[ -z \"\$(find '$G1_TMPDIR' -mindepth 1 -maxdepth 2 -name 'loom-rm-fixtureproof*' 2>/dev/null)\" ]"
 
 E10="$TMP/e-execute-fixture-broken-before"
 mk_temp_root "$E10" "9.9.9" "content | w.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e10wfix"

@@ -21,6 +21,7 @@
 #   loom_latest_tag_at_or_below <vX.Y.Z> [root]
 #   loom_latest_tag_below <vX.Y.Z> [root]
 #   loom_sync_ref_is_loom_record <sync_ref> [root]
+#   loom_path_traversal_safe <path>
 #   loom_migration_lint [file]
 #   loom_deprecation_lint [file]        # alias for loom_migration_lint
 # Constant:
@@ -106,6 +107,23 @@ _loom_parse_row() {
     f6="$(_loom_trim "$f6")"; f6="${f6//$us/|}"
     f7="$(_loom_trim "$f7")"; f7="${f7//$us/|}"
     f8="$(_loom_trim "$f8")"; f8="${f8//$us/|}"
+    # Finding 5, the AT-USE half made total (round-4 review): the name field
+    # is built into real filesystem paths by every consumer — scan/plan's
+    # loom_deprecation_dir ("plugins/<name>", printed straight into the
+    # recommended `git rm -r`), convert's ".claude/skills/<name>/CONVERTED.md"
+    # (a write), and check-release's fixture scratch tree. Only the last of
+    # those had its own guard, and only `lint` ran the lint-time check — a
+    # project registry (project-migrations.conf) is never linted before
+    # scan/plan/convert read it, so "plugin | ../victim" was walked straight
+    # through as plugins/../victim and .claude/skills/../victim/. Reject it
+    # HERE, in the one parser every consumer goes through: a traversing name
+    # is a malformed row, reported the same way as a wrong field count, and
+    # no consumer ever sees it. An empty name is left to lint's own grammar
+    # checks (it is a different defect with a different message).
+    if [ -n "$f2" ] && ! loom_path_traversal_safe "$f2"; then
+        _LOOM_ROW_ERR="name '$f2' must not be absolute or contain a '..' path segment"
+        return 1
+    fi
     _LOOM_F1="$f1"; _LOOM_F2="$f2"; _LOOM_F3="$f3"; _LOOM_F4="$f4"
     _LOOM_F5="$f5"; _LOOM_F6="$f6"; _LOOM_F7="$f7"; _LOOM_F8="$f8"
     return 0
@@ -382,21 +400,28 @@ _loom_lint_replacement_ok() {
     esac
 }
 
+# Strict vX.Y.Z — digits only in all three components, anchored start to
+# end. Finding 6's class (round-4 review): the previous `v[0-9]*.[0-9]*.[0-9]*`
+# case glob is loose — `*` matches ANY characters, so "v9x.0.0" and
+# "v8.0.0-rc1" passed as well-formed, and a row carrying one then sits in
+# the registry with a release no check-release/rows_for_release exact-match
+# can ever find. grep -E, not `[[ =~ ]]`: bash 3.2's regex quoting is the
+# one place its behaviour differs from later bash, and this file is on the
+# 3.2 floor.
+_loom_lint_strict_version() {
+    printf '%s' "$1" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'
+}
+
 _loom_lint_first_shipped_ok() {
     local v="$1"
     case "$v" in
         never|-) return 0 ;;
-        v[0-9]*.[0-9]*.[0-9]*) return 0 ;;
-        *) return 1 ;;
     esac
+    _loom_lint_strict_version "$v"
 }
 
 _loom_lint_release_ok() {
-    local v="$1"
-    case "$v" in
-        v[0-9]*.[0-9]*.[0-9]*) return 0 ;;
-        *) return 1 ;;
-    esac
+    _loom_lint_strict_version "$1"
 }
 
 _loom_lint_note_ok() {
@@ -408,6 +433,40 @@ _loom_lint_note_ok() {
             *) return 1 ;;
         esac
     fi
+    return 0
+}
+
+# ── public: path safety ─────────────────────────────────────────────────────
+
+# True (rc 0) iff <path> is safe to interpolate into a real filesystem path:
+# not absolute, and no path segment is literally "..". Finding 5: a
+# registry row's `name` field (a bare component for plugin/mcp-server rows,
+# a repo-relative path for path/content rows) ends up built into real
+# filesystem paths in several places — most concretely,
+# _loom_rm_verify_fixture_scan_path in release-migrations.sh, which does
+# `mkdir -p "$tmp/$(dirname "$name")"` and `cp ... "$tmp/$name"` with no
+# traversal check of its own. A row whose name were "/etc/passwd" or
+# "../../../../etc/passwd" would otherwise be walked straight through as a
+# real path. Checked BOTH here at lint time (every row, so a bad name never
+# ships) AND again at the one call site that actually builds a path from it
+# (belt-and-suspenders: lint covers the shipped registry, the use-site check
+# covers a project-owned registry a fork wrote by hand and never linted).
+# Pure string check: no git, no filesystem access.
+loom_path_traversal_safe() {
+    local path="$1"
+    [ -n "$path" ] || return 1
+    case "$path" in
+        /*) return 1 ;;
+    esac
+    local seg old_ifs="$IFS"
+    IFS='/'
+    for seg in $path; do
+        if [ "$seg" = ".." ]; then
+            IFS="$old_ifs"
+            return 1
+        fi
+    done
+    IFS="$old_ifs"
     return 0
 }
 
@@ -439,6 +498,12 @@ loom_migration_lint() {
 
         if ! _loom_lint_kind_ok "$kind"; then
             echo "LINT: line $lineno: unknown kind '$kind'" >&2; had_error=1
+        fi
+        # Finding 5: name is later built into a real filesystem path (see
+        # loom_path_traversal_safe above) — reject at lint time so a
+        # traversal never ships in the registry at all.
+        if ! loom_path_traversal_safe "$name"; then
+            echo "LINT: line $lineno: name '$name' must not be absolute or contain a '..' path segment" >&2; had_error=1
         fi
         if ! _loom_lint_fate_ok "$kind" "$fate"; then
             echo "LINT: line $lineno: fate '$fate' is not valid for kind '$kind'" >&2; had_error=1

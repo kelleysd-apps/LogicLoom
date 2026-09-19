@@ -1812,6 +1812,37 @@ else
 fi
 
 # ─────────────────────────────────────────────────────────────────────────
+# Prose pin (round-3 finding 7): update-framework.md and SKILL.md used to
+# describe a RECONCILE line as simply "byte-identical to the sync-ref copy
+# — safe to record", with no mention that --reconcile itself refuses to run
+# at all unless the sync-ref is provably LogicLoom's own record (the exact
+# guard sections B/G above exercise via loom_sync_ref_is_loom_record). A
+# prose pin proves the instruction is present in the right step, not that
+# the mechanism is obeyed — the mechanism is what the rest of this suite
+# proves.
+# ─────────────────────────────────────────────────────────────────────────
+echo ""
+echo "── Prose pin: RECONCILE precondition is documented, not just enforced ──"
+CMD_MD="$REAL_ROOT/plugins/loom-maintenance/commands/update-framework.md"
+SKILL_MD="$REAL_ROOT/plugins/loom-maintenance/skills/framework-updater/SKILL.md"
+for f in "$CMD_MD" "$SKILL_MD"; do
+  base="$(basename "$f")"
+  assert "$base exists" "[ -f '$f' ]"
+  if [ -f "$f" ]; then
+    assert "$base: RECONCILE prose states the sync-ref must be provably LogicLoom's own record" \
+      "grep -qF \"provably LogicLoom's own record\" '$f'"
+    assert "$base: RECONCILE prose says what the refusal means (lists/records nothing)" \
+      "grep -qF 'lists and records nothing' '$f'"
+    assert "$base: RECONCILE prose still ties this to refs/loom-upstream/main" \
+      "grep -qF 'refs/loom-upstream/main' '$f'"
+  else
+    skip "$base: RECONCILE precondition prose" "file not found"
+    skip "$base: RECONCILE refusal-meaning prose" "file not found"
+    skip "$base: RECONCILE refs/loom-upstream/main prose" "file not found"
+  fi
+done
+
+# ─────────────────────────────────────────────────────────────────────────
 echo ""
 echo "════════════════════════════════"
 echo " Results: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"

@@ -49,16 +49,60 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Temp copy of the upstream registry (see resolve_registry); removed on exit.
 _LOOM_RM_TMP_REGISTRY=""
-# Throwaway trees the check-release fixture-scan-path proof builds (finding
-# 5, _loom_rm_verify_fixture_scan_path below); space-separated, removed on
-# exit alongside the registry temp copy.
+# A single mktemp -d directory that every check-release fixture-scan-path
+# proof tree (finding 5, _loom_rm_verify_fixture_scan_path below) is created
+# UNDER — never a sibling of it. This is the safety boundary the cleanup
+# trap enforces: nothing outside this one mktemp-created directory is ever
+# removed, no matter what ends up in the list below. Created lazily by
+# _loom_rm_proof_base(), once, on first use.
+_LOOM_RM_PROOF_BASE=""
+# Throwaway trees the fixture-scan-path proof builds, one per mktemp -d call,
+# each a direct child of $_LOOM_RM_PROOF_BASE. NEWLINE-delimited (not
+# space-delimited): a TMPDIR containing a space would otherwise word-split a
+# single path into two bogus "words" when this list is walked, and an
+# unquoted `for x in $list` loop feeding `rm -rf` a word-split fragment can
+# hit a directory this run never created. Appended to (never overwritten) by
+# _loom_rm_verify_fixture_scan_path; removed on exit alongside the registry
+# temp copy and the base directory itself.
 _LOOM_RM_PROOF_TMP_DIRS=""
+
+# Ensure $_LOOM_RM_PROOF_BASE exists (mktemp -d it on first call) and print
+# it. Every fixture-scan-path proof tree must be created as a direct child
+# of this single directory so the cleanup trap has one unambiguous boundary
+# to check paths against, instead of trusting a list of free-floating paths.
+_loom_rm_proof_base() {
+    if [ -z "$_LOOM_RM_PROOF_BASE" ] || [ ! -d "$_LOOM_RM_PROOF_BASE" ]; then
+        _LOOM_RM_PROOF_BASE="$(mktemp -d "${TMPDIR:-/tmp}/loom-rm-fixtureproof-base.XXXXXX" 2>/dev/null)" || return 1
+    fi
+    [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ]
+    printf '%s\n' "$_LOOM_RM_PROOF_BASE"
+}
+
 _loom_rm_cleanup() {
     [ -n "$_LOOM_RM_TMP_REGISTRY" ] && rm -f "$_LOOM_RM_TMP_REGISTRY"
-    local d
-    for d in $_LOOM_RM_PROOF_TMP_DIRS; do
-        [ -n "$d" ] && rm -rf "$d"
-    done
+    # Walk the NEWLINE-delimited list one entry at a time via `read -r` (never
+    # an unquoted `for d in $list`, which would word-split on spaces in
+    # TMPDIR) and refuse anything that is not a direct-or-deeper path under
+    # $_LOOM_RM_PROOF_BASE — the one directory this run's mktemp calls
+    # actually created. A path that fails that check is skipped, not removed:
+    # a proof gone missing is a test-integrity bug to fix, never a reason to
+    # widen what EXIT cleanup is allowed to delete.
+    if [ -n "$_LOOM_RM_PROOF_TMP_DIRS" ] && [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ]; then
+        local d
+        while IFS= read -r d; do
+            [ -n "$d" ] || continue
+            case "$d" in
+                "$_LOOM_RM_PROOF_BASE"/*) rm -rf -- "$d" ;;
+                *) : ;; # not under our own mktemp base — never touched
+            esac
+        done <<EOF
+$_LOOM_RM_PROOF_TMP_DIRS
+EOF
+    fi
+    # The base itself is exactly one mktemp-created directory held in a
+    # scalar (never word-split), so removing it wholesale is safe and also
+    # catches anything the per-entry loop above could not account for.
+    [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ] && rm -rf -- "$_LOOM_RM_PROOF_BASE"
     return 0
 }
 trap _loom_rm_cleanup EXIT
@@ -417,6 +461,15 @@ _loom_rm_verify_fixture_scan_path() {
     local label="$1" name="$2" fate="$3" pattern="$4" default="$5" before_file="$6" after_file="$7"
     local rc=0
 
+    # Finding 5, at-use half (lint above covers the shipped registry; this
+    # covers a project registry that was never linted, and is the check that
+    # actually stands between $name and the mkdir/cp calls below that build a
+    # real filesystem path out of it).
+    if ! loom_path_traversal_safe "$name"; then
+        echo "check-release: $label: fixture proof (scan path): row name '$name' is absolute or contains a '..' path segment — refusing to build a filesystem path from it"
+        return 1
+    fi
+
     # emit_content_item's ADOPTED-mode ownership scoping calls
     # adopt_file_recorded, which lives in extract-proposals.sh. check-release
     # never sources it (only scan/plan do, via _loom_rm_init_adopt_mode) —
@@ -431,12 +484,34 @@ _loom_rm_verify_fixture_scan_path() {
         REPO_ROOT="$saved_src_root"
     fi
 
-    local tmp
-    if ! tmp="$(mktemp -d "${TMPDIR:-/tmp}/loom-rm-fixtureproof.XXXXXX" 2>/dev/null)" || [ -z "$tmp" ]; then
+    # Call _loom_rm_proof_base DIRECTLY, never via `$(...)` — a command
+    # substitution runs the function in a SUBSHELL, so the global
+    # $_LOOM_RM_PROOF_BASE assignment inside it would be lost the instant
+    # that subshell exits, leaving the EXIT-trap cleanup's own copy of
+    # $_LOOM_RM_PROOF_BASE permanently empty (and, since the cleanup's
+    # per-entry loop over $_LOOM_RM_PROOF_TMP_DIRS is itself gated on
+    # $_LOOM_RM_PROOF_BASE being non-empty, that also silently skips —
+    # every scratch tree this proof creates would leak). Calling it plain
+    # runs it in the current shell, so the global assignment sticks; we then
+    # read that same global rather than trust any stdout it printed.
+    if ! _loom_rm_proof_base >/dev/null || [ -z "$_LOOM_RM_PROOF_BASE" ] || [ ! -d "$_LOOM_RM_PROOF_BASE" ]; then
         echo "check-release: $label: fixture proof (scan path): cannot create a scratch tree (mktemp -d failed) — the proof could not run, and a proof that cannot run is not a pass"
         return 1
     fi
-    _LOOM_RM_PROOF_TMP_DIRS="${_LOOM_RM_PROOF_TMP_DIRS} $tmp"
+    local base="$_LOOM_RM_PROOF_BASE"
+    local tmp
+    if ! tmp="$(mktemp -d "$base/fixtureproof.XXXXXX" 2>/dev/null)" || [ -z "$tmp" ]; then
+        echo "check-release: $label: fixture proof (scan path): cannot create a scratch tree (mktemp -d failed) — the proof could not run, and a proof that cannot run is not a pass"
+        return 1
+    fi
+    # NEWLINE-delimited append (never space-delimited — see the cleanup trap
+    # at the top of this file for why a space in TMPDIR makes that unsafe).
+    if [ -z "$_LOOM_RM_PROOF_TMP_DIRS" ]; then
+        _LOOM_RM_PROOF_TMP_DIRS="$tmp"
+    else
+        _LOOM_RM_PROOF_TMP_DIRS="${_LOOM_RM_PROOF_TMP_DIRS}
+$tmp"
+    fi
 
     local rel_dir; rel_dir="$(dirname "$name")"
     [ "$rel_dir" = "." ] && rel_dir=""
@@ -612,6 +687,20 @@ cmd_check_release() {
 
     resolve_registry "$registry_arg"
 
+    # Round-4 review: a row the parser refuses (wrong field count, or a
+    # traversing name — _loom_parse_row in the lib) is dropped from every
+    # row listing this gate reads, so without this the gate would report
+    # "declares no migration" for a registry that DOES name the release —
+    # just in a row it will not parse — and the real reason would be hidden
+    # behind the 2>/dev/null every listing below uses. A release gate must
+    # name the row it refused and fail on it, never pass over it silently.
+    local parse_errs
+    parse_errs="$(loom_migration_rows "$REGISTRY_FILE" 2>&1 >/dev/null)" || true
+    if [ -n "$parse_errs" ]; then
+        printf '%s\n' "$parse_errs" | sed 's/^/check-release: registry row refused: /'
+        return 1
+    fi
+
     if [ -z "$version_arg" ]; then
         local fv
         if ! fv="$(framework_version)"; then
@@ -652,7 +741,16 @@ cmd_check_release() {
         if [ -n "$prev" ] && git -C "$REPO_ROOT" rev-parse -q --verify "${prev}^{commit}" >/dev/null 2>&1; then
             prev_resolves="true"
         fi
-        case "$prev" in v[0-9]*.[0-9]*.[0-9]*) prev_is_version="true" ;; esac
+        # Finding 6: a glob (`v[0-9]*.[0-9]*.[0-9]*`) is loose — a `*` matches
+        # ANY characters, not just digits, so it also accepts "v9x.0.0" and
+        # "v8.0.0-rc1" as if they were plain vX.Y.Z releases; both then sail
+        # through the version-ordering compare below (the numeric parser
+        # silently truncates "9x" to "9" and "0-rc1" to "0"). Require the
+        # strict anchored shape instead — digits only, in all three
+        # components, start to end.
+        if printf '%s' "$prev" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            prev_is_version="true"
+        fi
         # Finding 3: version-shaped text is not enough — it must resolve as
         # an ACTUAL TAG (refs/tags/<prev>), not merely as SOME ref that
         # happens to share the text. A branch named v6.6.2 resolves fine via
@@ -978,9 +1076,24 @@ try:
         data = json.load(f)
     if not isinstance(data, dict) or data.get('schema') != 'logicloom/adopt-receipt@1' or not isinstance(data.get('runs'), list):
         sys.exit(1)
+    # Finding 2: a digest is trustworthy ONLY when the run that recorded it
+    # was written by one of the two writers LogicLoom itself owns -- the npm installer
+    # (packaging/adopt/lib/apply.js, generator "logicloom@<version>") or the
+    # v7 recorder (record-update-writes.sh, generator
+    # "logicloom-update-framework@<version>") -- AND that run finished
+    # ('status': 'complete'; 'partial'/'in-progress' means the writer itself
+    # is not vouching for the bytes it left behind). Anything else -- a
+    # foreign/absent generator, a wrong status, a malformed run -- is a run
+    # this receipt reader does not trust, so it is skipped entirely: not used
+    # to establish a digest, and not used to invalidate one either. The
+    # receipt is adopter-editable, so "it says LogicLoom wrote this" is
+    # exactly the kind of unproven claim this baseline must never act on.
+    generator_re = re.compile(r'^(logicloom|logicloom-update-framework)@.+$')
     files = {}
     for run in data['runs']:
-        if not isinstance(run, dict) or run.get('status') not in ('complete', 'partial', 'in-progress'):
+        if not isinstance(run, dict) or run.get('status') != 'complete':
+            continue
+        if not generator_re.match(str(run.get('generator') or '')):
             continue
         for w in (run.get('wrote') or []):
             if not isinstance(w, dict):
@@ -1177,8 +1290,25 @@ resolve_state() {
             ;;
     esac
     local baseref="${baseline#*:}"
-    local untracked
+    local untracked ignored
     untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked=""
+    # Finding 4, resolve_state's half (round-4 review): the SAME gap
+    # _loom_rm_converted_plugin_status closes below existed here, on the
+    # far more common path — every plugin/mcp-server/path row that is NOT
+    # converted. `--others --exclude-standard` alone never lists a
+    # GITIGNORED file, so a customer's `.env`, build output or `*.local`
+    # scratch under plugins/<name> was invisible, the directory read as
+    # pristine, and `git rm -r plugins/<name>` was recommended over bytes
+    # no commit vouches for. Union the `--ignored` listing in; every
+    # untracked file counts, ignored or not, and is reported under `added`.
+    ignored="$(git -C "$REPO_ROOT" ls-files --others --ignored --exclude-standard -- "$path" 2>/dev/null)" || ignored=""
+    if [ -n "$ignored" ]; then
+        if [ -n "$untracked" ]; then
+            untracked="${untracked}"$'\n'"${ignored}"
+        else
+            untracked="$ignored"
+        fi
+    fi
     if git -C "$REPO_ROOT" diff --quiet "$baseref" -- "$path" 2>/dev/null && [ -z "$untracked" ]; then
         STATE="pristine"
     else
@@ -1447,27 +1577,95 @@ _loom_rm_converted_decision_commit() {
 # "unchanged" | "changed:<commit>" | "unknown" — whether <path> (plugins/
 # <name>) has changed since the conversion-decision commit above: any
 # TRACKED change (working tree vs that commit — the finding's own minimum),
-# and ALSO any untracked, non-ignored file under it, exactly as
-# resolve_state() counts untracked files for every other row. An untracked
-# file inside plugins/<name> is a customer's bytes that no commit vouches
-# for; a REMOVE plan line on that directory recommends deleting it (the
-# printed `git rm -r` would leave it, but the recommendation is the harm the
-# governing principle names). "unknown" when no decision commit can be found
-# at all: never silently read as "unchanged". Read-only git only (diff,
-# ls-files).
+# and ALSO any untracked file under it, whether or not it is gitignored.
+# Finding 4: `ls-files --others --exclude-standard` alone reports only
+# untracked-and-NOT-ignored files — a customer file added under plugins/
+# <name> that happens to match a .gitignore pattern (a build artifact, a
+# local .env, anything project-local) would be invisible to that one
+# listing, so a second `--ignored` listing is unioned in. Between the two,
+# every untracked file is counted, exactly as resolve_state() counts
+# untracked files for every other row. An untracked file inside plugins/
+# <name> is a customer's bytes that no commit vouches for; a REMOVE plan
+# line on that directory recommends deleting it (the printed `git rm -r`
+# would leave it, but the recommendation is the harm the governing principle
+# names). "unknown" when no decision commit can be found at all: never
+# silently read as "unchanged". Read-only git only (diff, ls-files).
+#
+# Round-4 review, "render-stale:<commit>": "unchanged since the decision
+# commit" proves plugins/<name> was not touched AFTER the commit that
+# recorded the conversion — it says nothing about what went INTO that
+# commit. The ordinary /update-framework flow runs `convert --apply`, and the
+# user commits at /git-push some time later; an edit to plugins/<name> made
+# in between lands in the SAME commit as CONVERTED.md, so it dates as "part
+# of the conversion", the diff against that commit is empty, and the edit —
+# which the converter never saw and never carried into .claude/ — was
+# recommended for `git rm -r`. The converter's own re-run classification is
+# the evidence that catches this: `convert <name> --dry-run` re-renders every
+# unit from the plugin source AS IT STANDS and reports SKIP (byte-identical
+# to what is on disk under .claude/) or KEEP/WRITE/STOP/APPEND (it is not).
+# Only an all-SKIP re-render proves the on-disk conversion reflects the
+# source; anything else — including a re-render that cannot run at all — is
+# doubt, and doubt is KEEP and ASK, never REMOVE. The dry-run is run inside a
+# command substitution, i.e. a subshell: it writes nothing (every write in
+# convert is gated on --apply), its globals (STATE_*, MAP_LIST, unit lists,
+# REGISTRY_ROWS, PROJECT_REGISTRY_*) die with the subshell, its `exit` on a
+# usage error ends only the subshell, and the parent's EXIT trap is not
+# inherited by a command-substitution subshell, so the parent's temp files
+# survive it. This helper is itself always called via `$(...)`, so the cost
+# is one nested subshell per converted row per scan — a handful of find/sed/
+# diff calls, nothing repo-wide.
 _loom_rm_converted_plugin_status() {
-    local plugin="$1" path="$2" commit untracked
+    local plugin="$1" path="$2" commit untracked ignored
     if ! commit="$(_loom_rm_converted_decision_commit "$plugin")"; then
         printf 'unknown'
         return 0
     fi
     untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked=""
-    if [ -z "$untracked" ] && git -C "$REPO_ROOT" diff --quiet "$commit" -- "$path" 2>/dev/null; then
-        printf 'unchanged'
-    else
+    ignored="$(git -C "$REPO_ROOT" ls-files --others --ignored --exclude-standard -- "$path" 2>/dev/null)" || ignored=""
+    if [ -n "$untracked" ] || [ -n "$ignored" ] || ! git -C "$REPO_ROOT" diff --quiet "$commit" -- "$path" 2>/dev/null; then
         printf 'changed:%s' "$commit"
+        return 0
     fi
+    # Re-render gate (see the block comment above). No registry to render
+    # from is the same as a re-render that could not run: unverified.
+    local render rc=0
+    if [ -z "${REGISTRY_FILE:-}" ]; then
+        printf 'render-stale:%s' "$commit"
+        return 0
+    fi
+    render="$(cmd_convert "$plugin" --dry-run --root "$REPO_ROOT" --registry "$REGISTRY_FILE" 2>/dev/null)" || rc=$?
+    if [ "$rc" -ne 0 ] || printf '%s\n' "$render" | grep -qE '^(KEEP|WRITE|MKDIR|APPEND|STOP|ERROR) '; then
+        printf 'render-stale:%s' "$commit"
+        return 0
+    fi
+    printf 'unchanged'
     return 0
+}
+
+# Shared by compute_recommendation (REC_*) and compute_decisions_briefing
+# (DECISIONS_*) so the two surfaces can never again describe the SAME
+# plugins/<name> differently (finding 3): both now read this one status —
+# never re-derive their own "is it safe to delete" text. Sets
+# CONV_BRIEF_CONSEQUENCE to what compute_decisions_briefing prints, and
+# returns 0 when the conversion-status is "unchanged" (delete is the live
+# recommendation), 1 otherwise (KEEP — something needs a human look first).
+_loom_rm_converted_briefing_consequence() {
+    local plugin="$1" path="$2" cstatus
+    cstatus="$(_loom_rm_converted_plugin_status "$plugin" "$path")"
+    case "$cstatus" in
+        unchanged)
+            CONV_BRIEF_CONSEQUENCE="$path still on disk — delete it once the converted command works, then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune"
+            return 0 ;;
+        changed:*)
+            CONV_BRIEF_CONSEQUENCE="$path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file under it) — KEEP-AS-IS; verify the edit was carried over, then decide by hand"
+            return 1 ;;
+        render-stale:*)
+            CONV_BRIEF_CONSEQUENCE="$path was converted, but re-rendering it now (convert $plugin --dry-run) does not reproduce what is on disk under .claude/ (a KEEP/WRITE/STOP line, or the re-render could not run) — KEEP-AS-IS; the decision commit ${cstatus#render-stale:} may carry an edit the conversion never saw; reconcile by hand, then decide"
+            return 1 ;;
+        *)
+            CONV_BRIEF_CONSEQUENCE="$path — the conversion decision has no committed record (.claude/skills/$plugin/CONVERTED.md or migration-decisions.conf) — cannot verify $path wasn't edited since; commit the decision, then re-run"
+            return 1 ;;
+    esac
 }
 
 # REMOVE is blocked by a wired hook or a CI workflow reference (§15.2-B).
@@ -1499,6 +1697,10 @@ compute_recommendation() {
             changed:*)
                 REC_ACTION="KEEP-AS-IS"
                 REC_REASON="CONVERTED, but $path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file under it) — ASK before removing; verify the edit was carried over, then decide by hand"
+                ;;
+            render-stale:*)
+                REC_ACTION="KEEP-AS-IS"
+                REC_REASON="CONVERTED, but re-rendering $path now (convert $name --dry-run) does not reproduce what is on disk under .claude/ — a KEEP/WRITE/STOP line, or the re-render could not run — so the decision commit ${cstatus#render-stale:} may carry an edit made to $path after convert --apply that the conversion never saw; ASK before removing: re-run convert $name --dry-run, reconcile by hand, then decide"
                 ;;
             *)
                 REC_ACTION="KEEP-AS-IS"
@@ -2054,7 +2256,12 @@ compute_decisions_briefing() {
             converted)
                 path="plugins/$dname"
                 if [ -n "$dep_row" ] && [ -d "$REPO_ROOT/$path" ]; then
-                    consequence="plugins/$dname still on disk — delete it once the converted command works, then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune"
+                    # Finding 3: never hand-roll this text — it must agree
+                    # with what compute_recommendation would say for the same
+                    # plugin, so both surfaces are driven off the one shared
+                    # status helper.
+                    _loom_rm_converted_briefing_consequence "$dname" "$path"
+                    consequence="$CONV_BRIEF_CONSEQUENCE"
                 else
                     stale="true"
                     consequence="names nothing on disk and no registry row — remove the line"

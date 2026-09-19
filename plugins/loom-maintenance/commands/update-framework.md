@@ -288,11 +288,18 @@ bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile
 ```
 
 Show the user the `RECONCILE` lines (byte-identical to the sync-ref copy —
-safe to record) and the `DIFFERS` lines (differs from upstream — never
-recorded automatically) it prints; on a second yes, re-run with
-`--reconcile --apply`. A `DIFFERS` file is never recorded by `--reconcile` —
-the user may record one explicitly, if they accepted it through
-`/update-framework` and edited it afterwards, with
+safe to record ONLY because `--reconcile` itself first refuses to run at all
+unless the sync-ref is provably LogicLoom's own record: a hex object name
+that `refs/loom-upstream/main` exists locally and reaches. Without that,
+"byte-identical to the sync-ref" proves nothing about who wrote those
+bytes — an adopted repo's own sync-ref could equally point at a customer
+commit that happens to match a customer file already on disk — so
+`--reconcile` lists and records nothing and prints why, instead of ever
+stamping unproven evidence as LogicLoom's) and the `DIFFERS` lines (differs
+from upstream — never recorded automatically) it prints; on a second yes,
+re-run with `--reconcile --apply`. A `DIFFERS` file is never recorded by
+`--reconcile` — the user may record one explicitly, if they accepted it
+through `/update-framework` and edited it afterwards, with
 `bash plugins/loom-maintenance/scripts/record-update-writes.sh <path>`.
 
 **Re-check for changes this run's own recording just unblocked, before Step
