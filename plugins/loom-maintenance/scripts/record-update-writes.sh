@@ -24,8 +24,10 @@
 #       are byte-identical to the upstream blob at .sdd-sync-ref but were never
 #       recorded, and offer to record them.
 #
-# NEVER runs mutating git. --reconcile runs read-only git only (ls-files,
-# cat-file -e / -p, rev-parse). Record mode never touches git at all.
+# NEVER runs mutating git. Both modes run read-only git only (ls-files,
+# cat-file -e / -p, rev-parse, merge-base --is-ancestor): record mode needs
+# it to resolve the upstream blob whose digest it records (upstream_blob_sha
+# below), and both modes need it to prove .sdd-sync-ref is upstream's.
 #
 # OWNERSHIP RULE: a byte-identical copy of an upstream harness file can only
 # have come from upstream; anything that differs may be the adopter's own, and
@@ -106,19 +108,52 @@ Modes:
                 /update-framework. Each path must resolve inside --root (or
                 the repo root, when --root is omitted) and be a regular file.
                 For every path this appends one `kind:"file"` entry (with a
-                sha256 digest of its current bytes) and, for every ancestor
-                directory not already recorded, one `kind:"dir"` entry — all
-                inside ONE new run appended to runs[]. A path whose already-
-                recorded sha256 already matches its current bytes is dropped
-                (nothing changed since it was last recorded); when every
-                requested path drops out this way, nothing is written and the
-                script prints "nothing new to record" and exits 0.
+                sha256 digest of an UPSTREAM BLOB -- NEVER the working tree's
+                current bytes, so recording a file you customised after
+                accepting it stamps what LogicLoom wrote, not your edit) and,
+                for every ancestor directory not already recorded, one
+                `kind:"dir"` entry — all inside ONE new run appended to
+                runs[]. Which upstream blob: the path's blob at .sdd-sync-ref
+                and at refs/loom-upstream/main (present during, and possibly
+                left over after, an /update-framework run) are the two
+                candidates; when the file on disk is byte-identical to one of
+                them, that one is what LogicLoom wrote here (mid-run, the
+                clean-apply just landed the refs/loom-upstream/main bytes
+                while .sdd-sync-ref still names the previous commit); when
+                it matches neither -- your own edit -- the .sdd-sync-ref
+                blob is recorded, and a later uninstall compares, mismatches,
+                and KEEPS the file. The disk is read only to choose between
+                two upstream digests; the recorded digest is always one of
+                theirs. A path with no blob at either location is REFUSED
+                (exit 2, nothing written) rather than guessed from disk
+                bytes. .sdd-sync-ref is a candidate ONLY when it is provably
+                LogicLoom's own record: a hex object name that
+                refs/loom-upstream/main exists locally AND reaches (the
+                same rule /update-framework itself applies to the file). A
+                sync-ref that fails that test -- a symbolic name, your own
+                commit written there, or ANY value while upstream history
+                has not been fetched -- is simply not a candidate, so with
+                nothing at refs/loom-upstream/main either the path is
+                REFUSED with the remedy (run /update-framework, i.e. bash
+                plugins/loom-maintenance/scripts/extract-proposals.sh, so
+                upstream history is fetched; then retry). Hex shape alone
+                never proves who wrote the sync-ref. A path whose already-recorded sha256 already matches
+                the resolved upstream digest is dropped (nothing changed
+                upstream since it was last recorded); when every requested
+                path drops out this way, nothing is written and the script
+                prints "nothing new to record" and exits 0.
 
   --reconcile [--apply]
-                Recover the past. Lists, for every file `git ls-files` finds
-                under a directory this receipt already recorded as a `dir`,
-                that is NOT itself recorded as a `file` and exists at
-                .sdd-sync-ref:
+                Recover the past. Needs a .sdd-sync-ref that is provably
+                LogicLoom's own record (the same rule as record mode: a hex
+                object name reachable from a locally present
+                refs/loom-upstream/main) -- anything else exits 2 with the
+                remedy and lists nothing, because "byte-identical to the
+                sync-ref blob" proves upstream authorship only when the
+                sync-ref commit is upstream's. Lists, for every file
+                `git ls-files` finds under a directory this receipt already
+                recorded as a `dir`, that is NOT itself recorded as a `file`
+                and exists at .sdd-sync-ref:
                   RECONCILE <path>   working-tree bytes == the sync-ref blob
                                      (can only have come from upstream —
                                      recordable)
@@ -525,6 +560,134 @@ run_json_tool() {
 # Small helpers
 # ============================================
 
+# Resolve .sdd-sync-ref to a commit that is PROVABLY LogicLoom's own record
+# -- hex-shaped AND (round-2 finding 1) reachable from refs/loom-upstream/main,
+# the same loom_sync_ref_is_loom_record rule release-migrations.sh's scanner
+# enforces (shared, .logic-loom/lib/release-migrations.sh), which itself
+# mirrors extract-proposals.sh's own reachability check on this same file.
+# Without that history fetched, hex shape alone proves nothing -- a customer's
+# own commit sha (or a symbolic name that resolves to one) is indistinguishable
+# from LogicLoom's record by shape, and recording a "match" against it would
+# stamp the wrong digest as what LogicLoom wrote. Prints the (whitespace-
+# trimmed) ref/sha and returns 0, or prints nothing and returns 1 -- an
+# unresolvable, missing, or unprovable sync-ref is not an error here (record
+# mode falls back to refs/loom-upstream/main; only --reconcile treats an
+# unresolvable one as fatal, at its own call site above -- --reconcile's own
+# validation is a separate, narrower check: only that the file resolves to A
+# commit in this repository, not that it is provably LogicLoom's).
+resolve_sync_ref() {
+    local sync_ref_file="$REPO_ROOT/$SYNC_REF_NAME" sync_ref
+    [ -f "$sync_ref_file" ] || return 1
+    sync_ref="$(tr -d '[:space:]' < "$sync_ref_file")"
+    [ -n "$sync_ref" ] || return 1
+    git -C "$REPO_ROOT" cat-file -e "${sync_ref}^{commit}" 2>/dev/null || return 1
+    loom_sync_ref_is_loom_record "$sync_ref" "$REPO_ROOT" || return 1
+    printf '%s\n' "$sync_ref"
+}
+
+# The sha256 of the UPSTREAM BLOB for repo-relative path $1 -- what LogicLoom
+# actually WROTE there, never the working tree's current bytes. A file the
+# adopter customised after accepting it must record the digest of the
+# pristine upstream bytes, so a later comparison against the (customised)
+# disk copy correctly MISMATCHES and keeps it (see the OWNERSHIP RULE / THE
+# DELIBERATE ASYMMETRY comments near the top of this file, and
+# packaging/adopt/lib/apply.js's uninstallProcedure(), whose step-1 prose is
+# "digest MATCHES -> safe to delete; MISMATCHES -> KEEP").
+#
+# TWO candidates, both provably LogicLoom's: the path's blob at the
+# .sdd-sync-ref commit (the version this repo says it is synced to) and at
+# refs/loom-upstream/main (the ad-hoc fetch ref extract-proposals.sh
+# maintains). The second one matters DURING an /update-framework run:
+# record-update-writes.sh runs right after a clean-add/clean-apply lands
+# (Step 5/7b), which wrote `git show refs/loom-upstream/main:P > P` -- the
+# NEW bytes -- while .sdd-sync-ref is not advanced until Step 6/8, after
+# recording. So mid-run, for a path that exists at BOTH commits (a
+# modification, the common case), the sync-ref blob is the OLD version and
+# refs/loom-upstream/main is what LogicLoom just wrote. Preferring sync-ref
+# unconditionally stamps the stale digest (and, since the install receipt
+# already carries it, drops the entry as "nothing new"); preferring the
+# scratch ref unconditionally is wrong OUTSIDE a run, because only
+# `extract-proposals.sh --dry-run` prunes that ref (extract-proposals.sh:762)
+# -- the extract path leaves it behind, so its mere presence does not mean an
+# update is in progress.
+#
+# THE CHOICE RULE, and why it is not a guess: when the file on disk is
+# byte-identical to one candidate, that candidate is what LogicLoom wrote
+# here (the OWNERSHIP RULE at the top of this file: a byte-identical copy of
+# an upstream blob can only have come from upstream). When it matches neither
+# -- the adopter's own edit, e.g. a conflict-review merge recorded by name --
+# the sync-ref blob is recorded; both candidates mismatch the disk anyway, so
+# either keeps the file at uninstall, and sync-ref is the stable one. The disk
+# digest is computed ONLY to choose between two upstream digests and is never
+# itself recorded: every digest this function returns is an upstream blob's.
+#
+# Prints "sha256:<hex>" and returns 0 on success. Returns 1 if the path
+# resolves to a blob at NEITHER location (or a candidate blob cannot be
+# hashed) -- callers MUST refuse to record rather than fall back to hashing
+# disk bytes; this tool never guesses.
+#
+# Every risky command in these two functions is the condition of an `if`/`!`,
+# never a bare statement -- under `set -e` a bare failing command substitution
+# would abort the whole script right there (skipping the tmp-file cleanup)
+# instead of letting the function return 1 for its caller to handle.
+
+# "sha256:<hex>" of git blob $1 ("<rev>:<path>"), hashed by the same JSON
+# tool that hashes everything else here; prints nothing and returns 1 on any
+# failure.
+blob_sha256() {
+    local blob_ref="$1" tmp sha
+    tmp="$(mktemp "${TMPDIR:-/tmp}/loom-upstream-blob.XXXXXX")"
+    if ! git -C "$REPO_ROOT" cat-file -p "$blob_ref" > "$tmp" 2>/dev/null; then
+        rm -f "$tmp"
+        return 1
+    fi
+    if ! sha="$(run_json_tool sha256 "$tmp")"; then
+        rm -f "$tmp"
+        return 1
+    fi
+    rm -f "$tmp"
+    [ -n "$sha" ] || return 1
+    printf '%s\n' "$sha"
+}
+
+upstream_blob_sha() {
+    local rel="$1" ref sync_cand up_cand disk_sha cand sha first_sha
+    sync_cand=""; up_cand=""; disk_sha=""; first_sha=""
+    # A candidate must be a BLOB at that commit: `cat-file -e` is also true
+    # for a tree of the same name, and `cat-file -p` on a tree prints its
+    # listing -- hashing that would stamp a digest of a directory listing as
+    # "the bytes LogicLoom wrote", which is nonsense (harmless at uninstall,
+    # since it can never match a file, but a lie in the record).
+    if ref="$(resolve_sync_ref)" && [ -n "$ref" ] \
+       && [ "$(git -C "$REPO_ROOT" cat-file -t "${ref}:${rel}" 2>/dev/null)" = "blob" ]; then
+        sync_cand="${ref}:${rel}"
+    fi
+    if git -C "$REPO_ROOT" rev-parse -q --verify refs/loom-upstream/main >/dev/null 2>&1 \
+       && [ "$(git -C "$REPO_ROOT" cat-file -t "refs/loom-upstream/main:${rel}" 2>/dev/null)" = "blob" ]; then
+        up_cand="refs/loom-upstream/main:${rel}"
+    fi
+    [ -n "$sync_cand" ] || [ -n "$up_cand" ] || return 1
+    # With ONE candidate there is nothing to choose; the disk is not read.
+    if [ -n "$sync_cand" ] && [ -n "$up_cand" ]; then
+        if ! disk_sha="$(run_json_tool sha256 "$REPO_ROOT/$rel")"; then
+            disk_sha=""
+        fi
+    fi
+    for cand in "$sync_cand" "$up_cand"; do
+        [ -n "$cand" ] || continue
+        if ! sha="$(blob_sha256 "$cand")" || [ -z "$sha" ]; then
+            return 1
+        fi
+        if [ -n "$disk_sha" ] && [ "$sha" = "$disk_sha" ]; then
+            printf '%s\n' "$sha"
+            return 0
+        fi
+        [ -n "$first_sha" ] || first_sha="$sha"
+    done
+    [ -n "$first_sha" ] || return 1
+    printf '%s\n' "$first_sha"
+}
+
 # Ancestor directories of $1 (repo-relative, no leading slash), deepest first,
 # excluding "." and "/".
 path_ancestors() {
@@ -590,9 +753,13 @@ trap cleanup_entries_tmp EXIT
 # Build the wrote[] entries for a list of repo-relative regular files into the
 # TSV file $1 — the ONE place both record mode and --reconcile --apply produce
 # entries, so they cannot drift ("exactly as record mode does").
+#   * each entry's sha256 is upstream_blob_sha()'s digest — what LogicLoom
+#     wrote — NEVER a hash of the file's current disk bytes; a path with no
+#     resolvable upstream blob aborts the whole call (exit 2), nothing
+#     partially written;
 #   * a file whose already-recorded sha256 (last writer wins across runs)
-#     equals its current bytes is dropped — nothing changed since it was
-#     last recorded;
+#     equals that upstream digest is dropped — upstream hasn't changed since
+#     it was last recorded, so there is nothing new to say;
 #   * the same file named twice (or under two spellings that resolve to the
 #     same path) is recorded once;
 #   * every ancestor directory not already recorded as kind:dir is recorded
@@ -614,7 +781,22 @@ build_entries() {
         [ "$already" = "true" ] && continue
         seen_files+=("$rel")
 
-        sha="$(run_json_tool sha256 "$REPO_ROOT/$rel")"
+        # The entries file is TAB-separated, one entry per LINE: a path
+        # holding a tab or a newline cannot be carried through it without
+        # being split into the wrong columns or rows -- which would stamp a
+        # digest onto a path that is not the one asked for. Refuse loudly;
+        # never silently mis-record. (git permits both characters in a
+        # filename; nothing LogicLoom ships uses either.)
+        case "$rel" in
+            *$'\t'*|*$'\n'*)
+                echo "record-update-writes: refusing to record a path whose name contains a tab or newline (cannot be carried through this tool's entry format without corrupting the record): $(printf '%q' "$rel")" >&2
+                exit 2 ;;
+        esac
+
+        if ! sha="$(upstream_blob_sha "$rel")" || [ -z "$sha" ]; then
+            echo "record-update-writes: $rel has no resolvable upstream blob (checked $SYNC_REF_NAME and refs/loom-upstream/main) -- refusing to record; this tool records what LogicLoom actually wrote, never a guess from disk bytes. An adopted install has upstream history only after /update-framework has fetched it (bash plugins/loom-maintenance/scripts/extract-proposals.sh does that fetch): run that first, then retry. If the path still resolves nowhere, upstream never had it -- it is not a file LogicLoom wrote here, and it must not be recorded." >&2
+            exit 2
+        fi
         existing_sha=""
         if existing_sha="$(lookup_recorded file "$rel")"; then
             if [ "$existing_sha" = "$sha" ]; then
@@ -716,6 +898,45 @@ if [ "$APPLY" = "true" ] && [ "$MODE" != "reconcile" ]; then
     exit 1
 fi
 
+# Shared with release-migrations.sh (the scanner): the sync-ref provenance
+# rule (round-2 finding 1) lives in exactly one place so both callers stay in
+# lockstep instead of drifting into two copies. See
+# loom_sync_ref_is_loom_record's own comment for the rule itself. Sourced
+# here, AFTER --root has been parsed (not at top-of-file, before REPO_ROOT
+# could still be the script's own location) — the lib lives inside the repo
+# --root names, which is the fixture/scratch tree under test, not
+# necessarily this script's own checkout.
+if [ -f "$REPO_ROOT/.logic-loom/lib/release-migrations.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$REPO_ROOT/.logic-loom/lib/release-migrations.sh"
+fi
+if ! declare -F loom_sync_ref_is_loom_record >/dev/null 2>&1; then
+    # The --root tree does not carry the shared lib (or carries a version
+    # that predates the function). That is not a hypothetical: the lib
+    # itself first ships in the same release as this script, and
+    # /update-framework is proposal-based SELECTIVE adoption -- a 6.x
+    # install can accept this script and decline the lib, or run this
+    # script before the lib's own proposal has landed. Sourcing is therefore
+    # sometimes impossible, and the one justified duplicate is the SAME
+    # STRICT rule, byte-for-byte in effect: hex shape AND refs/loom-upstream/
+    # main present AND reachable. A looser fallback (hex shape alone, the
+    # pre-round-2 rule) would make the tree that is MOST likely to be a
+    # customer's mid-migration 6.x install the one place a forged sync-ref
+    # still stamps a customer's own digest as LogicLoom's -- exactly the
+    # hole round-2 finding 1 closes. When the lib IS present it wins
+    # (defined above); this definition only fills the gap, so the two can
+    # never disagree on a tree that has the lib.
+    loom_sync_ref_is_loom_record() {
+        local sync_ref="$1" root="${2:-$REPO_ROOT}"
+        [ -n "$sync_ref" ] || return 1
+        case "$sync_ref" in *[!0-9a-fA-F]*) return 1 ;; esac
+        [ "${#sync_ref}" -ge 7 ] && [ "${#sync_ref}" -le 64 ] || return 1
+        git -C "$root" rev-parse -q --verify refs/loom-upstream/main >/dev/null 2>&1 || return 1
+        git -C "$root" merge-base --is-ancestor "$sync_ref" refs/loom-upstream/main 2>/dev/null || return 1
+        return 0
+    }
+fi
+
 if ! resolve_json_tool; then
     echo "record-update-writes: needs python3 or node to read and write .logicloom-adopt-receipt.json — neither is on PATH" >&2
     exit 2
@@ -801,6 +1022,20 @@ reconcile() {
         echo "record-update-writes: --reconcile needs a resolvable $SYNC_REF_NAME — '$sync_ref' does not resolve to a commit in this repository (an adopted install has upstream history only after /update-framework has fetched it once; run that first, then retry)" >&2
         exit 2
     fi
+    # Round-2 finding 1, --reconcile's half: "byte-identical to the sync-ref
+    # blob" proves upstream authorship ONLY when the sync-ref commit is
+    # provably upstream's. Resolving to SOME commit is not that: a customer's
+    # own commit written into the file resolves fine, and every file they
+    # committed there is then byte-identical to "the sync-ref blob" -- a
+    # RECONCILE line (a recommendation to stamp it as LogicLoom's) on
+    # evidence that is not LogicLoom's. --apply would already be stopped at
+    # build_entries/upstream_blob_sha (the same rule), but the LISTING is the
+    # recommendation, so the same rule gates it here, up front, with the
+    # same remedy. Doubt -> refuse and ask, never list.
+    if ! loom_sync_ref_is_loom_record "$sync_ref" "$REPO_ROOT"; then
+        echo "record-update-writes: --reconcile refuses: $SYNC_REF_NAME ('$sync_ref') is not provably LogicLoom's own record — it must be a hex object name that refs/loom-upstream/main exists locally AND reaches (the rule /update-framework itself applies to this file); refs/loom-upstream/main is absent here, or does not reach that commit. Nothing listed, nothing written. Run /update-framework (bash plugins/loom-maintenance/scripts/extract-proposals.sh) so upstream history is fetched, then retry; if it still refuses, the sync-ref names a commit that is not upstream's — repair it per KNOWN_ISSUES.md rather than recording against it." >&2
+        exit 2
+    fi
 
     local -a recorded_dirs=()
     local line kind path
@@ -817,18 +1052,49 @@ reconcile() {
     local -a candidates=()
     local d f
     for d in "${recorded_dirs[@]}"; do
-        while IFS= read -r f; do
+        # Round-2 finding 5: -z / NUL-delimited, not plain `ls-files -- "$d"`.
+        # Without -z, git C-quotes a path containing a quote, backslash, or
+        # non-ASCII byte (e.g. `"weird\"file.sh"`) in its default output --
+        # `while IFS= read -r f` then takes that quoted, escaped LITERAL as
+        # the path, which never matches a real file on disk and silently
+        # drops the candidate instead of reconciling it. `-z` prints raw
+        # bytes, NUL-terminated; `read -r -d ''` splits on NUL and needs no
+        # bash version newer than 3.2 (§7, .docs/policies/shell-idiom-policy.md).
+        while IFS= read -r -d '' f; do
             [ -z "$f" ] && continue
             candidates+=("$f")
-        done < <(git -C "$REPO_ROOT" ls-files -- "$d" 2>/dev/null || true)
+        done < <(git -C "$REPO_ROOT" ls-files -z -- "$d" 2>/dev/null || true)
     done
 
+    # Dedupe WITHOUT joining on newlines: a `printf '%s\n' | sort -u` round
+    # trip splits a path that itself contains a newline into two bogus
+    # candidates, each of which then fails the `-f` test below and is
+    # dropped without a word -- the same silent-skip class as finding 5. A
+    # plain nested loop (bash 3.2 has no associative arrays) keeps every
+    # byte of every candidate intact. A candidate whose name holds a tab or
+    # newline is then skipped LOUDLY here rather than reaching the
+    # tab-separated, line-per-entry record (build_entries refuses those).
     local -a uniq_candidates=()
+    local u dup
+    local -a odd_seen=()
     if [ ${#candidates[@]} -gt 0 ]; then
-        while IFS= read -r f; do
-            [ -z "$f" ] && continue
+        for f in "${candidates[@]}"; do
+            # Dedupe FIRST: nested recorded dirs list the same file once per
+            # ancestor, and an odd name must be reported once, not once per
+            # ancestor.
+            dup="false"
+            for u in "${uniq_candidates[@]:-}" "${odd_seen[@]:-}"; do
+                [ "$u" = "$f" ] && dup="true" && break
+            done
+            [ "$dup" = "true" ] && continue
+            case "$f" in
+                *$'\t'*|*$'\n'*)
+                    odd_seen+=("$f")
+                    echo "record-update-writes: --reconcile skipping a path whose name contains a tab or newline (this tool cannot record it; nothing about it is decided): $(printf '%q' "$f")" >&2
+                    continue ;;
+            esac
             uniq_candidates+=("$f")
-        done < <(printf '%s\n' "${candidates[@]}" | sort -u)
+        done
     fi
 
     local -a reconcile_list=()

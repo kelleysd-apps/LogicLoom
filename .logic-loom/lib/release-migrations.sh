@@ -19,6 +19,8 @@
 #   loom_deprecation_dir <kind> <name>
 #   loom_is_deprecated_plugin_dir <name> [file]
 #   loom_latest_tag_at_or_below <vX.Y.Z> [root]
+#   loom_latest_tag_below <vX.Y.Z> [root]
+#   loom_sync_ref_is_loom_record <sync_ref> [root]
 #   loom_migration_lint [file]
 #   loom_deprecation_lint [file]        # alias for loom_migration_lint
 # Constant:
@@ -251,6 +253,75 @@ loom_latest_tag_at_or_below() {
         fi
     done <<< "$sorted"
     return 1
+}
+
+# Newest local tag (v[0-9]*) whose numeric version is STRICTLY LESS THAN
+# <vX.Y.Z> — never the release being checked itself. check-release's "the
+# previous release" (removal-guard --since auto, and a content row's
+# before-proof content_prev) means "what shipped immediately before this
+# one", and once a version has ALSO been tagged (a post-release audit,
+# or simply re-running the gate after tagging), the at-or-below variant
+# above happily returns that SAME tag — which then "proves" a content row's
+# claimed prior/problem state against that row's own POST-fix content and
+# fails the row closed for no real reason. rc 1 + empty stdout when none
+# resolves (no tag exists that is strictly earlier).
+loom_latest_tag_below() {
+    local target="$1" root="${2:-}"
+    [ -n "$root" ] || root="$(cd "$_LOOM_RM_LIB_DIR/../.." && pwd)"
+    local tags stripped sorted t
+    tags="$(git -C "$root" for-each-ref --format='%(refname:short)' refs/tags/ 2>/dev/null)" || return 1
+    [ -z "$tags" ] && return 1
+    stripped="$(printf '%s\n' "$tags" | awk '/^v[0-9]/ { sub(/^v/, ""); print }')"
+    [ -z "$stripped" ] && return 1
+    sorted="$(printf '%s\n' "$stripped" | sort -t. -k1,1nr -k2,2nr -k3,3nr)"
+    while IFS= read -r t; do
+        [ -z "$t" ] && continue
+        if _loom_version_lt "$t" "$target"; then
+            printf 'v%s' "$t"
+            return 0
+        fi
+    done <<< "$sorted"
+    return 1
+}
+
+# ── public: sync-ref provenance ─────────────────────────────────────────────
+
+# Round-2 finding 1 (shared by the scanner and the recorder — see both
+# callers' own comments for why the check exists at all): a .sdd-sync-ref
+# value counts as LogicLoom's OWN record ONLY when it is hex-shaped AND
+# refs/loom-upstream/main exists locally AND the sync-ref commit is an
+# ancestor of (or equal to) it. This mirrors the exact reachability rule
+# extract-proposals.sh already enforces on the very same file
+# (ensure_sync_ref: "NOT reachable from upstream main" is fatal there) — the
+# scanner and recorder merely stop being looser than the update path about
+# the same file.
+#
+# THE FIX BY DESIGN (round 2): when refs/loom-upstream/main is ABSENT, this
+# used to fall through and accept hex shape alone as sufficient ("nothing to
+# check reachability against, so the shape stands on its own"). That is
+# wrong: absent upstream history proves nothing about who wrote the
+# sync-ref, and a customer's own commit sha (or a symbolic name that happens
+# to resolve to one) written into the file is indistinguishable from
+# LogicLoom's own record by shape alone. With no upstream history there is
+# NO BASELINE, full stop — never "the shape is enough". Callers see this as
+# rc 1 (not a loom record), which routes them to their own safe fallback:
+# the scanner's resolve_baseline treats it as no sync-ref candidate (state
+# unknown, never REMOVE — governing principle: doubt -> KEEP and ASK); the
+# recorder's resolve_sync_ref/upstream_blob_sha refuse to record from it,
+# telling the caller to run /update-framework (bash extract-proposals.sh)
+# first so upstream history is actually fetched.
+#
+# rc 0 iff <sync_ref> may serve as a LogicLoom-authored baseline. Read-only
+# git only (rev-parse, merge-base).
+loom_sync_ref_is_loom_record() {
+    local sync_ref="$1" root="${2:-}"
+    [ -n "$root" ] || root="$(cd "$_LOOM_RM_LIB_DIR/../.." && pwd)"
+    [ -n "$sync_ref" ] || return 1
+    case "$sync_ref" in *[!0-9a-fA-F]*) return 1 ;; esac
+    [ "${#sync_ref}" -ge 7 ] && [ "${#sync_ref}" -le 64 ] || return 1
+    git -C "$root" rev-parse -q --verify refs/loom-upstream/main >/dev/null 2>&1 || return 1
+    git -C "$root" merge-base --is-ancestor "$sync_ref" refs/loom-upstream/main 2>/dev/null || return 1
+    return 0
 }
 
 # ── public: lint ─────────────────────────────────────────────────────────────

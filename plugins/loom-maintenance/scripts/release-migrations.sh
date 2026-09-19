@@ -24,8 +24,8 @@
 #
 # bash 3.2 safe: no `declare -A`, `mapfile`/`readarray`, `[[ -v ]]`, `${v,,}`,
 # `sort -V`. Read-only git only: rev-parse, cat-file, ls-tree, ls-files,
-# rev-list, show, diff, for-each-ref, grep. Never hash-object, tag, ls-remote,
-# or any mutating verb.
+# rev-list, show, diff, for-each-ref, grep, merge-base --is-ancestor. Never
+# hash-object, tag, ls-remote, or any mutating verb.
 
 # Deliberately `-uo pipefail` WITHOUT `-e`: this script's read-only
 # introspection (find/grep on a directory a plugin may not have, a lookup
@@ -49,7 +49,18 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Temp copy of the upstream registry (see resolve_registry); removed on exit.
 _LOOM_RM_TMP_REGISTRY=""
-_loom_rm_cleanup() { [ -n "$_LOOM_RM_TMP_REGISTRY" ] && rm -f "$_LOOM_RM_TMP_REGISTRY"; return 0; }
+# Throwaway trees the check-release fixture-scan-path proof builds (finding
+# 5, _loom_rm_verify_fixture_scan_path below); space-separated, removed on
+# exit alongside the registry temp copy.
+_LOOM_RM_PROOF_TMP_DIRS=""
+_loom_rm_cleanup() {
+    [ -n "$_LOOM_RM_TMP_REGISTRY" ] && rm -f "$_LOOM_RM_TMP_REGISTRY"
+    local d
+    for d in $_LOOM_RM_PROOF_TMP_DIRS; do
+        [ -n "$d" ] && rm -rf "$d"
+    done
+    return 0
+}
 trap _loom_rm_cleanup EXIT
 
 # ── arg pre-scan for --root (must run before we source the lib) ────────────
@@ -263,6 +274,13 @@ check-release [<vX.Y.Z>] [--since <tag>|auto]
               plugins/<x> or mcp-servers/<x> directory present at the given
               (or auto-resolved) previous release tag and absent from the
               working tree must have a registry row, or check-release fails.
+              --since must resolve to a vX.Y.Z release tag (auto always does;
+              an explicit ref that is not version-shaped — a branch, a sha —
+              is rejected, since the guard's window check and a content row's
+              before-proof are both version-ordering comparisons), and it must
+              be strictly BELOW the release being checked (a --since at or
+              after it is rejected too: it would prove every content row
+              against its own post-fix content).
 
 Every recommended git operation (`git rm`, `git mv`) and every `.mcp.json`
 edit is printed as text only — this script never runs git, and edits nothing
@@ -369,6 +387,109 @@ _loom_rm_is_problem_state() {
     fi
 }
 
+# Finding 5: the .before/.after checks (verify_content_rows_execution, below)
+# prove the row's PATTERN in isolation — running the regex helper directly
+# against fixture text. They never prove that scan's REAL content-row
+# discovery (emit_content_item / content_matches, defined later in this
+# file — bash resolves them at call time, so the forward reference here is
+# fine) actually reports an item, or correctly reports nothing, when that
+# exact text sits on disk at the row's own target path. This builds a
+# throwaway tree with the fixture content at <name>, then calls
+# emit_content_item itself — the exact function scan/plan use — once in
+# TEMPLATE mode and once in ADOPTED mode (with a synthetic receipt entry
+# recording <name>, so ownership-scoping is exercised too, not bypassed):
+# .before must produce an item in both modes; .after must produce none in
+# either. Writes only inside its own mktemp tree, never $REPO_ROOT or the
+# real registry/decisions files (REPO_ROOT is swapped locally and restored;
+# DECISIONS_FILE stays pointed at the real repo — an UNRESTRICTED `keep =
+# <name>` decision line there does match the synthetic row, but that only
+# flips the item's recommendation to KEEP-AS-IS; item-or-no-item, which is
+# all this proof reads, is decided by the pattern match before the decision
+# lookup, so a decision line cannot mask a result).
+# Prints one "check-release: ..." line per mismatch; rc 1 if any. A proof
+# that cannot run (no scratch tree; a fixture that cannot be placed at
+# <name>, e.g. a name spelled as a directory that content_matches could never
+# match) is reported and FAILS too — a release gate that silently skips a
+# proof passes a row scan can never fire, which is exactly the gap finding 5
+# is about. This is an ADDITIONAL proof on top of the pattern-level one
+# above, never the only one.
+_loom_rm_verify_fixture_scan_path() {
+    local label="$1" name="$2" fate="$3" pattern="$4" default="$5" before_file="$6" after_file="$7"
+    local rc=0
+
+    # emit_content_item's ADOPTED-mode ownership scoping calls
+    # adopt_file_recorded, which lives in extract-proposals.sh. check-release
+    # never sources it (only scan/plan do, via _loom_rm_init_adopt_mode) —
+    # source it here, once, function-defs only (guarded so a repeat call, or
+    # a caller that already ran _loom_rm_init_adopt_mode, is a no-op).
+    if ! command -v adopt_file_recorded >/dev/null 2>&1; then
+        local saved_src_root="$REPO_ROOT" had_errexit="false"
+        case "$-" in *e*) had_errexit="true" ;; esac
+        # shellcheck source=/dev/null
+        source "$SCRIPT_DIR/extract-proposals.sh"
+        [ "$had_errexit" = "true" ] || set +e
+        REPO_ROOT="$saved_src_root"
+    fi
+
+    local tmp
+    if ! tmp="$(mktemp -d "${TMPDIR:-/tmp}/loom-rm-fixtureproof.XXXXXX" 2>/dev/null)" || [ -z "$tmp" ]; then
+        echo "check-release: $label: fixture proof (scan path): cannot create a scratch tree (mktemp -d failed) — the proof could not run, and a proof that cannot run is not a pass"
+        return 1
+    fi
+    _LOOM_RM_PROOF_TMP_DIRS="${_LOOM_RM_PROOF_TMP_DIRS} $tmp"
+
+    local rel_dir; rel_dir="$(dirname "$name")"
+    [ "$rel_dir" = "." ] && rel_dir=""
+    if [ -n "$rel_dir" ] && ! mkdir -p "$tmp/$rel_dir" 2>/dev/null; then
+        echo "check-release: $label: fixture proof (scan path): cannot place the fixture at $name (mkdir -p $rel_dir failed under the scratch tree) — the proof could not run, and a proof that cannot run is not a pass"
+        return 1
+    fi
+
+    local row
+    row="$(printf 'content\t%s\t%s\tpattern:%s\t%s\t-\tv0.0.0\tproposal: p; why: w' \
+        "$name" "$fate" "$pattern" "$default")"
+
+    local saved_root="$REPO_ROOT" saved_mode="${ADOPT_MODE:-TEMPLATE}" saved_wrote="${ADOPT_WROTE:-}"
+    local saved_id="${ITEM_ID_N:-0}" saved_items="${ITEMS_JSON:-}"
+    local saved_pending="${PENDING_N:-0}" saved_kept="${KEPT_N:-0}"
+    local phase src found mode_label
+
+    for phase in before after; do
+        src="$before_file"
+        [ "$phase" = "after" ] && src="$after_file"
+        if ! cp "$src" "$tmp/$name" 2>/dev/null; then
+            echo "check-release: $label: fixture proof (scan path): cannot place the fixture at $name (is the row's name a real file path scan's content_matches could ever match?) — the proof could not run, and a proof that cannot run is not a pass"
+            rc=1
+            break
+        fi
+
+        for mode_label in TEMPLATE ADOPTED; do
+            REPO_ROOT="$tmp"
+            ADOPT_MODE="$mode_label"
+            ADOPT_WROTE=""
+            [ "$mode_label" = "ADOPTED" ] && ADOPT_WROTE="file"$'\t'"$name"
+            ITEM_ID_N=0; ITEMS_JSON=""; PENDING_N=0; KEPT_N=0
+            emit_content_item "upstream" "$row" "true" >/dev/null 2>&1
+            found="false"
+            [ -n "$ITEMS_JSON" ] && found="true"
+
+            if [ "$phase" = "before" ] && [ "$found" != "true" ]; then
+                echo "check-release: $label: fixture proof ($mode_label, scan path): the .before fixture at $name does NOT produce a scan item — emit_content_item found nothing"
+                rc=1
+            fi
+            if [ "$phase" = "after" ] && [ "$found" != "false" ]; then
+                echo "check-release: $label: fixture proof ($mode_label, scan path): the .after fixture at $name still produces a scan item — emit_content_item still fires"
+                rc=1
+            fi
+        done
+    done
+
+    REPO_ROOT="$saved_root"; ADOPT_MODE="$saved_mode"; ADOPT_WROTE="$saved_wrote"
+    ITEM_ID_N="$saved_id"; ITEMS_JSON="$saved_items"
+    PENDING_N="$saved_pending"; KEPT_N="$saved_kept"
+    return $rc
+}
+
 # Every content row of <version> must prove itself: its pattern is grounded
 # in a real problem state (a copy from the previous release's tree, or a
 # named fixture when no LogicLoom-shipped prior copy can exist), and it does
@@ -448,6 +569,24 @@ verify_content_rows_execution() {
                 done <<< "$current_matches"
             fi
         fi
+
+        # Finding 5: also run the real scan discovery path, not just the
+        # pattern-level checks above — see _loom_rm_verify_fixture_scan_path.
+        # Fixture-backed only (a git-history-grounded row already gets its
+        # "after" proof from content_matches against the real tree, above);
+        # skipped for a glob target, which needs a real multi-file tree the
+        # .before/.after pair cannot stand in for — the pattern-level checks
+        # already ground those. Gated on both files actually existing so a
+        # missing-fixture failure (reported above) isn't reported twice.
+        if [ -n "$fixture" ]; then
+            case "$name" in
+                *\**|*\?*) : ;;
+                *)
+                    if [ -f "$bf" ] && [ -f "$af" ]; then
+                        _loom_rm_verify_fixture_scan_path "$label" "$name" "$fate" "$pattern" "$default" "$bf" "$af" || rc=1
+                    fi ;;
+            esac
+        fi
     done <<< "$rows"
     return $rc
 }
@@ -487,21 +626,93 @@ cmd_check_release() {
     local overall_rc=0
 
     # ── removal guard (--since), runs FIRST, regardless of the floor ───────
+    # $prev is hoisted to function scope (not just this `if`) — finding 2's
+    # content_prev, below, reuses whatever this block resolved instead of
+    # silently recomputing its own and ignoring an explicit --since.
+    local prev=""
     if [ -n "$since_arg" ]; then
-        local prev=""
         if [ "$since_arg" = "auto" ]; then
-            prev="$(loom_latest_tag_at_or_below "$version" "$REPO_ROOT" 2>/dev/null)" || prev=""
+            # STRICTLY below $version (never $version's own tag — see
+            # loom_latest_tag_below; finding 2). loom_latest_tag_below only
+            # ever walks refs/tags/, so "auto" is unaffected by finding 3
+            # below — it can never produce a branch name.
+            prev="$(loom_latest_tag_below "$version" "$REPO_ROOT" 2>/dev/null)" || prev=""
         else
             # Take the tag as given; only if that does not resolve, try the
-            # vX.Y.Z spelling (so `--since 6.6.2` and `--since v6.6.2` both work
-            # and a non-version tag name is not mangled).
+            # vX.Y.Z spelling (so `--since 6.6.2` and `--since v6.6.2` both
+            # work and a non-version tag name is not mangled). This is a
+            # SPELLING choice only — whether the settled spelling actually
+            # names a real tag is decided below, uniformly.
             prev="$since_arg"
             if ! git -C "$REPO_ROOT" rev-parse -q --verify "${prev}^{commit}" >/dev/null 2>&1; then
                 prev="$(normalize_version "$since_arg")"
             fi
         fi
-        if [ -z "$prev" ] || ! git -C "$REPO_ROOT" rev-parse -q --verify "${prev}^{commit}" >/dev/null 2>&1; then
+        local prev_resolves="false" prev_is_version="false" prev_is_tag="false"
+        if [ -n "$prev" ] && git -C "$REPO_ROOT" rev-parse -q --verify "${prev}^{commit}" >/dev/null 2>&1; then
+            prev_resolves="true"
+        fi
+        case "$prev" in v[0-9]*.[0-9]*.[0-9]*) prev_is_version="true" ;; esac
+        # Finding 3: version-shaped text is not enough — it must resolve as
+        # an ACTUAL TAG (refs/tags/<prev>), not merely as SOME ref that
+        # happens to share the text. A branch named v6.6.2 resolves fine via
+        # the plain `rev-parse <prev>^{commit}` above (git's short-name
+        # lookup checks refs/heads too) and, before this check, would have
+        # sailed through to the version-ordering compare despite never having
+        # been a release.
+        if [ -n "$prev" ] && git -C "$REPO_ROOT" rev-parse -q --verify "refs/tags/${prev}^{commit}" >/dev/null 2>&1; then
+            prev_is_tag="true"
+        fi
+        if [ "$prev_resolves" != "true" ] && [ "$since_arg" = "auto" ]; then
+            # Only "auto" may legitimately find nothing (a repo with no
+            # earlier release tag at all): that is a fact about the repo,
+            # not bad input, and skipping is the honest answer.
             echo "previous release: none resolvable — removal guard skipped"
+            prev=""
+        elif [ "$prev_resolves" != "true" ]; then
+            # Finding 3, same principle as the two branches below: an
+            # EXPLICIT --since that resolves to nothing (a typo, a tag that
+            # was never fetched, a name that is not a ref here) is bad
+            # input, and bad input is REJECTED — never silently downgraded to
+            # "no baseline", which would skip the guard the caller
+            # explicitly asked to run and exit 0 as if it had passed.
+            echo "check-release: --since '$since_arg' does not resolve to any commit in this repository — the removal guard cannot run against it; pass a real version tag (e.g. --since v6.6.2) or --since auto"
+            overall_rc=1
+            prev=""
+        elif [ "$prev_is_version" != "true" ]; then
+            # Finding 3 (original half): the window validation below (a
+            # removed item's registry row must date the removal to (prev,
+            # version]) is a VERSION-ORDERING check. A non-version --since (a
+            # branch, a sha, any ref that isn't version-shaped at all) has no
+            # place in that ordering — silently falling back to a
+            # (kind,name)-only match would accept a misdated/stale/future row
+            # the guard exists to catch. Fail closed with a precise reason
+            # instead of degrading the guard's meaning: pass a version tag,
+            # or --since auto.
+            echo "check-release: --since '$prev' does not resolve to a vX.Y.Z release tag — the removal guard's window check (a removed item's registry row must date the removal to (prev, version]) is a version-ordering comparison and cannot run against a non-version ref; pass a version tag (e.g. --since v6.6.2) or --since auto"
+            overall_rc=1
+            prev=""
+        elif [ "$prev_is_tag" != "true" ]; then
+            # Finding 3 (round-2 half): version-SHAPED text that is not
+            # actually a release tag — e.g. a branch someone named v6.6.2 —
+            # must be rejected the same way, with its own precise reason
+            # (never silently treated as "no baseline" — that would SKIP the
+            # guard instead of REJECTING the bad input, letting a misdated
+            # row slide through unchecked).
+            echo "check-release: --since '$prev' looks like a release (vX.Y.Z) but does not name an actual release tag — refs/tags/$prev does not exist (it may be a branch or other ref of the same name); pass a real version tag (e.g. --since v6.6.2) or --since auto"
+            overall_rc=1
+            prev=""
+        elif ! _loom_version_lt "$prev" "$version"; then
+            # An explicit --since AT or ABOVE the release being checked is
+            # finding 2 reintroduced by hand: the removal guard's window
+            # (prev, version] is empty or inverted, and a content row's
+            # before-proof would read the row's PRIOR state from a tag that
+            # already carries the fix (or from the very release under check)
+            # and fail every row falsely, with a misleading "pattern may be
+            # wrong". "Previous release" means strictly earlier; say so.
+            echo "check-release: --since '$prev' is not BELOW the release being checked ($version) — the previous release must be strictly earlier: the removal guard's window is (prev, version] and a content row's before-proof reads its prior state from prev, so a --since at or after $version would prove every row against its own post-fix content and fail it falsely; pass an earlier version tag (e.g. --since v6.6.2) or --since auto"
+            overall_rc=1
+            prev=""
         else
             echo "previous release: $prev"
             local removed_dirs="" removed_declared="" removed_misdeclared="" misdeclared_detail=""
@@ -515,11 +726,8 @@ cmd_check_release() {
             # — a row dated outside that window is a STALE row (it claims an
             # earlier release already lacked the item, yet $prev still had
             # it) or a FUTURE row (it pre-declares a release not being cut),
-            # and neither declares THIS release's removal. Only checkable
-            # when $prev is version-shaped (an explicit --since may name any
-            # tag); otherwise the (kind, name) match alone stands.
-            local prev_is_version="false"
-            case "$prev" in v[0-9]*.[0-9]*.[0-9]*) prev_is_version="true" ;; esac
+            # and neither declares THIS release's removal. $prev is always
+            # version-shaped by the time we get here (finding 3, above).
             local d
             for d in $ls; do
                 [ -d "$REPO_ROOT/$d" ] && continue
@@ -536,8 +744,7 @@ cmd_check_release() {
                 fi
                 if [ -z "$row_release" ]; then
                     removed_dirs="$removed_dirs $d"
-                elif [ "$prev_is_version" = "true" ] \
-                     && { ! _loom_version_lt "$prev" "$row_release" || _loom_version_lt "$version" "$row_release"; }; then
+                elif { ! _loom_version_lt "$prev" "$row_release" || _loom_version_lt "$version" "$row_release"; }; then
                     removed_misdeclared="$removed_misdeclared $d"
                     misdeclared_detail="$misdeclared_detail $d (row says $row_release)"
                 else
@@ -603,8 +810,18 @@ cmd_check_release() {
     # ships (a customer-generated file, or a PROPOSE-ADVISORY/KORI-CLASS row
     # on a fork-owned file) carries a `fixture:` note instead — see the
     # registry header comment.
-    local content_prev
-    content_prev="$(loom_latest_tag_at_or_below "$version" "$REPO_ROOT" 2>/dev/null)" || content_prev=""
+    #
+    # Finding 2: reuse whatever the removal guard above already resolved as
+    # "the previous release" ($prev — set from an explicit --since when one
+    # was given and it resolved) instead of silently recomputing a separate
+    # answer that ignores --since. When no --since was given (or it did not
+    # resolve), fall back to the newest tag STRICTLY BELOW $version — never
+    # $version's own tag, which would prove a row's prior state against its
+    # own post-fix content and fail it falsely (loom_latest_tag_below).
+    local content_prev="$prev"
+    if [ -z "$content_prev" ]; then
+        content_prev="$(loom_latest_tag_below "$version" "$REPO_ROOT" 2>/dev/null)" || content_prev=""
+    fi
     verify_content_rows_execution "$version" "$content_prev" || overall_rc=1
 
     local changelog="$REPO_ROOT/CHANGELOG.md"
@@ -697,69 +914,227 @@ build_remove_cmd() {
     esac
 }
 
-# A local `v[0-9]*` tag is a baseline candidate ONLY when its own tree
-# carries LogicLoom's own version stamp for that version: "name":"logic-loom"
-# AND "version":"<T>" in the tag's root package.json (framework-owned in a
-# TEMPLATE clone; see CLAUDE.md "Harness <-> product boundary"), or
-# FRAMEWORK_VERSION=<T> in its .logic-loom/config/architecture.conf (the
-# stamp bump-version.sh writes; the one that carries an ADOPTED install,
-# whose root package.json is the adopter's own product manifest and never
-# names logic-loom). Either is proof the tag is a LogicLoom release, not an
-# adopter's own product tag that happens to share the vX.Y.Z shape (finding
-# 1: an adopter's own semver release tag must never be mistaken for ours —
-# that would let their customized plugin bytes be judged "pristine"). The
-# version must MATCH the tag: name alone would re-admit a template clone's
-# own product tags (its package.json still says logic-loom). Known cost: the
-# pre-v6.2 tags (package name sdd-agentic-framework, versions that lag the
-# tag, no architecture.conf) are rejected too — they carry no stamp that
-# discriminates, and no shipped tree has both those tags and a retired
-# plugin still on disk, so the fall-through to `none` costs nothing real.
-_loom_rm_tag_is_logicloom() {
-    local tag="$1" t="$2"
-    local pkg
-    if pkg="$(git -C "$REPO_ROOT" show "${tag}:package.json" 2>/dev/null)"; then
-        if printf '%s' "$pkg" | grep -qF '"name": "logic-loom"' \
-           && printf '%s' "$pkg" | grep -qF "\"version\": \"$t\""; then
-            return 0
+# Finding 1 (fix BY DESIGN, not a better heuristic): a local `v[0-9]*` tag
+# MUST NEVER establish a baseline that can lead to REMOVE, full stop — not
+# even one whose tree carries LogicLoom's own version stamp. The previous
+# heuristic here (package.json name+version, or architecture.conf
+# FRAMEWORK_VERSION) tried to tell "a LogicLoom release tag" apart from "an
+# adopter's own semver tag that happens to share the vX.Y.Z shape" by
+# checking whether the tag's CONTENT looks like LogicLoom's. That can never
+# work in an ADOPTED install: an adopted repo legitimately CONTAINS
+# LogicLoom's own files (that is what adoption means), so a customer tag on
+# a customized, retired plugin can carry a perfectly genuine
+# FRAMEWORK_VERSION stamp — or a hand-set package.json — and still not be a
+# tag LogicLoom itself cut. No content stamp, however specific, can prove
+# WHO tagged a commit. Only LogicLoom's own SYNC RECORD can: a ref this
+# harness itself wrote (.sdd-sync-ref, refs/loom-upstream/main) or, in an
+# ADOPTED install, the adopt receipt's own recorded sha256 for the exact
+# file this harness itself wrote and hashed (_loom_rm_adopt_receipt_sha256
+# below) — never a "does this commit look like ours" guess. With no such
+# record, the item is UNKNOWN, and resolve_state()/compute_recommendation()
+# always route UNKNOWN through the same branch as "customized" (never the
+# `state = pristine` branch that leads to REMOVE). A tag is never consulted
+# here, for display or anything else — there is nothing to prove it is safe
+# to look at, and a "display-only" fork of this logic would be exactly the
+# kind of parallel heuristic this fix is meant to close.
+
+# ADOPTED-only: the sha256 an adopted install's own receipt
+# (.logicloom-adopt-receipt.json) recorded the last time LogicLoom itself
+# wrote <path> — never guessed, read straight from the one record LogicLoom
+# itself produced. Unlike a tag, an adopter cannot forge this: it is not
+# "does this commit look like a release", it is "did LogicLoom's own writer
+# (record-update-writes.sh / packaging/adopt's apply.js) record THIS exact
+# path with THIS exact hash". Only ever matches a `kind:"file"` entry, so it
+# naturally never fires for a plugin/mcp-server directory (those are
+# recorded, if at all, as `kind:"dir"` — presence only, no hash, and
+# presence alone proves nothing about whether the directory has since been
+# customized). Empty stdout + rc 1 when the receipt is absent, unparsable,
+# python3 is unavailable, or it never recorded a file write for this path —
+# every one of those falls through to the next baseline candidate, never to
+# a false "pristine".
+# Cache: a scan/plan run calls this once PER REGISTRY ROW (up to ~25+ in the
+# real registry, more with project rows), and re-spawning python3 to reparse
+# the whole receipt for each one is real, avoidable overhead. Parsed once per
+# $REPO_ROOT per process and memoized here as "path<TAB>sha256" lines; every
+# call after the first is a plain awk lookup against this in-memory cache,
+# never a second subprocess.
+_LOOM_RM_RECEIPT_CACHE_ROOT=""
+_LOOM_RM_RECEIPT_CACHE=""
+_LOOM_RM_RECEIPT_CACHE_OK="false"
+
+_loom_rm_adopt_receipt_sha256() {
+    local path="$1"
+    local receipt="$REPO_ROOT/.logicloom-adopt-receipt.json"
+    [ -f "$receipt" ] || return 1
+    if [ "$_LOOM_RM_RECEIPT_CACHE_ROOT" != "$REPO_ROOT" ]; then
+        _LOOM_RM_RECEIPT_CACHE_ROOT="$REPO_ROOT"
+        _LOOM_RM_RECEIPT_CACHE=""
+        _LOOM_RM_RECEIPT_CACHE_OK="false"
+        if command -v python3 >/dev/null 2>&1; then
+            _LOOM_RM_RECEIPT_CACHE="$(python3 - "$receipt" <<'PY' 2>/dev/null
+import json, re, sys
+try:
+    with open(sys.argv[1], 'r') as f:
+        data = json.load(f)
+    if not isinstance(data, dict) or data.get('schema') != 'logicloom/adopt-receipt@1' or not isinstance(data.get('runs'), list):
+        sys.exit(1)
+    files = {}
+    for run in data['runs']:
+        if not isinstance(run, dict) or run.get('status') not in ('complete', 'partial', 'in-progress'):
+            continue
+        for w in (run.get('wrote') or []):
+            if not isinstance(w, dict):
+                continue
+            if w.get('kind') == 'file':
+                p = w.get('path')
+                if p:
+                    # NOTE: this heredoc sits inside a $( ) substitution and
+                    # bash 3.2 does not skip comments while scanning for the
+                    # closing paren -- no quotes or parens in comments here.
+                    # Both real writers store the digest as sha256:<hex> --
+                    # packaging/adopt/lib/fsops.js sha256File, and the JSON
+                    # helper sha256 op in record-update-writes.sh -- so
+                    # normalize to bare lowercase hex, which is what
+                    # _loom_rm_sha256_file prints and resolve_state compares
+                    # against. Anything that is not a 64-hex digest after
+                    # that is unusable. Last writer wins across runs,
+                    # unusable included: a later write with no usable digest
+                    # must not let an earlier run digest vouch for bytes it
+                    # never saw.
+                    s = str(w.get('sha256') or '').strip().lower()
+                    if s.startswith('sha256:'):
+                        s = s[7:]
+                    if not re.match(r'^[0-9a-f]{64}$', s):
+                        s = ''
+                    files[p] = s
+    for p, sha in files.items():
+        if sha:
+            sys.stdout.write(p + '\t' + sha + '\n')
+except Exception:
+    sys.exit(1)
+PY
+)"
+            [ -n "$_LOOM_RM_RECEIPT_CACHE" ] && _LOOM_RM_RECEIPT_CACHE_OK="true"
         fi
     fi
-    local arch
-    if arch="$(git -C "$REPO_ROOT" show "${tag}:.logic-loom/config/architecture.conf" 2>/dev/null)"; then
-        if printf '%s' "$arch" | grep -qE "^FRAMEWORK_VERSION=$t\$"; then
-            return 0
-        fi
-    fi
-    return 1
+    [ "$_LOOM_RM_RECEIPT_CACHE_OK" = "true" ] || return 1
+    local sha
+    sha="$(printf '%s\n' "$_LOOM_RM_RECEIPT_CACHE" | awk -F'\t' -v p="$path" '$1 == p { print $2; exit }')"
+    [ -n "$sha" ] || return 1
+    printf '%s' "$sha"
+    return 0
 }
 
-# Newest local tag:path baseline (LogicLoom-provable tags only), then
-# upstream. Read-only git only.
-# Prints "sync-ref:S" | "tag:vT" | "upstream:D^" | "none".
+# sha256 of a file's current on-disk bytes (python3 only — matches the
+# hashing record-update-writes.sh itself used to fill the receipt, so a
+# comparison against _loom_rm_adopt_receipt_sha256 is meaningful). Empty
+# stdout + rc 1 when python3 is unavailable or the file cannot be read.
+_loom_rm_sha256_file() {
+    local f="$1"
+    [ -f "$f" ] || return 1
+    command -v python3 >/dev/null 2>&1 || return 1
+    local sha
+    sha="$(python3 - "$f" <<'PY' 2>/dev/null
+import hashlib, sys
+try:
+    h = hashlib.sha256()
+    with open(sys.argv[1], 'rb') as fh:
+        for chunk in iter(lambda: fh.read(65536), b''):
+            h.update(chunk)
+    sys.stdout.write(h.hexdigest())
+except Exception:
+    sys.exit(1)
+PY
+)" || return 1
+    [ -n "$sha" ] || return 1
+    printf '%s' "$sha"
+    return 0
+}
+
+# .sdd-sync-ref is LogicLoom's own record ONLY in the shape LogicLoom itself
+# writes it — `git rev-parse` output, a hex object name (KNOWN_ISSUES.md's
+# manual repair writes the same) — AND ONLY when refs/loom-upstream/main
+# (the ad-hoc fetch extract-proposals.sh maintains) exists locally and
+# REACHES that commit. That reachability test is not new policy: it is the
+# exact validity rule /update-framework already applies (extract-proposals.sh
+# refuses to proceed from a sync-ref that is "NOT reachable from upstream
+# main"); the scanner merely stops being looser than the update path about
+# the same file. Why it matters here: a customer who writes their OWN commit
+# into the file — or a symbolic name (HEAD, a branch) that resolves to one —
+# has not produced a LogicLoom record, and diffing the working tree against
+# their own commit reads their customized bytes as "pristine", the exact
+# route to a REMOVE recommendation on a customer's work.
+#
+# Round 2 (shared with the recorder — record-update-writes.sh's
+# resolve_sync_ref/upstream_blob_sha apply the SAME rule via the SAME
+# function): with refs/loom-upstream/main absent, hex shape alone is NEVER
+# enough — there is no baseline to prove reachability against, so the item
+# is UNKNOWN, not "the shape stands on its own". Moved into the shared lib
+# (loom_sync_ref_is_loom_record, .logic-loom/lib/release-migrations.sh) so
+# both callers enforce one rule instead of two copies drifting apart.
+_loom_rm_sync_ref_is_loom_record() {
+    loom_sync_ref_is_loom_record "$1" "$REPO_ROOT"
+}
+
+# LogicLoom's own sync record: .sdd-sync-ref (only when it is provably
+# LogicLoom's — _loom_rm_sync_ref_is_loom_record above), the (ADOPTED only)
+# adopt receipt's recorded sha256 for this exact file, then
+# refs/loom-upstream/main. NEVER a tag (finding 1 — see the block comment
+# above). Read-only git only.
+#
+# ORDERING (cross-file finding: a receipt-sha256 candidate that byte-matches
+# disk wins over a sync-ref candidate that exists but does not — never the
+# reverse, and never dropped silently): .sdd-sync-ref is advanced only at
+# /update-framework Step 6/8, AFTER record-update-writes.sh runs at Step
+# 5/7b (see upstream_blob_sha's block comment in record-update-writes.sh).
+# For a MODIFIED path — the common case a retired/replaced file falls under
+# — the pre-advance .sdd-sync-ref commit still has SOME version of the path,
+# so "sync-ref exists for this path" alone is true well before the sync-ref
+# blob reflects what LogicLoom just wrote. Picking sync-ref on existence
+# alone, unconditionally, would make the receipt-sha256 route (finding 1's
+# ADOPTED fix) a dead branch for exactly the case it was built to cover:
+# it would never be consulted, because the stale-but-present sync-ref
+# candidate always wins first. So when a receipt-sha256 candidate exists,
+# check it FIRST: if the file's current on-disk bytes are byte-identical to
+# what LogicLoom's own receipt recorded there, that is proof by the same
+# OWNERSHIP RULE record-update-writes.sh's own two-candidate resolver
+# relies on (a byte-identical copy of a LogicLoom-recorded digest can only
+# have come from LogicLoom) — return it regardless of what sync-ref says.
+# Only when the receipt candidate does NOT match disk (customized since
+# recorded, or no receipt entry at all) does a sync-ref candidate that DOES
+# resolve take over; this is unchanged from before. A receipt candidate
+# that matches neither disk nor exists falls through the same as ever —
+# never a stronger claim than sync-ref, only ever a matching, provable one.
+# Prints "sync-ref:S" | "receipt-sha256:H" | "upstream:D^" | "none".
 resolve_baseline() {
     local path="$1"
+    local sync_baseline=""
     if [ -f "$REPO_ROOT/.sdd-sync-ref" ]; then
         local sync_ref
         sync_ref="$(tr -d '[:space:]' < "$REPO_ROOT/.sdd-sync-ref" 2>/dev/null)" || sync_ref=""
-        if [ -n "$sync_ref" ] && git -C "$REPO_ROOT" cat-file -e "$sync_ref:$path" 2>/dev/null; then
-            printf 'sync-ref:%s' "$sync_ref"
-            return 0
+        if _loom_rm_sync_ref_is_loom_record "$sync_ref" \
+           && git -C "$REPO_ROOT" cat-file -e "$sync_ref:$path" 2>/dev/null; then
+            sync_baseline="sync-ref:$sync_ref"
         fi
     fi
-    local tags stripped sorted t
-    tags="$(git -C "$REPO_ROOT" for-each-ref --format='%(refname:short)' refs/tags/ 2>/dev/null)" || tags=""
-    if [ -n "$tags" ]; then
-        stripped="$(printf '%s\n' "$tags" | awk '/^v[0-9]/ { sub(/^v/,""); print }')"
-        if [ -n "$stripped" ]; then
-            sorted="$(printf '%s\n' "$stripped" | sort -t. -k1,1nr -k2,2nr -k3,3nr)"
-            while IFS= read -r t; do
-                [ -z "$t" ] && continue
-                _loom_rm_tag_is_logicloom "v$t" "$t" || continue
-                if git -C "$REPO_ROOT" cat-file -e "v$t:$path" 2>/dev/null; then
-                    printf 'tag:v%s' "$t"
-                    return 0
-                fi
-            done <<< "$sorted"
+    if [ "${ADOPT_MODE:-TEMPLATE}" = "ADOPTED" ]; then
+        local recorded_sha
+        if recorded_sha="$(_loom_rm_adopt_receipt_sha256 "$path")" && [ -n "$recorded_sha" ]; then
+            local current
+            if current="$(_loom_rm_sha256_file "$REPO_ROOT/$path")" && [ -n "$current" ] \
+               && [ "$current" = "$recorded_sha" ]; then
+                printf 'receipt-sha256:%s' "$recorded_sha"
+                return 0
+            fi
+            if [ -z "$sync_baseline" ]; then
+                printf 'receipt-sha256:%s' "$recorded_sha"
+                return 0
+            fi
         fi
+    fi
+    if [ -n "$sync_baseline" ]; then
+        printf '%s' "$sync_baseline"
+        return 0
     fi
     if git -C "$REPO_ROOT" rev-parse -q --verify refs/loom-upstream/main >/dev/null 2>&1; then
         local d
@@ -786,6 +1161,21 @@ resolve_state() {
         STATE="unknown"
         return 0
     fi
+    case "$baseline" in
+        receipt-sha256:*)
+            # No git ref to diff against — the receipt names one file and one
+            # hash. Compare bytes directly; anything short of an exact match
+            # (including "can't hash it") is customized, never pristine.
+            local recorded="${baseline#receipt-sha256:}" current
+            if current="$(_loom_rm_sha256_file "$REPO_ROOT/$path")" && [ -n "$current" ] && [ "$current" = "$recorded" ]; then
+                STATE="pristine"
+            else
+                STATE="customized"
+                STATE_CHANGED="$path"
+            fi
+            return 0
+            ;;
+    esac
     local baseref="${baseline#*:}"
     local untracked
     untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked=""
@@ -1019,6 +1409,67 @@ converted_paths_for() {
     sed -n 's/^- \(\.claude\/[^ ]*\) .*<- .*$/\1/p' "$ledger" 2>/dev/null | tr '\n' ' ' | sed 's/ $//'
 }
 
+# Round-2 finding 2: decision=converted must not force REMOVE regardless of
+# what happened to plugins/<name> since the conversion was recorded — that
+# would silently discard a customer's own post-conversion edit. Evidence the
+# converter itself keeps, checked in order:
+#   1. the commit that CREATED .claude/skills/<name>/CONVERTED.md — the
+#      converter's own ledger. finalize_convert() never rewrites an EXISTING
+#      one (it only classifies it SKIP/KEEP against a fresh render), so a
+#      completed conversion writes it exactly once: its creation commit IS
+#      the conversion decision, committed evidence a customer cannot have
+#      pre-dated by editing the plugin first.
+#   2. failing that (CONVERTED.md was never committed — a same-session
+#      convert whose decision is still only in the working tree), the commit
+#      that added the "converted = <name>" line to DECISIONS_FILE — matched
+#      as a WHOLE LINE (`-G` with an anchored, escaped regex), never as a
+#      substring: `-S"converted = foo"` also counts "converted = foobar", so a
+#      same-prefix plugin converted earlier would date foo's decision to the
+#      WRONG (older) commit and diff the plugin against the wrong tree.
+# Neither committed -> empty stdout, rc 1: the caller must NOT read that as
+# "nothing to compare" / "unchanged" (Governing principle: doubt -> KEEP and
+# ASK, never REMOVE). Read-only git only (log).
+_loom_rm_converted_decision_commit() {
+    local plugin="$1" c
+    c="$(git -C "$REPO_ROOT" log --diff-filter=A --format='%H' -- \
+        ".claude/skills/$plugin/CONVERTED.md" 2>/dev/null | tail -1)"
+    if [ -z "$c" ] && [ -f "$DECISIONS_FILE" ]; then
+        local plugin_re
+        plugin_re="$(printf '%s' "$plugin" | sed 's/[][\\.*^$/]/\\&/g')"
+        c="$(git -C "$REPO_ROOT" log -G"^converted = ${plugin_re}\$" --format='%H' -- \
+            "$DECISIONS_FILE" 2>/dev/null | tail -1)"
+    fi
+    [ -n "$c" ] || return 1
+    printf '%s' "$c"
+    return 0
+}
+
+# "unchanged" | "changed:<commit>" | "unknown" — whether <path> (plugins/
+# <name>) has changed since the conversion-decision commit above: any
+# TRACKED change (working tree vs that commit — the finding's own minimum),
+# and ALSO any untracked, non-ignored file under it, exactly as
+# resolve_state() counts untracked files for every other row. An untracked
+# file inside plugins/<name> is a customer's bytes that no commit vouches
+# for; a REMOVE plan line on that directory recommends deleting it (the
+# printed `git rm -r` would leave it, but the recommendation is the harm the
+# governing principle names). "unknown" when no decision commit can be found
+# at all: never silently read as "unchanged". Read-only git only (diff,
+# ls-files).
+_loom_rm_converted_plugin_status() {
+    local plugin="$1" path="$2" commit untracked
+    if ! commit="$(_loom_rm_converted_decision_commit "$plugin")"; then
+        printf 'unknown'
+        return 0
+    fi
+    untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked=""
+    if [ -z "$untracked" ] && git -C "$REPO_ROOT" diff --quiet "$commit" -- "$path" 2>/dev/null; then
+        printf 'unchanged'
+    else
+        printf 'changed:%s' "$commit"
+    fi
+    return 0
+}
+
 # REMOVE is blocked by a wired hook or a CI workflow reference (§15.2-B).
 # Only REMOVE: every other action keeps the reference as its first step.
 apply_remove_blockers() {
@@ -1033,13 +1484,27 @@ compute_recommendation() {
     REC_BLOCKED="false"; REC_BLOCKED_BY_EXTRA=""; REC_REMOVE_CMD=""; REC_MOVE_CMD=""
 
     if [ "$decision" = "converted" ]; then
-        REC_ACTION="REMOVE"
-        local cpaths
-        cpaths="$(converted_paths_for "$name")"
-        REC_REASON="CONVERTED - plugins/$name still on disk; delete when verified"
-        [ -n "$cpaths" ] && REC_REASON="$REC_REASON (converted: $cpaths)"
-        build_remove_cmd "$kind" "$name" "$path"
-        apply_remove_blockers
+        local cstatus
+        cstatus="$(_loom_rm_converted_plugin_status "$name" "$path")"
+        case "$cstatus" in
+            unchanged)
+                REC_ACTION="REMOVE"
+                local cpaths
+                cpaths="$(converted_paths_for "$name")"
+                REC_REASON="CONVERTED - plugins/$name still on disk; delete when verified"
+                [ -n "$cpaths" ] && REC_REASON="$REC_REASON (converted: $cpaths)"
+                build_remove_cmd "$kind" "$name" "$path"
+                apply_remove_blockers
+                ;;
+            changed:*)
+                REC_ACTION="KEEP-AS-IS"
+                REC_REASON="CONVERTED, but $path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file under it) — ASK before removing; verify the edit was carried over, then decide by hand"
+                ;;
+            *)
+                REC_ACTION="KEEP-AS-IS"
+                REC_REASON="CONVERTED, but the conversion decision has no committed record (.claude/skills/$name/CONVERTED.md or migration-decisions.conf) — cannot verify $path wasn't edited since; commit the decision, then re-run"
+                ;;
+        esac
         return 0
     fi
     if [ "$decision" = "keep" ]; then
@@ -1064,7 +1529,24 @@ compute_recommendation() {
                     REC_BLOCKED_BY_EXTRA="refs/loom-upstream/main:$newp"$'\t'"0"$'\t'"pending-clean-add"
                 else
                     REC_ACTION="MOVE"
-                    REC_MOVE_CMD="git mv $path $newp"
+                    # Finding 4: this recommendation was computed at scan
+                    # time and is never re-checked at apply time — a
+                    # same-run clean-add landing at $newp between "plan"
+                    # printing this and the user pasting it would otherwise
+                    # make a bare `git mv` overwrite-fail messily (or, worse,
+                    # on some tools, silently). The PRINTED/apply command
+                    # itself now re-checks immediately before it runs and
+                    # refuses with a clear message instead of ever calling
+                    # `git mv` onto an existing destination. It also
+                    # `mkdir -p`s $newp's own parent directory first: `git mv`
+                    # (unlike a plain `mv`) does NOT create an intermediate
+                    # destination directory itself — verified directly
+                    # against real git — so the un-guarded, pre-fix
+                    # recommendation would already have failed with "No such
+                    # file or directory" on the ordinary case a MOVE row
+                    # exists for at all: moving into a path that does not
+                    # exist yet.
+                    REC_MOVE_CMD="if [ -e '$newp' ]; then echo 'release-migrations: $newp already exists on disk — refusing to overwrite (something added it since this was planned); re-run: release-migrations.sh plan $name' >&2; false; else mkdir -p \"\$(dirname '$newp')\" && git mv $path $newp; fi"
                     REC_REASON="Replaced by: path:$newp."
                 fi
             else
@@ -1769,7 +2251,7 @@ cmd_plan() {
             esac ;;
         MOVE)
             echo "${REC_MOVE_CMD} (gate policy git.mv = ask, so you approve it). Replaced by: $(printf '%s' "$row" | awk -F'\t' '{print $4}')."
-            echo "this MOVE is computed fresh as of right now; if the destination has since appeared on disk (e.g. a clean-add applied since this was printed), git mv fails cleanly rather than overwriting it — re-run plan $name first if time has passed."
+            echo "the command above re-checks the destination right before it moves anything and refuses (never overwrites) if something has landed there since this was planned — re-run plan $name to get a fresh recommendation either way."
             ;;
         CONVERT-TO-LOCAL|ADOPT-REPLACEMENT)
             echo ""

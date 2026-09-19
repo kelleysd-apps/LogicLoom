@@ -40,6 +40,7 @@ source "$ROOT/tests/lib/tree-provenance.sh"
 REG="$ROOT/.logic-loom/config/release-migrations.conf"
 LIB="$ROOT/.logic-loom/lib/release-migrations.sh"
 RM="$ROOT/plugins/loom-maintenance/scripts/release-migrations.sh"
+RECORDER="$ROOT/plugins/loom-maintenance/scripts/record-update-writes.sh"
 CMD_MD="$ROOT/plugins/loom-maintenance/commands/update-framework.md"
 SKILL_MD="$ROOT/plugins/loom-maintenance/skills/framework-updater/SKILL.md"
 
@@ -404,11 +405,12 @@ JSON
   cp "$LIB" "$F/.logic-loom/lib/release-migrations.sh"
   echo "FRAMEWORK_VERSION=7.0.0" > "$F/.logic-loom/config/architecture.conf"
 
-  # finding 1: a local vX.Y.Z tag is only a provable LogicLoom baseline when
-  # its own package.json carries the "logic-loom" name + matching version
-  # stamp — stamp it at v9.0.0, then bump it for v9.1.0 (below), so the
-  # pre-existing tag-fallback assertions keep exercising a REAL LogicLoom tag
-  # instead of accidentally exercising the bug this fixes.
+  # finding 1: a tag NEVER establishes a baseline (fix BY DESIGN — see
+  # resolve_baseline). These two tags (v9.0.0, v9.1.0) are stamped with
+  # LogicLoom's own package.json name+version purely so the "does a tag ever
+  # leak into the baseline, even a convincing one" assertions below have
+  # something convincing to reject — resolve_baseline must ignore them
+  # regardless of how genuine they look.
   cat > "$F/package.json" <<'JSON'
 { "name": "logic-loom", "version": "9.0.0" }
 JSON
@@ -441,6 +443,13 @@ JSON
   ( cd "$F" && git add -A >/dev/null && git commit -q -m "commit A2" )
   local A2; A2="$(git -C "$F" rev-parse HEAD)"
   git -C "$F" update-ref refs/tags/v9.1.0 "$A2"
+  # Round-2 finding 1: a sync-ref is only a baseline when refs/loom-upstream/
+  # main exists locally AND reaches it. A2 is a descendant of A (the
+  # sync-ref commit), so this keeps every existing sync-ref-baseline
+  # assertion below true under the tightened rule instead of silently
+  # flipping them all to "no baseline" — FIX2 (below) deletes this ref
+  # again for the fixtures that specifically want "no baseline at all".
+  git -C "$F" update-ref refs/loom-upstream/main "$A2"
 
   # Uncommitted edits (§7-B): sdd-debug customized (1 changed, 1 added),
   # sdd-git customized (1 changed).
@@ -566,17 +575,25 @@ assert not any(i.get(\"kind\") == \"content\" for i in d[\"items\"])
 '"
 
 echo ""
-echo "C. baseline resolution: sync-ref removed -> newest tag wins (descending, v9.1.0 not v9.0.0)"
+echo "C. baseline resolution (finding 1): sync-ref removed -> NEVER falls back to a tag, even two"
+echo "   LogicLoom-stamped ones (v9.0.0, v9.1.0) sitting right there — baseline none, state unknown"
 FIX2="$TMP/fixture2"; cp -R "$FIX1" "$FIX2"
 rm -f "$FIX2/.sdd-sync-ref"
+# Also drop the upstream-history ref FIX1 now carries (finding 1, above) —
+# this fixture's whole point is "no baseline candidate resolves at all",
+# and leaving refs/loom-upstream/main behind would let resolve_baseline's
+# OWN upstream fallback (a real, different baseline route) resolve one,
+# which is not what this section tests.
+git -C "$FIX2" update-ref -d refs/loom-upstream/main
 bash "$RM" scan --json --root "$FIX2" > "$TMP/c2.json" 2>"$TMP/c2.err"
-assert "with .sdd-sync-ref removed, sdd-dev-loop baseline falls back to the newest tag (v9.1.0)" \
+assert "with .sdd-sync-ref removed, sdd-dev-loop baseline is none (a tag is never consulted, stamped or not)" \
   "python3 -c '
 import json
 d = json.load(open(\"$TMP/c2.json\"))
 it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
-assert it[\"baseline\"] == \"tag:v9.1.0\", it[\"baseline\"]
-assert it[\"state\"] == \"pristine\", it
+assert it[\"baseline\"] == \"none\", it[\"baseline\"]
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
 '"
 
 echo ""
@@ -739,6 +756,10 @@ JSON
 MCP_REF="$(git -C "$FIX_MCP" rev-parse HEAD)"
 printf '%s\n' "$MCP_REF" > "$FIX_MCP/.sdd-sync-ref"
 ( cd "$FIX_MCP" && git add -A >/dev/null && git commit -q -m "advance sync-ref" )
+# Round-2 finding 1: the sync-ref just advanced PAST FIX1's frozen
+# refs/loom-upstream/main (still A2) — advance it too, so it still REACHES
+# the new sync-ref commit (finding 1's ancestor rule).
+git -C "$FIX_MCP" update-ref refs/loom-upstream/main "$(git -C "$FIX_MCP" rev-parse HEAD)"
 bash "$RM" scan --json --root "$FIX_MCP" > "$TMP/cmcp.json" 2>&1
 assert "sdd-marketplace is an item, kind mcp-server, remove_command git rm -r mcp-servers/sdd-marketplace" \
   "python3 -c '
@@ -977,7 +998,7 @@ assert any(w[\"file\"] == \".claude/settings.local.json\" for w in it[\"wired_ho
 '"
 
 echo ""
-echo "C. finding 1: resolve_baseline rejects an unproven local vX.Y.Z tag"
+echo "C. finding 1 (fix BY DESIGN): a tag can NEVER establish a baseline that leads to REMOVE"
 FIX_FAKETAG="$TMP/fixture-faketag"
 mkdir -p "$FIX_FAKETAG/.logic-loom/config" "$FIX_FAKETAG/.logic-loom/lib" "$FIX_FAKETAG/plugins/sdd-dev-loop"
 git init -q "$FIX_FAKETAG"
@@ -1002,41 +1023,455 @@ assert it[\"baseline\"] == \"none\", it
 assert it[\"state\"] == \"unknown\", it
 assert it[\"recommended\"] != \"REMOVE\", it
 '"
-# the positive control: a tag whose package.json DOES carry LogicLoom's own
-# stamp (name=logic-loom, version matching the tag) IS accepted.
+# The adversarial case the review demanded: a tag CRAFTED to satisfy EVERY
+# heuristic the old code checked — package.json name+version stamp (the
+# TEMPLATE route) AND a matching architecture.conf FRAMEWORK_VERSION (the
+# ADOPTED route) BOTH present on the same tagged commit — on a genuinely
+# CUSTOMIZED retired plugin, in a repo that also carries the ADOPTED marker
+# (.logic-loom/AGENTS.md). The old heuristic would have accepted this tag as
+# a "genuine LogicLoom release" and recommended REMOVE on a customer's own
+# customized content. The fix is structural (tags are never consulted for a
+# baseline at all, ADOPTED or not), so this must stay baseline none / state
+# unknown / never REMOVE no matter how convincing the forged tag is.
 cat > "$FIX_FAKETAG/package.json" <<'JSON'
 { "name": "logic-loom", "version": "2.3.1" }
 JSON
-( cd "$FIX_FAKETAG" && git add -A >/dev/null && git commit -q -m "stamp it as a real LogicLoom tag" )
+echo "FRAMEWORK_VERSION=2.3.1" > "$FIX_FAKETAG/.logic-loom/config/architecture.conf"
+mkdir -p "$FIX_FAKETAG/.logic-loom"
+: > "$FIX_FAKETAG/.logic-loom/AGENTS.md"
+echo "a customer's own hand-edited body, NOT LogicLoom's shipped content" > "$FIX_FAKETAG/plugins/sdd-dev-loop/marker.txt"
+( cd "$FIX_FAKETAG" && git add -A >/dev/null && git commit -q -m "forged tag: every old heuristic satisfied, on customized content" )
 git -C "$FIX_FAKETAG" update-ref refs/tags/v2.3.1 HEAD
 bash "$RM" scan --json --root "$FIX_FAKETAG" > "$TMP/crealtag.json" 2>&1
-assert "…but a genuinely LogicLoom-stamped v2.3.1 tag IS accepted: baseline tag:v2.3.1, pristine, REMOVE" \
+assert "…even a tag crafted to satisfy EVERY old heuristic (package.json stamp + architecture.conf stamp + ADOPTED marker) on customized content is NEVER accepted: baseline none, state unknown, never REMOVE" \
   "python3 -c '
 import json
 d = json.load(open(\"$TMP/crealtag.json\"))
 it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
-assert it[\"baseline\"] == \"tag:v2.3.1\", it
-assert it[\"state\"] == \"pristine\", it
-assert it[\"recommended\"] == \"REMOVE\", it
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
 '"
 
 echo ""
-echo "C. finding 5a: MOVE guidance carries a staleness/re-check caveat (git mv itself fails closed, never overwrites — verified separately below)"
-assert "the printed MOVE line tells the agent to re-run plan if time has passed" \
-  "grep -q 're-run plan \\\$name first if time has passed' '$RM'"
-# reproduction: git mv onto an existing destination is a clean, non-destructive
-# failure (confirms the 'silent overwrite' framing in the original finding was
-# overstated — the residual gap is staleness of the PRINTED recommendation,
-# which this caveat addresses; the git-level operation itself was never unsafe).
+echo "C. finding 1: the adopt receipt's recorded sha256 for ONE file IS a valid baseline (ADOPTED-only, file-kind rows only)"
+FIX_RECEIPT="$TMP/fixture-receipt"
+mkdir -p "$FIX_RECEIPT/.logic-loom/config" "$FIX_RECEIPT/.logic-loom/lib" "$FIX_RECEIPT/docs"
+git init -q "$FIX_RECEIPT"
+cp "$LIB" "$FIX_RECEIPT/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.0" > "$FIX_RECEIPT/.logic-loom/config/architecture.conf"
+echo "path | docs/old-note.md | removed | command:/replacement-cmd | REMOVE | v6.0.0 | v9.0.0 | test fixture for the receipt-sha256 baseline route" \
+  > "$FIX_RECEIPT/.logic-loom/config/release-migrations.conf"
+printf 'exactly what LogicLoom wrote here\n' > "$FIX_RECEIPT/docs/old-note.md"
+RECEIPT_SHA="$(python3 -c '
+import hashlib
+print(hashlib.sha256(open("'"$FIX_RECEIPT"'/docs/old-note.md", "rb").read()).hexdigest())
+')"
+cat > "$FIX_RECEIPT/.logicloom-adopt-receipt.json" <<JSON
+{
+  "schema": "logicloom/adopt-receipt@1",
+  "runs": [
+    {
+      "at": "2026-01-01T00:00:00.000Z",
+      "generator": "logicloom-update-framework@1.0.0",
+      "status": "complete",
+      "only": [],
+      "wrote": [
+        { "target": "harness", "path": "docs/old-note.md", "kind": "file", "sha256": "$RECEIPT_SHA" }
+      ],
+      "skipped": [], "failed": [], "notAttempted": []
+    }
+  ]
+}
+JSON
+( cd "$FIX_RECEIPT" && git add -A >/dev/null && git commit -q -m "adopted install" )
+bash "$RM" scan --json --root "$FIX_RECEIPT" > "$TMP/creceipt-pristine.json" 2>&1
+assert "byte-identical to what the receipt recorded: baseline receipt-sha256:<hash>, pristine, REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt-pristine.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"receipt-sha256:$RECEIPT_SHA\", it
+assert it[\"state\"] == \"pristine\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+echo "a customer edit, after the receipt was written" >> "$FIX_RECEIPT/docs/old-note.md"
+bash "$RM" scan --json --root "$FIX_RECEIPT" > "$TMP/creceipt-customized.json" 2>&1
+assert "…customized since: same baseline, state customized, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt-customized.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"receipt-sha256:$RECEIPT_SHA\", it
+assert it[\"state\"] == \"customized\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+
+echo ""
+echo "C. the receipt route must read the digest the REAL writers store: \"sha256:<hex>\""
+echo "   (packaging/adopt fsops.js sha256File and record-update-writes.sh's JSON helper both prefix it)"
+# The fixture above fabricated a bare-hex digest; no shipped writer produces
+# that. Against a real receipt the comparison must still work, and a digest
+# that is not a sha256 at all must prove nothing.
+FIX_RECEIPT2="$TMP/fixture-receipt-realformat"
+mkdir -p "$FIX_RECEIPT2/.logic-loom/config" "$FIX_RECEIPT2/.logic-loom/lib" "$FIX_RECEIPT2/docs"
+git init -q "$FIX_RECEIPT2"
+cp "$LIB" "$FIX_RECEIPT2/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.0" > "$FIX_RECEIPT2/.logic-loom/config/architecture.conf"
+echo "path | docs/old-note.md | removed | command:/replacement-cmd | REMOVE | v6.0.0 | v9.0.0 | real-format receipt digest" \
+  > "$FIX_RECEIPT2/.logic-loom/config/release-migrations.conf"
+printf 'exactly what LogicLoom wrote here\n' > "$FIX_RECEIPT2/docs/old-note.md"
+RECEIPT2_SHA="$(python3 -c '
+import hashlib
+print(hashlib.sha256(open("'"$FIX_RECEIPT2"'/docs/old-note.md", "rb").read()).hexdigest())
+')"
+mk_receipt2() {  # $1 = the "sha256" field value, recorded verbatim
+  cat > "$FIX_RECEIPT2/.logicloom-adopt-receipt.json" <<JSON
+{
+  "schema": "logicloom/adopt-receipt@1",
+  "runs": [
+    {
+      "at": "2026-01-01T00:00:00.000Z",
+      "generator": "logicloom-update-framework@1.0.0",
+      "status": "complete",
+      "only": [],
+      "wrote": [
+        { "target": "harness", "path": "docs/old-note.md", "kind": "file", "sha256": "$1" }
+      ],
+      "skipped": [], "failed": [], "notAttempted": []
+    }
+  ]
+}
+JSON
+}
+mk_receipt2 "sha256:$RECEIPT2_SHA"
+( cd "$FIX_RECEIPT2" && git add -A >/dev/null && git commit -q -m "adopted install, real-format receipt" )
+bash "$RM" scan --json --root "$FIX_RECEIPT2" > "$TMP/creceipt2-pristine.json" 2>&1
+assert "a real-format digest (\"sha256:<hex>\") on byte-identical content: baseline receipt-sha256:<bare hex>, pristine, REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt2-pristine.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"receipt-sha256:$RECEIPT2_SHA\", it
+assert it[\"state\"] == \"pristine\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+echo "a customer edit, after the receipt was written" >> "$FIX_RECEIPT2/docs/old-note.md"
+bash "$RM" scan --json --root "$FIX_RECEIPT2" > "$TMP/creceipt2-customized.json" 2>&1
+assert "…customized since: state customized, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt2-customized.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"receipt-sha256:$RECEIPT2_SHA\", it
+assert it[\"state\"] == \"customized\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+# a recorded digest that is not a 64-hex sha256 at all (an older or
+# placeholder entry — test_adopt_applier.sh's receipts carry "sha256:aaaa")
+# proves nothing about the bytes on disk: no baseline, never REMOVE, even
+# though the file is byte-identical to what LogicLoom wrote.
+printf 'exactly what LogicLoom wrote here\n' > "$FIX_RECEIPT2/docs/old-note.md"
+mk_receipt2 "sha256:aaaa"
+bash "$RM" scan --json --root "$FIX_RECEIPT2" > "$TMP/creceipt2-malformed.json" 2>&1
+assert "a malformed recorded digest (\"sha256:aaaa\") is unusable: baseline none, state unknown, never REMOVE — even on byte-identical content" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/creceipt2-malformed.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+# Round-2 finding 4: the assertion above is NOT discriminating on its own —
+# a script with NO malformed-digest check at all (one that never reads the
+# receipt route in the first place) produces the exact same "none"/"unknown"
+# result on THIS fixture, for a completely different reason (there is no
+# other baseline candidate here either way). Proving the REJECTION
+# mechanism actually fired — not merely that the receipt route is absent —
+# needs a DELTA: the SAME path, SAME fixture, differing ONLY in whether the
+# recorded digest is well-formed, must resolve to a DIFFERENT baseline. A
+# script that cannot parse/validate receipts at all would give "none" for
+# BOTH runs (no delta); this fails closed only when the well-formed run
+# resolves through the receipt route and the malformed run does not.
+assert "…and the malformed digest actually MATTERS: baseline differs from the well-formed run on the identical fixture/path (proves the mechanism fired, not merely 'no receipt route')" \
+  "python3 -c '
+import json
+well = json.load(open(\"$TMP/creceipt2-pristine.json\"))
+mal = json.load(open(\"$TMP/creceipt2-malformed.json\"))
+wit = next(i for i in well[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+mit = next(i for i in mal[\"items\"] if i[\"path\"] == \"docs/old-note.md\")
+assert wit[\"baseline\"] == \"receipt-sha256:$RECEIPT2_SHA\", wit
+assert mit[\"baseline\"] == \"none\", mit
+assert wit[\"baseline\"] != mit[\"baseline\"], (wit[\"baseline\"], mit[\"baseline\"])
+'"
+
+echo ""
+echo "C. cross-file finding: a receipt-sha256 candidate that MATCHES DISK must win over a"
+echo "   sync-ref candidate that merely EXISTS but does not — the mid-run clean-apply case"
+echo "   (.sdd-sync-ref advances at Step 6/8, AFTER record-update-writes.sh runs at Step"
+echo "   5/7b), which otherwise makes the receipt-sha256 route (finding 1's ADOPTED fix)"
+echo "   a dead branch for the common case: a MODIFIED path, present at both the stale"
+echo "   sync-ref commit and in the receipt"
+# Two upstream commits (U0 old, U1 new) on disjoint lines, exactly like the
+# .sdd-sync-ref forgery fixture above: U0 is what .sdd-sync-ref still names
+# (not yet advanced); U1 is what refs/loom-upstream/main holds (what a
+# clean-apply just wrote to disk) and record-update-writes.sh's real
+# two-candidate resolver records into the receipt. Verbs (throwaway repo
+# only): init, add, commit, branch, checkout, update-ref.
+FIX_DEADBRANCH="$TMP/fixture-receipt-vs-stale-syncref"
+mkdir -p "$FIX_DEADBRANCH/.logic-loom/config" "$FIX_DEADBRANCH/.logic-loom/lib" "$FIX_DEADBRANCH/docs"
+git init -q "$FIX_DEADBRANCH"
+cp "$LIB" "$FIX_DEADBRANCH/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.0" > "$FIX_DEADBRANCH/.logic-loom/config/architecture.conf"
+echo "path | docs/note.md | removed | command:/replacement-cmd | REMOVE | v6.0.0 | v9.0.0 | dead-branch fixture" \
+  > "$FIX_DEADBRANCH/.logic-loom/config/release-migrations.conf"
+printf 'content v1 (old)\n' > "$FIX_DEADBRANCH/docs/note.md"
+( cd "$FIX_DEADBRANCH" && git add -A >/dev/null && git commit -q -m "U0: old content" )
+DB_U0="$(git -C "$FIX_DEADBRANCH" rev-parse HEAD)"
+echo "$DB_U0" > "$FIX_DEADBRANCH/.sdd-sync-ref"
+( cd "$FIX_DEADBRANCH" && git add .sdd-sync-ref >/dev/null && git commit -q -m "record sync ref" )
+cat > "$FIX_DEADBRANCH/.logicloom-adopt-receipt.json" <<'JSON'
+{
+  "schema": "logicloom/adopt-receipt@1",
+  "runs": [
+    { "at": "2026-01-01T00:00:00.000Z", "generator": "logicloom-adopt@1.0.0",
+      "status": "complete", "only": [], "wrote": [], "skipped": [], "failed": [], "notAttempted": [] }
+  ]
+}
+JSON
+( cd "$FIX_DEADBRANCH" && git add -A >/dev/null && git commit -q -m "adopt receipt (pre-existing, no docs/note.md entry yet)" )
+( cd "$FIX_DEADBRANCH" && git branch upstream-scratch "$DB_U0" >/dev/null )
+( cd "$FIX_DEADBRANCH" && git checkout -q upstream-scratch )
+printf 'content v2 (new upstream bytes)\n' > "$FIX_DEADBRANCH/docs/note.md"
+( cd "$FIX_DEADBRANCH" && git commit -q -am "U1: upstream modifies docs/note.md" )
+DB_U1="$(git -C "$FIX_DEADBRANCH" rev-parse HEAD)"
+( cd "$FIX_DEADBRANCH" && git update-ref refs/loom-upstream/main "$DB_U1" )
+( cd "$FIX_DEADBRANCH" && git checkout -q - )
+# Simulate a clean-apply having just written the new bytes to disk,
+# uncommitted, BEFORE .sdd-sync-ref is advanced — record-update-writes.sh's
+# real two-candidate resolver records the digest that matches disk (U1's).
+printf 'content v2 (new upstream bytes)\n' > "$FIX_DEADBRANCH/docs/note.md"
+bash "$RECORDER" docs/note.md --version 9.0.0 --root "$FIX_DEADBRANCH" >/dev/null
+DB_SHA="$(python3 -c '
+import hashlib
+print(hashlib.sha256(open("'"$FIX_DEADBRANCH"'/docs/note.md", "rb").read()).hexdigest())
+')"
+bash "$RM" scan --json --root "$FIX_DEADBRANCH" > "$TMP/cdeadbranch.json" 2>&1
+assert "receipt-sha256 (matches disk) wins over a stale-but-present sync-ref: baseline receipt-sha256:<hash>, pristine, REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/cdeadbranch.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/note.md\")
+assert it[\"baseline\"] == \"receipt-sha256:$DB_SHA\", it
+assert it[\"state\"] == \"pristine\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+# A genuine customer edit on top of the clean-apply content matches NEITHER
+# candidate: falls back to the (stale) sync-ref, as before this fix —
+# customized, never REMOVE. The ordering change must never widen who reads
+# as pristine, only who does among candidates that ALREADY prove it.
+printf 'content v2 (new upstream bytes)\ncustomer edit on top\n' > "$FIX_DEADBRANCH/docs/note.md"
+bash "$RM" scan --json --root "$FIX_DEADBRANCH" > "$TMP/cdeadbranch-customized.json" 2>&1
+# Round-2 finding 4: on its own, this assertion is NOT discriminating — a
+# script with no two-candidate ordering logic at all (one that only ever
+# consults sync-ref, never the receipt) reaches the IDENTICAL sync-ref
+# fallback for the identical reason, since the receipt route was never in
+# play for it either. What actually proves the ordering fix exists is that
+# THIS SAME item, on THIS SAME fixture, resolved through the RECEIPT route a
+# moment ago (the assertion right above) and now resolves through the
+# SYNC-REF route once disk no longer matches either upstream candidate — a
+# script lacking the two-candidate mechanism cannot produce that first half
+# at all (it would show sync-ref there too), so bundling both halves into
+# one assertion is what makes this fail against such a script.
+assert "…and once the adopter edits on top of that: neither candidate matches disk, falls back to the stale sync-ref, customized, never REMOVE — proven against the SAME two-candidate mechanism that resolved receipt-sha256 a moment ago, not a coincidence of sync-ref being the only route this script has" \
+  "python3 -c '
+import json
+pristine = json.load(open(\"$TMP/cdeadbranch.json\"))
+d = json.load(open(\"$TMP/cdeadbranch-customized.json\"))
+pit = next(i for i in pristine[\"items\"] if i[\"path\"] == \"docs/note.md\")
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"docs/note.md\")
+assert pit[\"baseline\"].startswith(\"receipt-sha256:\"), pit
+assert it[\"baseline\"] == \"sync-ref:$DB_U0\", it
+assert it[\"state\"] == \"customized\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+
+echo ""
+echo "C. .sdd-sync-ref is a baseline ONLY in the shape LogicLoom writes it (a hex object name)"
+echo "   AND, when upstream history is present, only if upstream main reaches it — a customer's"
+echo "   own commit written there must never read their customized bytes as pristine"
+# Two disjoint lines in one throwaway repo: the upstream line U1 (ships
+# sdd-dev-loop) -> U2 (retires it), with refs/loom-upstream/main = U2; and
+# the customer line C1, branched from U1, where the customer customized the
+# plugin. C1 is not reachable from upstream main — it is not LogicLoom's
+# commit — yet before this fix, writing it into .sdd-sync-ref made the
+# scanner diff the customized plugin against ITSELF: pristine, REMOVE.
+# Verbs (throwaway repo only): init, add, commit, rm, checkout, update-ref.
+FIX_SYNC="$TMP/fixture-syncref-forged"
+mkdir -p "$FIX_SYNC/.logic-loom/config" "$FIX_SYNC/.logic-loom/lib" "$FIX_SYNC/plugins/sdd-dev-loop"
+git init -q "$FIX_SYNC"
+cp "$LIB" "$FIX_SYNC/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=7.0.0" > "$FIX_SYNC/.logic-loom/config/architecture.conf"
+echo "plugin | sdd-dev-loop | native | native:/workflow,/loop,/goal | REMOVE | v4.0.0 | v6.2.0 | x" > "$FIX_SYNC/.logic-loom/config/release-migrations.conf"
+echo "LogicLoom's shipped body" > "$FIX_SYNC/plugins/sdd-dev-loop/marker.txt"
+( cd "$FIX_SYNC" && git add -A >/dev/null && git commit -q -m "U1: upstream ships sdd-dev-loop" )
+SYNC_U1="$(git -C "$FIX_SYNC" rev-parse HEAD)"
+( cd "$FIX_SYNC" && git rm -rq plugins/sdd-dev-loop >/dev/null && git commit -q -m "U2: upstream retires it" )
+git -C "$FIX_SYNC" update-ref refs/loom-upstream/main HEAD
+( cd "$FIX_SYNC" && git checkout -q "$SYNC_U1" && git checkout -q -b customer )
+echo "the CUSTOMER's own edit — not LogicLoom's bytes" >> "$FIX_SYNC/plugins/sdd-dev-loop/marker.txt"
+( cd "$FIX_SYNC" && git add -A >/dev/null && git commit -q -m "C1: customer customizes sdd-dev-loop" )
+SYNC_C1="$(git -C "$FIX_SYNC" rev-parse HEAD)"
+assert "fixture: the customer's commit is NOT reachable from refs/loom-upstream/main" \
+  "! git -C '$FIX_SYNC' merge-base --is-ancestor '$SYNC_C1' refs/loom-upstream/main"
+sync_scan() {  # $1 = .sdd-sync-ref content, $2 = json output path
+  printf '%s\n' "$1" > "$FIX_SYNC/.sdd-sync-ref"
+  bash "$RM" scan --json --root "$FIX_SYNC" > "$2" 2>&1
+}
+sync_scan "$SYNC_C1" "$TMP/csync-own.json"
+assert "the customer's OWN commit sha in .sdd-sync-ref (upstream history present, commit not reachable from it): never a sync-ref baseline, never pristine, never REMOVE, no remove command" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/csync-own.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert not it[\"baseline\"].startswith(\"sync-ref:\"), it
+assert it[\"state\"] != \"pristine\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+assert it[\"remove_command\"] == \"\", it
+'"
+sync_scan "HEAD" "$TMP/csync-head.json"
+assert "a symbolic name (HEAD) in .sdd-sync-ref is not the shape LogicLoom writes: never a sync-ref baseline, never pristine, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/csync-head.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert not it[\"baseline\"].startswith(\"sync-ref:\"), it
+assert it[\"state\"] != \"pristine\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+sync_scan "$SYNC_U1" "$TMP/csync-genuine.json"
+assert "positive control: the genuine upstream commit (reachable from upstream main) IS the sync-ref baseline, and the customized plugin reads customized -> CONVERT-TO-LOCAL" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/csync-genuine.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"baseline\"] == \"sync-ref:$SYNC_U1\", it
+assert it[\"state\"] == \"customized\", it
+assert it[\"recommended\"] == \"CONVERT-TO-LOCAL\", it
+'"
+# Round-2 finding 1 (fix BY DESIGN, reversing round-1's permissive
+# fallback): with no upstream history at all there is NO BASELINE, full
+# stop — hex shape alone is NEVER enough, because there is nothing to check
+# reachability against and a customer's own commit sha is indistinguishable
+# from LogicLoom's record by shape. A symbolic name still never qualifies
+# either (that part was already correct).
+git -C "$FIX_SYNC" update-ref -d refs/loom-upstream/main
+sync_scan "HEAD" "$TMP/csync-head-noup.json"
+assert "…and with no upstream history, HEAD in .sdd-sync-ref is still rejected on shape: baseline none, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/csync-head-noup.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+# The regression this fix closes: a GENUINELY hex, GENUINELY real upstream
+# commit sha (SYNC_U1 — the very commit the positive control above accepted
+# a moment ago, while refs/loom-upstream/main still existed) must now be
+# rejected the instant that history is gone. Before this fix, hex shape
+# alone would have re-admitted it as a baseline, silently reading the
+# customized plugin as pristine again the moment refs/loom-upstream/main
+# went missing (extract-proposals.sh --dry-run prunes it — see
+# upstream_blob_sha's own comment on that in record-update-writes.sh).
+sync_scan "$SYNC_U1" "$TMP/csync-genuine-noup.json"
+assert "…and even a hex sha that WAS a genuine upstream commit is rejected once refs/loom-upstream/main is gone (no baseline to prove it against): baseline none, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/csync-genuine-noup.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+# And the forged (customer) commit specifically, without upstream history —
+# the task's own two-by-two matrix (forged sync-ref, with AND without
+# refs/loom-upstream/main present) completed for the scanner half.
+sync_scan "$SYNC_C1" "$TMP/csync-own-noup.json"
+assert "…and the customer's OWN forged commit, now with no upstream history either: still baseline none, never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/csync-own-noup.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-dev-loop\")
+assert it[\"baseline\"] == \"none\", it
+assert it[\"state\"] == \"unknown\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+'"
+
+echo ""
+echo "C. finding 4 (formerly 5a): the printed/apply MOVE command re-checks the destination ITSELF and refuses rather than relying on a bare git mv's own failure"
+# background reproduction: a bare git mv onto an existing destination already
+# fails cleanly (non-destructive) — that was never the gap. The gap the
+# reviewers flagged is that the RECOMMENDATION is computed at scan/plan time
+# and never re-checked when it is actually run later; the fix below makes the
+# printed/apply command re-check immediately before it acts, every time.
 MVTEST="$TMP/movetest"
 mkdir -p "$MVTEST"; git init -q "$MVTEST"
 echo old > "$MVTEST/old.txt"; ( cd "$MVTEST" && git add -A >/dev/null && git commit -qm init )
 echo new > "$MVTEST/new.txt"; ( cd "$MVTEST" && git add -A >/dev/null && git commit -qm addnew )
 ( cd "$MVTEST" && git mv old.txt new.txt >/dev/null 2>"$TMP/mv.err" )
 MV_RC=$?
-assert "git mv onto an existing destination fails (non-zero), not silently" "[ $MV_RC -ne 0 ]"
+assert "a bare git mv onto an existing destination fails (non-zero), not silently" "[ $MV_RC -ne 0 ]"
 assert "…and the freshly-added destination's content is untouched (no overwrite)" \
   "[ \"\$(cat '$MVTEST/new.txt')\" = new ]"
+
+# the actual fix: build a MOVE fixture, capture the real move_command scan
+# computes, then let a clean-add land at the destination AFTER that — exactly
+# the same-run race the finding describes — and run the CAPTURED command
+# for real.
+MVFIX="$TMP/movefix"
+mkdir -p "$MVFIX/.logic-loom/config" "$MVFIX/.logic-loom/lib" "$MVFIX/old"
+git init -q "$MVFIX"
+cp "$LIB" "$MVFIX/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=7.0.0" > "$MVFIX/.logic-loom/config/architecture.conf"
+echo "thing" > "$MVFIX/old/thing.md"
+( cd "$MVFIX" && git add -A >/dev/null && git commit -q -m "old/thing.md present" )
+git -C "$MVFIX" rev-parse HEAD > "$MVFIX/.sdd-sync-ref"
+( cd "$MVFIX" && git add -A >/dev/null && git commit -q -m "stamp sync-ref" )
+# Round-2 finding 1: the sync-ref is only a baseline when refs/loom-upstream/
+# main exists and reaches it.
+git -C "$MVFIX" update-ref refs/loom-upstream/main HEAD
+MVFIX_REG="$TMP/movefix-reg.conf"
+echo 'path | old/thing.md | renamed | path:new/thing.md | MOVE | v6.0.0 | v9.0.0 | moved' > "$MVFIX_REG"
+
+bash "$RM" scan --json --root "$MVFIX" --registry "$MVFIX_REG" > "$TMP/mvfix.json" 2>&1
+MVFIX_CMD="$(python3 -c '
+import json
+d = json.load(open("'"$TMP"'/mvfix.json"))
+it = next(i for i in d["items"] if i["path"] == "old/thing.md")
+print(it["move_command"])
+')"
+assert "the computed move_command is non-empty" "[ -n \"\$MVFIX_CMD\" ]"
+
+mkdir -p "$MVFIX/new"
+echo "freshly added, must survive" > "$MVFIX/new/thing.md"
+( cd "$MVFIX" && bash -c "$MVFIX_CMD" >"$TMP/mvfix-run.out" 2>"$TMP/mvfix-run.err" )
+MVFIX_RUN_RC=$?
+assert "running the CAPTURED move_command against a since-appeared destination: refuses (non-zero), never overwrites" \
+  "[ $MVFIX_RUN_RC -ne 0 ]"
+assert "…the refusal names the destination and tells the agent to re-run plan" \
+  "grep -q 'new/thing.md already exists on disk' '$TMP/mvfix-run.err' && grep -q 're-run: release-migrations.sh plan old/thing.md' '$TMP/mvfix-run.err'"
+assert "…and neither file was touched: destination content unchanged, source still present" \
+  "[ \"\$(cat '$MVFIX/new/thing.md')\" = 'freshly added, must survive' ] && [ -f '$MVFIX/old/thing.md' ]"
+
+# positive control: with no destination in the way, the SAME captured command
+# performs the move.
+rm -rf "$MVFIX/new"
+( cd "$MVFIX" && bash -c "$MVFIX_CMD" >"$TMP/mvfix-run2.out" 2>"$TMP/mvfix-run2.err" )
+MVFIX_RUN2_RC=$?
+assert "…and with no destination in the way, the same captured command succeeds and actually moves the file" \
+  "[ $MVFIX_RUN2_RC -eq 0 ] && [ ! -e '$MVFIX/old/thing.md' ] && [ -f '$MVFIX/new/thing.md' ]"
 
 echo ""
 echo "C. finding 5b (investigated, refuted as a live exploit): the removal guard's"
@@ -1224,6 +1659,164 @@ assert it[\"decision\"] == \"converted\", it
 '"
 
 echo ""
+echo "D. round-2 finding 2: decision=converted must NOT force REMOVE regardless of state"
+# A plugin converted and COMMITTED (both CONVERTED.md and the 'converted =' line
+# land in a real commit) stays REMOVE as long as it is untouched since — but
+# once it is edited AFTER that committed decision, the recommendation must
+# flip to KEEP-AS-IS (never silently discard a customer's post-conversion
+# edit). A third fixture proves the "decision recorded but never committed"
+# case is ALSO never a REMOVE (Governing principle: doubt -> KEEP and ASK).
+FIX_CONV2="$TMP/fixture-converted-edited"
+mkdir -p "$FIX_CONV2/.logic-loom/config" "$FIX_CONV2/.logic-loom/lib" "$FIX_CONV2/plugins/sdd-conv2/skills/sdd-conv2"
+git init -q "$FIX_CONV2"
+cp "$LIB" "$FIX_CONV2/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=7.0.0" > "$FIX_CONV2/.logic-loom/config/architecture.conf"
+echo "plugin | sdd-conv2 | native | native:/workflow | REMOVE | v4.0.0 | v6.2.0 | round-2 finding 2 fixture" \
+  > "$FIX_CONV2/.logic-loom/config/release-migrations.conf"
+cat > "$FIX_CONV2/plugins/sdd-conv2/skills/sdd-conv2/SKILL.md" <<'MD'
+---
+name: sdd-conv2
+description: round-2 finding 2 fixture
+---
+
+Body.
+MD
+( cd "$FIX_CONV2" && git add -A >/dev/null && git commit -q -m "plugin present" )
+bash "$RM" convert sdd-conv2 --apply --root "$FIX_CONV2" >/dev/null 2>&1
+( cd "$FIX_CONV2" && git add -A >/dev/null && git commit -q -m "convert sdd-conv2" )
+bash "$RM" scan --json --root "$FIX_CONV2" > "$TMP/conv2-clean.json" 2>&1
+assert "decision=converted, plugin UNCHANGED since the (committed) conversion decision -> REMOVE, as before" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv2-clean.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv2\")
+assert it[\"decision\"] == \"converted\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+echo "-- edited after conversion --" >> "$FIX_CONV2/plugins/sdd-conv2/skills/sdd-conv2/SKILL.md"
+bash "$RM" scan --json --root "$FIX_CONV2" > "$TMP/conv2-edited.json" 2>&1
+assert "…but once plugins/sdd-conv2 is edited AFTER that committed decision: KEEP-AS-IS, reason names 'edited after conversion', never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv2-edited.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv2\")
+assert it[\"decision\"] == \"converted\", it
+assert it[\"recommended\"] == \"KEEP-AS-IS\", it
+assert \"edited after conversion\" in it[\"reason\"], it
+'"
+# An UNTRACKED file the customer dropped into plugins/sdd-conv2 after the
+# committed decision is their bytes too — no commit vouches for it, and a
+# REMOVE plan line on the directory recommends deleting it. A tracked-only
+# diff (`git diff <decision-commit> -- plugins/sdd-conv2`) is blind to it and
+# would say "unchanged" -> REMOVE. Restore the tracked edit first so the ONLY
+# change is the untracked file.
+( cd "$FIX_CONV2" && git checkout -q -- plugins/sdd-conv2/skills/sdd-conv2/SKILL.md )
+echo "customer notes, never git-added" > "$FIX_CONV2/plugins/sdd-conv2/customer-notes.md"
+bash "$RM" scan --json --root "$FIX_CONV2" > "$TMP/conv2-untracked.json" 2>&1
+assert "…and an UNTRACKED file added under plugins/sdd-conv2 after the committed decision (tracked files byte-identical to it): KEEP-AS-IS, reason names 'edited after conversion', never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv2-untracked.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv2\")
+assert it[\"decision\"] == \"converted\", it
+assert it[\"recommended\"] == \"KEEP-AS-IS\", it
+assert \"edited after conversion\" in it[\"reason\"], it
+assert it[\"remove_command\"] == \"\", it
+'"
+rm -f "$FIX_CONV2/plugins/sdd-conv2/customer-notes.md"
+bash "$RM" scan --json --root "$FIX_CONV2" > "$TMP/conv2-restored.json" 2>&1
+assert "…and with the untracked file gone and the tracked edit reverted, the same plugin is back to REMOVE (the untracked check is what flipped it, nothing else)" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv2-restored.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv2\")
+assert it[\"recommended\"] == \"REMOVE\", it
+'"
+
+FIX_CONV3="$TMP/fixture-converted-uncommitted"
+mkdir -p "$FIX_CONV3/.logic-loom/config" "$FIX_CONV3/.logic-loom/lib" "$FIX_CONV3/plugins/sdd-conv3/skills/sdd-conv3"
+git init -q "$FIX_CONV3"
+cp "$LIB" "$FIX_CONV3/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=7.0.0" > "$FIX_CONV3/.logic-loom/config/architecture.conf"
+echo "plugin | sdd-conv3 | native | native:/workflow | REMOVE | v4.0.0 | v6.2.0 | round-2 finding 2 fixture (uncommitted decision)" \
+  > "$FIX_CONV3/.logic-loom/config/release-migrations.conf"
+cat > "$FIX_CONV3/plugins/sdd-conv3/skills/sdd-conv3/SKILL.md" <<'MD'
+---
+name: sdd-conv3
+description: round-2 finding 2 fixture
+---
+
+Body.
+MD
+( cd "$FIX_CONV3" && git add -A >/dev/null && git commit -q -m "plugin present" )
+bash "$RM" convert sdd-conv3 --apply --root "$FIX_CONV3" >/dev/null 2>&1
+# Deliberately NOT committed: CONVERTED.md and 'converted =' both sit only
+# in the working tree, exactly like FD1 above.
+bash "$RM" scan --json --root "$FIX_CONV3" > "$TMP/conv3.json" 2>&1
+assert "decision=converted but the decision has no committed record at all (CONVERTED.md/migration-decisions.conf uncommitted): KEEP-AS-IS, reason names 'no committed record', never REMOVE" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv3.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv3\")
+assert it[\"decision\"] == \"converted\", it
+assert it[\"recommended\"] == \"KEEP-AS-IS\", it
+assert \"no committed record\" in it[\"reason\"], it
+'"
+
+# The decision-line route must date the decision to the commit that added
+# THAT plugin's line, matched as a whole line — `git log -S"converted = foo"`
+# is a substring count and also fires on "converted = foobar", so a
+# same-prefix plugin converted EARLIER would date foo's decision to the
+# wrong, older commit and diff the plugin against the wrong tree. Here:
+# sdd-conv4-more is converted and committed first (C1), plugins/sdd-conv4 is
+# then edited and committed (a PRE-conversion edit), and only then is
+# sdd-conv4 converted, with just the decisions line committed (C2) and its
+# CONVERTED.md left uncommitted so the decision-line route is the one in
+# play. plugins/sdd-conv4 is untouched since C2, so the honest answer is
+# REMOVE; dating the decision to C1 instead would see the pre-conversion
+# edit and flip it to KEEP for a reason that is simply false.
+FIX_CONV4="$TMP/fixture-converted-prefix-collision"
+mkdir -p "$FIX_CONV4/.logic-loom/config" "$FIX_CONV4/.logic-loom/lib" \
+  "$FIX_CONV4/plugins/sdd-conv4/skills/sdd-conv4" "$FIX_CONV4/plugins/sdd-conv4-more/skills/sdd-conv4-more"
+git init -q "$FIX_CONV4"
+cp "$LIB" "$FIX_CONV4/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=7.0.0" > "$FIX_CONV4/.logic-loom/config/architecture.conf"
+{
+  echo "plugin | sdd-conv4 | native | native:/workflow | REMOVE | v4.0.0 | v6.2.0 | prefix-collision fixture"
+  echo "plugin | sdd-conv4-more | native | native:/workflow | REMOVE | v4.0.0 | v6.2.0 | prefix-collision fixture (the longer name)"
+} > "$FIX_CONV4/.logic-loom/config/release-migrations.conf"
+for cp4 in sdd-conv4 sdd-conv4-more; do
+  cat > "$FIX_CONV4/plugins/$cp4/skills/$cp4/SKILL.md" <<MD
+---
+name: $cp4
+description: prefix-collision fixture
+---
+
+Body.
+MD
+done
+( cd "$FIX_CONV4" && git add -A >/dev/null && git commit -q -m "C0: both plugins present" )
+bash "$RM" convert sdd-conv4-more --apply --root "$FIX_CONV4" >/dev/null 2>&1
+( cd "$FIX_CONV4" && git add -A >/dev/null && git commit -q -m "C1: convert sdd-conv4-more (decision line: converted = sdd-conv4-more)" )
+echo "-- edited BEFORE sdd-conv4 was converted --" >> "$FIX_CONV4/plugins/sdd-conv4/skills/sdd-conv4/SKILL.md"
+( cd "$FIX_CONV4" && git add -A >/dev/null && git commit -q -m "C1.5: pre-conversion edit to plugins/sdd-conv4" )
+bash "$RM" convert sdd-conv4 --apply --root "$FIX_CONV4" >/dev/null 2>&1
+( cd "$FIX_CONV4" && git add .logic-loom/config/migration-decisions.conf >/dev/null && git commit -q -m "C2: decision line only (converted = sdd-conv4); CONVERTED.md left uncommitted" )
+assert "prefix-collision fixture sanity: sdd-conv4's CONVERTED.md is uncommitted (decision-line route in play), and the decisions file holds both whole lines" \
+  "[ -z \"\$(git -C '$FIX_CONV4' log --format=%H -- .claude/skills/sdd-conv4/CONVERTED.md)\" ] && grep -qxF 'converted = sdd-conv4' '$FIX_CONV4/.logic-loom/config/migration-decisions.conf' && grep -qxF 'converted = sdd-conv4-more' '$FIX_CONV4/.logic-loom/config/migration-decisions.conf'"
+bash "$RM" scan --json --root "$FIX_CONV4" > "$TMP/conv4.json" 2>&1
+assert "decision-line route, same-prefix plugin converted earlier: sdd-conv4's decision is dated to ITS OWN line's commit (whole-line match), the plugin is unchanged since -> REMOVE, not a false 'edited after conversion' from a substring match on 'converted = sdd-conv4-more'" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/conv4.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv4\")
+assert it[\"decision\"] == \"converted\", it
+assert it[\"recommended\"] == \"REMOVE\", it
+more = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-conv4-more\")
+assert more[\"decision\"] == \"converted\" and more[\"recommended\"] == \"REMOVE\", more
+'"
+
+echo ""
 echo "D. finding 4: convert preserves the executable bit on a rewritten skill file"
 FD_EXE="$TMP/fixtureD-exe"
 mkdir -p "$FD_EXE/.logic-loom/config" "$FD_EXE/.logic-loom/lib" "$FD_EXE/plugins/sdd-exe/skills/sdd-exe" "$FD_EXE/.claude"
@@ -1376,23 +1969,32 @@ echo "thing" > "$FD6/old/thing.md"
 ( cd "$FD6" && git add -A >/dev/null && git commit -q -m "old/thing.md present" )
 git -C "$FD6" rev-parse HEAD > "$FD6/.sdd-sync-ref"
 ( cd "$FD6" && git add -A >/dev/null && git commit -q -m "stamp sync-ref" )
+# Round-2 finding 1: the sync-ref is only a baseline when refs/loom-upstream/
+# main exists and reaches it.
+git -C "$FD6" update-ref refs/loom-upstream/main HEAD
 MOVE_REG="$TMP/move-reg.conf"
 echo 'path | old/thing.md | renamed | path:new/thing.md | MOVE | v6.0.0 | v9.0.0 | moved' > "$MOVE_REG"
 
 bash "$RM" scan --json --root "$FD6" --registry "$MOVE_REG" > "$TMP/d6a.json" 2>&1
-assert "pristine + new path absent everywhere -> MOVE with move_command 'git mv old/thing.md new/thing.md', not blocked" \
+assert "pristine + new path absent everywhere -> MOVE, not blocked, move_command is a self-guarding git mv (finding 4)" \
   "python3 -c '
 import json
 d = json.load(open(\"$TMP/d6a.json\"))
 it = next(i for i in d[\"items\"] if i[\"path\"] == \"old/thing.md\")
 assert it[\"kind\"] == \"path\" and it[\"state\"] == \"pristine\", it
 assert it[\"recommended\"] == \"MOVE\" and it[\"blocked\"] is False, it
-assert it[\"move_command\"] == \"git mv old/thing.md new/thing.md\", it
+mc = it[\"move_command\"]
+assert mc.startswith(\"if [ -e \"), mc
+assert \"new/thing.md\" in mc, mc
+assert \"git mv old/thing.md new/thing.md\" in mc, mc
+assert \"re-run: release-migrations.sh plan old/thing.md\" in mc, mc
 assert it[\"remove_command\"] == \"\", it
 '"
 bash "$RM" plan old/thing.md --root "$FD6" --registry "$MOVE_REG" > "$TMP/d6a.plan.out" 2>&1
-assert "plan text carries the git mv line and the [m]ove menu" \
+assert "plan text carries the guarded git mv line and the [m]ove menu" \
   "grep -qF 'git mv old/thing.md new/thing.md' '$TMP/d6a.plan.out' && grep -qF '[m]ove' '$TMP/d6a.plan.out'"
+assert "…and names re-run plan when the destination now exists (finding 4)" \
+  "grep -qF 're-run plan old/thing.md to get a fresh recommendation' '$TMP/d6a.plan.out'"
 
 # new/thing.md committed and reachable at refs/loom-upstream/main, then removed
 # from the working tree again (a further commit) — upstream ships it, disk lacks it.
@@ -1537,6 +2139,64 @@ printf 'fixed, no longer has it\n' > "$E9/tests/fixtures/release-migrations/e9zf
 { echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9/CHANGELOG.md"
 bash "$RM" check-release --root "$E9" > "$TMP/e9.out" 2>&1
 assert "a content row with a well-formed fixture: pair passes execution (exit 0)" "[ $? -eq 0 ]"
+assert "…including the finding-5 scan-path proof (no 'fixture proof' failure line for it — TEMPLATE and ADOPTED both silent)" \
+  "! grep -q 'fixture proof' '$TMP/e9.out'"
+
+echo ""
+echo "E. finding 5: check-release's fixture proof runs the REAL scan discovery path"
+echo "   (emit_content_item), not just the pattern regex, for TEMPLATE and ADOPTED"
+
+E9C="$TMP/e-execute-fixture-nested"
+mk_temp_root "$E9C" "9.9.9" "content | docs/nested/dir/setting.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e9cfix"
+mkdir -p "$E9C/tests/fixtures/release-migrations"
+printf 'has foo\n' > "$E9C/tests/fixtures/release-migrations/e9cfix.before"
+printf 'fixed, no longer has it\n' > "$E9C/tests/fixtures/release-migrations/e9cfix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9C/CHANGELOG.md"
+bash "$RM" check-release --root "$E9C" > "$TMP/e9c.out" 2>&1
+assert "a fixture-backed row at a NESTED path: the scan-path proof builds the tree correctly and passes in both modes (exit 0, no fixture-proof failure)" \
+  "[ $? -eq 0 ] && ! grep -q 'fixture proof' '$TMP/e9c.out'"
+
+E9D="$TMP/e-execute-fixture-absent-fate"
+mk_temp_root "$E9D" "9.9.9" "content | marker.md | absent | pattern:fixed-marker | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e9dfix"
+mkdir -p "$E9D/tests/fixtures/release-migrations"
+printf 'no marker here — the problem state\n' > "$E9D/tests/fixtures/release-migrations/e9dfix.before"
+printf 'fixed-marker now present\n' > "$E9D/tests/fixtures/release-migrations/e9dfix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9D/CHANGELOG.md"
+bash "$RM" check-release --root "$E9D" > "$TMP/e9d.out" 2>&1
+assert "a fate=absent fixture-backed row: the scan-path proof exercises the OTHER emit branch and passes in both modes" \
+  "[ $? -eq 0 ] && ! grep -q 'fixture proof' '$TMP/e9d.out'"
+
+# The fail-then-pass proof for finding 5 itself (the two cases above are
+# positive controls and pass with or without the scan-path proof): a .before
+# fixture the pattern-level check ACCEPTS but scan's real discovery would
+# NEVER fire on. A NUL byte does it — `$(cat fixture)` drops NULs (a bash
+# variable cannot hold one), so the pattern helper sees plain text and
+# matches, while emit_content_item greps the file on disk with -I, which
+# classifies it as binary and finds nothing. Before this proof existed such
+# a row passed check-release and shipped a migration that could never fire.
+E9E="$TMP/e-execute-fixture-binary"
+mk_temp_root "$E9E" "9.9.9" "content | w.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e9efix"
+mkdir -p "$E9E/tests/fixtures/release-migrations"
+printf 'has foo\000but a NUL byte makes grep -I call it binary\n' > "$E9E/tests/fixtures/release-migrations/e9efix.before"
+printf 'fixed, no longer has it\n' > "$E9E/tests/fixtures/release-migrations/e9efix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9E/CHANGELOG.md"
+bash "$RM" check-release --root "$E9E" > "$TMP/e9e.out" 2>&1
+assert "a .before fixture scan can never fire on (NUL byte -> grep -I binary) passes the pattern-level check but FAILS the scan-path proof: exit 1, naming both modes and the path" \
+  "[ $? -eq 1 ] && grep -q 'fixture proof (TEMPLATE, scan path): the .before fixture at w.md does NOT produce a scan item' '$TMP/e9e.out' && grep -q 'fixture proof (ADOPTED, scan path): the .before fixture at w.md does NOT produce a scan item' '$TMP/e9e.out'"
+
+# A proof that cannot run is a failure, not a silent pass: a content-row name
+# spelled as a directory (docs/) is one scan's content_matches can never
+# match, so the fixture cannot be placed at it — check-release must say so
+# and fail rather than exit 0 with the row "declared".
+E9F="$TMP/e-execute-fixture-unplaceable"
+mk_temp_root "$E9F" "9.9.9" "content | docs/ | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e9ffix"
+mkdir -p "$E9F/tests/fixtures/release-migrations"
+printf 'has foo\n' > "$E9F/tests/fixtures/release-migrations/e9ffix.before"
+printf 'fixed\n' > "$E9F/tests/fixtures/release-migrations/e9ffix.after"
+{ echo "## [9.9.9]"; echo "### Migrating from 9.8"; } > "$E9F/CHANGELOG.md"
+bash "$RM" check-release --root "$E9F" > "$TMP/e9f.out" 2>&1
+assert "a row whose name (docs/) content_matches can never match: the scan-path proof cannot place the fixture and FAILS loudly (exit 1) instead of passing vacuously" \
+  "[ $? -eq 1 ] && grep -q 'cannot place the fixture at docs/' '$TMP/e9f.out' && ! grep -q 'declares 1 migration row' '$TMP/e9f.out'"
 
 E10="$TMP/e-execute-fixture-broken-before"
 mk_temp_root "$E10" "9.9.9" "content | w.md | present | pattern:foo | PROPOSE | - | v9.9.9 | proposal: a; why: b; fixture:e10wfix"
@@ -1625,6 +2285,164 @@ git -C "$E14" update-ref refs/tags/v9.0.0 HEAD
 bash "$RM" check-release --since auto --root "$E14" > "$TMP/e14b.out" 2>&1
 assert "…and when NO file at the prev tag has it, the failure names every file it checked" \
   "[ $? -eq 1 ] && grep -q 'does not reproduce the claimed prior state (checked v9.0.0:docs/a.md, v9.0.0:docs/b.md)' '$TMP/e14b.out'"
+
+echo ""
+echo "E. finding 2: content_prev never resolves to the SAME release being checked"
+
+# The release under test (v9.0.1) has ALREADY been tagged — a legitimate
+# post-release audit. Two tags exist: v9.0.0 (the true pre-fix state) and
+# v9.0.1 (== HEAD, the post-fix state, i.e. the version check-release is
+# being asked to verify). loom_latest_tag_at_or_below("9.0.1") would return
+# v9.0.1 itself (<=, not <); proving the row's PRIOR state against its own
+# POST-fix content fails it closed for no real reason. loom_latest_tag_below
+# (strict <) must resolve v9.0.0 instead.
+E15="$TMP/e-content-prev-self-tag"
+mkdir -p "$E15/.logic-loom/config" "$E15/.logic-loom/lib"
+git init -q "$E15"
+cp "$LIB" "$E15/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E15/.logic-loom/config/architecture.conf"
+: > "$E15/.logic-loom/config/release-migrations.conf"
+echo "no foo here" > "$E15/u.md"
+( cd "$E15" && git add -A >/dev/null && git commit -q -m "commit 1: u.md pre-fix" )
+git -C "$E15" update-ref refs/tags/v9.0.0 HEAD
+echo "content | u.md | absent | pattern:fixed-marker | PROPOSE | - | v9.0.1 | proposal: a; why: b" > "$E15/.logic-loom/config/release-migrations.conf"
+echo "fixed-marker now present" > "$E15/u.md"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E15/CHANGELOG.md"
+( cd "$E15" && git add -A >/dev/null && git commit -q -m "commit 2: registry row + u.md fixed" )
+git -C "$E15" update-ref refs/tags/v9.0.1 HEAD
+bash "$RM" check-release --root "$E15" > "$TMP/e15.out" 2>&1
+assert "the release being checked is ALSO tagged (v9.0.1 == HEAD): content_prev still resolves to the TRUE previous tag (v9.0.0), row proven, exit 0" \
+  "[ $? -eq 0 ] && ! grep -q 'does not reproduce the claimed prior state' '$TMP/e15.out'"
+
+echo ""
+echo "E. finding 2: content_prev honors an explicit --since instead of silently recomputing its own"
+
+# Two tags: v8.0.0 (the true pre-fix state) and v9.0.0 (the fix already
+# landed there too, coincidentally — a stand-in for "the newest tag below
+# the version being checked is NOT the release that actually introduced the
+# fix"). --since auto would pick v9.0.0 (nearest-below) and fail the row
+# closed (v9.0.0 does not show the problem state); an explicit --since
+# v8.0.0 must be honored for content_prev too, not just the removal guard.
+E16="$TMP/e-content-prev-explicit-since"
+mkdir -p "$E16/.logic-loom/config" "$E16/.logic-loom/lib"
+git init -q "$E16"
+cp "$LIB" "$E16/.logic-loom/lib/release-migrations.sh"
+: > "$E16/.logic-loom/config/release-migrations.conf"
+echo "no foo here" > "$E16/u.md"
+( cd "$E16" && git add -A >/dev/null && git commit -q -m "commit 1: u.md pre-fix (the TRUE prior state)" )
+git -C "$E16" update-ref refs/tags/v8.0.0 HEAD
+echo "fixed-marker now present" > "$E16/u.md"
+( cd "$E16" && git add -A >/dev/null && git commit -q -m "commit 2: u.md already fixed here too (coincidence)" )
+git -C "$E16" update-ref refs/tags/v9.0.0 HEAD
+echo "FRAMEWORK_VERSION=9.0.1" > "$E16/.logic-loom/config/architecture.conf"
+echo "content | u.md | absent | pattern:fixed-marker | PROPOSE | - | v9.0.1 | proposal: a; why: b" > "$E16/.logic-loom/config/release-migrations.conf"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E16/CHANGELOG.md"
+( cd "$E16" && git add -A >/dev/null && git commit -q -m "commit 3: registry row for v9.0.1" )
+bash "$RM" check-release --since auto --root "$E16" > "$TMP/e16-auto.out" 2>&1
+assert "--since auto picks the nearest-below tag (v9.0.0), which does NOT show the problem state: fails closed" \
+  "[ $? -eq 1 ] && grep -q 'content row u.md@v9.0.1: pattern does not reproduce the claimed prior state' '$TMP/e16-auto.out'"
+bash "$RM" check-release --since v8.0.0 --root "$E16" > "$TMP/e16-explicit.out" 2>&1
+assert "…but an EXPLICIT --since v8.0.0 (the release that actually introduced the fix) is honored for content_prev too: exit 0, no false failure" \
+  "[ $? -eq 0 ] && ! grep -q 'does not reproduce the claimed prior state' '$TMP/e16-explicit.out'"
+
+echo ""
+echo "E. finding 3: the removal guard's window validation holds for ANY --since ref, or rejects it plainly"
+
+# A non-version --since (a raw commit sha, standing in for a branch name or
+# any other non-release ref) must never let the window check (a removed
+# item's registry row must date the removal to (prev, version]) silently
+# degrade to a (kind,name)-only match — it is rejected outright instead.
+E17="$TMP/e-since-nonversion"
+mkdir -p "$E17/.logic-loom/config" "$E17/.logic-loom/lib" "$E17/plugins/sdd-foo"
+git init -q "$E17"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E17/.logic-loom/config/architecture.conf"
+cp "$LIB" "$E17/.logic-loom/lib/release-migrations.sh"
+: > "$E17/.logic-loom/config/release-migrations.conf"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E17/CHANGELOG.md"
+echo "x" > "$E17/plugins/sdd-foo/x.md"
+( cd "$E17" && git add -A >/dev/null && git commit -q -m "commit 1: sdd-foo present" )
+E17_C1="$(git -C "$E17" rev-parse HEAD)"
+rm -rf "$E17/plugins/sdd-foo"
+echo "plugin | sdd-foo | removed | none | REMOVE | v9.0.0 | v9.9.0 | misdated on purpose — a non-version --since must never let this slide through as (declared)" > "$E17/.logic-loom/config/release-migrations.conf"
+( cd "$E17" && git add -A >/dev/null && git commit -q -m "commit 2: sdd-foo removed" )
+bash "$RM" check-release --since "$E17_C1" --root "$E17" > "$TMP/e17.out" 2>&1
+assert "a non-version --since (a bare commit sha) is rejected with a precise reason, not silently downgraded to a weaker match" \
+  "[ $? -eq 1 ] && grep -q 'does not resolve to a vX.Y.Z release tag' '$TMP/e17.out'"
+assert "…and the guard body never ran at all (no 'previous release:' / 'removals since' line — rejected before either could print)" \
+  "! grep -q 'previous release:' '$TMP/e17.out' && ! grep -q 'removals since' '$TMP/e17.out'"
+
+echo ""
+echo "E. finding 3 (round-2 half): --since must resolve as an actual TAG, a branch of the same name is not enough"
+# A BRANCH named vX.Y.Z resolves fine via the plain `rev-parse <prev>^{commit}`
+# used to test resolvability at all (git's short-name lookup checks
+# refs/heads too) and IS version-shaped text -- so, unlike E17's bare-sha
+# case above, it would sail past both the "resolves" and "is version-shaped"
+# gates. Only a check that requires refs/tags/<prev> specifically (not just
+# ANY ref of that name) catches it. Positive control (an actual TAG named
+# v9.0.0 is accepted) already exists elsewhere in this file (the "…and
+# --since v9.0.0 (strictly below) is accepted" assertion, finding 2/3
+# section below) -- this proves the negative half: a same-named BRANCH,
+# with NO tag of that name anywhere in the repo, is rejected.
+E17B="$TMP/e-since-branch-not-tag"
+mkdir -p "$E17B/.logic-loom/config" "$E17B/.logic-loom/lib"
+git init -q "$E17B"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E17B/.logic-loom/config/architecture.conf"
+cp "$LIB" "$E17B/.logic-loom/lib/release-migrations.sh"
+: > "$E17B/.logic-loom/config/release-migrations.conf"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E17B/CHANGELOG.md"
+( cd "$E17B" && git add -A >/dev/null && git commit -q -m "commit 1" )
+git -C "$E17B" branch v9.0.0 HEAD >/dev/null
+assert "fixture sanity: v9.0.0 resolves to a commit (via the branch) but refs/tags/v9.0.0 does NOT exist" \
+  "git -C '$E17B' rev-parse -q --verify 'v9.0.0^{commit}' >/dev/null 2>&1 && ! git -C '$E17B' rev-parse -q --verify 'refs/tags/v9.0.0^{commit}' >/dev/null 2>&1"
+bash "$RM" check-release --since v9.0.0 --root "$E17B" > "$TMP/e17b.out" 2>&1
+assert "a BRANCH named v9.0.0 (version-shaped, resolves, but not a tag) is rejected with the tag-specific reason, not silently accepted" \
+  "[ $? -eq 1 ] && grep -q 'looks like a release (vX.Y.Z) but does not name an actual release tag' '$TMP/e17b.out' && grep -q 'refs/tags/v9.0.0 does not exist' '$TMP/e17b.out'"
+assert "…and it is NOT rejected via the non-version-ref reason (E17's case) — this is the round-2 tag-specific gate, a different reason" \
+  "! grep -q 'does not resolve to a vX.Y.Z release tag' '$TMP/e17b.out'"
+assert "…and the guard body never ran at all here either" \
+  "! grep -q 'previous release:' '$TMP/e17b.out' && ! grep -q 'removals since' '$TMP/e17b.out'"
+
+# The remaining way version-shaped --since text could slide past the guard:
+# a name that resolves to NOTHING at all (a typo, a tag never fetched). Only
+# `--since auto` may honestly find no previous release (E7 below pins that
+# skip for a repo with no tags); an EXPLICIT --since that resolves to nothing
+# is bad input and must be REJECTED (exit 1) — not printed as "removal guard
+# skipped" with exit 0, which reads as a pass for a guard that never ran.
+bash "$RM" check-release --since v0.0.1 --root "$E17B" > "$TMP/e17c.out" 2>&1
+assert "an EXPLICIT --since naming a ref that does not exist at all (v0.0.1) is rejected (exit 1) with a precise reason — never silently 'removal guard skipped' with exit 0" \
+  "[ $? -eq 1 ] && grep -q \"since 'v0.0.1' does not resolve to any commit\" '$TMP/e17c.out' && ! grep -q 'removal guard skipped' '$TMP/e17c.out'"
+
+echo ""
+echo "E. finding 2/3: an explicit --since AT or ABOVE the release being checked is rejected"
+echo "   (it would prove every content row against its own post-fix content — finding 2, by hand)"
+# Three tags: v9.0.0 (the true prior state), and v9.0.1 + v9.5.0 both at the
+# post-fix HEAD. --since v9.0.1 (the release under check) and --since v9.5.0
+# (after it) must each be refused with a precise reason — not accepted and
+# then surfaced as a misleading "pattern does not reproduce the claimed prior
+# state" — while --since v9.0.0 is accepted and the row proven.
+E18="$TMP/e-since-not-below"
+mkdir -p "$E18/.logic-loom/config" "$E18/.logic-loom/lib"
+git init -q "$E18"
+cp "$LIB" "$E18/.logic-loom/lib/release-migrations.sh"
+echo "FRAMEWORK_VERSION=9.0.1" > "$E18/.logic-loom/config/architecture.conf"
+: > "$E18/.logic-loom/config/release-migrations.conf"
+echo "no foo here" > "$E18/u.md"
+( cd "$E18" && git add -A >/dev/null && git commit -q -m "commit 1: u.md pre-fix" )
+git -C "$E18" update-ref refs/tags/v9.0.0 HEAD
+echo "content | u.md | absent | pattern:fixed-marker | PROPOSE | - | v9.0.1 | proposal: a; why: b" > "$E18/.logic-loom/config/release-migrations.conf"
+echo "fixed-marker now present" > "$E18/u.md"
+{ echo "## [9.0.1]"; echo "### Migrating from 9.0"; } > "$E18/CHANGELOG.md"
+( cd "$E18" && git add -A >/dev/null && git commit -q -m "commit 2: registry row + u.md fixed" )
+git -C "$E18" update-ref refs/tags/v9.0.1 HEAD
+git -C "$E18" update-ref refs/tags/v9.5.0 HEAD
+for since_bad in v9.0.1 v9.5.0; do
+  bash "$RM" check-release --since "$since_bad" --root "$E18" > "$TMP/e18-$since_bad.out" 2>&1
+  assert "--since $since_bad while checking v9.0.1: rejected with a precise reason (exit 1), the guard body never runs, and NO false 'does not reproduce the claimed prior state' line" \
+    "[ $? -eq 1 ] && grep -q \"since '$since_bad' is not BELOW the release being checked (v9.0.1)\" '$TMP/e18-$since_bad.out' && ! grep -q 'previous release:' '$TMP/e18-$since_bad.out' && ! grep -q 'does not reproduce the claimed prior state' '$TMP/e18-$since_bad.out'"
+done
+bash "$RM" check-release --since v9.0.0 --root "$E18" > "$TMP/e18-ok.out" 2>&1
+assert "…and --since v9.0.0 (strictly below) is accepted: exit 0, guard ran against v9.0.0, row proven" \
+  "[ $? -eq 0 ] && grep -q 'previous release: v9.0.0' '$TMP/e18-ok.out' && ! grep -q 'does not reproduce' '$TMP/e18-ok.out'"
 
 echo ""
 echo "E. removal guard — throwaway repo (git tags, real removal)"
