@@ -358,8 +358,10 @@ ADOPTED repo — record what this run wrote.
    unlocked `clean-add` is a new file the receipt does not know yet. No new
    proposal appears → say so in one line and continue.
 5. After a `c` conversion: delete `plugins/<name>` once the converted
-   command/skill works, then run `sync-plugin-commands.sh prune` — reminded
-   again in Step 9.
+   command/skill works — and only if that `--apply` run's closing lines said
+   `accounted: every file under plugins/<name> is carried over`, never after
+   `DO NOT delete plugins/<name> yet` (which names what was left behind) —
+   then run `sync-plugin-commands.sh prune` — reminded again in Step 9.
 
 **Validation**: Every accepted migration item applied per its action; in an
 ADOPTED repo the recorder ran over the accepted write set with no git
@@ -406,8 +408,10 @@ enhancements as **unvalidated by regression** — review the diff manually rathe
 than reporting the update as verified.
 
 If Step 7b converted any release-migration item, remind the user once more
-here: delete `plugins/<name>` once its converted command/skill works, then
-run `sync-plugin-commands.sh prune` — neither cleanup happens automatically.
+here: delete `plugins/<name>` once its converted command/skill works (only if
+the convert run reported every file accounted for — a `DO NOT delete … yet`
+run names the files it left behind), then run `sync-plugin-commands.sh
+prune` — neither cleanup happens automatically.
 
 ---
 

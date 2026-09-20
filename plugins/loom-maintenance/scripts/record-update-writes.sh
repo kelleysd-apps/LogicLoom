@@ -29,11 +29,16 @@
 # it to resolve the upstream blob whose digest it records (upstream_blob_sha
 # below), and both modes need it to prove .sdd-sync-ref is upstream's.
 #
-# OWNERSHIP RULE: a byte-identical copy of an upstream harness file can only
-# have come from upstream; anything that differs may be the adopter's own, and
-# ownership is the one thing this tool must not guess — it is never recorded
-# automatically. Name it yourself with the plain (non-reconcile) form to record
-# it explicitly.
+# OWNERSHIP RULE: a byte-identical copy of an upstream harness file is
+# TREATED as having come from upstream for the narrow purpose of --reconcile's
+# proposal; anything that differs may be the adopter's own, and ownership is
+# the one thing this tool must not guess — it is never recorded automatically.
+# Name it yourself with the plain (non-reconcile) form to record it
+# explicitly. (Byte-identity is corroborating evidence, not proof — a
+# customer's own file can coincidentally match an upstream blob; see the
+# TRUSTED_GENERATOR_RE check on the receipt's OWN prior entries in the JSON
+# helpers below, and release-migrations.sh's matching generator_re, for the
+# actual trust boundary on receipt-sourced claims.)
 #
 # THE DELIBERATE ASYMMETRY: recording a byte-identical copy costs at most one
 # extra user-gated PROPOSAL the next time upstream touches that file (still
@@ -155,8 +160,10 @@ Modes:
                 recorded as a `dir`, that is NOT itself recorded as a `file`
                 and exists at .sdd-sync-ref:
                   RECONCILE <path>   working-tree bytes == the sync-ref blob
-                                     (can only have come from upstream —
-                                     recordable)
+                                     (treated as upstream's — recordable;
+                                     byte-identity is corroborating evidence,
+                                     not proof of authorship, the same
+                                     caveat the OWNERSHIP RULE above states)
                   DIFFERS <path>     working-tree bytes != the sync-ref blob
                                      (may be the adopter's own edit — NEVER
                                      recorded automatically; record it
@@ -189,9 +196,11 @@ Both implementations write the SAME document: python
 json.dump(obj, f, indent=2, ensure_ascii=False) plus a trailing newline; node
 fs.writeFileSync(path, JSON.stringify(obj, null, 2) + '\n').
 
-OWNERSHIP RULE: a byte-identical copy of an upstream harness file can only
-have come from upstream; anything that differs may be yours and is never
-recorded automatically — name it yourself to record it.
+OWNERSHIP RULE: a byte-identical copy of an upstream harness file is treated
+as having come from upstream for --reconcile's proposal (corroborating
+evidence, not proof — a coincidental match is possible); anything that
+differs may be yours and is never recorded automatically — name it yourself
+to record it.
 
 THE DELIBERATE ASYMMETRY: recording a byte-identical copy costs at most one
 extra user-gated proposal on a later upstream edit; not recording costs
@@ -264,7 +273,21 @@ resolve_json_tool() {
 
 # ---- python3 helper (dispatch by argv[1]) ----
 read -r -d '' JSON_HELPER_PY <<'PYEOF' || true
-import sys, json, hashlib, os, datetime
+import sys, json, hashlib, os, datetime, re
+
+# High finding (round-2 review): mirrors generator_re in
+# release-migrations.sh's _loom_rm_adopt_receipt_sha256 (same file, same
+# hand-editable receipt, same trust boundary — see that function's own
+# comment). A run's 'generator' string is bytes in an adopter-editable JSON
+# file; without this check, a hand-added run entry with a forged generator
+# but a plausible status would have its 'wrote' directory entries treated as
+# framework-owned by the 'recorded' op below, and --reconcile would then
+# offer RECONCILE for any file under it that happens to be byte-identical to
+# the sync-ref blob — i.e. label bytes as LogicLoom's own that this harness
+# never wrote. Restricted to the two writers LogicLoom itself owns: the npm
+# installer (packaging/adopt/lib/apply.js, "logicloom@<version>") and this
+# script's own two JSON helpers (Python/Node, "logicloom-update-framework@<version>").
+TRUSTED_GENERATOR_RE = re.compile(r'^(logicloom|logicloom-update-framework)@.+$')
 
 def sha256_hex(path):
     h = hashlib.sha256()
@@ -297,10 +320,24 @@ def stale_uninstall_marker(run_index):
                        "stays) while a merge target (.gitignore, .claude/settings.json, CLAUDE.md) "
                        "has uncommitted changes: commit them, then re-run. A newer package payload "
                        "may also add files that are new to it; it never overwrites an existing one."),
+        # Round-3 review finding (medium, over-claim): build_entries()
+        # records every not-yet-recorded ANCESTOR of a written file as
+        # kind:dir unconditionally -- it never checks whether that
+        # directory already existed independent of this run (a customer's
+        # own pre-existing directory that happens to also receive one
+        # LogicLoom-written file gets recorded exactly the same as a
+        # directory this run's first write brought into being). "is a
+        # directory it created" claimed more than the code verifies. What a
+        # kind:dir entry actually means: this directory holds a
+        # LogicLoom-written file, recorded so a later upstream addition
+        # under it passes the ancestor rule -- never a claim of having
+        # created or owning the directory itself.
         "untilThen": ("runs[].wrote[] above is the complete record: every kind:file entry carries "
                       "the sha256 of the bytes this harness left there (a mismatch means the file "
                       "changed since -- yours to review, never something to delete on this "
-                      "record's word), every kind:dir entry is a directory it created, and a "
+                      "record's word), every kind:dir entry names a directory holding a "
+                      "LogicLoom-written file (not a claim that this harness created the "
+                      "directory itself -- it may have pre-existed), and a "
                       "kind:merge entry is a file it only edited inside a fence, never one to "
                       "delete by path.")
     }
@@ -333,10 +370,29 @@ def main():
         data = load_receipt(path)
         files = {}
         dirs = {}
+        # Round-3 review finding (medium): a run's own 'wrote' entries are
+        # trusted here as "already recorded" -- i.e. this file/dir is
+        # framework-owned for build_entries()'s ancestor-dedup AND for
+        # --reconcile's exclusion of already-tracked paths. release-
+        # migrations.sh's own baseline digest reader
+        # (_loom_rm_adopt_receipt_sha256) already tightened this same trust
+        # decision to status == 'complete' ONLY, with the reasoning spelled
+        # out there: 'partial'/'in-progress' means the writer itself is not
+        # vouching for the bytes it left behind -- a run that never finished
+        # proves nothing about what actually landed on disk. This op used a
+        # wider set ('complete', 'partial', 'in-progress'), so the same
+        # adopter-editable receipt could be trusted by one reader and
+        # refused by the other for the identical run -- an unrecorded but
+        # genuinely-partial write masquerading as an already-owned
+        # directory here would make --reconcile silently skip real,
+        # unrecorded files under it. Match the stricter reader: only a run
+        # that finished vouches for what it wrote.
         for run in data.get('runs', []) or []:
             if not isinstance(run, dict):
                 continue
-            if run.get('status') not in ('complete', 'partial', 'in-progress'):
+            if run.get('status') != 'complete':
+                continue
+            if not TRUSTED_GENERATOR_RE.match(str(run.get('generator') or '')):
                 continue
             for w in (run.get('wrote') or []):
                 if not isinstance(w, dict):
@@ -403,9 +459,40 @@ def main():
         if 'uninstall' in data:
             del data['uninstall']
         data['uninstall'] = stale_uninstall_marker(len(data['runs']) - 1)
-        with open(receipt_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write('\n')
+        # Low finding (round-2 review): refuse a symlinked receipt path (the
+        # same "never write through it" rule every other writer in this
+        # codebase applies) and write ATOMICALLY -- a temp file in the SAME
+        # directory (so os.replace is a same-filesystem rename, atomic on
+        # POSIX), never a truncate-in-place on the real file -- so a crash
+        # or kill mid-write can never leave the one record this whole
+        # ownership-tracking system depends on as invalid/truncated JSON.
+        if os.path.islink(receipt_path):
+            sys.stderr.write('record-update-writes: ' + receipt_path + ' is a symlink -- refusing to write through it\n')
+            return 1
+        tmp_path = receipt_path + '.tmp' + str(os.getpid())
+        # Reviewer round 2: the temp name is predictable, and a plain
+        # open(tmp, 'w') FOLLOWS a symlink already planted at that name --
+        # the JSON went through the link (truncating whatever it pointed
+        # at, a file this tool never created) and os.replace then moved
+        # the LINK over the receipt. O_CREAT|O_EXCL fails on any existing
+        # entry, symlink included (dangling or not), and never follows it.
+        try:
+            fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
+        except OSError as e:
+            sys.stderr.write('record-update-writes: refusing to create temp file ' + tmp_path + ' (' + str(e) + ') -- something already exists at that name; remove it yourself, then retry\n')
+            return 1
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+                f.write('\n')
+            os.replace(tmp_path, receipt_path)
+        except BaseException:
+            # never leave a half-written temp file behind
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
         sys.stdout.write(str(len(data['runs'])) + '\n')
         return 0
 
@@ -418,6 +505,12 @@ PYEOF
 read -r -d '' JSON_HELPER_NODE <<'NODEEOF' || true
 const fs = require('fs');
 const crypto = require('crypto');
+
+// High finding (round-2 review): mirrors TRUSTED_GENERATOR_RE in the Python
+// helper above (see its comment) — same check, same reason, kept in sync
+// deliberately so the two JSON-tool backends never disagree on which runs
+// are trusted.
+const TRUSTED_GENERATOR_RE = /^(logicloom|logicloom-update-framework)@.+$/;
 
 function sha256Hex(p) {
   const buf = fs.readFileSync(p);
@@ -449,7 +542,9 @@ function staleUninstallMarker(runIndex) {
     untilThen: 'runs[].wrote[] above is the complete record: every kind:file entry carries ' +
                'the sha256 of the bytes this harness left there (a mismatch means the file ' +
                'changed since -- yours to review, never something to delete on this ' +
-               'record\'s word), every kind:dir entry is a directory it created, and a ' +
+               'record\'s word), every kind:dir entry names a directory holding a ' +
+               'LogicLoom-written file (not a claim that this harness created the ' +
+               'directory itself -- it may have pre-existed), and a ' +
                'kind:merge entry is a file it only edited inside a fence, never one to ' +
                'delete by path.'
   };
@@ -482,9 +577,16 @@ function main() {
     const data = loadReceipt(p);
     const files = {};
     const dirs = {};
+    // Round-3 review finding (medium): mirrors the same tightening in the
+    // python helper's 'recorded' op above -- see that comment for the full
+    // reasoning. Match release-migrations.sh's stricter baseline reader
+    // (status === 'complete' only): a 'partial'/'in-progress' run is not
+    // vouching for the bytes it left behind, so its wrote[] entries must
+    // not be trusted as already-owned here either.
     for (const run of (data.runs || [])) {
       if (!run || typeof run !== 'object') continue;
-      if (['complete', 'partial', 'in-progress'].indexOf(run.status) === -1) continue;
+      if (run.status !== 'complete') continue;
+      if (!TRUSTED_GENERATOR_RE.test(String(run.generator || ''))) continue;
       for (const w of (run.wrote || [])) {
         if (!w || typeof w !== 'object') continue;
         const wp = w.path, wk = w.kind;
@@ -537,7 +639,32 @@ function main() {
     // silently dropped.
     if (Object.prototype.hasOwnProperty.call(data, 'uninstall')) delete data.uninstall;
     data.uninstall = staleUninstallMarker(data.runs.length - 1);
-    fs.writeFileSync(receiptPath, JSON.stringify(data, null, 2) + '\n');
+    // Low finding (round-2 review): mirrors the Python helper's fix above --
+    // refuse a symlinked receipt path, and write atomically (temp file in
+    // the same directory, then an atomic same-filesystem rename) instead of
+    // truncating the real file in place.
+    try {
+      if (fs.lstatSync(receiptPath).isSymbolicLink()) {
+        process.stderr.write('record-update-writes: ' + receiptPath + ' is a symlink -- refusing to write through it\n');
+        return 1;
+      }
+    } catch (e) { /* does not exist yet -- fine, nothing to refuse */ }
+    const tmpPath = receiptPath + '.tmp' + String(process.pid);
+    // Reviewer round 2: mirrors the Python helper -- 'wx' is O_CREAT|O_EXCL,
+    // which fails on any existing entry at the predictable temp name
+    // (a planted symlink included) instead of writing through it.
+    try {
+      fs.writeFileSync(tmpPath, JSON.stringify(data, null, 2) + '\n', { flag: 'wx' });
+    } catch (e) {
+      process.stderr.write('record-update-writes: refusing to create temp file ' + tmpPath + ' (' + (e && e.code ? e.code : String(e)) + ') -- something already exists at that name; remove it yourself, then retry\n');
+      return 1;
+    }
+    try {
+      fs.renameSync(tmpPath, receiptPath);
+    } catch (e) {
+      try { fs.unlinkSync(tmpPath); } catch (e2) { /* nothing to clean */ }
+      throw e;
+    }
     process.stdout.write(String(data.runs.length) + '\n');
     return 0;
   }
@@ -613,8 +740,12 @@ resolve_sync_ref() {
 #
 # THE CHOICE RULE, and why it is not a guess: when the file on disk is
 # byte-identical to one candidate, that candidate is what LogicLoom wrote
-# here (the OWNERSHIP RULE at the top of this file: a byte-identical copy of
-# an upstream blob can only have come from upstream). When it matches neither
+# here — NOTE this is a different, narrower claim than the OWNERSHIP RULE at
+# the top of this file: both candidate digests were computed by THIS
+# function, in THIS run, from git blobs it resolved itself, not read back
+# from an adopter-editable receipt entry, so there is no forgeable claim in
+# the loop and the generator/corroboration caveats that apply to receipt
+# entries do not apply here. When it matches neither
 # -- the adopter's own edit, e.g. a conflict-review merge recorded by name --
 # the sync-ref blob is recorded; both candidates mismatch the disk anyway, so
 # either keeps the file at uninstall, and sync-ref is the stable one. The disk
@@ -699,6 +830,21 @@ path_ancestors() {
     done
 }
 
+# rc 0 iff some ancestor directory of repo-relative $1 (any component
+# between REPO_ROOT and the file itself) is a symlink on disk. Used by
+# --reconcile (see its call site) to refuse an index path whose working-tree
+# location is on the far side of a link. Pure lstat, no git.
+_path_has_symlink_ancestor() {
+    local d
+    while IFS= read -r d; do
+        [ -z "$d" ] && continue
+        if [ -L "$REPO_ROOT/$d" ]; then
+            return 0
+        fi
+    done <<< "$(path_ancestors "$1")"
+    return 1
+}
+
 # Resolve $1 (possibly relative) to an absolute, symlink-canonicalized path,
 # and print it — or print nothing and return 1 if its parent dir does not
 # exist on disk.
@@ -744,6 +890,91 @@ is_dir_recorded() {
     lookup_recorded "dir" "$1" >/dev/null 2>&1
 }
 
+# Round-4 finding 3 (medium, ancestor-directory over-claim -- round-3 only
+# fixed the stale marker's PROSE, not this): a kind:dir entry is what
+# --reconcile later trusts as license to widen its `git ls-files -- "$d"`
+# sweep to every git-tracked file under $d, then RECONCILE (and, with
+# --apply, silently RECORD) any of them that happens to be byte-identical to
+# the sync-ref blob at that same path. Recording $dir here unconditionally
+# -- as every prior round did, only because it holds ONE file this call just
+# wrote -- lets that sweep reach into a $dir that also holds OTHER
+# git-tracked content this call never touched: a sibling the tool never
+# wrote and has no other evidence about. Byte-identity to a provably-
+# upstream commit is real evidence for that ONE sibling if it is ever swept,
+# but the directory-level claim itself asserts something broader ("this
+# tool wrote into this directory") that build_entries has never actually
+# checked. Close the gap at the claim, not only at the sweep: a directory is
+# recorded as kind:dir only when EVERY git-tracked file under it, right now,
+# is accounted for -- either a kind:file entry this receipt already trusts,
+# or a file this very call is recording in the same $entries_file. Anything
+# else means the directory holds bytes this run cannot vouch for, and it is
+# left unrecorded -- narrower future --reconcile scope, never a claim wider
+# than the evidence. (This deliberately does NOT touch the *installer's* own
+# full-tree dir recording, a different, unowned file -- see
+# MIGRATION_GUIDE.md's "v7.0.0 filter's ancestor rule": a pristine install
+# genuinely creates those directories from nothing, so every file under them
+# passes this same test trivially. It is only record-update-writes.sh's own
+# INCREMENTAL, after-the-fact recording -- exactly the backfill/reconcile
+# codepath the finding is about -- that this narrows.)
+_dir_is_fully_accounted() {
+    local dir="$1" entries_file="$2" f
+    # Round-5 finding 3 (high, fail-open): the previous version fed the
+    # while-loop from `git ls-files -z ... 2>/dev/null || true` directly. A
+    # failed enumeration (permission issue, corrupted object, anything that
+    # makes git exit non-zero) was masked by `|| true`, so the loop simply
+    # saw zero lines of input -- indistinguishable from a directory that
+    # legitimately holds nothing -- and fell through to `return 0` (fully
+    # accounted). That is the exact fail-open class this same diff already
+    # closed in unconverted_plugin_files() (release-migrations.sh: "An
+    # enumeration that did not complete proves nothing about the tree:
+    # report the directory itself as unverifiable and stop"), but the fix
+    # was never applied here. Capture the listing into a temp file FIRST so
+    # git's real exit status is checked before the loop ever runs; a
+    # nonzero status (or a failed mktemp/write) means the enumeration did
+    # not complete, and nothing under $dir can be vouched for -- refuse the
+    # dir, never claim it. `-C "$REPO_ROOT" ls-files -z -- "$dir"` output
+    # can (deliberately) be empty on success -- an empty, well-formed
+    # directory -- which is why the exit status, not the output, is what
+    # this checks.
+    # Round-5 REVIEWER (fail-open, residual of finding 3): the directory
+    # name used to go to git as a raw PATHSPEC. A name beginning with ':'
+    # is pathspec MAGIC (`:colon` parses as an empty magic signature plus
+    # the pattern "colon"), so `ls-files -z -- ':colon'` listed NOTHING and
+    # exited 0 — exactly the "empty, well-formed directory" shape the exit
+    # status check below is meant to pass — and `:colon/` was recorded as
+    # fully accounted while `:colon/customer-own.md` sat tracked and
+    # unrecorded (reproduced; the plain-named twin refused correctly).
+    # `:(literal)` disables magic and wildcards and keeps prefix (recursive)
+    # matching, so the name is enumerated as the directory it is. Every
+    # pathspec this script builds from a directory name takes the same
+    # form (--reconcile's sweep, loom_upstream_ever_had_dir). An empty
+    # name would make `:(literal)` alone match the whole tree, so refuse it
+    # outright (path_ancestors never yields one; belt and suspenders).
+    [ -n "$dir" ] || return 1
+    local _dfa_tmp _dfa_rc=0
+    _dfa_tmp="$(mktemp "${TMPDIR:-/tmp}/loom-dir-accounted.XXXXXX" 2>/dev/null)" || return 1
+    git -C "$REPO_ROOT" ls-files -z -- ":(literal)$dir" >"$_dfa_tmp" 2>/dev/null
+    _dfa_rc=$?
+    if [ "$_dfa_rc" -ne 0 ]; then
+        rm -f "$_dfa_tmp"
+        return 1
+    fi
+    while IFS= read -r -d '' f; do
+        [ -z "$f" ] && continue
+        if lookup_recorded file "$f" >/dev/null 2>&1; then
+            continue
+        fi
+        if [ -f "$entries_file" ] && awk -F'\t' -v p="$f" \
+            '$1 == "file" && $2 == p { found=1 } END { exit !found }' "$entries_file"; then
+            continue
+        fi
+        rm -f "$_dfa_tmp"
+        return 1
+    done < "$_dfa_tmp"
+    rm -f "$_dfa_tmp"
+    return 0
+}
+
 # One temp file at a time; cleaned on every exit path (including exit 2 and
 # a set -e abort), not only on a normal function return.
 ENTRIES_TMP=""
@@ -762,15 +993,33 @@ trap cleanup_entries_tmp EXIT
 #     it was last recorded, so there is nothing new to say;
 #   * the same file named twice (or under two spellings that resolve to the
 #     same path) is recorded once;
-#   * every ancestor directory not already recorded as kind:dir is recorded
-#     once, trailing-slash form, so a later upstream A under it passes the
-#     ancestor rule.
+#   * every ancestor directory not already recorded as kind:dir, and not
+#     already holding other git-tracked content this call cannot account for
+#     (_dir_is_fully_accounted — finding 3), is recorded once, trailing-slash
+#     form, so a later upstream A under it passes the ancestor rule.
 # Prints "RECORDED <path>" per entry; sets ENTRY_COUNT to the number written.
+#
+# TWO PASSES, deliberately (round-4 REVIEWER, regression introduced by the
+# finding-3 fix): _dir_is_fully_accounted decides "is every git-tracked file
+# under $dir accounted for?" by reading $entries_file, so it can only see
+# the file entries written BEFORE it runs. A single interleaved pass (file
+# entry, then that file's ancestors, then the next file, ...) asked the
+# question for a directory while its SIBLING files from the same call were
+# still unwritten -- so recording `a/x.md a/y.md` in one call (exactly how
+# /update-framework invokes this script: `--version V <each written path>`)
+# found a/y.md unaccounted while walking a/x.md's ancestors, refused a/,
+# parked it in seen_dirs, and never re-asked when a/y.md's own walk came
+# round. Result: NO ancestor of a multi-file write was ever recorded, which
+# is the rot gap this whole script exists to close (a later upstream A under
+# a/ fails the ancestor rule forever, silently). Every file entry is now
+# written first; only then is any directory judged, against the call's
+# complete evidence.
 ENTRY_COUNT=0
 build_entries() {
     local entries_file="$1"; shift
     local -a seen_dirs=()
     local -a seen_files=()
+    local -a recorded_rels=()
     local rel sha existing_sha dir already sf sd
     ENTRY_COUNT=0
     for rel in "$@"; do
@@ -806,7 +1055,15 @@ build_entries() {
         printf 'file\t%s\t%s\n' "$rel" "$sha" >> "$entries_file"
         echo "RECORDED $rel"
         ENTRY_COUNT=$((ENTRY_COUNT + 1))
+        recorded_rels+=("$rel")
+    done
 
+    # Pass 2 -- every file entry of this call is in $entries_file now, so a
+    # directory is judged against the whole call, never against a prefix of
+    # it (see the TWO PASSES comment above). bash 3.2: guard the expansion
+    # of a possibly-empty array under set -u.
+    [ ${#recorded_rels[@]} -gt 0 ] || return 0
+    for rel in "${recorded_rels[@]}"; do
         while IFS= read -r dir; do
             [ -z "$dir" ] && continue
             if is_dir_recorded "$dir"; then
@@ -818,6 +1075,9 @@ build_entries() {
             done
             [ "$already" = "true" ] && continue
             seen_dirs+=("$dir")
+            # Finding 3: never claim a directory this run cannot fully
+            # account for -- see _dir_is_fully_accounted's own comment.
+            _dir_is_fully_accounted "$dir" "$entries_file" || continue
             printf 'dir\t%s/\t\n' "$dir" >> "$entries_file"
             echo "RECORDED $dir/"
             ENTRY_COUNT=$((ENTRY_COUNT + 1))
@@ -936,6 +1196,33 @@ if ! declare -F loom_sync_ref_is_loom_record >/dev/null 2>&1; then
         return 0
     }
 fi
+# Same fallback pattern, same reason, for finding 6's directory-ownership
+# corroboration (loom_upstream_ever_had_dir) -- see its own comment in the
+# shared lib for the rule. When the lib IS present it wins (sourced above);
+# this only fills the gap on a --root tree that predates it.
+if ! declare -F loom_upstream_ever_had_dir >/dev/null 2>&1; then
+    loom_upstream_ever_had_dir() {
+        local path="$1" root="${2:-$REPO_ROOT}"
+        path="${path%/}"
+        [ -n "$path" ] || return 1
+        git -C "$root" rev-parse -q --verify refs/loom-upstream/main >/dev/null 2>&1 || return 1
+        local commits commit
+        # Round-5 REVIEWER: `:(literal)` — same as the shared lib's copy;
+        # `<commit>:<path>` below is an object name, not a pathspec, and
+        # already reads the name literally.
+        commits="$(git -C "$root" log --format=%H refs/loom-upstream/main -- ":(literal)$path" 2>/dev/null)" || return 1
+        [ -n "$commits" ] || return 1
+        while IFS= read -r commit; do
+            [ -n "$commit" ] || continue
+            if [ "$(git -C "$root" cat-file -t "${commit}:${path}" 2>/dev/null)" = "tree" ]; then
+                return 0
+            fi
+        done <<EOF
+$commits
+EOF
+        return 1
+    }
+fi
 
 if ! resolve_json_tool; then
     echo "record-update-writes: needs python3 or node to read and write .logicloom-adopt-receipt.json — neither is on PATH" >&2
@@ -963,6 +1250,33 @@ RECORDED_TSV="$(run_json_tool recorded "$RECEIPT_PATH")"
 
 VERSION="${VERSION_ARG:-$(default_version)}"
 VERSION="$(normalize_version "$VERSION")"
+# Round-5 finding 8 (low, silent-no-op): an empty VERSION (no --version
+# given AND .logic-loom/config/architecture.conf has no FRAMEWORK_VERSION
+# line, or the file is missing) flows straight into `append-run`, which
+# embeds it as "logicloom-update-framework@" + version -- with nothing
+# after the "@" when version is empty. That generator string never matches
+# TRUSTED_GENERATOR_RE (`.+` required after "@"), so the write stays
+# fail-SAFE, never fail-open: the run this call writes can never be
+# trusted by a later read (resolve_baseline/corroboration skip it exactly
+# as they skip any other untrusted generator). What was missing was
+# OBSERVABILITY: the command printed RECORDED lines and exited 0 with no
+# hint that the run it just wrote was dead on arrival. This is
+# deliberately a WARNING, not a refusal: an earlier version of this fix
+# made it a hard `exit 2`, which is safe in isolation but reaches this
+# same code path on every write regardless of mode, and a great many
+# fixtures across this test suite (quote/newline-named candidates,
+# multi-file ancestor recording, …) call record mode or --reconcile
+# --apply with no architecture.conf at all -- their own point is unrelated
+# to versioning, and a hard refusal there would trade a real but
+# already-inert defect for breaking real, already-correct behavior this
+# same codebase depends on. A loud warning preserves every existing
+# guarantee (still records, still rc 0) while telling whoever is reading
+# the terminal that this run's own record can never be corroborated later.
+# Guarded at each of the two actual append-run call sites below,
+# immediately before the write that embeds it, not hoisted here
+# unconditionally -- a plain listing `--reconcile` (no --apply, or nothing
+# to record) never reaches append-run at all and has no version to warn
+# about.
 
 # ============================================
 # record mode
@@ -1001,6 +1315,13 @@ record_paths() {
         exit 0
     fi
 
+    # Round-5 finding 8: see the comment where VERSION is computed above --
+    # guarded here, at the actual write, not unconditionally for every
+    # invocation. A warning, not a refusal (see that comment for why).
+    if [ -z "$VERSION" ]; then
+        echo "record-update-writes: WARNING: could not determine a framework version (no --version given, and .logic-loom/config/architecture.conf has no FRAMEWORK_VERSION line or does not exist) -- recording anyway, but this run's generator string ('logicloom-update-framework@' with nothing after it) will never be trusted by any later read (see TRUSTED_GENERATOR_RE); pass --version <vX.Y.Z> explicitly to make this run corroborable" >&2
+    fi
+
     local run_count
     run_count="$(run_json_tool append-run "$RECEIPT_PATH" "$VERSION" '["update-framework"]' "$ENTRIES_TMP")"
     report_recorded "$ENTRY_COUNT" "$run_count"
@@ -1037,11 +1358,26 @@ reconcile() {
         exit 2
     fi
 
+    # Finding 6 (high, receipt forgery): a kind:"dir" entry carries no hash,
+    # so — unlike a kind:"file" entry, which build_entries/upstream_blob_sha
+    # verify against a real blob — TRUSTED_GENERATOR_RE (a shape check on a
+    # hand-editable JSON file) was the only thing standing between a forged
+    # run entry and licensing this sweep into an arbitrary directory.
+    # loom_upstream_ever_had_dir corroborates the ONE thing a directory
+    # claim CAN be checked against: whether refs/loom-upstream/main's own
+    # history ever had a tree at that path at all. A directory LogicLoom's
+    # own writers could never have created never passes, however plausible
+    # the receipt entry that named it reads. Doubt -> KEEP and ASK: an
+    # uncorroborated dir is silently dropped from the sweep, never refused
+    # loudly (a receipt can legitimately carry OTHER, corroborated dirs
+    # worth reconciling in the same run).
     local -a recorded_dirs=()
     local line kind path
     while IFS=$'\t' read -r kind path _rest; do
         [ -z "$kind" ] && continue
-        [ "$kind" = "dir" ] && recorded_dirs+=("$path")
+        [ "$kind" = "dir" ] || continue
+        loom_upstream_ever_had_dir "$path" "$REPO_ROOT" || continue
+        recorded_dirs+=("$path")
     done <<< "$RECORDED_TSV"
 
     if [ ${#recorded_dirs[@]} -eq 0 ]; then
@@ -1060,10 +1396,19 @@ reconcile() {
         # drops the candidate instead of reconciling it. `-z` prints raw
         # bytes, NUL-terminated; `read -r -d ''` splits on NUL and needs no
         # bash version newer than 3.2 (§7, .docs/policies/shell-idiom-policy.md).
+        # Round-5 REVIEWER: `:(literal)` — see _dir_is_fully_accounted. A
+        # recorded ':'-named directory swept NOTHING through the raw form
+        # (silently: the misparse lists nothing and exits 0); a glob
+        # character in the name could only ever over-match (git tries the
+        # literal prefix first), which is fail-safe here but pointless.
+        # An empty name never reaches this loop (loom_upstream_ever_had_dir
+        # above refuses it), but `:(literal)` alone would match the whole
+        # tree, so guard it here too.
+        [ -n "$d" ] || continue
         while IFS= read -r -d '' f; do
             [ -z "$f" ] && continue
             candidates+=("$f")
-        done < <(git -C "$REPO_ROOT" ls-files -z -- "$d" 2>/dev/null || true)
+        done < <(git -C "$REPO_ROOT" ls-files -z -- ":(literal)$d" 2>/dev/null || true)
     done
 
     # Dedupe WITHOUT joining on newlines: a `printf '%s\n' | sort -u` round
@@ -1115,8 +1460,44 @@ reconcile() {
             if [ -L "$REPO_ROOT/$f" ] || [ ! -f "$REPO_ROOT/$f" ]; then
                 continue
             fi
+            # Round-4 REVIEWER: the check above covers the final component
+            # only. A candidate comes from `git ls-files` -- an INDEX path --
+            # and `-f` follows a symlinked ANCESTOR, so a recorded directory
+            # the adopter has since replaced (unstaged) with a symlink to a
+            # directory elsewhere -- reproduced with one OUTSIDE the
+            # repository -- still listed its old index paths, `cmp`'d the
+            # bytes on the far side of the link, printed RECONCILE and, with
+            # --apply, RECORDED the index path with the upstream digest: a
+            # claim that LogicLoom wrote bytes that now live wherever the
+            # customer's link points (and the receipt's later "digest
+            # matches -> delete" would unlink the file AT that target).
+            # Record mode already refuses exactly this (canon_path resolves
+            # the parent with `pwd -P` and rejects a path outside the root);
+            # --reconcile applies the same rule: a path through a symlinked
+            # directory is not a regular file at a real path, and nothing
+            # about it is decided -- neither RECONCILE nor DIFFERS.
+            if _path_has_symlink_ancestor "$f"; then
+                echo "record-update-writes: --reconcile skipping $f: a directory on its path is a symlink (the bytes it would compare live wherever that link points, not at this path; record mode refuses the same path) — neither RECONCILE nor DIFFERS, nothing about it is decided" >&2
+                continue
+            fi
             tmpblob="$(mktemp "${TMPDIR:-/tmp}/loom-reconcile.XXXXXX")"
-            git -C "$REPO_ROOT" cat-file -p "${sync_ref}:${f}" > "$tmpblob" 2>/dev/null || true
+            # Round-4 finding (low): `> "$tmpblob"` creates/truncates the
+            # file regardless of whether the command that follows succeeds,
+            # so a swallowed `cat-file -p` failure (the old `|| true`) left
+            # tmpblob EMPTY -- and an empty tmpblob `cmp`s byte-identical to
+            # a genuinely-empty on-disk file, misclassifying a real
+            # extraction failure as a match. The preceding `cat-file -e`
+            # only proved the blob EXISTS, not that `-p` can read it back
+            # (a corrupt object, a dangling alternate, etc. can still make
+            # extraction fail after existence succeeds). Check this
+            # command's own exit status explicitly; on failure, skip the
+            # candidate without concluding RECONCILE or DIFFERS -- neither
+            # is proven, so neither is claimed.
+            if ! git -C "$REPO_ROOT" cat-file -p "${sync_ref}:${f}" > "$tmpblob" 2>/dev/null; then
+                echo "record-update-writes: --reconcile could not read the sync-ref blob for $f (git cat-file -p failed after its own existence check passed) — skipping, neither RECONCILE nor DIFFERS" >&2
+                rm -f "$tmpblob"
+                continue
+            fi
             if cmp -s "$tmpblob" "$REPO_ROOT/$f"; then
                 echo "RECONCILE $f"
                 reconcile_list+=("$f")
@@ -1155,6 +1536,13 @@ reconcile() {
         # but never append an empty run.
         echo "record-update-writes: nothing new to record"
         exit 0
+    fi
+    # Round-5 finding 8: see the comment where VERSION is computed above --
+    # guarded here, at the actual write, not unconditionally for every
+    # invocation (a plain listing --reconcile never reaches this far). A
+    # warning, not a refusal (see that comment for why).
+    if [ -z "$VERSION" ]; then
+        echo "record-update-writes: WARNING: could not determine a framework version (no --version given, and .logic-loom/config/architecture.conf has no FRAMEWORK_VERSION line or does not exist) -- recording anyway, but this run's generator string ('logicloom-update-framework@' with nothing after it) will never be trusted by any later read (see TRUSTED_GENERATOR_RE); pass --version <vX.Y.Z> explicitly to make this run corroborable" >&2
     fi
     local run_count
     run_count="$(run_json_tool append-run "$RECEIPT_PATH" "$VERSION" '["reconcile"]' "$ENTRIES_TMP")"

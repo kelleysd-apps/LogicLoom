@@ -265,8 +265,11 @@ that any clean-add from above lands before a MOVE that depends on it:**
 Migration decisions never touch `.sdd-sync-ref`. This command never edits
 `.claude/settings.json` — a wired-hook blocker is always removed by the
 user's own edit. After a `c` conversion: delete `plugins/<name>` once
-`/<name>` (or the converted command) works, then run
-`sync-plugin-commands.sh prune` (Step 7 repeats this reminder).
+`/<name>` (or the converted command) works — and only if that `--apply`
+run's closing lines said `accounted: every file under plugins/<name> is
+carried over`, never after `DO NOT delete plugins/<name> yet` (which names
+what was left behind) — then run `sync-plugin-commands.sh prune` (Step 7
+repeats this reminder).
 
 **ADOPTED repos only — record what this run wrote.** After writing every
 accepted `clean-add` / `clean-apply` file above, run:
@@ -348,9 +351,11 @@ and re-hide the same upstream commits forever; nothing changes by re-running.
 Run full test suite to confirm framework integrity.
 
 If any release-migration item was converted this run, remember the two
-follow-ups: delete `plugins/<name>` once its converted command/skill works,
-then run `.logic-loom/scripts/bash/sync-plugin-commands.sh prune` — neither
-happens automatically.
+follow-ups: delete `plugins/<name>` once its converted command/skill works
+(only if the convert run reported every file accounted for — a `DO NOT
+delete … yet` run names the files it left behind), then run
+`.logic-loom/scripts/bash/sync-plugin-commands.sh prune` — neither happens
+automatically.
 
 ## Usage
 ```

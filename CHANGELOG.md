@@ -93,6 +93,683 @@ installs start recording what `/update-framework` writes.
   release-removal and tag-consistency checks run with teeth on every push,
   not only at the cut.
 
+### Fixed
+
+- **Plugin-to-skill `convert` no longer recommends deleting `plugins/<x>`
+  while any of its files are unaccounted for.** `convert_hooks_and_support`
+  used to walk a fixed subtree list (`hooks`, `scripts`, `lib`, `config`,
+  `templates`, `tests`, `README.md`) — any other plugin-root file or
+  directory (a `LICENSE`, a `package.json`, a custom asset dir) was silently
+  never converted, and `cmd_convert` still printed an unconditional "delete
+  plugins/$name" regardless. `convert_hooks_and_support` now enumerates
+  every plugin-root entry generically; the delete recommendation (and
+  `CONVERTED.md`'s own Follow-ups line) is now gated on every real file
+  under `plugins/<x>` — tracked, untracked, and gitignored — being provably
+  converted or already ours, and otherwise names exactly what was not
+  carried over instead of the delete step.
+- **A `converted = <name>` decision no longer yields `REMOVE` while files
+  were left behind.** `convert --apply` records the decision for the units
+  it converted even when it had to withhold its own delete step (a
+  non-`.md` file under `commands/`, a symlink, a STOP), and the next scan
+  read the decision alone — decision commit found, plugin untouched since,
+  all-`SKIP` re-render — as "delete when verified", recommending
+  `git rm -r plugins/<name>` over bytes never carried into `.claude/`.
+  The re-render now also has to report every file accounted for
+  (`convert` prints a machine-stable `accounted:` line in both modes; the
+  scan fails closed on its absence); otherwise the item is `KEEP-AS-IS` and
+  names the leftovers, and the decisions briefing says the same.
+- **Symlinks under `plugins/<x>` are never converted and never silently
+  dropped from the accounting.** The unconverted-files check walked
+  `-type f` (regular files only), so a customer's symlink — a root-level
+  link to a shared-asset directory, a link inside `config/`, a dangling
+  link — was neither converted nor listed, and the delete step was printed
+  over it. Everything that is not a directory is now enumerated; a symlink
+  is reported under *Not carried over* and the delete step is withheld.
+- **The manifest and the plugin directory itself were still read through a
+  symlink.** `-f`/`-d` follow links: a `.claude-plugin/plugin.json ->
+  <outside file>` was copied into `plugin.json.orig`, mapped, counted as
+  accounted, "delete plugins/<p>" printed and `converted =` recorded — the
+  same class as the generic-entry fix above, on the one entry that loop
+  skips by name; and a `plugins/<p>` that is itself a symlink had its whole
+  outside target rendered into `.claude/`, a `CONVERTED.md` written for it
+  and a decision recorded (`find "$plugin_dir/skills"` is a path *through*
+  a link, which every tool resolves). A symlinked `.claude-plugin/`,
+  `plugin.json`, `skills/`, `commands/` or `agents/` is now never read and
+  is named under *Not carried over*; a symlinked `plugins/<p>` is refused
+  up front (`STOP`, exit 2, nothing read or written, no decision).
+- **A `skip-worktree` / `assume-unchanged` local edit no longer reads as
+  pristine.** `git diff` and `git status` trust the index for an entry
+  carrying either flag and never stat its working-tree file, so a tracked
+  plugin file edited under one was invisible to every "unchanged since
+  <commit>" test: scan said `REMOVE`, plan printed `git rm -r plugins/<p>`
+  — and with `assume-unchanged`, running that command deletes the edited
+  file outright (probed: git re-checks nothing it was told not to look
+  at). `resolve_state` and the converted-plugin status now read
+  `ls-files -v` and treat any `S`-tagged or lowercase-tagged entry as
+  changed by construction (listed under `changed`, never the `pristine`
+  branch), and the `changed:` reason names the flag.
+- **`convert --dry-run` no longer prints the delete step.** Nothing was
+  written, so "once its converted commands/skills work" could not yet
+  hold; it now says so and points at `--apply`.
+- **`convert` refuses to write through a symlink at a target.** Every
+  "target already exists" guard is an `-e` test, false for a DANGLING link,
+  so a `.claude/skills/<p>/SKILL.md -> <elsewhere>` link made `--apply`
+  create the file wherever the link pointed — outside `.claude/`, outside
+  the repository. A symlink at a target now ERRORs that unit (a failed
+  write: no `converted =`, delete withheld); it is never followed,
+  replaced or removed.
+- **The registry parser rejects an empty field.** Every consumer reads a row
+  back with `IFS=$'\t' read`, which collapses an empty field and shifts
+  every later one left, so an unlinted project row with an empty name was
+  read as name=`removed`, fate=`none`, …. `_loom_parse_row` now reports the
+  empty field by name (a valid `none` row uses `-`) and no consumer ever
+  sees a shifted row.
+- **An option-shaped name (`-f`, `--cached`) is rejected at lint and at
+  use.** `-` is in the name whitelist and quoting cannot help: `git rm '-f'`
+  still hands git an option. `_loom_lint_name_shell_safe` rejects a leading
+  `-` for `plugin`/`mcp-server`/`path` rows and their MOVE replacement
+  paths, and `compute_recommendation` now applies that same check to the
+  NAME field before building any command — closing the at-use half for an
+  unlinted project registry (round 5 had it at lint time, and at use only
+  for a MOVE row's replacement path).
+- **The registry's `sha256:<hash>` adopt-receipt baseline is now
+  corroborated, not merely trusted.** `.logicloom-adopt-receipt.json` is a
+  plain, hand-editable file; a receipt-recorded digest now authorizes a
+  `REMOVE` recommendation only when that exact digest also matches a blob
+  LogicLoom itself shipped at that path in `refs/loom-upstream/main`'s own
+  history — see `.docs/guides/MIGRATION_GUIDE.md` § *Trust boundary — the
+  adopt receipt* for the full boundary this does and does not close.
+- **Path- and shell-safety hardening in `release-migrations.sh` /
+  `.logic-loom/lib/release-migrations.sh`**: a registry row's `name` (and,
+  for a `path`-kind `renamed` row, its `path:<new>` replacement) is now
+  rejected at lint time if it contains a bare `.` path segment or a
+  character outside `[A-Za-z0-9._/-]`, with the same check re-applied at
+  the point each is turned into a printed `git rm` / `git mv` command
+  (defense-in-depth for an unlinted project registry); every path those
+  printed commands embed is now shell-quoted, including a fix to
+  `shell_quote` itself (its original `${s//...}` form emitted unbalanced
+  quoting for an embedded `'`, which `eval` alone had rather than exposed a
+  live registry value with); and the EXIT-trap cleanup for the
+  `check-release` fixture-proof scratch tree refuses to remove a symlinked
+  entry or anything outside its own `mktemp` base rather than a bare
+  check-then-`rm -rf`.
+- `loom_latest_tag_at_or_below` / `loom_latest_tag_below` filter tags with
+  the same strict `^v[0-9]+\.[0-9]+\.[0-9]+$` shape lint and `--since`
+  already require, instead of a loose `/^v[0-9]/` that let a tag like
+  `v8.0.0-rc1` through and fed it to `_loom_version_num`.
+- **A `convert` write that genuinely FAILS is no longer counted as
+  accounted-for.** Every unit converter called `note_mapping` for a source
+  path *before* attempting the write, unconditionally — a write that then
+  failed (a symlinked target, a parent-directory symlink, a rewrite
+  failure) left the source mapped anyway, so `unconverted_plugin_files` saw
+  nothing missing and `CONVERTED.md`'s own Follow-ups section printed the
+  unconditional delete line despite the failure (the terminal's `accounted:`
+  line already caught this class via `WRITE_FAILED`; the on-disk record did
+  not). `note_mapping` now runs only after a write succeeds (or for a
+  pre-existing target / dry-run plan, which never write).
+- **`write_text_target` / `copy_target` now refuse a symlinked PARENT
+  directory component, not only the final target.** `mkdir -p` follows an
+  existing symlinked intermediate directory and creates missing components
+  inside whatever it points to; a `>` redirect / `cp -p` then follows the
+  same chain — so a symlink at, say, `.claude/skills/<plugin>` itself sent
+  every write for that plugin outside `.claude/skills/`, contradicting this
+  script's own stated contract. Every existing path component from the
+  target's parent up to the repo root is now checked.
+- **`record_converted_decision` and the adopt-receipt writers
+  (`record-update-writes.sh`, both JSON-tool backends) refuse a symlinked
+  target** rather than writing through it — the same rule every other
+  writer in this codebase already applied, closed here for the three sites
+  that had not caught up.
+- **The adopt-receipt writers now write atomically** (temp file, then a
+  same-filesystem rename) instead of truncating the real file in place, so
+  a crash or kill mid-write can no longer leave the one record the
+  ownership-tracking system depends on as invalid/truncated JSON.
+- **`record-update-writes.sh`'s `recorded` op (both backends) now validates
+  a run's `generator` string** before trusting its `wrote` entries, the same
+  `^(logicloom|logicloom-update-framework)@.+$` check
+  `release-migrations.sh`'s own receipt-digest baseline already applied to
+  the same hand-editable receipt. Previously only `status` was checked, so a
+  hand-added run with a forged generator but a plausible status had its
+  directory entries treated as framework-owned, and `--reconcile` could
+  offer `RECONCILE` for a file under it that merely happened to be
+  byte-identical to the sync-ref blob.
+- **`_loom_rm_safe_to_remove` now refuses when the proof-tree BASE itself is
+  a symlink**, not only an entry under it. The previous check canonicalized
+  both the entry's parent and the base via `cd -P` and compared them — if
+  the base were swapped for a symlink between creation and the EXIT-trap
+  cleanup, both sides resolved through the same symlink and matched,
+  routing `rm -rf` into whatever it pointed at. `[ -L "$base" ]` is now
+  checked first, before any canonicalization.
+- **`apply_path_rewrites` now checks `mktemp` and the `sed` pipeline
+  explicitly** and falls back to the original, unrewritten content (never
+  empty) on either failure, with an `ERROR` line on stderr — previously an
+  `mktemp` failure fed `sed -f ""` an empty filename, and under this
+  script's `-uo pipefail` (no `-e`, by design) the failure did not stop the
+  caller, so the empty output was written, `WROTE`-logged, and counted as
+  accounted-for. Every real call site was also fixed to check the function's
+  own exit status explicitly (`|| WRITE_FAILED="true"`) rather than relying
+  on a variable it sets internally — that mutation lives only in the
+  forked subshell every `$(apply_path_rewrites …)` capture creates and was
+  otherwise invisible to the caller.
+- **`resolve_baseline`'s "recoverable" advice for a pristine `receipt-sha256`
+  baseline no longer claims `git checkout HEAD -- $path` will restore a path
+  that was never tracked at HEAD** (a baseline resolved purely from a
+  receipt/upstream match, never committed to this repo). The advice now
+  checks HEAD-tracking first and words itself accordingly; both printed
+  paths are single-quoted so the advice still prints and copy-pastes
+  correctly for a path containing a space.
+- **An EMPTY directory under `plugins/<p>` is no longer invisible to
+  `convert`'s accounting.** `find … ! -type d` enumerates regular files and
+  symlinks only, so a directory holding nothing produced no entry at all —
+  never converted, never listed as left behind, and the delete
+  recommendation fired as if the plugin were fully accounted for. An empty
+  directory holds zero bytes, so nothing was ever actually lost this way,
+  but `git rm -r plugins/<p>` on that advice removed the directory entry
+  with no record this tool had ever seen it. Every leaf-empty directory is
+  now named alongside unconverted files, and the delete step withheld.
+- **A `KEEP <target> modified-after-conversion` no longer counts its source
+  as carried over.** (Reviewer round 2, residual of the `note_mapping`
+  finding above.) The "target already exists" branch of every unit
+  converter mapped its source and then classified the target — a KEEP means
+  the target differs from what the plugin source renders to *now*, so the
+  source's current bytes are provably not there (the source was edited
+  after conversion, or the target was, or both; nothing is overwritten
+  either way) — yet `convert --apply` still printed `accounted: every file
+  … is carried over` and `Next steps: delete plugins/<p>`. Reproduced by
+  converting, editing `plugins/<p>/hooks/h.sh`, and converting again: two
+  KEEP lines, the edit nowhere under `.claude/`, and the delete step. scan
+  already read any KEEP as render-stale / `KEEP-AS-IS`; `convert`'s own
+  output now agrees: every KEEP is listed under *Not carried over by this
+  run* with the target it differs from and "reconcile by hand, then
+  decide", and both delete gates (the terminal line and `CONVERTED.md`'s
+  Follow-ups) withhold on it. An unedited re-run (all `SKIP`) is unchanged.
+- **A `#` or `[` in the checkout path no longer blinds `convert`'s unit
+  planner and accounting.** (Reviewer round 2.) `plan_convert_units` and
+  `unconverted_plugin_files` stripped `$REPO_ROOT` with
+  `sed "s#^$REPO_ROOT/##"` — a `#` in the path is that expression's
+  delimiter, a `[` opens an unbalanced bracket expression, and either way
+  sed errored with EMPTY output under `-uo pipefail` (no `-e`). No skill,
+  command or agent unit was converted at all (only hooks/support, which
+  used parameter expansion), the accounting saw zero files under
+  `plugins/<p>`, the positive `accounted:` line fired, `converted =` was
+  recorded, and the next scan said `REMOVE` with `git rm -r plugins/<p>`
+  over a skill never carried into `.claude/` — reproduced for both
+  characters. Every such prefix is now stripped by parameter expansion
+  (`_loom_rm_strip_prefix`; `owning_plugin_name` and `content_matches`
+  too), and `unconverted_plugin_files` now also fails closed when `find`
+  itself exits non-zero — a subdirectory under `plugins/<p>` it cannot read
+  used to yield a silently partial listing that read as complete; it now
+  names the directory as unverifiable and withholds the delete step.
+- **`CONVERTED.md`'s Follow-ups take the same delete gate as the
+  terminal.** (Reviewer round 2, the on-disk half of the `note_mapping`
+  finding.) The record gated its Follow-ups on unconverted files alone,
+  while the terminal also required nothing STOPped and no write failed — so
+  a run whose every unit was mapped but whose rewrite step failed
+  (`apply_path_rewrites` → `WRITE_FAILED`; files written UNREWRITTEN) had the
+  terminal say `DO NOT delete` and the file, the one a user may read later
+  on its own, say `delete plugins/<p>`. `cmd_convert` now hands the run's
+  STOP/failed state to the renderer before the record is written; a record
+  written by a failed run says so and names the reason.
+- **The adopt-receipt writers never write through a symlink planted at
+  their own temp-file name.** (Reviewer round 2, residual of the
+  atomic-write finding above.) The temp name is predictable
+  (`<receipt>.tmp<pid>`) and both JSON helpers created it with a plain
+  `open(…, 'w')` / `fs.writeFileSync`, which follow an existing symlink at
+  that name — reproduced by planting `<receipt>.tmp<pid> -> <victim>`: the
+  receipt JSON was written through the link, truncating a file this tool
+  never created, and the rename then moved the link itself over the
+  receipt. Both helpers now open the temp file `O_CREAT|O_EXCL` (`'wx'`),
+  which fails on any pre-existing entry, symlink included, and refuse
+  loudly; a failed write also unlinks its own half-written temp file.
+- **A symlink to a FILE at a plugin's root (a `LICENSE` pointed elsewhere,
+  say) is no longer silently converted.** `convert_hooks_and_support`'s
+  `[ -d "$srcpath" ]` is false for a link-to-file, so the `else` branch set
+  `files="$srcpath"` — the link path itself, read via `cat`/`copy_target`
+  exactly like a real file and counted as carried over, contradicting this
+  tool's own documented contract that a symlink anywhere under
+  `plugins/<p>` is never converted. (A link-to-*directory* at plugin root
+  was already safe, by an accident of how `find <link> -type f` does not
+  descend past a link given as its own start point — this closes the
+  file case explicitly, for both.)
+- **A symlink named `*.md` directly under a plugin's `commands/` or
+  `agents/` is no longer silently converted.** `plan_convert_units`'s
+  `find … -name '*.md'` for `COMMAND_UNITS`/`AGENT_UNITS` had no `-type f`,
+  so it matched a symlink by basename exactly like a real file; both unit
+  converters `cat` their source unconditionally, so the link's target
+  content was read through and written into `.claude/skills/<cmd>/SKILL.md`
+  or `.claude/agents/<agent>.md`, counted as accounted-for. Both finds now
+  require `-type f`; `convert_command_unit`/`convert_agent_unit` also
+  refuse a symlinked source directly, defense-in-depth against a future
+  caller that bypasses the unit list.
+- **`record-update-writes.sh`'s `recorded` op (both backends) no longer
+  trusts a `partial`/`in-progress` run's `wrote` entries as already
+  framework-owned.** `release-migrations.sh`'s own baseline digest reader
+  already restricts trust to `status == 'complete'` — a run that never
+  finished is not vouching for the bytes it left behind — but this op
+  accepted `('complete', 'partial', 'in-progress')` for the same
+  adopter-editable receipt, an internal inconsistency between two pieces of
+  receipt-trust logic tightened in the same PR. Both now match: `complete`
+  only.
+- **The adopt-receipt's stale-`uninstall`-marker text no longer claims
+  every `kind:dir` entry is "a directory it created."** `build_entries`
+  records every not-yet-recorded ancestor directory of a written file
+  unconditionally, with no check for whether that directory already
+  existed independent of this run (a customer's own pre-existing directory
+  that happens to also receive one LogicLoom-written file is recorded the
+  same as one this run's first write brought into being). The marker text
+  (both JSON-tool backends, kept byte-identical) now says what a `kind:dir`
+  entry actually means: the directory holds a LogicLoom-written file, never
+  a claim of having created or owning the directory itself.
+- **`CONVERTED.md` now says, in its own text, that it can go stale.**
+  `finalize_convert` deliberately writes this record once, at conversion
+  time, and never rewrites an existing one — its creation commit is the
+  conversion decision, tamper-evident dating the removal gate relies on.
+  The LIVE recommendation (`scan`/`plan`) already re-renders fresh and
+  never trusts this file's on-disk text, but a human who opens it directly
+  after a later edit to the plugin could still read an unqualified
+  "delete" line as current. The rendered file now says up front that it is
+  written once and may be stale, and to re-run `scan --json`/`plan` for
+  the current recommendation.
+- **`build_entries` no longer records a wide ancestor directory as
+  `kind:dir` when it also holds git-tracked content this run cannot
+  account for.** The round-3 fix above corrected the stale-marker's PROSE
+  only; the recording behavior it described was unchanged, so a
+  `kind:dir` entry still widened `--reconcile`'s `git ls-files -- "$d"`
+  sweep to every file under a directory the run never actually wrote into
+  — up to a repo-root-adjacent directory like `plugins/` or `.claude/`,
+  since `path_ancestors` walks every level. `build_entries` now claims a
+  directory only when every git-tracked file under it, right now, is
+  either already recorded or being recorded in this same call
+  (`_dir_is_fully_accounted`); a directory that also holds other,
+  unaccounted content is left unrecorded, narrowing future
+  `--reconcile` scope without touching the (separately-owned, unfiltered)
+  npm installer's own full-tree recording.
+- **`--reconcile`'s directory sweep now corroborates a `kind:"dir"` receipt
+  entry against `refs/loom-upstream/main`'s own tree history before trusting
+  it.** A `kind:"file"` entry carries a `sha256` verified against a real
+  blob before anything is recorded; a `kind:"dir"` entry carries no hash, so
+  a plausible-but-forged `generator` string in the same hand-editable
+  receipt (`TRUSTED_GENERATOR_RE` checks shape, not authorship) was the only
+  gate on a directory claim. New `loom_upstream_ever_had_dir`
+  (`.logic-loom/lib/release-migrations.sh`) requires the claimed path to
+  have genuinely been a tree somewhere in `refs/loom-upstream/main`'s
+  reachable history; an uncorroborated `kind:"dir"` entry is dropped from
+  the sweep, silently, without refusing the rest of the run.
+- **A pre-existing `.claude/` target that is a symlink is now refused, not
+  read through.** The write path (`write_text_target`/`copy_target`) has
+  always refused a symlinked target via `_loom_rm_refuse_symlink_target`;
+  the seven "target already exists" branches (skills, commands, agents, the
+  generic plugin-root loop, the `.claude-plugin/plugin.json` manifest, the
+  support index, `CONVERTED.md`) tested only `[ -e ]`, which follows a
+  symlink, so a non-dangling symlinked target was classified/read straight
+  through it and marked "accounted for" without ever noticing the target
+  itself is a link. All seven now refuse it the same way a write does
+  (`_loom_rm_refuse_existing_symlink_target`).
+- **`record_converted_decision` now checks the FULL ancestor chain of the
+  decisions file for a symlink, not only its immediate parent.**
+  `.logic-loom/config/migration-decisions.conf` is two levels below
+  `REPO_ROOT`; the old check tested only `.logic-loom/config`, so a symlink
+  planted at `.logic-loom` itself — one level further up — went unchecked
+  and the `>>` append (or the initial header write) would still follow it.
+  Walks every component up to (not including) `REPO_ROOT`, the same rule
+  `_loom_rm_refuse_symlink_parents` already applies on the write path for
+  `.claude/skills/`/`.claude/agents/` targets.
+- **`build_rewrite_sed` now escapes skill/command/agent/plugin names before
+  interpolating them into generated `sed s|pattern|replacement|g` lines.**
+  A name containing a BRE metacharacter (`. * [ ^ $`), the delimiter (`|`),
+  or a replacement-side special (`&`, `\`) used to silently change what the
+  generated rewrite matched or inserted, while the unit was still written
+  and mapped as "accounted for." Unit/plugin names are conventionally
+  kebab-case, so this rarely fired in practice — the gap is closed
+  regardless.
+- **`--reconcile`'s sync-ref blob extraction no longer misclassifies a
+  failed read as a byte-identical match.** `git cat-file -p` was piped into
+  a temp file with its own failure swallowed by `|| true`; the `>`
+  redirect creates/truncates that file regardless of whether the command
+  succeeds, so a failed extraction (after the preceding existence check
+  passed) left an empty temp file that `cmp` could report as identical to
+  a genuinely-empty on-disk file. The command's own exit status is now
+  checked explicitly; a failed extraction is skipped — neither `RECONCILE`
+  nor `DIFFERS` — instead of silently proven.
+- Two stale comments corrected to match the code next to them: a
+  trust-boundary comment on the receipt-recorded `sha256` baseline no
+  longer claims "an adopter cannot forge this" a few dozen lines above the
+  comment that spells out exactly how one can (both now point at the same,
+  accurate story); and the registry-row parser's traversal-rejection
+  messages now name the bare `.` segment `loom_path_traversal_safe` has
+  always also rejected, not only `..`.
+- **`build_entries` records the ancestors of a MULTI-file write again.**
+  (Round-4 reviewer; a regression of the finding-3 narrowing directly
+  above.) `_dir_is_fully_accounted` reads the call's entries file to decide
+  whether every tracked file under a directory is accounted for, so it only
+  saw entries written before it ran; the single interleaved pass (file, its
+  ancestors, next file, …) judged `plugins/loom-git/commands/` while the
+  sibling's entry did not exist yet, refused it, parked it in `seen_dirs`,
+  and never asked again. Recording two files in one call — exactly how
+  `/update-framework` invokes the recorder (`--version V <each written
+  path>`) and how `--reconcile --apply` records every `RECONCILE` path —
+  therefore recorded **no** ancestor directory at all, reopening the rot gap
+  the script exists to close (a later upstream `A` under that directory
+  would fail the ancestor rule silently, forever). Every file entry is now
+  written first and directories are judged second, against the whole
+  call; `plugins/` itself is still left unrecorded when a sibling subtree
+  holds unaccounted content.
+- **`--reconcile` no longer lists or records an index path that goes
+  through a symlinked directory.** (Round-4 reviewer.) Candidates come from
+  `git ls-files` — index paths — and the per-candidate check tested `-L`/`-f`
+  on the final component only, which follow a symlinked *ancestor*: a
+  recorded directory the adopter had replaced (unstaged) with a symlink to
+  a directory elsewhere — reproduced with one outside the repository — still
+  listed its old index paths, `cmp`'d the bytes on the far side of the link,
+  printed `RECONCILE`, and `--apply` recorded the index path with the
+  upstream digest (the receipt's later "digest matches → delete" step would
+  then unlink the file *at the link's target*). Record mode already refused
+  the same path (`canon_path` resolves the parent with `pwd -P` and rejects
+  anything outside the root); `--reconcile` now applies the same rule and
+  skips such a candidate loudly on stderr — neither `RECONCILE` nor
+  `DIFFERS`, nothing about it is decided.
+- **`convert` refuses to classify an existing target through a symlinked
+  PARENT directory, not only a symlinked target.** (Round-4 reviewer; the
+  round-4 `_loom_rm_refuse_existing_symlink_target` fix above checked the
+  final component only, and `[ -e ]` follows a symlinked parent just as
+  readily.) With `.claude/skills/<skill>` and `.claude/skills/<p>` replaced
+  by symlinks to a directory outside the repository holding a previously
+  converted copy, a re-run classified every file `SKIP` through the links,
+  mapped them, printed `accounted: every file … is carried over` and `Next
+  steps: delete plugins/<p>`, and `scan` said `REMOVE` — while the only
+  in-repo home of those bytes was a symlink into an unversioned directory.
+  The classify path now walks every existing component up to the repo root
+  (the rule the write path has applied since round 2 and
+  `MIGRATION_GUIDE.md` already stated), ERRORs naming the parent link,
+  withholds the delete step, and the next `scan` reads the item as
+  `KEEP-AS-IS`. The same guard now also covers the eighth "target already
+  exists" read, `append_marked_section` (a command appended into its home
+  skill, and the support-index append), which was previously refused only
+  transitively via the skill unit's own check on the same file.
+- **`record-update-writes.sh`'s directory-accounting check no longer reads
+  a FAILED `git ls-files` as "the directory holds nothing."** (Round-5
+  reviewer, high.) `_dir_is_fully_accounted` fed its accounting loop
+  straight from `git ls-files -z ... || true`; a nonzero exit (a
+  permission issue, a corrupted object, anything) was masked by `|| true`,
+  which the loop could not tell apart from a directory that legitimately
+  enumerates to zero tracked files — either way it fell through to "fully
+  accounted," licensing a `kind:"dir"` receipt entry (and later a
+  `--reconcile` sweep of that whole subtree) from an enumeration that
+  never actually completed. The exact same fail-open class
+  `unconverted_plugin_files` (`release-migrations.sh`) was already closed
+  for a failed `find` a few rounds ago; this closes the matching gap in
+  the recorder's own directory check. The listing is now captured to a
+  temp file first, with git's real exit status checked before the loop
+  ever runs; a failed enumeration refuses the directory outright instead
+  of claiming it.
+- **The registry row parser now rejects a field containing a literal TAB
+  byte.** (Round-5 reviewer.) `loom_migration_rows`/`loom_deprecation_rows`
+  re-serialize every row TAB-joined, and every consumer re-splits it with
+  `IFS=$'\t' read`; a field that itself contained an embedded tab produced
+  one extra tab boundary on that line, shifting every field after it one
+  column to the left on read-back — the same corruption class as an empty
+  field between two pipes (closed a few rounds ago), just triggered from
+  inside a field instead of between two. `_loom_parse_row` now rejects an
+  embedded tab in any of the 8 fields, named by field, the same place the
+  empty-field and path-traversal checks already run.
+- **A customer's own symlink at a receipt-recorded path is no longer read
+  as "pristine."** (Round-5 reviewer.) `_loom_rm_sha256_file`'s `[ -f ]`
+  test and Python's `open()` both dereference a symlink; a symlink whose
+  TARGET happened to byte-match a receipt-recorded digest read back as
+  pristine, and `resolve_baseline`/`resolve_state` could then drive a
+  `REMOVE` recommendation whose `git rm` deletes the symlink entry itself
+  — a path this tool never created — purely because of where it happens to
+  point. `_loom_rm_sha256_file` now refuses a symlink outright; both
+  callers already treat its failure as "cannot confirm pristine," so
+  refusing there is enough — no other code path to touch.
+- **Three unquoted `for x in $LIST` unit loops (skill/command/agent names)
+  are now `while IFS= read -r`.** (Round-5 reviewer, low.) An unquoted
+  `for` both word-splits a unit name containing whitespace into multiple
+  bogus iterations and glob-expands each resulting word against files in
+  `$PWD`; the lists in question are newline-per-entry by construction, so
+  `while read` is both the correct delimiter and immune to glob expansion
+  — the NUL/newline-safe-loop idiom this same diff already uses elsewhere.
+  `unit_touched()`'s ERE `grep -E` match on an interpolated path is
+  likewise replaced with a literal `case` comparison, so a plugin/unit name
+  containing a regex metacharacter can no longer be misread as pattern
+  syntax.
+- **The registry row parser no longer silently accepts a trailing empty
+  9th field.** (Round-5 reviewer, low.) A row ending in a stray extra `|`
+  produces a 9-field-shaped row whose 9th field is empty; `read` cannot
+  tell that apart from a genuine 8-field row (both leave the 9th variable
+  empty), so the old `[ -n "$f9" ]` check alone let it through, silently
+  contradicting the documented "exactly 8 pipe-separated fields" grammar.
+  The parser now counts the real `|` delimiters directly (escaped `\|`
+  already decoded out of the count) and requires exactly 7.
+- **`record-update-writes.sh` now warns when it cannot determine a
+  framework version.** (Round-5 reviewer, low.) With no `--version` given
+  and no `FRAMEWORK_VERSION` in `.logic-loom/config/architecture.conf`,
+  the empty version flowed into the new run's `generator` string as
+  `logicloom-update-framework@` (nothing after the `@`) — a shape
+  `TRUSTED_GENERATOR_RE` was always going to reject on every later read
+  (fail-safe, never fail-open), but the command still printed `RECORDED`
+  lines and exited 0 with no hint the run it just wrote could never be
+  corroborated. Both actual-write call sites (record mode and
+  `--reconcile --apply`) now print a warning naming the reason and the
+  fix, without changing behavior otherwise — still records, still exits 0.
+- **The printed/apply `MOVE` command's destination guard now also catches
+  a DANGLING symlink at the destination.** (Round-5 reviewer, low.) `-e`
+  alone is false for a symlink whose target does not exist, so this tool's
+  own friendly refusal message did not fire for that case — the command
+  fell through to a bare `git mv`, which independently refuses to
+  overwrite an existing lstat entry (including a dangling symlink), so no
+  path was ever actually overwritten either way. `[ -e ] || [ -L ]` closes
+  the diagnostic gap: the same friendly message now fires for a dangling
+  symlink too, not only a real file.
+- **A receipt-sha256 baseline never reads a file behind a SYMLINKED PARENT
+  directory as pristine.** (Round-5 reviewer, high, data-loss.) The round-5
+  `[ -L ]` guard in `_loom_rm_sha256_file` checked the final component
+  only; `[ -f ]` and `open()` resolve a symlink at any parent just as
+  readily, so `docs -> <directory outside the repository>` with a
+  byte-identical `docs/old-note.md` on its far side hashed clean, the
+  receipt candidate won in `resolve_baseline` (a receipt match beats a
+  stale sync-ref by design), `resolve_state` read it as pristine, and
+  `scan`/`plan` printed `git rm 'docs/old-note.md'` — running which, in the
+  reproduction, DELETED the file at the link's target, outside the
+  repository (`git rm` unlinks by path; the kernel resolves the directory
+  link). git's own diff already reports a tracked file behind a symlinked
+  leading path as deleted, so the sync-ref/upstream baselines were safe;
+  the receipt route never asked git. `resolve_state` now treats a symlinked
+  ancestor as customized for every baseline kind (the ancestor is named
+  under `changed`), and `_loom_rm_sha256_file` refuses to hash through one
+  at all.
+- **A nested git repository under `plugins/<p>` is never pristine, never
+  converted, and always withholds the delete step.** (Round-5 reviewer,
+  medium.) A `.git` directory (the customer ran `git init` inside a retired
+  plugin to keep their own history of it) or a `.git` gitdir-pointer file
+  (what `git worktree` writes) is invisible to the outer repository's git:
+  `ls-files --others` lists nothing under a nested repository and `diff`
+  stays clean, so `scan` said pristine and `plan` printed
+  `git rm -r 'plugins/<p>'` over history nobody but the customer owns.
+  `convert --apply` then carried `.git/**` into `.claude/skills/<p>/.git/`
+  — a `WROTE` line per hook sample, `HEAD`, `config`, the object store —
+  which makes `.claude/skills/<p>` an embedded repository the outer tree
+  can only ever hold as a 160000 gitlink (reproduced: `git add .claude`
+  warned "adding embedded git repository"), and for the pointer-file
+  variant printed `accounted: every file … carried over` and the delete
+  step outright. `resolve_state` (and the `converted =` status check) now
+  list a nested `.git` under `added`; every converter walk prunes `.git`
+  by name; `unconverted_plugin_files` reports it once, by name, so both
+  delete gates withhold.
+- **A subdirectory under `plugins/<p>` the scan cannot read is never
+  pristine.** (Round-5 reviewer, medium.) `git ls-files --others` (with or
+  without `--ignored`) lists nothing under a directory it cannot open and
+  still exits 0, and `diff` is clean, so an untracked mode-000 directory
+  holding a customer's file read as pristine / REMOVE with `added_files`
+  empty. `resolve_state` now runs the same enumeration check
+  `unconverted_plugin_files` already applies (reviewer round 2: "an
+  enumeration that did not complete proves nothing about the tree") and
+  lists the directory under `added` as not fully enumerable.
+- **`record-update-writes.sh` hands directory names to git as literal
+  pathspecs.** (Round-5 reviewer, low, residual of finding 3.) A directory
+  name beginning with `:` is pathspec magic to git (`:colon` parses as the
+  pattern `colon`), so `_dir_is_fully_accounted`'s `ls-files -z -- ':colon'`
+  listed nothing with exit status 0 — the exact "empty, well-formed
+  directory" shape the finding-3 exit-status check passes — and `:colon/`
+  was recorded as fully accounted while a tracked, unrecorded sibling sat
+  under it; `--reconcile` then swept and corroborated nothing for such a
+  directory. Every pathspec built from a directory name
+  (`_dir_is_fully_accounted`, the `--reconcile` sweep,
+  `loom_upstream_ever_had_dir` in the shared lib and the recorder's
+  fallback copy) is now `:(literal)<name>`; an empty name is refused
+  rather than let `:(literal)` alone match the whole tree.
+- **`write_text_target`'s executable-bit preservation is now a checked
+  write, not a fire-and-forget one.** (Round-6 reviewer, medium.) A
+  converted command/skill/agent/hook file's `chmod +x` (preserving the
+  source's own +x bit, since the `>` redirect that writes the content never
+  carries a mode over) had no exit-status check, and the function still
+  `return 0`'d — the caller printed `WROTE`, recorded the mapping, and
+  `unconverted_plugin_files` counted the source as carried over, even
+  though the target on disk was not runnable. A failed `chmod +x` is now
+  treated as a failed write (`ERROR`, `WRITE_FAILED=true`, unit STOPs, the
+  source is reported under *Not carried over*), matching this file's own
+  header claim that every write is checked explicitly.
+- **A failed `git ls-files` enumeration in `resolve_state` /
+  `_loom_rm_index_hidden_paths` / `_loom_rm_converted_plugin_status` no
+  longer reads as "nothing hidden, nothing untracked."** (Round-6
+  reviewer, high, data-loss.) All three collapsed a FAILED listing
+  (permission issue, corrupt index, anything that makes `ls-files` exit
+  non-zero) to the same empty output a genuinely clean result produces —
+  `_loom_rm_index_hidden_paths` threw its own exit status away with an
+  unconditional `return 0`, and `resolve_state`'s untracked/ignored
+  captures used `|| var=""`. The pristine test that follows cannot tell a
+  failed enumeration from a clean one, so a failed listing could drive a
+  `pristine` state and a `REMOVE` recommendation over a path this run
+  never actually verified. All three now check the real exit status and
+  refuse the path (`resolve_state`: `customized`, naming the failure;
+  `_loom_rm_converted_plugin_status`: `changed:<commit>`, the same "doubt"
+  branch an actual untracked file already takes) rather than fall through.
+- **`content_matches`' glob branch no longer reports success when its
+  `find` pipeline fails partway.** (Round-6 reviewer, medium.) Same class
+  as the two findings above, on a lower-stakes path: an unconditional
+  `return 0` made a `find` that failed on an unreadable subdirectory
+  indistinguishable from "the glob legitimately matched nothing," so
+  `check-release`'s content-row after-proof silently reported "no shipped
+  current copy — after-proof skipped" for a row it never actually could
+  check, and `emit_content_item`'s scan-time detection silently dropped
+  the row. `content_matches` now propagates `find`'s real exit status;
+  `check-release` fails loudly instead of skipping, and `emit_content_item`
+  warns on stderr (that call site's stdout is scan/plan's own item output,
+  so a new failure signal there would have meant a schema change — see the
+  code comment for why a stderr warning was chosen over that).
+- **`--root` as the last, valueless argument no longer hangs every
+  subcommand's argument parser forever.** (Round-6 reviewer, low.) Each of
+  `lint`/`scan`/`plan`/`check-release`/`convert`'s option loop had
+  `--root) shift 2 ;;` — bash's `shift N` with `N > $#` is a silent no-op
+  (unlike referencing `$2` directly, which `set -u` would have caught), so
+  with no value after `--root`, `$1` stayed `--root` forever and the
+  `while [ $# -gt 0 ]` loop never exited. Each site now checks `$# -ge 2`
+  first and reports a usage error (`--root requires a value`) instead of
+  looping.
+- **The pristine test no longer defers to the customer's own diff
+  helpers.** (Round-6 REVIEWER, high — governing principle.) `git diff
+  --quiet` consults `GIT_EXTERNAL_DIFF`, `diff.external` and a
+  `.gitattributes` `diff=<driver>` (`command` or `textconv`), and when the
+  helper's exit code is trusted (`GIT_EXTERNAL_DIFF_TRUST_EXIT_CODE`,
+  `diff.trustExitCode`, `diff.<driver>.trustExitCode`; a lossy `textconv`
+  needs none of these) takes the helper's "no difference" over its own
+  blob compare. Reproduced on git 2.54 with an edited tracked file under
+  every one of those routes: `state: pristine`, `changed_files: []`,
+  `REMOVE`, `git rm -r plugins/<p>` printed over a customer edit, plus the
+  plan's "removing a pristine path never loses bytes" line (`git rm`
+  itself then refuses the modified file, so the printed command stops
+  short of deleting — the wrong recommendation is the harm). None of
+  those settings is a misconfiguration. Every `git diff` in
+  `release-migrations.sh` (the pristine test, its `--name-status`, the
+  converted-plugin "unchanged since the decision commit" test, and
+  `check-release`'s surface count) now passes `--no-ext-diff
+  --no-textconv`; a source pin in the contract suite holds every call site
+  to it. `extract-proposals.sh` runs the same shape of `git diff --quiet`
+  for its conflict-review classification and is outside this change's
+  file scope — noted for the next pass, not fixed here.
+- **`convert` no longer hangs on a named pipe at plugin root.** (Round-6
+  REVIEWER, medium.) `convert_hooks_and_support`'s generic plugin-root
+  walk treated every non-directory, non-symlink entry as a regular file
+  and ran `grep -Iq .` on it to decide text-vs-binary; on a FIFO that
+  `open()` blocks until a writer appears — forever — and killing the
+  convert left the `grep` orphaned, still blocked on the pipe
+  (reproduced). Only a regular file is converted from the plugin root
+  now; a pipe, socket or device node is never opened and is reported by
+  `unconverted_plugin_files` under *Not carried over* (the delete step
+  is withheld), the same contract a symlink already has.
+- **`scan` no longer reads a plugin holding a special file or an empty
+  directory as pristine.** (Round-6 REVIEWER, low — parity with the
+  round-2 empty-directory finding, which closed this on the convert side
+  only.) git's directory walker drops every entry that is not a regular
+  file, symlink or directory, and tracks no directories at all, so
+  `plugins/<p>/commands/customer.pipe` and an empty `plugins/<p>/scratch/`
+  were in no listing: `state: pristine`, `added_files: []`, `REMOVE`
+  (reproduced for both). `git rm -r` leaves both behind, so no bytes were
+  at stake — but the recommendation claimed the path holds nothing but
+  LogicLoom's bytes. `_loom_rm_git_blind_spots` (read by both
+  `resolve_state` and the converted-plugin status) now lists both under
+  `added`, so the item is customized and the user is asked.
+- **`tests/contract/test_release_migrations.sh` no longer depends on GNU
+  `timeout`.** (Round-6 REVIEWER, test portability.) The round-6 `--root`
+  hang regression test called `timeout 10 …`, which stock macOS does not
+  ship (it came from Homebrew coreutils on the machine that wrote it);
+  without it every assertion in that block failed with rc 127 rather
+  than skipping. Replaced by a pure-bash watchdog
+  (`rv6_run_with_timeout`), also used by the new FIFO regression test.
+  Its E4 scratch files now live under the suite's own `mktemp -d` root
+  instead of `/tmp`.
+
+### Known issues (accepted, documented tradeoffs — not fixed this round)
+
+- **A mode-only change is not a customization.** With `core.fileMode`
+  false (the default on some Windows checkouts), a `chmod` on a tracked
+  file under a deprecated path is invisible to `git diff`, and the item
+  still reads pristine — no bytes differ, and the printed `git rm` loses
+  none, so this is left as-is.
+- **A converted plugin whose skill shares the plugin's name AND has
+  support assets never reaches "unchanged".** (Round-6 REVIEWER, low,
+  pre-existing, fail-safe.) `convert_support_index` appends its
+  marker-delimited index section into that skill's `.claude/skills/<p>/
+  SKILL.md`; every later re-render classifies that file `KEEP
+  modified-after-conversion` (the skill unit renders the source without
+  the appended section), so `scan`/`plan` report `render-stale` /
+  KEEP-AS-IS forever — a false "reconcile by hand" rather than the REMOVE
+  a clean conversion earned. Doubt → KEEP, so nothing is at risk; the
+  classify step would need to compare against the rendered content plus
+  the index section to clear it. Not changed this round.
+- **`convert --apply --customized-only` on a plugin with nothing touched
+  still records `converted = <name>`** while its own output says `DO NOT
+  delete` (nothing was carried over). Harmless in effect — the read side
+  (`_loom_rm_converted_plugin_status`) requires a fresh, all-SKIP,
+  positively-accounted re-render before that decision can ever mean
+  REMOVE, so the next scan says KEEP-AS-IS — but the decision line
+  overstates what that run did. Not changed this round.
+
+- **`CONVERTED.md` is written once and never rewritten**, by design (see
+  `render_converted_md`'s own comment and its on-page disclaimer) — after a
+  plugin source is edited and `convert --apply` re-run, the file on disk
+  can still show a stale "delete `plugins/<x>`" line even though
+  `scan`/`plan` (the live, authoritative path) already report
+  `KEEP-AS-IS`. Pinned by `tests/contract/test_release_migrations.sh`
+  ("Round-4 finding 5").
+- **A run recorded with no resolvable framework version** (no `--version`,
+  no `FRAMEWORK_VERSION` in `architecture.conf`) still writes a receipt
+  entry whose `generator` is `logicloom-update-framework@` (nothing after
+  the `@`) — `TRUSTED_GENERATOR_RE` was always going to refuse that shape
+  on every later read, so the write is fail-safe by construction, not
+  fail-open; `record-update-writes.sh` now WARNS on stderr at both write
+  call sites instead of failing silently. Pinned by
+  `tests/contract/test_update_framework_ownership.sh` ("Round-5 finding
+  8").
+- **Ownership is inferred from byte equality corroborated against
+  `refs/loom-upstream/main`, not cryptographically proven** —
+  `.logicloom-adopt-receipt.json`, `.sdd-sync-ref` and
+  `refs/loom-upstream/main` are plain, hand-editable local git state, and
+  none of them is signed. `.docs/guides/MIGRATION_GUIDE.md` § *Trust
+  boundary — the adopt receipt* states this plainly and bounds the
+  practical impact (never an automatic delete; `--reconcile` only ever
+  proposes, gated behind an explicit `--apply`).
+
 ### Changed
 
 - `tests/contract/test_deprecation.sh`, `tests/contract/test_bash32_floor.sh`,

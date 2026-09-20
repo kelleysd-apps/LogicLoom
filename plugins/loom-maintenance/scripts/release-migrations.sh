@@ -78,31 +78,80 @@ _loom_rm_proof_base() {
     printf '%s\n' "$_LOOM_RM_PROOF_BASE"
 }
 
+# Low finding (round 5 review, prose corrected round 4): the previous
+# check-then-rm here was pure TOCTOU — a case-match against
+# $_LOOM_RM_PROOF_BASE, then a separate `rm -rf` a moment later, with
+# nothing stopping a path component from being swapped for a symlink in
+# between (or the entry itself being a symlink to begin with). Note what the
+# actual exposure is NOT: `rm -rf` on a symlink argument never follows it
+# into a directory's content — both GNU and BSD `rm` lstat the argument and
+# simply unlink the symlink node itself, the same as for any symlink
+# encountered during recursion. The real exposure is narrower and easy to
+# miss for exactly that reason: an INTERMEDIATE ancestor of $d being swapped
+# for a symlink between the case-match and the `rm -rf`, so $d still looks
+# like a real directory under $_LOOM_RM_PROOF_BASE by name, while its
+# CANONICAL location has moved outside it. Re-checked, right at removal time, not at
+# case-match time: (1) the entry itself is not a symlink — refused outright,
+# never followed; (2) its PARENT resolves (via `cd -P`, which does not
+# traverse the final component, only the ones above it) to a real path that
+# is still $_LOOM_RM_PROOF_BASE or under it, using canonical paths on both
+# sides so a symlink swapped into an intermediate component after the fact
+# is caught, not trusted. A path that fails either check is skipped, not
+# removed — a proof gone missing is a test-integrity bug to fix, never a
+# reason to widen what EXIT cleanup is allowed to delete.
+_loom_rm_safe_to_remove() {
+    local d="$1" base="$2"
+    [ -n "$d" ] && [ -n "$base" ] || return 1
+    case "$d" in
+        "$base"/*) : ;;
+        *) return 1 ;;
+    esac
+    [ -L "$d" ] && return 1
+    [ -e "$d" ] || return 1
+    # High finding (round-2 review): $base itself (normally
+    # $_LOOM_RM_PROOF_BASE) must never be trusted as a symlink either — the
+    # canonicalization below (`cd -P`) follows a symlink at $base
+    # transparently, so if $base were swapped for a symlink between creation
+    # and cleanup, real_base and real_parent would both resolve through that
+    # SAME symlink and match each other, routing removal into whatever it
+    # points at. Refused here, before any canonicalization runs, the same
+    # "never follow" rule this function already applies to $d itself.
+    [ -L "$base" ] && return 1
+    local real_base real_parent
+    real_base="$(cd -P -- "$base" 2>/dev/null && pwd -P)" || return 1
+    real_parent="$(cd -P -- "$(dirname -- "$d")" 2>/dev/null && pwd -P)" || return 1
+    case "$real_parent" in
+        "$real_base") : ;;
+        "$real_base"/*) : ;;
+        *) return 1 ;;
+    esac
+    return 0
+}
+
 _loom_rm_cleanup() {
     [ -n "$_LOOM_RM_TMP_REGISTRY" ] && rm -f "$_LOOM_RM_TMP_REGISTRY"
     # Walk the NEWLINE-delimited list one entry at a time via `read -r` (never
     # an unquoted `for d in $list`, which would word-split on spaces in
-    # TMPDIR) and refuse anything that is not a direct-or-deeper path under
-    # $_LOOM_RM_PROOF_BASE — the one directory this run's mktemp calls
-    # actually created. A path that fails that check is skipped, not removed:
-    # a proof gone missing is a test-integrity bug to fix, never a reason to
-    # widen what EXIT cleanup is allowed to delete.
+    # TMPDIR).
     if [ -n "$_LOOM_RM_PROOF_TMP_DIRS" ] && [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ]; then
         local d
         while IFS= read -r d; do
             [ -n "$d" ] || continue
-            case "$d" in
-                "$_LOOM_RM_PROOF_BASE"/*) rm -rf -- "$d" ;;
-                *) : ;; # not under our own mktemp base — never touched
-            esac
+            if _loom_rm_safe_to_remove "$d" "$_LOOM_RM_PROOF_BASE"; then
+                rm -rf -- "$d"
+            fi
         done <<EOF
 $_LOOM_RM_PROOF_TMP_DIRS
 EOF
     fi
     # The base itself is exactly one mktemp-created directory held in a
     # scalar (never word-split), so removing it wholesale is safe and also
-    # catches anything the per-entry loop above could not account for.
-    [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ] && rm -rf -- "$_LOOM_RM_PROOF_BASE"
+    # catches anything the per-entry loop above could not account for — but
+    # still refuse if it itself is now a symlink rather than a real
+    # directory (same "never follow" rule as every entry above).
+    if [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ] && [ ! -L "$_LOOM_RM_PROOF_BASE" ]; then
+        rm -rf -- "$_LOOM_RM_PROOF_BASE"
+    fi
     return 0
 }
 trap _loom_rm_cleanup EXIT
@@ -342,7 +391,13 @@ cmd_lint() {
     local registry_arg=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --root) shift 2 ;;
+            # Round-6 finding (low): `shift 2` with `--root` as the LAST
+            # argument (no value after it) leaves $# unchanged (bash's
+            # `shift n` with n > $# is a silent no-op, unlike referencing
+            # `$2` directly, which `set -u` would catch) — `$1` stays
+            # `--root` forever and this loop never terminates. Require the
+            # value to actually be there before shifting past it.
+            --root) [ $# -ge 2 ] || die_usage "lint: --root requires a value"; shift 2 ;;
             --registry) registry_arg="$2"; shift 2 ;;
             *) die_usage "lint: unknown argument '$1'" ;;
         esac
@@ -629,8 +684,18 @@ verify_content_rows_execution() {
                 fi
             fi
         else
-            local current_matches; current_matches="$(content_matches "$name")"
-            if [ -z "$current_matches" ]; then
+            local current_matches current_matches_rc=0
+            current_matches="$(content_matches "$name")" || current_matches_rc=$?
+            # Round-6 finding (medium, fail-open): distinguish "the glob
+            # legitimately matched nothing" (rc 0, no output — skip the
+            # after-proof, same as before) from "the enumeration itself
+            # failed" (rc != 0 — content_matches now propagates this; see
+            # its own comment) — the latter proves nothing, so fail the
+            # check loudly instead of silently skipping the after-proof.
+            if [ "$current_matches_rc" -ne 0 ]; then
+                echo "check-release: $label: could not enumerate current copies of $name — find exited $current_matches_rc (e.g. a subdirectory it cannot read); after-proof unverifiable, not skipped"
+                rc=1
+            elif [ -z "$current_matches" ]; then
                 echo "check-release: $label: (no shipped current copy of $name — after-proof skipped)"
             else
                 local cf
@@ -671,7 +736,10 @@ cmd_check_release() {
     local positional=()
     while [ $# -gt 0 ]; do
         case "$1" in
-            --root) shift 2 ;;
+            # Round-6 finding (low): see cmd_lint's identical fix above —
+            # `--root` as the last, valueless argument would hang this
+            # loop forever without the bounds check.
+            --root) [ $# -ge 2 ] || die_usage "check-release: --root requires a value"; shift 2 ;;
             --registry) registry_arg="$2"; shift 2 ;;
             --since) since_arg="$2"; shift 2 ;;
             -*) die_usage "check-release: unknown argument '$1'" ;;
@@ -874,7 +942,11 @@ cmd_check_release() {
                 overall_rc=1
             fi
             local surface_n
-            surface_n="$(git -C "$REPO_ROOT" diff --name-only "$prev" -- plugins .logic-loom/config .logic-loom/lib .claude/settings.json .claude/hooks 2>/dev/null | wc -l | tr -d ' ')" || surface_n=0
+            # Round-6 REVIEWER: same `--no-ext-diff --no-textconv` rule as
+            # every other git diff in this file (see resolve_state) — this
+            # count is descriptive, but one rule for every call site is
+            # what the E7 source pin in the contract suite holds us to.
+            surface_n="$(git -C "$REPO_ROOT" diff --no-ext-diff --no-textconv --name-only "$prev" -- plugins .logic-loom/config .logic-loom/lib .claude/settings.json .claude/hooks 2>/dev/null | wc -l | tr -d ' ')" || surface_n=0
             echo "adopter-facing surface since $prev: $surface_n file(s) changed under plugins/ .logic-loom/config .logic-loom/lib .claude/settings.json .claude/hooks"
             echo "structure verified; whether the declared rows are the right rows for those files is your call"
         fi
@@ -997,16 +1069,43 @@ declared_harness_plugins_local() {
     return 0
 }
 
+# POSIX single-quote a string for safe interpolation into an ADVISORY shell
+# command this tool only ever PRINTS (never executes — see build_remove_cmd
+# and the MOVE-command site below). Belt-and-suspenders alongside
+# loom_path_traversal_safe's character whitelist (medium finding, round 5
+# review): the lib already refuses a name/path that could break out of this
+# quoting by the time it reaches here, but every printed command quotes its
+# paths anyway so a future caller that skips the lib check is not silently
+# unsafe.
+#
+# NOT a bash `${s//\'/\'\\\'\'}` parameter-substitution one-liner — that
+# shape looks like the standard close-escape-reopen idiom but, empirically,
+# bash does not expand its backslashes the way the visual pattern suggests:
+# it emits `\'\\'\'` for a single embedded quote instead of the intended
+# `'\''`, which is not even balanced-quote shell syntax (an `eval` of the
+# resulting "quoted" command hits "unexpected EOF" rather than reproducing
+# the original string) — silently defeating the entire point of this
+# function for the one input it exists to handle. Found while adding test
+# coverage for the medium finding (round 5 review) this function closes;
+# fixed via `sed`, already a floor-safe dependency used elsewhere in this
+# file, rather than a hand-rolled character-class expansion whose failure
+# mode here was exactly the kind of subtle breakage this function is
+# supposed to prevent.
+shell_quote() {
+    local s="$1"
+    printf "'%s'" "$(printf '%s' "$s" | sed "s/'/'\\\\''/g")"
+}
+
 build_remove_cmd() {
     local kind="$1" name="$2" path="$3"
     case "$kind" in
-        plugin) REC_REMOVE_CMD="git rm -r plugins/$name" ;;
-        mcp-server) REC_REMOVE_CMD="git rm -r mcp-servers/$name" ;;
+        plugin) REC_REMOVE_CMD="git rm -r $(shell_quote "plugins/$name")" ;;
+        mcp-server) REC_REMOVE_CMD="git rm -r $(shell_quote "mcp-servers/$name")" ;;
         path)
             if [ -d "$REPO_ROOT/$path" ]; then
-                REC_REMOVE_CMD="git rm -r $path"
+                REC_REMOVE_CMD="git rm -r $(shell_quote "$path")"
             else
-                REC_REMOVE_CMD="git rm $path"
+                REC_REMOVE_CMD="git rm $(shell_quote "$path")"
             fi ;;
         *) REC_REMOVE_CMD="" ;;
     esac
@@ -1039,14 +1138,18 @@ build_remove_cmd() {
 # ADOPTED-only: the sha256 an adopted install's own receipt
 # (.logicloom-adopt-receipt.json) recorded the last time LogicLoom itself
 # wrote <path> — never guessed, read straight from the one record LogicLoom
-# itself produced. Unlike a tag, an adopter cannot forge this: it is not
-# "does this commit look like a release", it is "did LogicLoom's own writer
+# itself produced. Unlike a tag, this is not "does this commit look like a
+# release" content-sniffing — it is "did LogicLoom's own writer
 # (record-update-writes.sh / packaging/adopt's apply.js) record THIS exact
 # path with THIS exact hash". Only ever matches a `kind:"file"` entry, so it
 # naturally never fires for a plugin/mcp-server directory (those are
 # recorded, if at all, as `kind:"dir"` — presence only, no hash, and
 # presence alone proves nothing about whether the directory has since been
-# customized). Empty stdout + rc 1 when the receipt is absent, unparsable,
+# customized). This function alone is still trust-on-read from a plain,
+# adopter-editable JSON file, exactly like a tag's content would be —
+# nothing here signs it; see _loom_rm_receipt_sha256_corroborated below for
+# the actual forgery gate REMOVE requires on top of this. Empty stdout + rc 1
+# when the receipt is absent, unparsable,
 # python3 is unavailable, or it never recorded a file write for this path —
 # every one of those falls through to the next baseline candidate, never to
 # a false "pristine".
@@ -1142,8 +1245,42 @@ PY
 # hashing record-update-writes.sh itself used to fill the receipt, so a
 # comparison against _loom_rm_adopt_receipt_sha256 is meaningful). Empty
 # stdout + rc 1 when python3 is unavailable or the file cannot be read.
+#
+# Round-5 finding 5 (medium, symlink-follow): `[ -f "$f" ]` and Python's
+# open() both DEREFERENCE a symlink — true/readable for a symlink to a
+# regular file, same as this diff's other read/write paths refuse to do
+# (see _loom_rm_refuse_existing_symlink_target and the sibling `[ -L ... ]`
+# guards throughout this file). Without this check, a customer's OWN
+# symlink at a receipt-recorded path whose TARGET happens to byte-match the
+# recorded digest reads back as "pristine" here — resolve_baseline/
+# resolve_state then drive a REMOVE recommendation whose `git rm` deletes
+# the symlink ENTRY itself (not the target, which lives elsewhere and is
+# untouched — still a narrower harm than deleting real content, but still
+# removing a path this tool did not create). `[ -L ]` before `[ -f ]`
+# refuses the symlink outright: both callers (resolve_baseline,
+# resolve_state) already treat this function's failure as "cannot confirm
+# pristine" -> customized/no-match, never as license to proceed — doubt ->
+# KEEP, no other code path to touch.
 _loom_rm_sha256_file() {
     local f="$1"
+    [ -L "$f" ] && return 1
+    # Round-5 REVIEWER (high, data-loss): the round-5 `[ -L ]` above looks at
+    # the FINAL component only. `[ -f ]` and open() both resolve a symlink
+    # at any PARENT directory just as readily — `docs -> <outside dir>` with
+    # a byte-identical docs/old-note.md on its far side hashed clean, the
+    # receipt candidate won in resolve_baseline (a receipt match beats a
+    # stale sync-ref by design), resolve_state read it as pristine, and the
+    # printed `git rm 'docs/old-note.md'` — run in the reproduction —
+    # DELETED the file at the link's target, outside the repository: git rm
+    # unlinks by path and the kernel resolves the directory link. git's own
+    # diff already reports a tracked file behind a symlinked leading path
+    # as deleted (so the sync-ref/upstream baselines were safe); this route
+    # never asks git, so it applies the same rule itself. Same walk
+    # record-update-writes.sh's _path_has_symlink_ancestor does.
+    local _sf_rel="${f#"$REPO_ROOT"/}"
+    if [ "$_sf_rel" != "$f" ] && _loom_rm_path_has_symlink_ancestor "$_sf_rel" >/dev/null; then
+        return 1
+    fi
     [ -f "$f" ] || return 1
     command -v python3 >/dev/null 2>&1 || return 1
     local sha
@@ -1162,6 +1299,196 @@ PY
     [ -n "$sha" ] || return 1
     printf '%s' "$sha"
     return 0
+}
+
+# Same as _loom_rm_sha256_file but hashes STDIN — used to hash a blob's
+# content straight from `git show <commit>:<path>` without ever writing it
+# to disk. Empty stdout + rc 1 when python3 is unavailable.
+_loom_rm_sha256_stdin() {
+    command -v python3 >/dev/null 2>&1 || return 1
+    local sha
+    sha="$(python3 -c '
+import hashlib, sys
+h = hashlib.sha256()
+h.update(sys.stdin.buffer.read())
+sys.stdout.write(h.hexdigest())
+' 2>/dev/null)" || return 1
+    [ -n "$sha" ] || return 1
+    printf '%s' "$sha"
+    return 0
+}
+
+# Round-5 REVIEWER (high, data-loss). rc 0 + prints the DEEPEST ancestor
+# directory of repo-relative $1 (any component between REPO_ROOT and the
+# entry itself — the entry excluded) that is a symlink on disk; rc 1 +
+# empty stdout when none is. Why the entry itself is excluded: a tracked
+# symlink at the FINAL component is something upstream can legitimately
+# ship, git diff reports a type change when the customer swapped one in,
+# and `git rm` on it removes only the link entry — so that case already
+# resolves correctly through the baseline compare. A symlinked ANCESTOR is
+# different in kind: every path under it names bytes that live wherever
+# the link points (reproduced: outside the repository entirely), git's
+# tracked-file view of it is a deletion, and a `git rm` of a path through
+# it unlinks the file AT the target. Nothing under such a directory can be
+# proven LogicLoom's, so resolve_state treats the item as customized
+# (doubt -> KEEP and ASK) and _loom_rm_sha256_file refuses to hash through
+# it at all. Pure lstat, no git — the same walk record-update-writes.sh's
+# _path_has_symlink_ancestor and this file's own
+# _loom_rm_refuse_symlink_parents already do for their own paths.
+_loom_rm_path_has_symlink_ancestor() {   # $1 = repo-relative path
+    local check
+    check="$(dirname -- "$1")"
+    while [ "$check" != "." ] && [ "$check" != "/" ] && [ -n "$check" ]; do
+        if [ -L "$REPO_ROOT/$check" ]; then
+            printf '%s' "$check"
+            return 0
+        fi
+        check="$(dirname -- "$check")"
+    done
+    return 1
+}
+
+# Round-5 REVIEWER (medium, twice). Prints, one line each, what this
+# repository's own git listings are structurally BLIND to under directory
+# $1 — two things resolve_state's `ls-files --others [--ignored]` + `diff
+# --quiet` pristine test could not see, so a directory holding either read
+# as pristine and got the REMOVE recommendation (reproduced for both); the
+# round-6 REVIEWER added two more of the same class at the bottom (a
+# special file, an empty directory — see there):
+#   (1) a NESTED GIT REPOSITORY — a `.git` directory (the customer ran
+#       `git init` inside a retired plugin to keep their own history of it)
+#       or a `.git` gitdir-pointer FILE (what `git worktree` writes). The
+#       outer repository's git never lists anything under a nested
+#       repository as untracked and its diff stays clean, while the nested
+#       history — commits, stashes, unpushed work — is bytes nobody but the
+#       customer owns, and `git rm -r` of the parent would strand it.
+#   (2) a SUBDIRECTORY THIS USER CANNOT READ (mode 000, another account's
+#       leftover, a container run): `git ls-files --others` lists nothing
+#       under it and still exits 0, so a customer file behind that door was
+#       invisible to every listing. `find` does fail (non-zero exit) on it,
+#       which is the same signal unconverted_plugin_files() already treats
+#       as "an enumeration that did not complete proves nothing about the
+#       tree" (reviewer round 2) — applied here too.
+# Empty output when neither applies, or when $1 is not a real directory (a
+# `path`-kind row naming a file; a symlinked directory, which the
+# leading-symlink rule above already makes customized and which is never
+# walked through). Each line is a description a human reads, not a bare
+# path: it lands under `added` so the item is customized, never pristine.
+# Doubt -> KEEP and ASK. No git; `find` never follows symlinks (no -L) and
+# never descends into a `.git` it finds (-prune), so the listing is cheap
+# even for a large nested repository.
+_loom_rm_git_blind_spots() {   # $1 = repo-relative directory
+    local _bs_abs="$REPO_ROOT/$1" _bs_nested _bs_rc=0 _bs_n
+    [ -d "$_bs_abs" ] || return 0
+    [ -L "$_bs_abs" ] && return 0
+    _bs_nested="$(find "$_bs_abs" -mindepth 1 -name .git -prune -print 2>/dev/null | _loom_rm_strip_prefix "$REPO_ROOT/" | sort)" || _bs_rc=$?
+    if [ "$_bs_rc" -ne 0 ]; then
+        printf '%s/ (could not fully enumerate this directory: find exited %s, e.g. a subdirectory this user cannot read; nothing under it can be verified as LogicLoom-written)\n' "$1" "$_bs_rc"
+    fi
+    if [ -n "$_bs_nested" ]; then
+        while IFS= read -r _bs_n; do
+            [ -z "$_bs_n" ] && continue
+            printf '%s (a nested git repository: its history, and any file tracked only there, is invisible to git in this repository and is nobody but yours)\n' "$_bs_n"
+        done <<< "$_bs_nested"
+    fi
+    # Round-6 REVIEWER (low — parity with the round-2 empty-directory
+    # finding, which closed this on the convert side only): two more
+    # things git's own listings structurally cannot see, reproduced as
+    # state pristine / REMOVE with added_files [] on the scan side:
+    #   (3) a SPECIAL FILE — a named pipe, a socket, a device node. git's
+    #       directory walker drops every entry that is not a regular file,
+    #       symlink or directory (dir.c: path_none), so `ls-files --others`
+    #       never lists one, with or without --ignored, and it cannot be
+    #       tracked, so `diff` is clean. `find ! -type d ! -type f ! -type l`
+    #       is exactly that set.
+    #   (4) an EMPTY DIRECTORY — git tracks no directories, so an empty one
+    #       is nowhere in any listing. `git rm -r` leaves both behind (they
+    #       hold no tracked bytes), so nothing is lost by the printed
+    #       command — but a REMOVE recommendation claims the path holds
+    #       nothing but LogicLoom's bytes, and it also holds a node this
+    #       tool never created and, until now, never saw. Same disposition
+    #       as unconverted_plugin_files' `-empty` listing ("nothing converts
+    #       or lists it either"): named under `added`, never pristine, the
+    #       user is asked. Both walks prune `.git` like the one above and
+    #       fail closed the same way when they cannot complete.
+    # Only walked when the `.git` walk above completed: an enumeration
+    # failure is already reported once, by that walk, and a second or third
+    # copy of the same line would only pad `added` with duplicates.
+    local _bs_special="" _bs_empty="" _bs_rc2=0
+    if [ "$_bs_rc" -eq 0 ]; then
+        _bs_special="$(find "$_bs_abs" -mindepth 1 -name .git -prune -o \( ! -type d ! -type f ! -type l \) -print 2>/dev/null | _loom_rm_strip_prefix "$REPO_ROOT/" | sort)" || _bs_rc2=$?
+        if [ "$_bs_rc2" -eq 0 ]; then
+            _bs_empty="$(find "$_bs_abs" -mindepth 1 -name .git -prune -o -type d -empty -print 2>/dev/null | _loom_rm_strip_prefix "$REPO_ROOT/" | sort)" || _bs_rc2=$?
+        fi
+        if [ "$_bs_rc2" -ne 0 ]; then
+            printf '%s/ (could not fully enumerate this directory: find exited %s, e.g. a subdirectory this user cannot read; nothing under it can be verified as LogicLoom-written)\n' "$1" "$_bs_rc2"
+        fi
+    fi
+    if [ -n "$_bs_special" ]; then
+        while IFS= read -r _bs_n; do
+            [ -z "$_bs_n" ] && continue
+            printf '%s (a special file — named pipe, socket or device node: git never lists or tracks one, so nothing about it is LogicLoom-written; a `git rm -r` would leave it behind, but this path is not only LogicLoom bytes)\n' "$_bs_n"
+        done <<< "$_bs_special"
+    fi
+    if [ -n "$_bs_empty" ]; then
+        while IFS= read -r _bs_n; do
+            [ -z "$_bs_n" ] && continue
+            printf '%s/ (an empty directory — holds no bytes, and git never lists or tracks one, so nothing created it but you; a `git rm -r` would leave it behind, but this path is not only LogicLoom bytes)\n' "$_bs_n"
+        done <<< "$_bs_empty"
+    fi
+    return 0
+}
+
+# TRUST BOUNDARY (medium finding, round 5 review — documented here AND in
+# .docs/guides/MIGRATION_GUIDE.md's "Trust boundary — the adopt receipt"
+# section, per the finding's own instruction; we do NOT invent crypto to
+# close this, only add a cheap corroboration on top of what already exists).
+#
+# .logicloom-adopt-receipt.json is a plain, hand-editable JSON file
+# committed in the adopter's own repo. _loom_rm_adopt_receipt_sha256 already
+# restricts it to entries a TRUSTED GENERATOR STRING wrote with status
+# "complete" — but the generator string and the recorded digest are both
+# just bytes in that same hand-editable file; nothing stops someone from
+# hand-writing an entry that claims "logicloom@2.0.0" wrote a customer's own
+# file and records that file's own hash as "the pristine LogicLoom copy".
+# resolve_baseline would then read the customer's unmodified bytes as
+# byte-identical to that forged "pristine" record and recommend REMOVE on
+# work that was never LogicLoom's. This is the SAME local, unsigned trust
+# model as .sdd-sync-ref (see loom_sync_ref_is_loom_record's own comment)
+# and refs/loom-upstream/main itself: all three are records this repo's own
+# git history can edit, never cryptographically signed, and nothing in this
+# tool invents signing to close that gap.
+#
+# What IS cheap to add: a receipt-recorded digest may authorize REMOVE only
+# when that EXACT digest ALSO equals the sha256 of some blob LogicLoom
+# itself shipped at this same path, per refs/loom-upstream/main's own
+# history (every commit that ever touched the path there, not only the
+# tip — a file's pristine content moves across releases, and the sync-ref
+# commit itself is one point in that history, already covered by walking
+# it). Forging a receipt entry to pass this now also requires forging a
+# matching commit in refs/loom-upstream/main — a strictly higher bar than
+# editing one JSON file, even though neither is cryptographic proof.
+# Uncorroborated (no refs/loom-upstream/main locally, or no historical blob
+# at this path ever hashed to this digest): rc 1, and the caller
+# (resolve_baseline) must treat the receipt candidate as if it did not
+# exist — fall through to sync-ref/upstream/none, never trust it alone.
+# Doubt -> KEEP and ASK, never a silent REMOVE. Read-only git only.
+_loom_rm_receipt_sha256_corroborated() {
+    local path="$1" want_sha="$2"
+    [ -n "$path" ] && [ -n "$want_sha" ] || return 1
+    git -C "$REPO_ROOT" rev-parse -q --verify refs/loom-upstream/main >/dev/null 2>&1 || return 1
+    local commits commit got_sha
+    commits="$(git -C "$REPO_ROOT" log --format=%H refs/loom-upstream/main -- "$path" 2>/dev/null)" || return 1
+    [ -n "$commits" ] || return 1
+    while IFS= read -r commit; do
+        [ -n "$commit" ] || continue
+        git -C "$REPO_ROOT" cat-file -e "$commit:$path" 2>/dev/null || continue
+        got_sha="$(git -C "$REPO_ROOT" show "$commit:$path" 2>/dev/null | _loom_rm_sha256_stdin)" || continue
+        [ "$got_sha" = "$want_sha" ] && return 0
+    done <<EOF
+$commits
+EOF
+    return 1
 }
 
 # .sdd-sync-ref is LogicLoom's own record ONLY in the shape LogicLoom itself
@@ -1232,7 +1559,8 @@ resolve_baseline() {
     fi
     if [ "${ADOPT_MODE:-TEMPLATE}" = "ADOPTED" ]; then
         local recorded_sha
-        if recorded_sha="$(_loom_rm_adopt_receipt_sha256 "$path")" && [ -n "$recorded_sha" ]; then
+        if recorded_sha="$(_loom_rm_adopt_receipt_sha256 "$path")" && [ -n "$recorded_sha" ] \
+           && _loom_rm_receipt_sha256_corroborated "$path" "$recorded_sha"; then
             local current
             if current="$(_loom_rm_sha256_file "$REPO_ROOT/$path")" && [ -n "$current" ] \
                && [ "$current" = "$recorded_sha" ]; then
@@ -1266,12 +1594,62 @@ resolve_baseline() {
     return 0
 }
 
+# Round-3 REVIEWER finding (high, data-loss): `git diff` and `git status`
+# TRUST THE INDEX for an entry flagged skip-worktree (`git update-index
+# --skip-worktree`, tag `S` in `ls-files -v`) or assume-unchanged
+# (`--assume-unchanged`, a LOWERCASE tag) — they never stat the working
+# tree for it, so a local edit to such a file is invisible to every
+# "unchanged since <commit>" test this script makes. Both flags are
+# ordinary, documented git usage (sparse checkouts, "keep my local copy of
+# this config"), and a tracked plugin file carrying one read as pristine:
+# scan said REMOVE, plan printed `git rm -r plugins/<p>`. Reproduced on a
+# scratch repo — and with assume-unchanged, running that printed command
+# DELETED the edited file outright (git rm does not re-check a worktree it
+# was told not to look at). Nothing this script can diff proves anything
+# about such an entry, so it is customized/changed by construction: doubt
+# -> KEEP and ASK. Prints the flagged paths under <path> (git's own
+# possibly C-quoted spelling — descriptive only; the decision reads only
+# whether the list is empty). Read-only git only (ls-files).
+_loom_rm_index_hidden_paths() {   # $1 = repo-relative path
+    # Round-6 finding (high, fail-open): this used to end with an
+    # unconditional `return 0`, discarding whatever exit status the
+    # `git ls-files -v | awk` pipeline actually produced. Under this
+    # script's `set -o pipefail`, that pipeline's real status already
+    # reflects a git failure (permission issue, corrupt index, anything
+    # that makes `ls-files` exit non-zero) as long as awk itself succeeds —
+    # but the `return 0` threw that signal away, so the caller could not
+    # tell "git failed, nothing proven" from "git succeeded and found
+    # nothing hidden", the exact fail-open class this same round's review
+    # already named for resolve_state's untracked/ignored captures. Return
+    # the pipeline's own status instead of masking it.
+    local _rc
+    git -C "$REPO_ROOT" ls-files -v -- "$1" 2>/dev/null | awk '
+        { tag = substr($0, 1, 1) }
+        tag == "S" || tag ~ /^[a-z]$/ { print substr($0, 3) }'
+    _rc=$?
+    return "$_rc"
+}
+
 # Sets STATE, STATE_CHANGED, STATE_ADDED, STATE_DELETED (newline lists).
 resolve_state() {
     local path="$1" baseline="$2"
     STATE_CHANGED=""; STATE_ADDED=""; STATE_DELETED=""
     if [ "$baseline" = "none" ]; then
         STATE="unknown"
+        return 0
+    fi
+    # Round-5 REVIEWER (high, data-loss): a symlinked ANCESTOR directory is
+    # customized by construction for EVERY baseline kind, decided here once
+    # rather than left to each branch — see _loom_rm_path_has_symlink_ancestor.
+    # The git-baseline branch below was already safe in practice (git diff
+    # reports a tracked file behind a symlinked leading path as deleted),
+    # but the receipt-sha256 branch never consults git and read straight
+    # through the link to a pristine hash; making the rule explicit here
+    # means neither branch depends on a git internal for it.
+    local _rs_symanc
+    if _rs_symanc="$(_loom_rm_path_has_symlink_ancestor "$path")" && [ -n "$_rs_symanc" ]; then
+        STATE="customized"
+        STATE_CHANGED="$_rs_symanc (a directory on this path is a symlink -> $(readlink "$REPO_ROOT/$_rs_symanc" 2>/dev/null): the bytes under it live wherever that link points, not at this path, and nothing there is proven LogicLoom-written)"
         return 0
     fi
     case "$baseline" in
@@ -1290,8 +1668,23 @@ resolve_state() {
             ;;
     esac
     local baseref="${baseline#*:}"
-    local untracked ignored
-    untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked=""
+    local untracked ignored untracked_rc=0 ignored_rc=0
+    untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked_rc=$?
+    # Round-6 finding (high, fail-open): `|| untracked=""` collapsed a
+    # FAILED enumeration (permission issue, corrupt index, anything that
+    # makes `ls-files` exit non-zero) to the same empty string a genuinely
+    # clean, untracked-free directory produces — the pristine test below
+    # cannot tell those apart, so a failed listing read as proof of nothing
+    # to report and could drive a REMOVE recommendation over bytes this
+    # enumeration never actually saw. Check the real exit status instead of
+    # discarding it; a failure refuses this path outright, the same
+    # "doubt -> KEEP and ASK" rule unconverted_plugin_files already applies
+    # to a failed `find`.
+    if [ "$untracked_rc" -ne 0 ]; then
+        STATE="customized"
+        STATE_CHANGED="$path (could not enumerate untracked files under this path — git ls-files exited $untracked_rc; nothing here can be verified as pristine)"
+        return 0
+    fi
     # Finding 4, resolve_state's half (round-4 review): the SAME gap
     # _loom_rm_converted_plugin_status closes below existed here, on the
     # far more common path — every plugin/mcp-server/path row that is NOT
@@ -1301,7 +1694,12 @@ resolve_state() {
     # pristine, and `git rm -r plugins/<name>` was recommended over bytes
     # no commit vouches for. Union the `--ignored` listing in; every
     # untracked file counts, ignored or not, and is reported under `added`.
-    ignored="$(git -C "$REPO_ROOT" ls-files --others --ignored --exclude-standard -- "$path" 2>/dev/null)" || ignored=""
+    ignored="$(git -C "$REPO_ROOT" ls-files --others --ignored --exclude-standard -- "$path" 2>/dev/null)" || ignored_rc=$?
+    if [ "$ignored_rc" -ne 0 ]; then
+        STATE="customized"
+        STATE_CHANGED="$path (could not enumerate ignored files under this path — git ls-files exited $ignored_rc; nothing here can be verified as pristine)"
+        return 0
+    fi
     if [ -n "$ignored" ]; then
         if [ -n "$untracked" ]; then
             untracked="${untracked}"$'\n'"${ignored}"
@@ -1309,15 +1707,69 @@ resolve_state() {
             untracked="$ignored"
         fi
     fi
-    if git -C "$REPO_ROOT" diff --quiet "$baseref" -- "$path" 2>/dev/null && [ -z "$untracked" ]; then
+    # Round-5 REVIEWER (medium, twice): what git's own listings above are
+    # blind to — a nested git repository under $path, or a subdirectory
+    # this user cannot read (see _loom_rm_git_blind_spots). Unioned into
+    # `untracked` so the one pristine test below fails on it and the entry
+    # is reported under `added` like any other bytes no commit vouches for.
+    local _rs_blind
+    _rs_blind="$(_loom_rm_git_blind_spots "$path")"
+    if [ -n "$_rs_blind" ]; then
+        if [ -n "$untracked" ]; then
+            untracked="${untracked}"$'\n'"${_rs_blind}"
+        else
+            untracked="$_rs_blind"
+        fi
+    fi
+    # Round-3 REVIEWER (see _loom_rm_index_hidden_paths): an index entry
+    # git was told not to look at cannot be proven pristine by any diff —
+    # customized, listed under `changed`, never the `pristine` branch.
+    local hidden hidden_rc=0
+    hidden="$(_loom_rm_index_hidden_paths "$path")" || hidden_rc=$?
+    # Round-6 finding (high, fail-open): same class as the untracked/ignored
+    # captures above — _loom_rm_index_hidden_paths now propagates a real
+    # git failure instead of always returning 0, so check it here too. A
+    # failed `ls-files -v` proves nothing about skip-worktree/
+    # assume-unchanged entries either way; refuse the path rather than let
+    # it fall through to the pristine test below.
+    if [ "$hidden_rc" -ne 0 ]; then
+        STATE="customized"
+        STATE_CHANGED="$path (could not check for skip-worktree/assume-unchanged index entries — git ls-files exited $hidden_rc; nothing here can be verified as pristine)"
+        return 0
+    fi
+    # Round-6 REVIEWER (high, governing principle): `git diff --quiet`
+    # consults the customer's OWN diff helpers — GIT_EXTERNAL_DIFF in the
+    # environment, `diff.external` in their config, a `.gitattributes`
+    # `diff=<driver>` with a `command` or a `textconv` — and, when the
+    # helper's exit code is trusted (GIT_EXTERNAL_DIFF_TRUST_EXIT_CODE,
+    # diff.trustExitCode, diff.<driver>.trustExitCode; for a lossy textconv
+    # even without that), takes the helper's word for "no difference" over
+    # its own blob compare. Reproduced on git 2.54 with an EDITED tracked
+    # file under every one of those routes: state pristine, changed_files
+    # [], REMOVE, `git rm -r plugins/<p>` printed over a customer edit
+    # (git rm itself then refuses the modified file — the wrong
+    # recommendation is the harm). None of those settings is a
+    # misconfiguration; external diffs are ordinary git usage this tool
+    # must not inherit. `--no-ext-diff --no-textconv` makes every decision
+    # here git's own blob-id comparison and nothing else; the descriptive
+    # --name-status below and the other two call sites in this file take
+    # the same flags so no path through this script ever asks a helper.
+    if [ -z "$hidden" ] && git -C "$REPO_ROOT" diff --no-ext-diff --no-textconv --quiet "$baseref" -- "$path" 2>/dev/null && [ -z "$untracked" ]; then
         STATE="pristine"
     else
         STATE="customized"
         local ns
-        ns="$(git -C "$REPO_ROOT" diff --name-status "$baseref" -- "$path" 2>/dev/null)" || ns=""
+        ns="$(git -C "$REPO_ROOT" diff --no-ext-diff --no-textconv --name-status "$baseref" -- "$path" 2>/dev/null)" || ns=""
         STATE_CHANGED="$(printf '%s\n' "$ns" | awk -F'\t' '$1 ~ /^M/ {print $NF}')"
         STATE_ADDED="$(printf '%s\n' "$ns" | awk -F'\t' '$1 ~ /^A/ {print $NF}')"
         STATE_DELETED="$(printf '%s\n' "$ns" | awk -F'\t' '$1 ~ /^D/ {print $NF}')"
+        if [ -n "$hidden" ]; then
+            if [ -n "$STATE_CHANGED" ]; then
+                STATE_CHANGED="$(printf '%s\n%s\n' "$STATE_CHANGED" "$hidden" | awk '!seen[$0]++')"
+            else
+                STATE_CHANGED="$hidden"
+            fi
+        fi
         if [ -n "$untracked" ]; then
             if [ -n "$STATE_ADDED" ]; then
                 STATE_ADDED="$(printf '%s\n%s\n' "$STATE_ADDED" "$untracked")"
@@ -1616,13 +2068,45 @@ _loom_rm_converted_decision_commit() {
 # diff calls, nothing repo-wide.
 _loom_rm_converted_plugin_status() {
     local plugin="$1" path="$2" commit untracked ignored
+    local untracked_rc=0 ignored_rc=0 hidden_rc=0
     if ! commit="$(_loom_rm_converted_decision_commit "$plugin")"; then
         printf 'unknown'
         return 0
     fi
-    untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked=""
-    ignored="$(git -C "$REPO_ROOT" ls-files --others --ignored --exclude-standard -- "$path" 2>/dev/null)" || ignored=""
-    if [ -n "$untracked" ] || [ -n "$ignored" ] || ! git -C "$REPO_ROOT" diff --quiet "$commit" -- "$path" 2>/dev/null; then
+    untracked="$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$path" 2>/dev/null)" || untracked_rc=$?
+    ignored="$(git -C "$REPO_ROOT" ls-files --others --ignored --exclude-standard -- "$path" 2>/dev/null)" || ignored_rc=$?
+    # Round-3 REVIEWER: a skip-worktree / assume-unchanged entry under the
+    # plugin makes the diff below meaningless for it (see
+    # _loom_rm_index_hidden_paths) — the re-render gate further down would
+    # usually still catch an edited SOURCE, but "usually" is not the
+    # contract; changed by construction, same as resolve_state.
+    local hidden
+    hidden="$(_loom_rm_index_hidden_paths "$path")" || hidden_rc=$?
+    # Round-6 finding (high, fail-open — same class fixed in resolve_state
+    # above): these three captures used to swallow a FAILED git enumeration
+    # into the same empty string a genuinely clean result produces, so a
+    # failed listing here read as "nothing hidden/untracked" and this
+    # plugin could still reach the re-render gate below and come back
+    # "unchanged" — the same doubt this function otherwise treats as
+    # `changed:<commit>` on purpose. Any of the three failing is doubt;
+    # doubt is `changed`, same as an actual untracked/hidden file.
+    if [ "$untracked_rc" -ne 0 ] || [ "$ignored_rc" -ne 0 ] || [ "$hidden_rc" -ne 0 ]; then
+        printf 'changed:%s' "$commit"
+        return 0
+    fi
+    # Round-5 REVIEWER: the same two blind spots resolve_state now closes
+    # (a nested git repository, an unreadable subdirectory — see
+    # _loom_rm_git_blind_spots) and the same symlinked-ancestor rule; the
+    # re-render gate below would usually catch the first through
+    # unconverted_plugin_files' own .git reporting, but "usually" is not
+    # the contract — changed by construction, same as resolve_state.
+    local _cs_blind _cs_symanc=""
+    _cs_blind="$(_loom_rm_git_blind_spots "$path")"
+    _cs_symanc="$(_loom_rm_path_has_symlink_ancestor "$path")" || _cs_symanc=""
+    # Round-6 REVIEWER: `--no-ext-diff --no-textconv` for the same reason as
+    # resolve_state's pristine test (see its comment) — this diff decides
+    # "unchanged since the conversion" and must never defer to a helper.
+    if [ -n "$untracked" ] || [ -n "$ignored" ] || [ -n "$hidden" ] || [ -n "$_cs_blind" ] || [ -n "$_cs_symanc" ] || ! git -C "$REPO_ROOT" diff --no-ext-diff --no-textconv --quiet "$commit" -- "$path" 2>/dev/null; then
         printf 'changed:%s' "$commit"
         return 0
     fi
@@ -1636,6 +2120,26 @@ _loom_rm_converted_plugin_status() {
     render="$(cmd_convert "$plugin" --dry-run --root "$REPO_ROOT" --registry "$REGISTRY_FILE" 2>/dev/null)" || rc=$?
     if [ "$rc" -ne 0 ] || printf '%s\n' "$render" | grep -qE '^(KEEP|WRITE|MKDIR|APPEND|STOP|ERROR) '; then
         printf 'render-stale:%s' "$commit"
+        return 0
+    fi
+    # Reviewer round 1, "incomplete:<commit>:<files>": an all-SKIP re-render
+    # proves every unit the converter KNOWS about matches disk — it says
+    # nothing about the files the converter never maps at all (a
+    # non-.md file under commands/ or agents/, a symlink, a nested dir
+    # under skills/ that is not a skill). cmd_convert already withholds its
+    # own delete step for exactly those (finding 2) and prints the
+    # machine-stable `accounted:` line either way; `converted =` is still
+    # recorded for the units that DID convert, so the next scan used to read
+    # the decision alone as "delete when verified" and recommend `git rm -r`
+    # over bytes that were never carried into .claude/ and are not provably
+    # LogicLoom's. Fail-closed on the POSITIVE line: absent (withheld, or a
+    # future cmd_convert that stopped printing it) is not verified. The
+    # leftover list is carried along for the reason text — cmd_convert
+    # prints it as "    - <path>" lines under "Not carried over by this run:".
+    if ! printf '%s\n' "$render" | grep -qF "accounted: every file under plugins/$plugin is carried over"; then
+        local left
+        left="$(printf '%s\n' "$render" | sed -n 's/^    - //p' | tr '\n' ' ' | sed 's/ $//')"
+        printf 'incomplete:%s:%s' "$commit" "$left"
         return 0
     fi
     printf 'unchanged'
@@ -1657,10 +2161,15 @@ _loom_rm_converted_briefing_consequence() {
             CONV_BRIEF_CONSEQUENCE="$path still on disk — delete it once the converted command works, then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune"
             return 0 ;;
         changed:*)
-            CONV_BRIEF_CONSEQUENCE="$path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file under it) — KEEP-AS-IS; verify the edit was carried over, then decide by hand"
+            CONV_BRIEF_CONSEQUENCE="$path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file, special file or empty directory under it, or an index entry flagged skip-worktree/assume-unchanged whose edits git diff cannot see) — KEEP-AS-IS; verify the edit was carried over, then decide by hand"
             return 1 ;;
         render-stale:*)
             CONV_BRIEF_CONSEQUENCE="$path was converted, but re-rendering it now (convert $plugin --dry-run) does not reproduce what is on disk under .claude/ (a KEEP/WRITE/STOP line, or the re-render could not run) — KEEP-AS-IS; the decision commit ${cstatus#render-stale:} may carry an edit the conversion never saw; reconcile by hand, then decide"
+            return 1 ;;
+        incomplete:*)
+            local _ic_rest="${cstatus#incomplete:}" _ic_commit _ic_files
+            _ic_commit="${_ic_rest%%:*}"; _ic_files="${_ic_rest#*:}"
+            CONV_BRIEF_CONSEQUENCE="$path was converted (decision commit $_ic_commit), but NOT every file under it was carried over into .claude/ — never converted, not in CONVERTED.md: ${_ic_files:-run convert $plugin --dry-run to list them} — KEEP-AS-IS; carry or remove those by hand, then decide"
             return 1 ;;
         *)
             CONV_BRIEF_CONSEQUENCE="$path — the conversion decision has no committed record (.claude/skills/$plugin/CONVERTED.md or migration-decisions.conf) — cannot verify $path wasn't edited since; commit the decision, then re-run"
@@ -1681,6 +2190,29 @@ compute_recommendation() {
     local kind="$1" name="$2" fate="$3" repl="$4" state="$5" decision="$6" path="$7"
     REC_BLOCKED="false"; REC_BLOCKED_BY_EXTRA=""; REC_REMOVE_CMD=""; REC_MOVE_CMD=""
 
+    # Reviewer round 1: the AT-USE half of _loom_lint_name_shell_safe for
+    # the NAME field. The round-5 fix applied it at lint time (every row,
+    # so a bad name never ships in the upstream registry) and at-use only
+    # for a MOVE row's replacement path — but a project registry is never
+    # linted before scan/plan/convert read it, and a plugin/mcp-server/path
+    # row's name is the other string every printed `git rm` embeds.
+    # shell_quote already neutralises whitespace and metacharacters there;
+    # what quoting can NOT neutralise is an OPTION-SHAPED path: a `path`
+    # row named "-f" lints clean today (only [A-Za-z0-9._/-] is checked,
+    # and '-' is in it) and scan prints `git rm '-f'` — the quotes are
+    # cosmetic, git still parses the argument as an option. Refuse to build
+    # any command from such a name (KEEP-AS-IS with the reason), same
+    # belt-and-suspenders shape as the MOVE guard below; lint now rejects a
+    # leading '-' too.
+    case "$kind" in
+        plugin|mcp-server|path)
+            if ! _loom_lint_name_shell_safe "$kind" "$name"; then
+                REC_ACTION="KEEP-AS-IS"
+                REC_REASON="registry row name '$name' contains whitespace, a shell metacharacter, or starts with '-' (a character outside [A-Za-z0-9._/-], or an option-shaped path) — refusing to build any git command from it; fix the registry row (lint rejects it)"
+                return 0
+            fi ;;
+    esac
+
     if [ "$decision" = "converted" ]; then
         local cstatus
         cstatus="$(_loom_rm_converted_plugin_status "$name" "$path")"
@@ -1696,11 +2228,17 @@ compute_recommendation() {
                 ;;
             changed:*)
                 REC_ACTION="KEEP-AS-IS"
-                REC_REASON="CONVERTED, but $path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file under it) — ASK before removing; verify the edit was carried over, then decide by hand"
+                REC_REASON="CONVERTED, but $path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file, special file or empty directory under it, or an index entry flagged skip-worktree/assume-unchanged whose edits git diff cannot see) — ASK before removing; verify the edit was carried over, then decide by hand"
                 ;;
             render-stale:*)
                 REC_ACTION="KEEP-AS-IS"
                 REC_REASON="CONVERTED, but re-rendering $path now (convert $name --dry-run) does not reproduce what is on disk under .claude/ — a KEEP/WRITE/STOP line, or the re-render could not run — so the decision commit ${cstatus#render-stale:} may carry an edit made to $path after convert --apply that the conversion never saw; ASK before removing: re-run convert $name --dry-run, reconcile by hand, then decide"
+                ;;
+            incomplete:*)
+                local _ic_rest="${cstatus#incomplete:}" _ic_commit _ic_files
+                _ic_commit="${_ic_rest%%:*}"; _ic_files="${_ic_rest#*:}"
+                REC_ACTION="KEEP-AS-IS"
+                REC_REASON="CONVERTED (decision commit $_ic_commit), but NOT every file under $path was carried over into .claude/ — never converted, not in CONVERTED.md: ${_ic_files:-run convert $name --dry-run to list them} — ASK before removing: carry or remove those by hand, then decide"
                 ;;
             *)
                 REC_ACTION="KEEP-AS-IS"
@@ -1718,6 +2256,24 @@ compute_recommendation() {
     # moved path: path kind, fate renamed, replacement path:<new>
     if [ "$kind" = "path" ] && [ "$fate" = "renamed" ] && [ "${repl#path:}" != "$repl" ]; then
         local newp="${repl#path:}"
+        # Medium finding (round 5 review), residual gap found while adding
+        # test coverage for it: lint's _loom_lint_name_shell_safe and
+        # loom_path_traversal_safe validate the row's `name` field, but
+        # $newp comes from the REPLACEMENT field instead (_loom_lint_replacement_ok
+        # only checks the "path:" prefix shape, never the path after it) —
+        # and this is the exact other path REC_MOVE_CMD below embeds into a
+        # printed `git mv` command. Same belt-and-suspenders shape as
+        # _loom_rm_verify_fixture_scan_path's at-use guard: lint should
+        # catch this in the shipped registry (not added here — this is the
+        # at-use half, covering a project registry that was never linted
+        # too), and this refuses to build any shell command out of an
+        # unsafe $newp regardless.
+        if ! loom_path_traversal_safe "$newp" || ! _loom_lint_name_shell_safe path "$newp"; then
+            REC_ACTION="KEEP-AS-IS"
+            REC_BLOCKED="true"
+            REC_REASON="registry row's replacement path '$newp' is absolute, contains a '..'/'.' path segment, a character outside [A-Za-z0-9._/-], or starts with '-' — refusing to build a move command from it; fix the registry row's replacement field"
+            return 0
+        fi
         if [ "$state" = "pristine" ]; then
             if [ ! -e "$REPO_ROOT/$newp" ]; then
                 local at_upstream="false"
@@ -1748,7 +2304,28 @@ compute_recommendation() {
                     # file or directory" on the ordinary case a MOVE row
                     # exists for at all: moving into a path that does not
                     # exist yet.
-                    REC_MOVE_CMD="if [ -e '$newp' ]; then echo 'release-migrations: $newp already exists on disk — refusing to overwrite (something added it since this was planned); re-run: release-migrations.sh plan $name' >&2; false; else mkdir -p \"\$(dirname '$newp')\" && git mv $path $newp; fi"
+                    # $newp is already proven safe by the at-use guard just
+                    # above (loom_path_traversal_safe + _loom_lint_name_shell_safe
+                    # restrict it to [A-Za-z0-9._/-], so it can never itself
+                    # contain a quote or shell metacharacter) — still quoted
+                    # here at every embedding, belt-and-suspenders, so this
+                    # stays consistent with build_remove_cmd and never
+                    # silently regresses to raw interpolation if that guard
+                    # is ever loosened.
+                    # Round-5 finding 9 (low, diagnostic-accuracy gap): `-e`
+                    # alone is FALSE for a dangling symlink (one whose
+                    # target does not exist) — the printed guard's own
+                    # friendly refusal message would not fire for that case,
+                    # silently falling through to `git mv`, which does
+                    # independently refuse to overwrite an existing
+                    # index/lstat entry (including a dangling symlink) —
+                    # so no path is ever actually overwritten either way,
+                    # only a less friendly raw git error instead of this
+                    # tool's own message. `-e $newp || -L $newp` catches a
+                    # dangling symlink too (lstat sees it even when stat
+                    # cannot), matching the existing regular/non-dangling
+                    # case exactly.
+                    REC_MOVE_CMD="if [ -e $(shell_quote "$newp") ] || [ -L $(shell_quote "$newp") ]; then echo 'release-migrations: $newp already exists on disk — refusing to overwrite (something added it since this was planned); re-run: release-migrations.sh plan $name' >&2; false; else mkdir -p \"\$(dirname $(shell_quote "$newp"))\" && git mv $(shell_quote "$path") $(shell_quote "$newp"); fi"
                     REC_REASON="Replaced by: path:$newp."
                 fi
             else
@@ -1976,6 +2553,31 @@ emit_deprecation_item() {
         if [ "$REC_BLOCKED" = "true" ]; then
             block="${block} (blocked by: $(human_blocked_by))"
         fi
+        # Low finding (round 5 review): resolve_baseline treats bytes that
+        # are merely COINCIDENTALLY identical to an upstream/receipt blob as
+        # pristine, REMOVE-eligible — not just a provably-tracked LogicLoom
+        # copy. No bytes are lost either way (identical to upstream by
+        # definition), but the plan text should say so plainly and name the
+        # exact command to bring the path back, rather than leave the
+        # reader to work out git recovery mechanics themselves after the
+        # fact.
+        if [ "$REC_ACTION" = "REMOVE" ] && [ "${STATE:-}" = "pristine" ]; then
+            # Medium finding (round-2 review): "pristine" via a receipt-sha256
+            # baseline (resolve_state's receipt-sha256 branch) is set from a
+            # pure byte comparison — it never checks that $path is tracked at
+            # HEAD. `git checkout HEAD -- $path` only ever restores a path
+            # HEAD actually has; printed unconditionally it is misleading
+            # advice for a path that reached "pristine" purely by matching a
+            # receipt hash (e.g. corroborated via upstream history, never
+            # committed to THIS repo's HEAD). Check first, word the advice to
+            # match, and single-quote $path both places so it prints and
+            # copy-pastes correctly even if $path ever contains a space.
+            if git -C "$REPO_ROOT" rev-parse --verify -q "HEAD:$path" >/dev/null 2>&1; then
+                block="${block}"$'\n'"        recoverable: removing a pristine path never loses bytes — before committing, \`git checkout HEAD -- '$path'\` restores it; after committing, \`git revert <the removal commit>\` or \`git checkout <commit-before-removal> -- '$path'\` does"
+            else
+                block="${block}"$'\n'"        recoverable: '$path' is not tracked at HEAD (this baseline came from a receipt/upstream match, not a commit in this repo) — \`git checkout HEAD -- '$path'\` will NOT restore it; recover the bytes from wherever this baseline actually lives instead"
+            fi
+        fi
         local menu=""
         case "$kind" in
             plugin) menu="[r]emove  [c]onvert-to-local  [k]eep  [s]kip" ;;
@@ -2002,13 +2604,31 @@ content_matches() {
     local name="$1"
     case "$name" in
         *\**|*\?*)
+            # Round-6 finding (medium, fail-open): this branch used to end
+            # with an unconditional `return 0` below, so a `find` that
+            # failed PARTWAY (a subdirectory it cannot read, the same class
+            # already fixed in unconverted_plugin_files) was indistinguishable
+            # from "the glob legitimately matched nothing" — both produced
+            # empty output and a zero return. Callers (check-release's
+            # content-row proof, scan's content-row detection) then read a
+            # failed enumeration as "nothing to verify/propose" and moved on
+            # silently. Propagate the pipeline's real exit status (this
+            # script runs with `set -o pipefail`, so it already reflects a
+            # failing `find` even though `_loom_rm_strip_prefix` succeeds)
+            # instead of masking it.
+            local _cm_rc
             find "$REPO_ROOT" \( -path "$REPO_ROOT/.git" -o -path "$REPO_ROOT/node_modules" \) -prune \
                 -o -type f -path "$REPO_ROOT/$name" -print 2>/dev/null \
-                | sed "s#^$REPO_ROOT/##" ;;
+                | _loom_rm_strip_prefix "$REPO_ROOT/"
+            _cm_rc=$?
+            return "$_cm_rc" ;;
         *)
-            [ -f "$REPO_ROOT/$name" ] && printf '%s\n' "$name" ;;
+            # A single `-f` stat cannot fail partway the way a multi-file
+            # `find` walk can, so this branch has nothing to propagate: no
+            # match is unambiguously "not a match", not "could not check".
+            [ -f "$REPO_ROOT/$name" ] && printf '%s\n' "$name"
+            return 0 ;;
     esac
-    return 0
 }
 
 emit_content_item() {
@@ -2018,8 +2638,22 @@ emit_content_item() {
     [ "$kind" = "content" ] || return 1
     local pattern="${repl#pattern:}"
 
-    local matched_files
-    matched_files="$(content_matches "$name")"
+    local matched_files matched_files_rc=0
+    matched_files="$(content_matches "$name")" || matched_files_rc=$?
+    # Round-6 finding (medium, fail-open): a failed enumeration (rc != 0,
+    # content_matches now propagates it — see its own comment) is not the
+    # same as "the glob matched nothing" (rc 0, empty output). This
+    # function has no in-band way to report "could not verify" without
+    # changing the scan/plan item schema every consumer of this function's
+    # stdout depends on, so — same disposition as this round's other
+    # observability-only fix (record-update-writes.sh's empty-version
+    # generator warning) — surface it on stderr, which scan/plan do NOT
+    # redirect away, rather than let it pass in total silence; the
+    # skip-this-row behavior itself is unchanged (nothing was silently
+    # promoted to a false proposal either).
+    if [ "$matched_files_rc" -ne 0 ]; then
+        echo "WARNING: content row '$name': could not enumerate matching files — find exited $matched_files_rc (e.g. a subdirectory it cannot read); this row's detection is skipped, not proven absent" >&2
+    fi
     [ -z "$matched_files" ] && return 1
 
     local is_advisory="false"
@@ -2285,7 +2919,8 @@ cmd_scan() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --json) json_mode="true"; shift ;;
-            --root) shift 2 ;;
+            # Round-6 finding (low): see cmd_lint's identical fix above.
+            --root) [ $# -ge 2 ] || die_usage "scan: --root requires a value"; shift 2 ;;
             --registry) registry_arg="$2"; shift 2 ;;
             *) die_usage "scan: unknown argument '$1'" ;;
         esac
@@ -2387,7 +3022,8 @@ cmd_plan() {
     local registry_arg="" name=""
     while [ $# -gt 0 ]; do
         case "$1" in
-            --root) shift 2 ;;
+            # Round-6 finding (low): see cmd_lint's identical fix above.
+            --root) [ $# -ge 2 ] || die_usage "plan: --root requires a value"; shift 2 ;;
             --registry) registry_arg="$2"; shift 2 ;;
             -*) die_usage "plan: unknown argument '$1'" ;;
             *) name="$1"; shift ;;
@@ -2517,51 +3153,170 @@ extract_fm_field() {
         infm==1 && $0 ~ "^"f":" { sub("^"f":[ \t]*",""); print; exit }' "$file"
 }
 
+# Round-4 finding (low): escapes a value for safe interpolation into a
+# `s|pattern|replacement|g` line whose delimiter is `|`. Two rules, because
+# the two sides of a substitution mean different things: the PATTERN side
+# is a BRE, where `. * [ ^ $ \` change what gets matched rather than
+# matching themselves, and `|` would end the field early since it is our
+# chosen delimiter; the REPLACEMENT side only treats `& \` specially (a
+# bare `&` re-inserts the whole match) plus the same delimiter risk. Unit
+# and plugin names are conventionally kebab-case (see CLAUDE.md's naming
+# table), so this rarely fires — but a name that departs from it (a dot, a
+# literal `$`, an `&`) used to corrupt the rendered file silently while the
+# unit still got marked "accounted for".
+_loom_rm_sed_escape_pattern() {
+    printf '%s' "$1" | sed 's/[][\.*^$|]/\\&/g'
+}
+_loom_rm_sed_escape_repl() {
+    printf '%s' "$1" | sed 's/[\&|]/\\&/g'
+}
+
 build_rewrite_sed() {
     local plugin="$1" sedfile="$2"
+    local plugin_pat plugin_repl
+    plugin_pat="$(_loom_rm_sed_escape_pattern "$plugin")"
+    plugin_repl="$(_loom_rm_sed_escape_repl "$plugin")"
     : > "$sedfile"
     {
-        printf 's|\\${CLAUDE_PLUGIN_ROOT}|.claude/skills/%s|g\n' "$plugin"
-        printf 's|\\$CLAUDE_PLUGIN_ROOT|.claude/skills/%s|g\n' "$plugin"
-        local s
-        for s in $SKILL_UNITS; do
+        printf 's|\\${CLAUDE_PLUGIN_ROOT}|.claude/skills/%s|g\n' "$plugin_repl"
+        printf 's|\\$CLAUDE_PLUGIN_ROOT|.claude/skills/%s|g\n' "$plugin_repl"
+        # Round-5 finding 6 (low, unquoted word-splitting/glob risk): an
+        # unquoted `for x in $LIST` both word-splits on EVERY IFS
+        # character (not just the newlines this list is actually joined
+        # by — a unit name containing a literal space would itself split
+        # into two bogus loop iterations) AND glob-expands each resulting
+        # word against files in $PWD. SKILL_UNITS/COMMAND_UNITS/AGENT_UNITS
+        # are newline-per-entry by construction (build_convert_units'
+        # `find | ...`), so `while IFS= read -r` is both the correct
+        # delimiter (newline only) and immune to glob expansion — the same
+        # NUL/newline-safe-loop idiom this diff already uses elsewhere
+        # (.docs/policies/shell-idiom-policy.md §7) instead of reaching for
+        # it here too. An empty list still runs the loop body once with an
+        # empty line (a bare `<<<` here-string always feeds one line, even
+        # empty), which is why the existing `[ -z ... ] && continue` guard
+        # stays — unchanged from the unquoted-for version's own zero-length
+        # handling.
+        local s s_pat s_repl
+        while IFS= read -r s; do
             [ -z "$s" ] && continue
-            printf 's|plugins/%s/skills/%s|.claude/skills/%s|g\n' "$plugin" "$s" "$s"
-        done
-        local c
-        for c in $COMMAND_UNITS; do
+            s_pat="$(_loom_rm_sed_escape_pattern "$s")"; s_repl="$(_loom_rm_sed_escape_repl "$s")"
+            printf 's|plugins/%s/skills/%s|.claude/skills/%s|g\n' "$plugin_pat" "$s_pat" "$s_repl"
+        done <<< "$SKILL_UNITS"
+        local c c_pat c_repl
+        while IFS= read -r c; do
             [ -z "$c" ] && continue
-            printf 's|plugins/%s/commands/%s\\.md|.claude/skills/%s/SKILL.md|g\n' "$plugin" "$c" "$c"
-        done
-        local a
-        for a in $AGENT_UNITS; do
+            c_pat="$(_loom_rm_sed_escape_pattern "$c")"; c_repl="$(_loom_rm_sed_escape_repl "$c")"
+            printf 's|plugins/%s/commands/%s\\.md|.claude/skills/%s/SKILL.md|g\n' "$plugin_pat" "$c_pat" "$c_repl"
+        done <<< "$COMMAND_UNITS"
+        local a a_pat a_repl
+        while IFS= read -r a; do
             [ -z "$a" ] && continue
-            printf 's|plugins/%s/agents/%s\\.md|.claude/agents/%s.md|g\n' "$plugin" "$a" "$a"
-        done
-        printf 's|plugins/%s/|.claude/skills/%s/|g\n' "$plugin" "$plugin"
+            a_pat="$(_loom_rm_sed_escape_pattern "$a")"; a_repl="$(_loom_rm_sed_escape_repl "$a")"
+            printf 's|plugins/%s/agents/%s\\.md|.claude/agents/%s.md|g\n' "$plugin_pat" "$a_pat" "$a_repl"
+        done <<< "$AGENT_UNITS"
+        printf 's|plugins/%s/|.claude/skills/%s/|g\n' "$plugin_pat" "$plugin_repl"
     } >> "$sedfile"
 }
 
 apply_path_rewrites() {
     local content="$1" plugin="$2" sedfile
-    sedfile="$(mktemp "${TMPDIR:-/tmp}/loom-rw.XXXXXX")"
+    # Medium finding (round-2 review): neither mktemp's exit status nor the
+    # sed pipeline's was checked. A failed mktemp (TMPDIR unwritable/full)
+    # fed `sed -f ""` an empty filename, which errors under this script's
+    # `-uo pipefail` (no `-e`, see the top-of-file rationale) WITHOUT
+    # stopping the caller — the pipeline's (likely empty) stdout was used
+    # unconditionally as the rendered content, written, WROTE-logged, and
+    # counted as accounted-for, with the plugin's real content never
+    # byte-verified to have reached the target. Check both explicitly; on
+    # either failure, fall back to the ORIGINAL, unrewritten content (never
+    # empty) so a real write still carries real bytes, and mark the run
+    # stopped via WRITE_FAILED so `converted =` is never recorded from it.
+    sedfile="$(mktemp "${TMPDIR:-/tmp}/loom-rw.XXXXXX" 2>/dev/null)"
+    if [ -z "$sedfile" ] || [ ! -f "$sedfile" ]; then
+        echo "ERROR apply_path_rewrites: mktemp failed for plugins/$plugin — path rewrites skipped, unrewritten content used" >&2
+        WRITE_FAILED="true"
+        printf '%s\n' "$content"
+        return 1
+    fi
     build_rewrite_sed "$plugin" "$sedfile"
-    printf '%s\n' "$content" | sed -f "$sedfile"
+    local rewritten rc=0
+    rewritten="$(printf '%s\n' "$content" | sed -f "$sedfile")" || rc=$?
     rm -f "$sedfile"
+    if [ "$rc" -ne 0 ]; then
+        echo "ERROR apply_path_rewrites: sed -f failed for plugins/$plugin — path rewrites skipped, unrewritten content used" >&2
+        WRITE_FAILED="true"
+        printf '%s\n' "$content"
+        return 1
+    fi
+    printf '%s\n' "$rewritten"
 }
 
 plan_convert_units() {
     local plugin="$1" plugin_dir
     plugin_dir="$REPO_ROOT/plugins/$plugin"
-    SKILL_UNITS="$(find "$plugin_dir/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | sed "s#^$plugin_dir/skills/##")"
-    COMMAND_UNITS="$(find "$plugin_dir/commands" -maxdepth 1 -name '*.md' 2>/dev/null | sed "s#^$plugin_dir/commands/##; s/\\.md\$//")"
-    AGENT_UNITS="$(find "$plugin_dir/agents" -maxdepth 1 -name '*.md' 2>/dev/null | sed "s#^$plugin_dir/agents/##; s/\\.md\$//")"
+    # Reviewer round 2: prefix stripped by parameter expansion, never by a
+    # sed expression with the checkout path interpolated as its pattern —
+    # see _loom_rm_strip_prefix for the fail-open that closed. The `.md`
+    # suffix strip below has nothing interpolated and stays sed.
+    #
+    # Round-3 review finding (high, data-loss): COMMAND_UNITS/AGENT_UNITS
+    # used `-name '*.md'` with NO `-type f`, so a symlink named e.g.
+    # evilcmd.md directly under commands/ or agents/ (pointed at a file
+    # anywhere on disk, including outside the plugin or the repo) matched by
+    # basename exactly like a real command/agent file — convert_command_unit
+    # and convert_agent_unit both `cat` their `$src` unconditionally, so the
+    # link's TARGET content was read through and written into
+    # .claude/skills/<cmd>/SKILL.md or .claude/agents/<agent>.md, counted as
+    # carried over, and never reported as "Not carried over" by
+    # unconverted_plugin_files() because it WAS mapped. `-type f` matches by
+    # lstat (no `-L`) so a symlink entry — to a file or a directory — is
+    # excluded from both lists the same way a directory named foo.md already
+    # was; it is left for unconverted_plugin_files()'s `! -type d` walk to
+    # report, the same documented "symlinks are never converted" contract
+    # convert_hooks_and_support() upholds for generic plugin-root entries.
+    # SKILL_UNITS is unaffected — `-type d` already excludes a symlink (even
+    # one pointing at a real directory) by the same lstat rule.
+    #
+    # Round-3 REVIEWER: skills/, commands/ or agents/ being a symlink to a
+    # directory was safe only by the same find quirk the comment above
+    # leans on (a link given AS the start point is not descended, on GNU,
+    # BSD and bfs alike — probed on all three). Make it explicit: a
+    # symlinked unit directory yields no units, and the link is left for
+    # unconverted_plugin_files()'s `! -type d` walk to report, so the
+    # contract no longer depends on which find is on PATH.
+    SKILL_UNITS=""; COMMAND_UNITS=""; AGENT_UNITS=""
+    [ -L "$plugin_dir/skills" ] || SKILL_UNITS="$(find "$plugin_dir/skills" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | _loom_rm_strip_prefix "$plugin_dir/skills/")"
+    [ -L "$plugin_dir/commands" ] || COMMAND_UNITS="$(find "$plugin_dir/commands" -maxdepth 1 -type f -name '*.md' 2>/dev/null | _loom_rm_strip_prefix "$plugin_dir/commands/" | sed 's/\.md$//')"
+    [ -L "$plugin_dir/agents" ] || AGENT_UNITS="$(find "$plugin_dir/agents" -maxdepth 1 -type f -name '*.md' 2>/dev/null | _loom_rm_strip_prefix "$plugin_dir/agents/" | sed 's/\.md$//')"
 }
 
 unit_touched() {
-    local plugin="$1" sub="$2" full
+    # Round-5 finding 6 (low, ERE-interpolation risk): $full used to be
+    # spliced straight into a `grep -E` PATTERN operand. Plugin/unit names
+    # are conventionally kebab-case, so this rarely fires — but any of the
+    # standard ERE metacharacters in a plugin or unit name (a literal `.`,
+    # `*`, `+`, `(`, `[`, …) would be read as regex syntax, not a literal
+    # character, and an unbalanced one (a stray `(`) makes `grep -E` itself
+    # error. Neither failure mode is dangerous here (grep is not eval, and
+    # a match failure or grep error both fall through to `return 1`, the
+    # conservative "not touched" answer — see the call sites' own comments:
+    # a false "not touched" just means --customized-only skips a unit it
+    # should have caught, never a wrong write), but it is still a real
+    # deviation from the careful literal-string matching used everywhere
+    # else in this diff. `case` with the interpolated part quoted (glob
+    # metacharacters in $full are literal; only the trailing `/*` this
+    # function itself writes is a wildcard) does the same "$full" OR
+    # "$full/<anything>" match with no interpreter reading $full as syntax
+    # at all.
+    local plugin="$1" sub="$2" full line
     full="plugins/$plugin/$sub"
-    printf '%s\n%s\n' "$STATE_CHANGED" "$STATE_ADDED" | grep -qE "^${full}(\$|/)" && return 0
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        [ "$line" = "$full" ] && return 0
+        case "$line" in
+            "$full"/*) return 0 ;;
+        esac
+    done <<< "$(printf '%s\n%s\n' "$STATE_CHANGED" "$STATE_ADDED")"
     return 1
 }
 
@@ -2571,7 +3326,11 @@ find_other_plugin_owning() {
 }
 
 owning_plugin_name() {
-    printf '%s' "$1" | sed -E "s#^$REPO_ROOT/plugins/([^/]+)/.*\$#\\1#"
+    # Reviewer round 2: parameter expansion, not a sed expression with the
+    # checkout path interpolated (see _loom_rm_strip_prefix). $1 is always
+    # a find result under $REPO_ROOT/plugins/ (find_other_plugin_owning).
+    local rest="${1#"$REPO_ROOT"/plugins/}"
+    printf '%s' "${rest%%/*}"
 }
 
 
@@ -2598,15 +3357,129 @@ frontmatter_differs() {
 # ── write helpers: every write in --apply is checked; a failure prints an
 #    ERROR line, marks the run stopped, and nothing records `converted =`.
 WRITE_FAILED="false"
+# Reviewer round 2: set by cmd_convert right before finalize_convert renders
+# CONVERTED.md — "true" when a unit STOPped or WRITE_FAILED is already true —
+# so render_converted_md's Follow-ups can take the same gate as the
+# terminal `accounted:` line (see both).
+CONVERT_RUN_STOPPED="false"
+# Reviewer round 1 (write-through a symlink): every "target already exists"
+# guard in the unit converters above is a `-e`/`-f` test, and `-e` is FALSE
+# for a DANGLING symlink — so a target that is a symlink to a path that does
+# not exist yet sails past every guard, and the `>` redirect / `cp` below
+# then FOLLOWS the link and creates the file wherever it points, possibly
+# outside .claude/ and outside the repository entirely (reproduced: a
+# `.claude/skills/<p>/SKILL.md -> <elsewhere>/victim.md` link made convert
+# --apply create <elsewhere>/victim.md). This tool's own contract is that it
+# never writes outside .claude/skills/, .claude/agents/ and the decisions
+# file, so a symlink at a target — dangling or not — is refused outright
+# and counted as a failed write (the unit STOPs, no `converted =` is
+# recorded, and the delete recommendation is withheld); it is never
+# followed, never replaced, never removed.
+_loom_rm_refuse_symlink_target() {   # $1 = repo-relative target
+    if [ -L "$REPO_ROOT/$1" ]; then
+        echo "ERROR $1: is a symlink (-> $(readlink "$REPO_ROOT/$1" 2>/dev/null)) — refusing to write through it; replace it with a real file or remove it yourself, then re-run"
+        WRITE_FAILED="true"
+        return 1
+    fi
+    return 0
+}
+# Round-4 finding (medium): every "-e \$target" branch below (a target that
+# ALREADY exists) tests with plain `[ -e ]`, which FOLLOWS a symlink — so a
+# pre-existing target that is a symlink to real content (not dangling) was
+# read/classified straight through it via classify_existing_text/cmp and
+# then marked "accounted for" in MAP_LIST, without this tool ever noticing
+# the target itself is a symlink. No write happens on this branch (so this
+# is not itself data loss the way the WRITE-path symlink was), but it
+# contradicts this file's own MIGRATION_GUIDE-documented guarantee that a
+# target symlink is refused, and can mark a plugin fully "accounted for"
+# when its actual .claude/ output is just a symlink. Same treatment as a
+# genuine write failure (WRITE_FAILED="true", never note_mapping'd) so
+# unconverted_plugin_files/cmd_convert's delete gate see it as NOT carried
+# over — Doubt -> KEEP and ASK, never silently agree.
+_loom_rm_refuse_existing_symlink_target() {   # $1 = repo-relative target
+    if [ -L "$REPO_ROOT/$1" ]; then
+        echo "ERROR $1: already exists but is a symlink (-> $(readlink "$REPO_ROOT/$1" 2>/dev/null)) — refusing to read/classify through it; replace it with a real file or remove it yourself, then re-run"
+        WRITE_FAILED="true"
+        return 1
+    fi
+    # Round-4 REVIEWER (the same fix, one level up — the write path already
+    # has it, see _loom_rm_refuse_symlink_parents below): the round-4 check
+    # above looked at the FINAL component only. `[ -e ]` follows a symlinked
+    # PARENT just as readily, so `.claude/skills/<skill> -> <anywhere>`
+    # (reproduced with a directory OUTSIDE the repository holding a
+    # previously converted, marker-bearing copy) had every file under it
+    # classified SKIP through the link, mapped, "accounted: every file …
+    # carried over", "Next steps: delete plugins/<p>", and scan said REMOVE
+    # — while the only in-repo home of those bytes was a symlink to an
+    # unversioned directory. MIGRATION_GUIDE.md states the guarantee for
+    # "a symlink at a target … or at any parent directory of one"; the
+    # classify path now honours it the same way the write path does. Walk
+    # every existing component from the target's parent up to (not
+    # including) REPO_ROOT; refuse on the first symlink. Doubt -> KEEP and
+    # ASK: never count bytes as carried over on the far side of a link.
+    local check
+    check="$(dirname -- "$1")"
+    while [ "$check" != "." ] && [ "$check" != "/" ] && [ -n "$check" ]; do
+        if [ -e "$REPO_ROOT/$check" ] && [ -L "$REPO_ROOT/$check" ]; then
+            echo "ERROR $1: already exists, but its parent directory $check is a symlink (-> $(readlink "$REPO_ROOT/$check" 2>/dev/null)) — refusing to read/classify through it (the bytes it would count as carried over live wherever that link points, not under .claude/); replace it with a real directory or remove it yourself, then re-run"
+            WRITE_FAILED="true"
+            return 1
+        fi
+        check="$(dirname -- "$check")"
+    done
+    return 0
+}
+# High finding (round-2 review): the check above only ever looked at the
+# FINAL path component. `mkdir -p` does not refuse an existing symlinked
+# intermediate directory — it follows it and creates any missing components
+# INSIDE whatever it points to — and a `>` redirect / `cp -p` then follows
+# the same chain, so a symlink at e.g. `.claude/skills/<plugin>` itself (not
+# the file being written) silently sent every write for that plugin outside
+# `.claude/skills/`, contradicting this script's own stated contract. Walk
+# every path component from the target's parent up to (not including)
+# REPO_ROOT and refuse if any component that already EXISTS is a symlink —
+# a component that does not exist yet cannot be one, and mkdir -p will
+# create it (and only it) as a real directory.
+_loom_rm_refuse_symlink_parents() {   # $1 = repo-relative target
+    local target="$1" check
+    check="$(dirname -- "$target")"
+    while [ "$check" != "." ] && [ "$check" != "/" ] && [ -n "$check" ]; do
+        if [ -e "$REPO_ROOT/$check" ] && [ -L "$REPO_ROOT/$check" ]; then
+            echo "ERROR $target: parent directory $check is a symlink (-> $(readlink "$REPO_ROOT/$check" 2>/dev/null)) — refusing to write through it; replace it with a real directory or remove it yourself, then re-run"
+            WRITE_FAILED="true"
+            return 1
+        fi
+        check="$(dirname -- "$check")"
+    done
+    return 0
+}
 write_text_target() {   # $1 = repo-relative target, $2 = content (newline appended), $3 = optional source path whose +x bit to preserve
     local target="$1" content="$2" srcfile="${3:-}"
+    _loom_rm_refuse_symlink_target "$target" || return 1
+    _loom_rm_refuse_symlink_parents "$target" || return 1
     if mkdir -p "$REPO_ROOT/$(dirname "$target")" 2>/dev/null \
        && printf '%s\n' "$content" > "$REPO_ROOT/$target" 2>/dev/null; then
         # A rewritten text file (path rewrites, marker insertion, model
         # pin rewrite) still goes through the `>` redirect above, which
         # never carries over the source's mode — preserve the executable
         # bit explicitly so a converted helper script stays runnable.
-        [ -n "$srcfile" ] && [ -x "$srcfile" ] && chmod +x "$REPO_ROOT/$target" 2>/dev/null
+        # Round-6 finding (medium): this chmod's own exit status used to go
+        # unchecked, so a failure (permission denied, a filesystem that
+        # refuses the mode change, an immutable flag) was silently
+        # swallowed and the function still `return 0`'d — the caller then
+        # printed WROTE, recorded the mapping, and unconverted_plugin_files
+        # counted the source as carried over, even though the target on
+        # disk was not executable. Contradicts this file's own header claim
+        # that "every WRITE ... is checked explicitly." Check it like any
+        # other write: a failed chmod here is a failed write, full stop —
+        # never counted as carried over.
+        if [ -n "$srcfile" ] && [ -x "$srcfile" ]; then
+            if ! chmod +x "$REPO_ROOT/$target" 2>/dev/null; then
+                echo "ERROR $target: wrote content but chmod +x failed — the converted file would not be executable; treating this as a failed write so it is never counted as carried over"
+                WRITE_FAILED="true"
+                return 1
+            fi
+        fi
         return 0
     fi
     echo "ERROR $target: write failed"
@@ -2615,6 +3488,8 @@ write_text_target() {   # $1 = repo-relative target, $2 = content (newline appen
 }
 copy_target() {   # $1 = repo-relative target, $2 = absolute source (mode preserved)
     local target="$1" src="$2"
+    _loom_rm_refuse_symlink_target "$target" || return 1
+    _loom_rm_refuse_symlink_parents "$target" || return 1
     if mkdir -p "$REPO_ROOT/$(dirname "$target")" 2>/dev/null \
        && cp -p "$src" "$REPO_ROOT/$target" 2>/dev/null; then
         return 0
@@ -2629,6 +3504,51 @@ copy_target() {   # $1 = repo-relative target, $2 = absolute source (mode preser
 # function of the source tree, so CONVERTED.md is byte-stable across re-runs.
 note_mapping() { MAP_LIST="${MAP_LIST}$1"$'\n'; }
 
+# Reviewer round 2 (data-loss finding, residual): the "target already
+# exists" branch of every unit converter maps its source into MAP_LIST and
+# then CLASSIFIES the target — SKIP (byte-identical to what the source
+# renders to now) or KEEP modified-after-conversion (it differs; nothing is
+# overwritten). A KEEP is the one case where a mapped source's CURRENT
+# bytes are provably NOT at the target: the plugin source was edited after
+# conversion, or the target was, or both — the tool cannot tell which, and
+# it writes nothing either way. MAP_LIST is the plan ("the mapping is the
+# plan, not this run's writes"), so the mapping stays; this SEPARATE list
+# records every KEEP so unconverted_plugin_files can report it under "not
+# carried over by this run" and both delete gates (cmd_convert's terminal
+# `accounted:` line and CONVERTED.md's Follow-ups) withhold the delete
+# step. scan/plan already treat any KEEP line in a dry-run re-render as
+# render-stale / KEEP-AS-IS ("reconcile by hand, then decide"); this makes
+# convert's own output say the same instead of contradicting it.
+# Reproduced: convert --apply, edit plugins/<p>/hooks/h.sh, convert --apply
+# again -> "KEEP … modified-after-conversion", the edit nowhere under
+# .claude/, and "Next steps: delete plugins/<p>". Doubt -> KEEP and ASK.
+KEEP_DIFFERS_LIST=""
+note_keep_differs() {   # $1 = repo-relative source under plugins/, $2 = repo-relative target
+    KEEP_DIFFERS_LIST="${KEEP_DIFFERS_LIST}$1 (target $2 exists but differs from what this source renders to now — KEEP, not overwritten; reconcile by hand, then decide)"$'\n'
+}
+
+# Reviewer round 2 (data-loss, fail-open): strip a literal path prefix from
+# every stdin line with parameter expansion, never `sed "s#^$PREFIX/##"`.
+# The prefix is (or is built from) REPO_ROOT, a user-chosen checkout path:
+# a `#` in it is sed's delimiter in that expression ("bad flag in
+# substitute command"), a `[` opens an unbalanced bracket expression — and
+# either way sed errored with EMPTY output, under `-uo pipefail` but no
+# `-e`. plan_convert_units then saw no skill/command/agent units at all
+# (none converted, none mapped — only hooks/support, which already used
+# parameter expansion) and unconverted_plugin_files saw zero files under
+# plugins/<p>: the positive `accounted:` line fired, `converted =` was
+# recorded, and the next scan said REMOVE with `git rm -r plugins/<p>` over
+# a skill never carried into .claude/. Reproduced for both characters on
+# the pre-fix tree. A prefix that does not match leaves the line intact
+# (same as sed's no-match), so every caller's downstream check stays
+# fail-closed on an unexpected shape rather than fail-open on an empty one.
+_loom_rm_strip_prefix() {   # $1 = literal prefix; stdin = lines
+    local prefix="$1" line
+    while IFS= read -r line || [ -n "$line" ]; do
+        printf '%s\n' "${line#"$prefix"}"
+    done
+}
+
 # Model rewrite for a SKILL.md / agent body (CD-11): sets RW_CONTENT and
 # RW_MODEL_NOTE (" [model: pinned->opus]" or empty).
 rewrite_model_if_pinned() {
@@ -2642,11 +3562,17 @@ rewrite_model_if_pinned() {
 
 # Classify an existing target against its freshly rendered content:
 # prints "SKIP <t> up-to-date" or "KEEP <t> modified-after-conversion".
+# Returns 0 on SKIP and 1 on KEEP (reviewer round 2) so a unit converter
+# can record the KEEP via note_keep_differs; callers that classify the
+# tool's OWN generated files (the support index, CONVERTED.md) ignore the
+# return code on purpose — those are not plugin source bytes.
 classify_existing_text() {   # $1 = target, $2 = rendered content
     if diff -q <(printf '%s\n' "$2") "$REPO_ROOT/$1" >/dev/null 2>&1; then
         echo "SKIP $1 up-to-date"
+        return 0
     else
         echo "KEEP $1 modified-after-conversion"
+        return 1
     fi
 }
 
@@ -2684,7 +3610,12 @@ convert_skill_unit() {
         rendered=""; nrw=0; modelnote=""
         if grep -Iq . "$f" 2>/dev/null; then
             original="$(cat "$f")"
-            rendered="$(apply_path_rewrites "$original" "$plugin")"
+            # apply_path_rewrites always runs inside a `$(...)` capture, so a
+            # WRITE_FAILED="true" it sets internally lives only in that
+            # forked subshell and never reaches this function's own
+            # (unforked) scope — its RETURN CODE is the only channel that
+            # survives the fork, so it must be checked here explicitly.
+            rendered="$(apply_path_rewrites "$original" "$plugin")" || WRITE_FAILED="true"
             nrw="$(count_rewrites "$original" "$rendered")"
             case "$relf" in
                 *.md)
@@ -2695,18 +3626,37 @@ convert_skill_unit() {
                     rendered="$(insert_marker "$rendered" "$plugin" "skills/$skill/$relf")" ;;
             esac
         fi
-        note_mapping "$target <- plugins/$plugin/skills/$skill/$relf"
+        # Data-loss finding (round-2 review): note_mapping used to be called
+        # HERE, unconditionally, before the write below was even attempted —
+        # so a write that genuinely failed (write_text_target/copy_target
+        # returning 1) still left this source marked "accounted for" in
+        # MAP_LIST, and unconverted_plugin_files (which diffs the real
+        # source tree against MAP_LIST) then saw nothing missing. Moved to
+        # AFTER a successful write (or into the pre-existing-target branch,
+        # which never writes and is always safe to map immediately) so a
+        # failed write leaves its source OUT of MAP_LIST — exactly what
+        # unconverted_plugin_files needs to report it as not carried over,
+        # which is what both render_converted_md's Follow-ups (the on-disk
+        # CONVERTED.md) and cmd_convert's own `accounted:` gate key off of.
         if [ -e "$REPO_ROOT/$target" ]; then
+            _loom_rm_refuse_existing_symlink_target "$target" || continue
+            note_mapping "$target <- plugins/$plugin/skills/$skill/$relf"
+            # Reviewer round 2: a KEEP means this source's current bytes are
+            # NOT at the target (see note_keep_differs) — recorded so the
+            # delete gates withhold; the mapping above stays (it is the plan).
             if [ -n "$rendered" ]; then
-                classify_existing_text "$target" "$rendered"
+                classify_existing_text "$target" "$rendered" \
+                    || note_keep_differs "plugins/$plugin/skills/$skill/$relf" "$target"
             elif cmp -s "$f" "$REPO_ROOT/$target" 2>/dev/null; then
                 echo "SKIP $target up-to-date"
             else
                 echo "KEEP $target modified-after-conversion"
+                note_keep_differs "plugins/$plugin/skills/$skill/$relf" "$target"
             fi
             continue
         fi
         if [ "$mode" = "dry-run" ]; then
+            note_mapping "$target <- plugins/$plugin/skills/$skill/$relf"
             echo "MKDIR $(dirname "$target")"
             echo "WRITE $target <- plugins/$plugin/skills/$skill/$relf [rewrites: $nrw]$modelnote"
         else
@@ -2715,14 +3665,15 @@ convert_skill_unit() {
             else
                 copy_target "$target" "$f" || return 1
             fi
+            note_mapping "$target <- plugins/$plugin/skills/$skill/$relf"
             echo "WROTE $target <- plugins/$plugin/skills/$skill/$relf [rewrites: $nrw]$modelnote"
         fi
-    done <<< "$(find "$srcdir" -type f 2>/dev/null | sort)"
+    done <<< "$(find "$srcdir" -name .git -prune -o -type f -print 2>/dev/null | sort)"
     return 0
 }
 
 render_command_skill() {
-    local plugin="$1" cmd="$2" src content
+    local plugin="$1" cmd="$2" src content rc=0
     src="$REPO_ROOT/plugins/$plugin/commands/$cmd.md"
     content="$(cat "$src")"
     rewrite_model_if_pinned "$content"; content="$RW_CONTENT"
@@ -2735,13 +3686,20 @@ render_command_skill() {
                 { print }')"
         fi
     fi
-    content="$(apply_path_rewrites "$content" "$plugin")"
+    # This function is itself always called via `$(...)` (it prints its
+    # result, does not return it), so apply_path_rewrites' own return code
+    # would otherwise be silently discarded by the `content="$(insert_marker
+    # ...)"` reassignment below — capture it into $rc and RETURN it, so
+    # the caller (which IS in the un-forked call chain back to cmd_convert)
+    # can see the failure via this function's own exit status.
+    content="$(apply_path_rewrites "$content" "$plugin")" || rc=1
     content="$(insert_marker "$content" "$plugin" "commands/$cmd.md")"
     printf '%s\n' "$content"
+    return $rc
 }
 
 render_append_section() {
-    local plugin="$1" cmd="$2" src fm body
+    local plugin="$1" cmd="$2" src fm body rc=0
     src="$REPO_ROOT/plugins/$plugin/commands/$cmd.md"
     fm=""; body=""
     if head -1 "$src" 2>/dev/null | grep -q '^---$'; then
@@ -2750,7 +3708,9 @@ render_append_section() {
     else
         body="$(cat "$src")"
     fi
-    body="$(apply_path_rewrites "$body" "$plugin")"
+    # Same relay as render_command_skill above — this function's own return
+    # code is the only channel apply_path_rewrites' failure survives through.
+    body="$(apply_path_rewrites "$body" "$plugin")" || rc=1
     echo "## Command procedure (converted from commands/$cmd.md)"
     echo ""
     echo "Original command frontmatter (not merged — this skill's frontmatter governs; carry allowed-tools/model over by hand if you need them):"
@@ -2762,6 +3722,7 @@ render_append_section() {
         echo ""
     fi
     printf '%s\n' "$body"
+    return $rc
 }
 
 # Append a marker-delimited section to an existing converted file. Re-run
@@ -2773,19 +3734,42 @@ render_append_section() {
 append_marked_section() {   # $1 target, $2 start, $3 end, $4 section, $5 mode, $6 op label, $7 ledger line
     local target="$1" start_marker="$2" end_marker="$3" section="$4" mode="$5" label="$6" ledger="$7"
     local existing_body=""
+    # Round-4 REVIEWER: the eighth "target already exists" read. The seven
+    # unit branches were given _loom_rm_refuse_existing_symlink_target in
+    # round 4; this one (the appended-section path for a command with a
+    # home skill, and the support-index append) still read an existing
+    # target through `[ -f ]`/`cat`, which follow a link. It was covered
+    # only transitively — the skill unit ERRORs on the same SKILL.md first —
+    # and `--customized-only` can skip that skill unit while still reaching
+    # here. Same rule, applied where the read happens. `-e` is false for a
+    # DANGLING link, which then falls to write_text_target's own refusal.
+    if [ -e "$REPO_ROOT/$target" ]; then
+        _loom_rm_refuse_existing_symlink_target "$target" || return 1
+    fi
     [ -f "$REPO_ROOT/$target" ] && existing_body="$(cat "$REPO_ROOT/$target")"
-    note_mapping "$ledger"
+    # Data-loss finding (round-2 review): note_mapping moved from here
+    # (unconditional, before the write below was even attempted) to each
+    # branch below, after that branch's outcome is known — same fix as
+    # convert_skill_unit above, same reason: an unconditional call here left
+    # a failed APPEND (write_text_target returning 1) mapped as
+    # "accounted for" in MAP_LIST.
     if printf '%s\n' "$existing_body" | grep -qF -- "$start_marker"; then
+        note_mapping "$ledger"
         local between
         between="$(printf '%s\n' "$existing_body" | awk -v s="$start_marker" -v e="$end_marker" '$0==s{inb=1;next} $0==e{inb=0;next} inb{print}')"
         if [ "$between" = "$section" ]; then
             echo "SKIP $target up-to-date"
         else
             echo "KEEP $target modified-after-conversion"
+            # Reviewer round 2: recorded (see note_keep_differs). The source
+            # is the tail of the ledger line ("… <- plugins/<p>/commands/
+            # <c>.md"), the same field unconverted_plugin_files reads.
+            note_keep_differs "${ledger##* <- }" "$target"
         fi
         return 0
     fi
     if [ "$mode" = "dry-run" ]; then
+        note_mapping "$ledger"
         echo "APPEND $target $label"
     else
         local merged
@@ -2796,6 +3780,7 @@ append_marked_section() {   # $1 target, $2 start, $3 end, $4 section, $5 mode, 
             printf '%s' "$end_marker"
         )"
         write_text_target "$target" "$merged" || return 1
+        note_mapping "$ledger"
         echo "APPENDED $target $label"
     fi
     return 0
@@ -2823,7 +3808,7 @@ append_command_into_skill() {
         echo "STOP commands/$cmd.md: .claude/skills/$skill/SKILL.md is not converted yet (skills/$skill was untouched) — run convert without --customized-only"
         return 1
     fi
-    local section; section="$(render_append_section "$plugin" "$cmd")"
+    local section; section="$(render_append_section "$plugin" "$cmd")" || WRITE_FAILED="true"
     local note=""
     if frontmatter_differs "$REPO_ROOT/plugins/$plugin/commands/$cmd.md" "$REPO_ROOT/plugins/$plugin/skills/$skill/SKILL.md"; then
         note="NOTE $target: command frontmatter differs ($FM_DIFF_KEYS) — review"
@@ -2838,6 +3823,15 @@ append_command_into_skill() {
 convert_command_unit() {
     local plugin="$1" cmd="$2" mode="$3" customized_only="$4"
     local src="$REPO_ROOT/plugins/$plugin/commands/$cmd.md"
+    # Round-3 review finding (high, defense-in-depth): plan_convert_units()
+    # now excludes a symlink named *.md from COMMAND_UNITS via `-type f`, so
+    # this should never be reached for one in practice — but `-f` alone
+    # (below) follows a symlink and is true for a symlink to a regular
+    # file, so if this were ever called directly with a symlinked $src the
+    # unconditional `cat "$src"` further down would still read through it.
+    # Refuse it here too, the same "never converted" contract as everywhere
+    # else a source path is read.
+    if [ -L "$src" ]; then return 0; fi
     [ -f "$src" ] || return 0
     local other
     other="$(find_other_plugin_owning "commands/$cmd.md" "$src")"
@@ -2860,11 +3854,14 @@ convert_command_unit() {
         return $?
     fi
     local target=".claude/skills/$cmd/SKILL.md"
-    local rendered; rendered="$(render_command_skill "$plugin" "$cmd")"
+    local rendered; rendered="$(render_command_skill "$plugin" "$cmd")" || WRITE_FAILED="true"
     if [ -e "$REPO_ROOT/$target" ]; then
+        _loom_rm_refuse_existing_symlink_target "$target" || return 1
         if head -20 "$REPO_ROOT/$target" 2>/dev/null | grep -qF "converted-from: plugins/$plugin/commands/$cmd.md "; then
             note_mapping "$target <- plugins/$plugin/commands/$cmd.md"
-            classify_existing_text "$target" "$rendered"
+            # Reviewer round 2: a KEEP is recorded (see note_keep_differs).
+            classify_existing_text "$target" "$rendered" \
+                || note_keep_differs "plugins/$plugin/commands/$cmd.md" "$target"
             return 0
         else
             echo "STOP commands/$cmd.md: .claude/skills/$cmd/ already exists without our marker"
@@ -2878,16 +3875,28 @@ convert_command_unit() {
         echo "STOP commands/$cmd.md: /$cmd is provided by $otherplug2; carry your diff into plugins/$otherplug2/commands/$cmd.md"
         return 1
     fi
-    local nrw original
+    local nrw original original_rewritten
     original="$(cat "$src")"
-    nrw="$(count_rewrites "$original" "$(apply_path_rewrites "$original" "$plugin")")"
+    # A doubly-nested `$(count_rewrites ... "$(apply_path_rewrites ...)")`
+    # swallows apply_path_rewrites' own exit code entirely (only
+    # count_rewrites' exit status would survive to `$?`) — split so its
+    # failure is checked directly. (Redundant with the check on $rendered's
+    # own apply_path_rewrites call inside render_command_skill above, since
+    # both calls render the same plugin/content — but kept explicit rather
+    # than relying on that coincidence.)
+    original_rewritten="$(apply_path_rewrites "$original" "$plugin")" || WRITE_FAILED="true"
+    nrw="$(count_rewrites "$original" "$original_rewritten")"
     rewrite_model_if_pinned "$original"
-    note_mapping "$target <- plugins/$plugin/commands/$cmd.md"
+    # Data-loss finding (round-2 review): note_mapping moved from here
+    # (unconditional, before the write below) to each branch, after that
+    # branch's outcome is known — same fix, same reason as convert_skill_unit.
     if [ "$mode" = "dry-run" ]; then
+        note_mapping "$target <- plugins/$plugin/commands/$cmd.md"
         echo "MKDIR .claude/skills/$cmd"
         echo "WRITE $target <- plugins/$plugin/commands/$cmd.md [rewrites: $nrw]$RW_MODEL_NOTE"
     else
         write_text_target "$target" "$rendered" "$src" || return 1
+        note_mapping "$target <- plugins/$plugin/commands/$cmd.md"
         echo "WROTE $target <- plugins/$plugin/commands/$cmd.md [rewrites: $nrw]$RW_MODEL_NOTE"
     fi
     return 0
@@ -2896,6 +3905,11 @@ convert_command_unit() {
 convert_agent_unit() {
     local plugin="$1" agent="$2" mode="$3"
     local src="$REPO_ROOT/plugins/$plugin/agents/$agent.md"
+    # Round-3 review finding (high, defense-in-depth): same reasoning as the
+    # symlink guard at the top of convert_command_unit — plan_convert_units()
+    # already excludes a symlinked *.md from AGENT_UNITS, this is belt and
+    # suspenders against a direct call.
+    if [ -L "$src" ]; then return 0; fi
     [ -f "$src" ] || return 0
     local target=".claude/agents/$agent.md"
     local other
@@ -2909,40 +3923,127 @@ convert_agent_unit() {
     original="$(cat "$src")"
     rewrite_model_if_pinned "$original"
     content="$RW_CONTENT"; modelnote="$RW_MODEL_NOTE"
-    local rewritten; rewritten="$(apply_path_rewrites "$content" "$plugin")"
+    local rewritten; rewritten="$(apply_path_rewrites "$content" "$plugin")" || WRITE_FAILED="true"
     nrw="$(count_rewrites "$content" "$rewritten")"
     content="$(insert_marker "$rewritten" "$plugin" "agents/$agent.md")"
     if [ -e "$REPO_ROOT/$target" ]; then
+        _loom_rm_refuse_existing_symlink_target "$target" || return 1
         if head -20 "$REPO_ROOT/$target" 2>/dev/null | grep -qF "converted-from: plugins/$plugin/agents/$agent.md "; then
             note_mapping "$target <- plugins/$plugin/agents/$agent.md"
-            classify_existing_text "$target" "$content"
+            # Reviewer round 2: a KEEP is recorded (see note_keep_differs).
+            classify_existing_text "$target" "$content" \
+                || note_keep_differs "plugins/$plugin/agents/$agent.md" "$target"
             return 0
         else
             echo "STOP agents/$agent.md: .claude/agents/$agent.md already exists without our marker"
             return 1
         fi
     fi
-    note_mapping "$target <- plugins/$plugin/agents/$agent.md"
+    # Data-loss finding (round-2 review): note_mapping moved from here
+    # (unconditional, before the write below) to each branch, after that
+    # branch's outcome is known — same fix, same reason as convert_skill_unit.
     if [ "$mode" = "dry-run" ]; then
+        note_mapping "$target <- plugins/$plugin/agents/$agent.md"
         echo "WRITE $target <- plugins/$plugin/agents/$agent.md [rewrites: $nrw]$modelnote"
     else
         write_text_target "$target" "$content" "$src" || return 1
+        note_mapping "$target <- plugins/$plugin/agents/$agent.md"
         echo "WROTE $target <- plugins/$plugin/agents/$agent.md [rewrites: $nrw]$modelnote"
     fi
     return 0
 }
 
-# hooks/, scripts/, lib/, config/, templates/, tests/, README.md and the
-# manifest -> .claude/skills/<p>/… . A target that already exists is
-# classified (§4.3): byte-identical -> SKIP; listed in the existing
-# CONVERTED.md ledger -> KEEP; anything else -> STOP (never overwritten).
+# EVERY plugin-root entry except skills/, commands/, agents/ and
+# .claude-plugin/ (each converted separately by their own unit converters,
+# above, and the manifest handled after this loop) -> .claude/skills/<p>/… .
+# A target that already exists is classified (§4.3): byte-identical -> SKIP;
+# listed in the existing CONVERTED.md ledger -> KEEP; anything else -> STOP
+# (never overwritten).
+#
+# Finding 1 (data-loss, round 5 review): this used to walk a FIXED list
+# (hooks, scripts, lib, config, templates, tests, README.md) — any other
+# plugin-root file or directory (LICENSE, package.json, CHANGELOG.md, a
+# custom asset dir) was silently never converted and never even mentioned,
+# so nothing marked it as carried over OR as left behind. Two real plugins
+# in THIS repo already prove the gap: plugins/loom-governance/domain-briefs/
+# (real shipped content, not on the old list at all) and
+# plugins/loom-memory/{working,recall,archival}/ + .retention-last-run
+# (runtime state dirs, also not on the old list). Enumerating every
+# plugin-root entry generically, excluding only the four subtrees converted
+# elsewhere, means a plugin can never grow a fifth kind of root entry that
+# silently falls through conversion again — see also finding 2 immediately
+# below, which depends on this loop actually seeing everything.
 convert_hooks_and_support() {
     local plugin="$1" mode="$2" srcdir="$REPO_ROOT/plugins/$1" rel rc=0
-    for rel in hooks scripts lib config templates tests README.md; do
+    local _chs_entries _chs_entry
+    _chs_entries="$(find "$srcdir" -mindepth 1 -maxdepth 1 2>/dev/null | sort)"
+    while IFS= read -r _chs_entry; do
+        [ -z "$_chs_entry" ] && continue
+        rel="$(basename "$_chs_entry")"
+        case "$rel" in
+            skills|commands|agents|.claude-plugin) continue ;;
+            # Round-5 REVIEWER (medium): a `.git` at plugin root — a
+            # directory (the customer ran `git init` inside the plugin) or
+            # a gitdir-pointer file (`git worktree`) — is NEVER converted.
+            # The generic walk below used to carry `.git/**` into
+            # .claude/skills/<p>/.git/ (a WROTE line per hook sample, HEAD,
+            # config, the whole object store), which makes
+            # .claude/skills/<p> an EMBEDDED repository the outer tree can
+            # only ever hold as a 160000 gitlink (reproduced: `git add
+            # .claude` warned "adding embedded git repository") — the
+            # converted skill could never travel with the outer repo — and
+            # for the pointer-file variant it then printed `accounted:
+            # every file … carried over` and the delete step outright.
+            # Skipped here (never read, never written); reported by
+            # unconverted_plugin_files() as a nested repository, so both
+            # delete gates withhold. A `.git` deeper down (inside a support
+            # or skill directory) is pruned by the same name in every file
+            # walk this converter runs, for the same reason.
+            .git) continue ;;
+        esac
         local srcpath="$srcdir/$rel"
+        # Round-3 review finding (high, data-loss): a GENERIC plugin-root
+        # entry that is a symlink to a FILE (a customer's LICENSE pointed at
+        # a shared file elsewhere, say) fell through every check above —
+        # `-e` follows the link and is true, and `-d` on a link-to-file is
+        # false, landing in the `else` branch below where `files="$srcpath"`
+        # is the link path itself, read via `cat`/copy_target exactly like a
+        # real file and counted as carried over. unconverted_plugin_files()
+        # never got a chance to flag it because it WAS mapped. The
+        # documented contract (this file's own "reviewer round 1 (symlinks)"
+        # comment on unconverted_plugin_files, and MIGRATION_GUIDE.md) is
+        # that a symlink anywhere under plugins/<p> is never converted —
+        # `continue` here so this entry is never read, never written, and
+        # falls through to unconverted_plugin_files()'s own `! -type d` walk
+        # (which DOES see symlinks) to be reported as "Not carried over". A
+        # symlink to a DIRECTORY at plugin root was already safe by
+        # accident (`find <link> -type f` without -L does not descend past
+        # a link given as the start point on either GNU or BSD find — proven
+        # by the existing "four symlinks" test) but this check makes both
+        # cases explicit and no longer dependent on that non-descent quirk.
+        if [ -L "$srcpath" ]; then continue; fi
         [ -e "$srcpath" ] || continue
         local files
-        if [ -d "$srcpath" ]; then files="$(find "$srcpath" -type f 2>/dev/null | sort)"; else files="$srcpath"; fi
+        # Round-6 REVIEWER (medium, hang): the `else` branch used to take
+        # EVERY non-directory, non-symlink plugin-root entry as a regular
+        # file and run `grep -Iq .` on it to decide text-vs-binary — on a
+        # named pipe that open() blocks until a writer appears, i.e.
+        # forever (reproduced: convert never returned, and killing it left
+        # the grep orphaned, still blocked on the pipe). A socket or device
+        # node is the same shape. Only a regular file (`-f`; `-L` was
+        # already refused above, so this never follows a link) is
+        # converted from the plugin root; anything else is never read and
+        # never written, and falls through to unconverted_plugin_files'
+        # `! -type d` walk to be reported under "Not carried over" — the
+        # same contract a symlink already has. The directory walk below is
+        # already `-type f` and never had this gap.
+        if [ -d "$srcpath" ]; then
+            files="$(find "$srcpath" -name .git -prune -o -type f -print 2>/dev/null | sort)"
+        elif [ -f "$srcpath" ]; then
+            files="$srcpath"
+        else
+            continue
+        fi
         local f relf target is_text rendered original nrw
         while IFS= read -r f; do
             [ -z "$f" ] && continue
@@ -2952,13 +4053,17 @@ convert_hooks_and_support() {
             if grep -Iq . "$f" 2>/dev/null; then
                 is_text="true"
                 original="$(cat "$f")"
-                rendered="$(apply_path_rewrites "$original" "$plugin")"
+                rendered="$(apply_path_rewrites "$original" "$plugin")" || WRITE_FAILED="true"
                 nrw="$(count_rewrites "$original" "$rendered")"
             fi
             if [ "$rel" = "hooks" ] && [ "$relf" != "hooks/hooks.json" ]; then
                 HOOKS_SNIPPET="${HOOKS_SNIPPET}{\"type\":\"command\",\"command\":\"bash $target\"}"$'\n'
             fi
             if [ -e "$REPO_ROOT/$target" ]; then
+                if ! _loom_rm_refuse_existing_symlink_target "$target"; then
+                    rc=1
+                    continue
+                fi
                 local same="false"
                 if [ "$is_text" = "true" ]; then
                     diff -q <(printf '%s\n' "$rendered") "$REPO_ROOT/$target" >/dev/null 2>&1 && same="true"
@@ -2971,14 +4076,26 @@ convert_hooks_and_support() {
                 elif listed_in_ledger "$target" "$plugin"; then
                     note_mapping "$target <- plugins/$plugin/$relf"
                     echo "KEEP $target modified-after-conversion"
+                    # Reviewer round 2: recorded (see note_keep_differs).
+                    note_keep_differs "plugins/$plugin/$relf" "$target"
                 else
                     echo "STOP $relf: $target already exists and is not ours (not in .claude/skills/$plugin/CONVERTED.md)"
                     rc=1
                 fi
                 continue
             fi
-            note_mapping "$target <- plugins/$plugin/$relf"
+            # Data-loss finding (round-2 review): note_mapping used to be
+            # called HERE, unconditionally, before the write below was even
+            # attempted — a write that genuinely fails (rc=1; continue)
+            # still left this source marked "accounted for" in MAP_LIST, so
+            # render_converted_md's Follow-ups (written to the on-disk
+            # CONVERTED.md) recommended `delete plugins/$plugin` over
+            # content that was never actually written. Moved to AFTER a
+            # successful write; on failure the source now stays OUT of
+            # MAP_LIST, which is exactly what unconverted_plugin_files needs
+            # to report it as not carried over.
             if [ "$mode" = "dry-run" ]; then
+                note_mapping "$target <- plugins/$plugin/$relf"
                 echo "MKDIR $(dirname "$target")"
                 echo "WRITE $target <- plugins/$plugin/$relf [rewrites: $nrw]"
             else
@@ -2987,24 +4104,49 @@ convert_hooks_and_support() {
                 else
                     copy_target "$target" "$f" || { rc=1; continue; }
                 fi
+                note_mapping "$target <- plugins/$plugin/$relf"
                 echo "WROTE $target <- plugins/$plugin/$relf [rewrites: $nrw]"
             fi
         done <<< "$files"
-    done
-    if [ -f "$srcdir/.claude-plugin/plugin.json" ]; then
+    done <<< "$_chs_entries"
+    # Round-3 REVIEWER finding (high, data-loss): the same hole finding 1
+    # closed for a generic plugin-root entry was still open for the
+    # manifest — `-f` follows a symlink, so `.claude-plugin/plugin.json ->
+    # <outside file>` was copied (cp -p follows it too) into
+    # plugin.json.orig, mapped as carried over, and since the link path WAS
+    # mapped, unconverted_plugin_files never flagged it: `accounted:` fired,
+    # "delete plugins/<p>" printed, `converted =` recorded. Reproduced live
+    # with an outside manifest. `.claude-plugin` itself being a symlink to a
+    # directory holding a plugin.json read through the same `-f`. Neither
+    # is converted: skipped here so the link (the dir link via `! -type d`,
+    # or the file link) is reported by unconverted_plugin_files under "Not
+    # carried over" and both delete gates withhold. Loop above already
+    # skips the `.claude-plugin` entry by name, so this is the only read.
+    if [ -L "$srcdir/.claude-plugin" ] || [ -L "$srcdir/.claude-plugin/plugin.json" ]; then
+        :
+    elif [ -f "$srcdir/.claude-plugin/plugin.json" ]; then
         local target=".claude/skills/$plugin/plugin.json.orig"
-        note_mapping "$target <- plugins/$plugin/.claude-plugin/plugin.json"
-        if [ -e "$REPO_ROOT/$target" ]; then
+        if [ -e "$REPO_ROOT/$target" ] && ! _loom_rm_refuse_existing_symlink_target "$target"; then
+            rc=1
+        elif [ -e "$REPO_ROOT/$target" ]; then
+            note_mapping "$target <- plugins/$plugin/.claude-plugin/plugin.json"
             if cmp -s "$srcdir/.claude-plugin/plugin.json" "$REPO_ROOT/$target" 2>/dev/null; then
                 echo "SKIP $target up-to-date"
             else
                 echo "KEEP $target modified-after-conversion"
+                # Reviewer round 2: recorded (see note_keep_differs).
+                note_keep_differs "plugins/$plugin/.claude-plugin/plugin.json" "$target"
             fi
         elif [ "$mode" = "dry-run" ]; then
+            note_mapping "$target <- plugins/$plugin/.claude-plugin/plugin.json"
             echo "WRITE $target <- plugins/$plugin/.claude-plugin/plugin.json"
         else
-            copy_target "$target" "$srcdir/.claude-plugin/plugin.json" || rc=1
-            [ "$rc" -eq 0 ] && echo "WROTE $target <- plugins/$plugin/.claude-plugin/plugin.json"
+            if copy_target "$target" "$srcdir/.claude-plugin/plugin.json"; then
+                note_mapping "$target <- plugins/$plugin/.claude-plugin/plugin.json"
+                echo "WROTE $target <- plugins/$plugin/.claude-plugin/plugin.json"
+            else
+                rc=1
+            fi
         fi
     fi
     return $rc
@@ -3058,9 +4200,13 @@ convert_support_index() {
     local content
     content="$(printf -- '---\nname: %s\ndescription: Support assets converted from plugins/%s (index)\n---\n%s' "$plugin" "$plugin" "$body")"
     content="$(insert_marker "$content" "$plugin" "")"
-    note_mapping "$target <- plugins/$plugin/ (support index)"
+    # Data-loss finding (round-2 review): note_mapping moved from here
+    # (unconditional, before the write below) to each branch, after that
+    # branch's outcome is known — same fix, same reason as convert_skill_unit.
     if [ -e "$REPO_ROOT/$target" ]; then
+        _loom_rm_refuse_existing_symlink_target "$target" || return 1
         if head -20 "$REPO_ROOT/$target" 2>/dev/null | grep -qF "converted-from: plugins/$plugin/ "; then
+            note_mapping "$target <- plugins/$plugin/ (support index)"
             classify_existing_text "$target" "$content"
             return 0
         fi
@@ -3068,9 +4214,11 @@ convert_support_index() {
         return 1
     fi
     if [ "$mode" = "dry-run" ]; then
+        note_mapping "$target <- plugins/$plugin/ (support index)"
         echo "WRITE $target (support index for plugins/$plugin)"
     else
         write_text_target "$target" "$content" || return 1
+        note_mapping "$target <- plugins/$plugin/ (support index)"
         echo "WROTE $target (support index for plugins/$plugin)"
     fi
     return 0
@@ -3085,8 +4233,114 @@ wired_lines_for_plugin() {
     return 0
 }
 
+# Finding 2 (data-loss, round 5 review): every physical file that sits
+# under plugins/<plugin> right now — tracked, untracked AND git-ignored;
+# `find` walks the real filesystem and does not consult .gitignore at all,
+# so all three are covered by construction — that this run's MAP_LIST does
+# NOT carry a "target <- plugins/<plugin>/<relpath>" mapping for. Every unit
+# converter above calls note_mapping with the file's real source path before
+# it does anything else with that file, so on a full (non
+# --customized-only) run where every unit succeeded, MAP_LIST already
+# covers the entire tree (finding 1 closed the one gap that used to leave
+# real files off this list entirely) and this returns empty. A non-empty
+# result means: a unit STOPped before mapping its files, a write failed, a
+# custom asset finding 1 would previously have skipped is still unmapped, or
+# --customized-only left the rest of the plugin untouched on purpose — every
+# one of those is a real, sufficient reason a human must not blindly `rm
+# -r plugins/<plugin>`. This is the ONLY gate cmd_convert and
+# render_converted_md use before recommending that delete — see both call
+# sites below.
+#
+# Reviewer round 1 (symlinks): `find -type f` is REGULAR files only — a
+# symlink under plugins/<plugin> (a root-level link to a directory of shared
+# assets, a link to a file inside config/, a link inside a skill dir, a
+# dangling link) is neither converted by any unit above (each walks
+# `-type f`, and `find <link-to-dir>` without -L does not descend) NOR
+# listed here, so a plugin holding nothing but real files plus a customer's
+# own symlinks read as fully accounted for and got the delete recommendation
+# — `git rm -r plugins/<plugin>` then removes the link entries, paths this
+# tool never created and never carried over. Enumerate everything that is
+# NOT a directory (`! -type d`: regular files, symlinks, anything else) so a
+# symlink is reported under "not carried over" and the delete step is
+# withheld; symlinks are deliberately never converted (copying a link's
+# target would silently turn the customer's wiring into a detached copy).
+unconverted_plugin_files() {
+    local plugin="$1"
+    local srcdir="$REPO_ROOT/plugins/$plugin"
+    [ -d "$srcdir" ] || return 0
+    local all_files empty_dirs find_rc=0
+    # Reviewer round 2 (fail-open, twice over): (1) the prefix is stripped
+    # by parameter expansion, never `sed "s#^$REPO_ROOT/##"` — a `#` or `[`
+    # in the checkout path made that sed error with EMPTY output, which read
+    # here as "zero files under plugins/<p>", i.e. everything accounted for
+    # (see _loom_rm_strip_prefix); (2) `find` itself can fail PARTWAY — a
+    # directory under plugins/<p> it cannot read (permission denied) is
+    # skipped with a non-zero exit, and under `-uo pipefail` that status
+    # reached the assignment and was simply never checked, so a partial
+    # listing read as complete and the delete step fired over bytes this
+    # tool never saw. An enumeration that did not complete proves nothing
+    # about the tree: report the directory itself as unverifiable and stop
+    # — nothing under it can be called accounted for.
+    # Round-5 REVIEWER (medium): a `.git` anywhere under plugins/<p> — a
+    # nested repository's directory, or a gitdir-pointer file — is pruned
+    # from BOTH walks below (never converted, see convert_hooks_and_support)
+    # and reported ONCE, by name, as the third listing further down, instead
+    # of as hundreds of object-store files that were "not carried over".
+    all_files="$(find "$srcdir" -name .git -prune -o ! -type d -print 2>/dev/null | _loom_rm_strip_prefix "$REPO_ROOT/" | sort)" || find_rc=$?
+    if [ "$find_rc" -ne 0 ]; then
+        echo "plugins/$plugin/ (could not fully enumerate this directory — find exited $find_rc, e.g. a subdirectory it cannot read; nothing under it can be verified as carried over)"
+        return 0
+    fi
+    local nested_git
+    nested_git="$(find "$srcdir" -mindepth 1 -name .git -prune -print 2>/dev/null | _loom_rm_strip_prefix "$REPO_ROOT/" | sort)" || find_rc=$?
+    if [ "$find_rc" -ne 0 ]; then
+        echo "plugins/$plugin/ (could not fully enumerate this directory — find exited $find_rc, e.g. a subdirectory it cannot read; nothing under it can be verified as carried over)"
+        return 0
+    fi
+    # Low finding (round-2 review): `find ! -type d` enumerates regular
+    # files and symlinks only — a directory holding NOTHING (a customer's
+    # empty scratch dir, or a plugin subtree left empty by a prior run) is
+    # neither converted by any unit above nor reported here: it produces no
+    # entry from that walk at all. No bytes are lost by that gap on its own
+    # — an empty directory holds zero bytes — but `git rm -r plugins/<p>` on
+    # this tool's own delete recommendation then removes the directory entry
+    # with no record this tool ever saw it, a real (if low-stakes) gap in a
+    # tool whose whole job is exhaustive accounting. `-empty` only ever
+    # matches a directory with NO entries of its own, so a multi-level empty
+    # chain (a/b/ where b is empty) is reported at its innermost level (b) —
+    # enough to withhold the delete recommendation and name a real path.
+    empty_dirs="$(find "$srcdir" -mindepth 1 -name .git -prune -o -type d -empty -print 2>/dev/null | _loom_rm_strip_prefix "$REPO_ROOT/" | sort)" || find_rc=$?
+    if [ "$find_rc" -ne 0 ]; then
+        echo "plugins/$plugin/ (could not fully enumerate this directory — find exited $find_rc, e.g. a subdirectory it cannot read; nothing under it can be verified as carried over)"
+        return 0
+    fi
+    if [ -n "$all_files" ]; then
+        local mapped_sources
+        mapped_sources="$(printf '%s\n' "$MAP_LIST" | sed -n 's/.* <- //p' | sort -u)"
+        comm -23 <(printf '%s\n' "$all_files") <(printf '%s\n' "$mapped_sources")
+    fi
+    [ -n "$empty_dirs" ] && printf '%s\n' "$empty_dirs" | sed 's#$#/ (empty directory — holds no bytes, but nothing converts or lists it either)#'
+    # Round-5 REVIEWER (medium): see the .git prune above. A nested
+    # repository is never converted (copying its metadata into .claude/
+    # would create an embedded repository there) and is never this tool's
+    # to delete: the delete step is withheld until the customer moves or
+    # removes it themselves.
+    [ -n "$nested_git" ] && printf '%s\n' "$nested_git" | sed 's#$# (a nested git repository — never converted, never carried over: move or remove it yourself before deleting this plugin)#'
+    # Reviewer round 2 (data-loss finding, residual): a mapped source whose
+    # existing target was classified KEEP modified-after-conversion is in
+    # MAP_LIST (the plan) but its CURRENT bytes are provably not at the
+    # target — see note_keep_differs. Listed here, after the unmapped files,
+    # so both delete gates that read this function withhold on it.
+    [ -n "${KEEP_DIFFERS_LIST:-}" ] && printf '%s' "$KEEP_DIFFERS_LIST"
+    return 0
+}
+
 # The record. A pure function of the source tree + the registry row: no
-# timestamps, and the mapping is the plan, not this run's writes.
+# timestamps, and the mapping is the plan, not this run's writes — with one
+# deliberate exception (reviewer round 2): the Follow-ups section also
+# reads this run's outcome (a KEEP-but-differing target, a STOP, a failed
+# write), because a record that recommends deleting the source must never
+# be written by a run that could not carry the source over.
 render_converted_md() {
     local plugin="$1" row
     row="$(loom_deprecation_row "$plugin" "$REGISTRY_FILE" 2>/dev/null | tr '\t' '|')" || row=""
@@ -3096,6 +4350,27 @@ render_converted_md() {
     echo "# Converted from plugins/$plugin"
     echo ""
     echo "Registry row: $row"
+    echo ""
+    # Round-3 review finding (low): finalize_convert() writes this file
+    # exactly once and never rewrites an EXISTING one (deliberate — the
+    # record stays a pure function of the run that made the conversion,
+    # and the "Converted paths" ledger that listed_in_ledger /
+    # converted_paths_for read stays stable across later, possibly partial
+    # or --customized-only, re-runs). Round-4 REVIEWER, for accuracy: the
+    # conversion's DATING does not depend on this — _loom_rm_converted_decision_commit
+    # reads the commit that ADDED the file (`--diff-filter=A`, earliest),
+    # which a later rewrite could not move; never-rewrite is a ledger-
+    # stability choice, not what the dating relies on. Its cost is the
+    # staleness the paragraph below warns about; its coverage is the RV2K
+    # re-run test. The ACTUAL remove/keep decision is never read from this
+    # file's own text — scan/plan re-render fresh and fall back to
+    # render-stale/KEEP-AS-IS when the plugin has changed since (see
+    # _loom_rm_converted_plugin_status) — but a human who opens this file
+    # directly, outside that live path, could still be looking at a
+    # "delete" line written before a later edit to plugins/$plugin that
+    # this file was never updated to reflect. Say so up front rather than
+    # let a stale Follow-up read as current.
+    echo "**This record is written once, at conversion time, and never rewritten by a later run.** If plugins/$plugin has changed since, the Follow-ups below (especially any 'delete' line) may be STALE — for the current recommendation, re-run \`release-migrations.sh scan --json\` (or \`plan\`) rather than trusting this file's own text."
     echo ""
     echo "## Converted paths (target <- source)"
     echo ""
@@ -3122,7 +4397,29 @@ render_converted_md() {
     echo ""
     echo "## Follow-ups"
     echo ""
-    echo "- delete plugins/$plugin once its converted commands/skills work through .claude/skills/"
+    local _cvt_unaccounted; _cvt_unaccounted="$(unconverted_plugin_files "$plugin")"
+    # Reviewer round 2 (data-loss finding, on-disk half): this Follow-ups
+    # gate used to read unconverted_plugin_files ALONE, while cmd_convert's
+    # terminal gate also required nothing STOPped / no write failed — so a
+    # run whose every unit was mapped but whose rewrite step failed
+    # (apply_path_rewrites -> WRITE_FAILED; the files were written
+    # UNREWRITTEN) had the terminal say "DO NOT delete" and this file, the
+    # one a user may read later on its own, say "delete plugins/<p>". Same
+    # gate on both surfaces now: CONVERT_RUN_STOPPED is what cmd_convert
+    # knew before it called finalize_convert (unit STOPs + WRITE_FAILED).
+    # This makes the record depend on the run's outcome, not only on the
+    # source tree — deliberately: a record written by a failed run must say
+    # the run failed, and the next clean run re-classifies it as KEEP
+    # (render-stale on the scan side) rather than silently agreeing.
+    if [ -z "$_cvt_unaccounted" ] && [ "${WRITE_FAILED:-false}" != "true" ] && [ "${CONVERT_RUN_STOPPED:-false}" != "true" ]; then
+        echo "- delete plugins/$plugin once its converted commands/skills work through .claude/skills/"
+    else
+        echo "- DO NOT delete plugins/$plugin yet — not every file under it is accounted for by this conversion:"
+        [ -n "$_cvt_unaccounted" ] && printf '%s\n' "$_cvt_unaccounted" | sed 's/^/  - /'
+        if [ "${WRITE_FAILED:-false}" = "true" ] || [ "${CONVERT_RUN_STOPPED:-false}" = "true" ]; then
+            echo "  - one or more units STOPped or a write failed in the run that wrote this record — resolve them (see that run's ERROR/STOP lines) and re-run convert"
+        fi
+    fi
     echo "- run .logic-loom/scripts/bash/sync-plugin-commands.sh prune to drop the bridge wrapper(s)"
     echo "- guide: .docs/guides/MIGRATION_GUIDE.md"
 }
@@ -3138,6 +4435,7 @@ finalize_convert() {
     local target=".claude/skills/$plugin/CONVERTED.md"
     local rendered; rendered="$(render_converted_md "$plugin")"
     if [ -e "$REPO_ROOT/$target" ]; then
+        _loom_rm_refuse_existing_symlink_target "$target" || return 1
         classify_existing_text "$target" "$rendered"
         return 0
     fi
@@ -3152,23 +4450,52 @@ finalize_convert() {
 
 record_converted_decision() {
     local plugin="$1"
+    # Medium finding (round-2 review): follows the same "never write through
+    # a symlink" rule write_text_target/copy_target already apply to
+    # .claude/skills/ and .claude/agents/ targets — a `>>` append (or the
+    # initial `>` header write below) follows a symlink at DECISIONS_FILE, or
+    # at its parent directory, exactly like any other redirect would.
+    if [ -L "$DECISIONS_FILE" ]; then
+        echo "ERROR $DECISIONS_FILE: is a symlink (-> $(readlink "$DECISIONS_FILE" 2>/dev/null)) — refusing to write through it; replace it with a real file or remove it yourself, then re-run" >&2
+        return 1
+    fi
+    local decisions_dir; decisions_dir="$(dirname -- "$DECISIONS_FILE")"
+    # Round-4 finding (medium): this used to check only decisions_dir itself
+    # (.logic-loom/config, ONE level above DECISIONS_FILE) — a symlink
+    # planted at .logic-loom ITSELF (one level further up) went unchecked,
+    # so `mkdir -p`/the `>` header write/the `>>` append below would still
+    # follow it. Walk every component from decisions_dir up to (not
+    # including) REPO_ROOT, same rule _loom_rm_refuse_symlink_parents
+    # already applies on the WRITE path for .claude/skills/ and
+    # .claude/agents/ targets — a component that does not exist yet cannot
+    # be a symlink, so only existing components are checked.
+    local check="$decisions_dir"
+    while [ "$check" != "$REPO_ROOT" ] && [ "$check" != "/" ] && [ -n "$check" ]; do
+        if [ -e "$check" ] && [ -L "$check" ]; then
+            echo "ERROR $DECISIONS_FILE: an ancestor directory $check is a symlink (-> $(readlink "$check" 2>/dev/null)) — refusing to write through it; replace it with a real directory or remove it yourself, then re-run" >&2
+            return 1
+        fi
+        check="$(dirname -- "$check")"
+    done
     if [ ! -f "$DECISIONS_FILE" ]; then
-        mkdir -p "$(dirname "$DECISIONS_FILE")"
+        mkdir -p "$decisions_dir" 2>/dev/null || { echo "ERROR $DECISIONS_FILE: could not create $decisions_dir" >&2; return 1; }
         {
             echo "# Migration decisions — project-owned. 'keep = <name>[@<release>]' or 'converted = <name>'."
             echo "# Created on first use; commit it — decisions travel with the repo."
-        } > "$DECISIONS_FILE"
+        } > "$DECISIONS_FILE" 2>/dev/null || { echo "ERROR $DECISIONS_FILE: write failed" >&2; return 1; }
     fi
     if ! grep -qxF "converted = $plugin" "$DECISIONS_FILE" 2>/dev/null; then
-        echo "converted = $plugin" >> "$DECISIONS_FILE"
+        echo "converted = $plugin" >> "$DECISIONS_FILE" 2>/dev/null || { echo "ERROR $DECISIONS_FILE: write failed" >&2; return 1; }
     fi
+    return 0
 }
 
 cmd_convert() {
     local registry_arg="" name="" mode="" customized_only="false"
     while [ $# -gt 0 ]; do
         case "$1" in
-            --root) shift 2 ;;
+            # Round-6 finding (low): see cmd_lint's identical fix above.
+            --root) [ $# -ge 2 ] || die_usage "convert: --root requires a value"; shift 2 ;;
             --registry) registry_arg="$2"; shift 2 ;;
             --dry-run) mode="dry-run"; shift ;;
             --apply) mode="apply"; shift ;;
@@ -3193,6 +4520,28 @@ cmd_convert() {
     [ "$kind" = "plugin" ] || die_usage "convert: '$name' is not a plugin-kind row"
 
     local plugin_dir="$REPO_ROOT/plugins/$name"
+    # Round-3 REVIEWER finding (high, data-loss): plugins/<name> ITSELF being
+    # a symlink was never checked — `-d` follows the link and is true, and
+    # every unit converter then reads THROUGH it (`find "$plugin_dir/skills"
+    # …` is a path through a symlinked component, which find and every
+    # other tool resolve; only a symlink given AS the start point is left
+    # undescended). Reproduced: `plugins/pg -> <outside tree>` had that
+    # entire outside tree's skills/commands/hooks rendered into .claude/,
+    # CONVERTED.md written for it and `converted = pg` recorded, all under a
+    # contract that says a symlink anywhere under plugins/ is never
+    # converted. The delete step happened to be withheld (the link path
+    # itself is listed by unconverted_plugin_files) but nothing else was.
+    # Refuse up front, before anything is read or written: STOP line on
+    # stdout so cmd_plan's inline dry-run keeps its output shape, the same
+    # machine-stable `accounted:` NOT line every other withheld run prints
+    # (so _loom_rm_converted_plugin_status reads it as not verified), rc 2
+    # so nothing records a decision.
+    if [ -L "$plugin_dir" ]; then
+        echo "STOP plugins/$name: is a symlink (-> $(readlink "$plugin_dir" 2>/dev/null)) — a symlink anywhere under plugins/ is never converted, and neither is a plugin directory that is itself one; replace it with a real directory (or carry its target over by hand), then re-run"
+        echo "accounted: NOT every file under plugins/$name is carried over by this conversion"
+        echo "Next steps: DO NOT delete plugins/$name yet."
+        return 2
+    fi
     [ -d "$plugin_dir" ] || die_usage "convert: plugins/$name does not exist on disk"
 
     STATE_CHANGED=""; STATE_ADDED=""; STATE_DELETED=""
@@ -3211,38 +4560,91 @@ cmd_convert() {
     HOOKS_SNIPPET=""
     STOPPED_SKILLS=""
     WRITE_FAILED="false"
+    KEEP_DIFFERS_LIST=""
+    CONVERT_RUN_STOPPED="false"
     local stopped="false"
 
+    # Round-5 finding 6 (low): see build_rewrite_sed's comment above on the
+    # same class of fix — `while IFS= read -r` in place of an unquoted
+    # `for x in $LIST`, immune to both word-splitting on an embedded space
+    # and glob expansion. `<<<` never forks a subshell in bash, so
+    # `stopped="true"` set inside the loop body is still visible after it,
+    # exactly as the unquoted `for` version was.
     local s
-    for s in $SKILL_UNITS; do
+    while IFS= read -r s; do
         [ -z "$s" ] && continue
         if [ "$customized_only" = "true" ] && ! unit_touched "$name" "skills/$s"; then continue; fi
         convert_skill_unit "$name" "$s" "$mode" || stopped="true"
-    done
+    done <<< "$SKILL_UNITS"
     local c
-    for c in $COMMAND_UNITS; do
+    while IFS= read -r c; do
         [ -z "$c" ] && continue
         if [ "$customized_only" = "true" ] && ! unit_touched "$name" "commands/$c.md"; then continue; fi
         convert_command_unit "$name" "$c" "$mode" "$customized_only" || stopped="true"
-    done
+    done <<< "$COMMAND_UNITS"
     local a
-    for a in $AGENT_UNITS; do
+    while IFS= read -r a; do
         [ -z "$a" ] && continue
         if [ "$customized_only" = "true" ] && ! unit_touched "$name" "agents/$a.md"; then continue; fi
         convert_agent_unit "$name" "$a" "$mode" || stopped="true"
-    done
+    done <<< "$AGENT_UNITS"
 
     if [ "$customized_only" != "true" ]; then
         convert_hooks_and_support "$name" "$mode" || stopped="true"
         convert_support_index "$name" "$mode" || stopped="true"
     fi
 
-    finalize_convert "$name" "$mode" || stopped="true"
-    echo "Next steps: delete plugins/$name once its commands/skills work through .claude/skills/, then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune."
-
+    # Reviewer round 2: what this run knows BEFORE the record is rendered —
+    # render_converted_md reads it so CONVERTED.md's Follow-ups take the
+    # same gate as the terminal below (finalize_convert's own write failure
+    # cannot be in the record it is writing; it still stops the run below).
     [ "$WRITE_FAILED" = "true" ] && stopped="true"
+    CONVERT_RUN_STOPPED="$stopped"
+    finalize_convert "$name" "$mode" || stopped="true"
+    [ "$WRITE_FAILED" = "true" ] && stopped="true"
+
+    # Finding 2 (data-loss, round 5 review): the delete recommendation may
+    # be printed ONLY when every file under plugins/$name is accounted for
+    # (see unconverted_plugin_files above) AND nothing STOPped/failed above
+    # — never unconditionally. customized_only runs always leave most of the
+    # tree unmapped on purpose, so this also correctly never recommends
+    # delete after one.
+    #
+    # Reviewer round 1: the `accounted:` line is the ONE machine-stable
+    # statement of that gate's outcome, printed in both modes.
+    # _loom_rm_converted_plugin_status re-runs this command in --dry-run
+    # for every `converted =` decision and requires the POSITIVE line
+    # (fail-closed: absent means not verified) before scan/plan may say
+    # REMOVE — without it, a `converted =` decision recorded by a run that
+    # itself said "DO NOT delete … not carried over" was read as "delete
+    # when verified" on the very next scan (reproduced with a plugin-root
+    # commands/helper.sh the converter never touches). And a DRY RUN never
+    # prints the delete step at all: nothing was written, so "once its
+    # converted commands/skills work" is a condition that cannot yet hold —
+    # it says to --apply first.
+    local _cvt_unaccounted; _cvt_unaccounted="$(unconverted_plugin_files "$name")"
+    if [ "$stopped" != "true" ] && [ -z "$_cvt_unaccounted" ]; then
+        echo "accounted: every file under plugins/$name is carried over by this conversion (nothing STOPped, no write failed)"
+        if [ "$mode" = "dry-run" ]; then
+            echo "Next steps: nothing was written (dry-run) — run: release-migrations.sh convert $name --apply. Delete plugins/$name only after that run reports every file accounted for AND its converted commands/skills work through .claude/skills/; then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune."
+        else
+            echo "Next steps: delete plugins/$name once its commands/skills work through .claude/skills/, then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune."
+        fi
+    else
+        echo "accounted: NOT every file under plugins/$name is carried over by this conversion"
+        echo "Next steps: DO NOT delete plugins/$name yet."
+        if [ -n "$_cvt_unaccounted" ]; then
+            echo "  Not carried over by this run:"
+            printf '%s\n' "$_cvt_unaccounted" | sed 's/^/    - /'
+        fi
+        if [ "$stopped" = "true" ]; then
+            echo "  One or more units STOPped or a write failed above; resolve them and re-run convert."
+        fi
+        echo "  Once every file is accounted for, run .logic-loom/scripts/bash/sync-plugin-commands.sh prune to drop the bridge wrapper(s)."
+    fi
+
     if [ "$mode" = "apply" ] && [ "$stopped" != "true" ]; then
-        record_converted_decision "$name"
+        record_converted_decision "$name" || stopped="true"
     fi
 
     [ "$stopped" = "true" ] && return 2
@@ -3266,4 +4668,15 @@ main() {
     esac
 }
 
-main "$@"
+# Medium finding (round 5 review): the standard "only run main when executed
+# directly, not when sourced" guard — added so a test can `source` this file
+# (in a subshell, to keep its own trap/globals from leaking out) to call an
+# internal function like _loom_rm_verify_fixture_scan_path DIRECTLY, the
+# only way to prove the at-use traversal guard inside it actually fires
+# on its own (every external, subprocess-level path to it is refused one
+# layer earlier, by the shared parser). Behavior when run normally
+# (`bash release-migrations.sh <cmd>` or `./release-migrations.sh <cmd>`)
+# is unchanged: ${BASH_SOURCE[0]} and $0 are the same path in that case.
+if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
+    main "$@"
+fi

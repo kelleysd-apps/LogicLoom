@@ -147,7 +147,32 @@ never wrote that line sees nothing.
 ## The four actions (plus MOVE for a moved path, PROPOSE for content)
 
 - **REMOVE** — the component is gone from upstream and your copy is
-  pristine. The command per kind:
+  pristine: byte-identical to LogicLoom's own record of it, with no
+  untracked or git-ignored file under it. An index entry flagged
+  `skip-worktree` or `assume-unchanged` (`git update-index`) never counts
+  as pristine — `git diff` trusts the index for those and cannot see a
+  local edit, so the scan lists the entry under `changed` and keeps the
+  item instead of guessing. Five more things are never pristine, because
+  git's own listings cannot see them and this tool checks for them itself:
+  a path whose **parent directory is a symlink** (the bytes live wherever
+  that link points — a `git rm` of such a path would unlink the file at the
+  link's target, even outside the repository; listed under `changed`), a
+  directory holding a **nested git repository** (a `.git` directory or a
+  `.git` gitdir-pointer file — the outer repository's git never lists
+  anything under it as untracked, while its history is nobody's but yours;
+  listed under `added`), a **subdirectory the scan cannot read** (the
+  enumeration itself failed, so nothing under the item counts as verified;
+  listed under `added`), a **special file** (a named pipe, socket or device
+  node — git's directory walker drops anything that is not a regular file,
+  symlink or directory, so no listing ever shows one, and it cannot be
+  tracked; listed under `added`), and an **empty directory** (git tracks no
+  directories, so it appears in no listing at all; listed under `added`).
+  The byte comparison itself is git's own blob compare and nothing else:
+  every `git diff` the scan runs passes `--no-ext-diff --no-textconv`, so
+  an external diff driver or textconv you have configured —
+  `GIT_EXTERNAL_DIFF`, `diff.external`, a `.gitattributes` `diff=<driver>`,
+  even one whose exit code git is told to trust — never gets to decide
+  whether a file is pristine. The command per kind:
   - `plugin` → `git rm -r plugins/<name>` (gate policy `git.rm = ask`, so you
     approve it), then `.logic-loom/scripts/bash/sync-plugin-commands.sh prune`
     to drop the bridge wrapper(s) and regenerate the bridge manifest.
@@ -207,7 +232,10 @@ never wrote that line sees nothing.
 | `plugins/<p>/commands/<c>.md` | `.claude/skills/<c>/SKILL.md` — a skill, not a `.claude/commands/` file |
 | `plugins/<p>/agents/<a>.md` | `.claude/agents/<a>.md` (a strict upgrade: project agents keep `hooks`/`mcpServers`/`permissionMode`, which plugin agents never had) |
 | `plugins/<p>/hooks/hooks.json`, `hooks/scripts/*` | `.claude/skills/<p>/hooks/…` — copied, **never wired** |
-| `scripts/`, `lib/`, `config/`, `templates/`, `tests/`, `README.md` | `.claude/skills/<p>/<same relative path>` |
+| every other plugin-root file or directory — `scripts/`, `lib/`, `config/`, `templates/`, `tests/`, `README.md`, a `LICENSE`, a custom asset dir, a dotfile; enumerated generically, never from a fixed list | `.claude/skills/<p>/<same relative path>` |
+| a **symlink** anywhere under `plugins/<p>` — a file or directory link at any depth, a symlinked `skills/`, `commands/`, `agents/` or `.claude-plugin/` directory, a symlinked `.claude-plugin/plugin.json` | **never converted** (copying a link's target would turn your wiring into a detached copy) — listed under *Not carried over* and the delete step is withheld until you carry or remove it by hand. `plugins/<p>` **itself** being a symlink is refused up front (a `STOP` line, exit 2, nothing read or written, no decision recorded): replace it with a real directory, or carry its target over by hand |
+| a **nested git repository** anywhere under `plugins/<p>` — a `.git` directory, or a `.git` gitdir-pointer file (what `git worktree` writes) | **never converted** (copying repository metadata into `.claude/` would make `.claude/skills/<p>` an embedded repository the outer tree can only ever hold as a gitlink, so the converted skill could never travel with it) — listed under *Not carried over* once, by name, never as its object files; the delete step is withheld until you move or remove it by hand |
+| a **special file** anywhere under `plugins/<p>` — a named pipe, a socket, a device node | **never converted, never even opened** (reading a named pipe blocks until something writes to it — an earlier build of this converter hung on one) — listed under *Not carried over*; the delete step is withheld until you remove it by hand |
 | `.claude-plugin/plugin.json` | `.claude/skills/<p>/plugin.json.orig` (renamed so nothing mistakes it for a live manifest) |
 | (generated) | `.claude/skills/<p>/CONVERTED.md` — the record: registry row, every path written, the hooks-wiring snippet, the follow-ups |
 
@@ -268,6 +296,35 @@ command — during the short window where both the old bridge wrapper and the
 new skill exist, which one Claude Code resolves `/<c>` to first is not
 guaranteed.
 
+**…but only when the run said so.** Every `convert` run ends with an
+`accounted:` line and a `Next steps:` line. Delete `plugins/<p>` only after
+an `--apply` run printed `accounted: every file under plugins/<p> is carried
+over …`. A run that printed `DO NOT delete plugins/<p> yet` lists exactly
+which files were not carried over — a non-`.md` file under `commands/` or
+`agents/`, a symlink, a unit that STOPped, a write that failed, a
+directory the tool could not read (the enumeration itself failed, so
+nothing under `plugins/<p>` counts as verified) — and those bytes exist
+nowhere else. A **`KEEP <target> modified-after-conversion`** line is on
+that list too: the target exists but differs from what the plugin source
+renders to *now*, so the source's current bytes are provably not there —
+the source was edited after conversion, or the target was, or both; the tool
+cannot tell which and overwrites nothing, so it says "reconcile by hand,
+then decide" instead of "delete". A `--dry-run` never prints the delete step
+at all: nothing was written yet. `.claude/skills/<p>/CONVERTED.md`'s own
+*Follow-ups* section takes exactly the same gate as the terminal, so reading
+the record later never says "delete" where the run that wrote it said "DO
+NOT". The scan applies the same gate: a `converted = <p>` decision
+recommends `REMOVE` only while a fresh `--dry-run` re-render is all-`SKIP`
+**and** reports every file accounted for; otherwise the item stays
+`KEEP-AS-IS` and names what was left behind. A symlink at a **target** under
+`.claude/` (dangling or not), or at any parent directory of one, is never
+written through — that unit ERRORs and the conversion counts as failed. The
+same refusal applies when the target **already exists** and would only be
+read and classified (`SKIP`/`KEEP`): a converted copy that sits on the far
+side of a link — say `.claude/skills/<skill>` replaced by a symlink to a
+directory outside the repository — is never counted as "carried over", the
+delete step is withheld, and the next `scan` reads the item as `KEEP-AS-IS`.
+
 ## The decisions file — `.logic-loom/config/migration-decisions.conf`
 
 Project-owned, never shipped upstream, created on first use (like
@@ -284,7 +341,12 @@ converted = <name>
 release. `keep = <name>@<release>` is narrower — it silences every `content`
 row for that one file **and** that one release only; nothing else is
 affected ("one file, one release, one acknowledgment"). `converted = <name>`
-is written by `convert --apply` on success, never by hand.
+is written by `convert --apply` on success, never by hand — including a run
+that converted every unit it knows about but had to leave some files behind
+(its output says so). The decision records what was converted; it never by
+itself authorizes `REMOVE`: the next scan recommends `REMOVE` only once every
+file under `plugins/<name>` is accounted for, and `KEEP-AS-IS`, naming the
+leftovers, until then.
 
 **Briefing rule, every run:** whenever this file holds at least one line,
 `/update-framework` lists each decision with its consequence — including
@@ -324,13 +386,30 @@ rest of the update.
 every tracked file under an already-recorded top-level directory that the
 receipt does **not** yet list, and prints two lists: `RECONCILE <path>` for a
 file whose bytes are byte-identical to the file at your `.sdd-sync-ref` copy
-— it can only have come from upstream, and is safe to record — and
+— treated as upstream's, and offered for recording — and
 `DIFFERS <path>` for a file that differs from that copy and is **never**
 recorded automatically, because it may be entirely your own. `--reconcile`
 alone only prints; `--reconcile --apply` records the `RECONCILE` list. If you
 accepted a `DIFFERS` file through `/update-framework` and edited it
 afterwards, record it explicitly and by name:
-`record-update-writes.sh <path>`.
+`record-update-writes.sh <path>`. Byte-identity to the sync-ref blob is
+corroborating evidence, not proof of authorship — a customer's own file can
+coincidentally match one — so "already-recorded top-level directory" only
+ever means a directory a receipt run wrote whose own `generator` matches one
+of LogicLoom's own two writers (the same check the Trust boundary section
+below describes for `release-migrations.sh scan`/`plan`); a hand-added run
+with a forged `generator` string never makes its directory a `--reconcile`
+candidate. A candidate is an *index* path (`git ls-files`), so a recorded
+directory you have since replaced with a symlink — to anywhere — is skipped
+with a note on stderr, neither `RECONCILE` nor `DIFFERS`: the bytes at that
+path live wherever your link points, and record mode refuses the same path
+for the same reason. Replace the link with a real directory (or record the
+real location by name) if you want those files recorded. Directory names
+reach git as *literal* pathspecs (`:(literal)<name>`), so a name git would
+otherwise read as pathspec magic or a glob — one beginning with `:`, say —
+is enumerated as the directory it is, both when the recorder decides
+whether a directory is fully accounted for and when `--reconcile` sweeps
+one.
 
 **The deliberate asymmetry.** Recording a byte-identical copy costs at most
 one extra, still user-gated *proposal* later, if upstream ever edits it
@@ -362,6 +441,56 @@ recorded path is still visible to `extract-proposals.sh`'s ownership filter
 (so it can receive proposals) — it is just not listed under
 `uninstall.remove.files` in the interim, rather than wrongly listed as safe
 to delete.
+
+**Trust boundary — the adopt receipt.** `.logicloom-adopt-receipt.json` is a
+plain, hand-editable JSON file committed in your own repository, exactly
+like `.sdd-sync-ref` and `refs/loom-upstream/main` — all three are LOCAL
+records this repo's own git history can forge or edit, and none of them is
+cryptographically signed. This tool does not invent signing to close that
+gap. What `release-migrations.sh scan`/`plan` DOES do before trusting a
+receipt-recorded `sha256` as proof that a file is byte-identical to what
+LogicLoom shipped (the `receipt-sha256:<hash>` baseline that can lead to a
+`REMOVE` recommendation):
+
+1. Restrict it to a run whose `generator` matches one of LogicLoom's own two
+   writers (the npm installer's `logicloom@<version>`, or the v7 recorder's
+   `logicloom-update-framework@<version>`) and whose `status` is
+   `"complete"` — a foreign generator string, or a run that never finished,
+   proves nothing.
+2. **Corroborate the digest against `refs/loom-upstream/main`'s own
+   history.** The recorded digest may authorize `REMOVE` only when that
+   EXACT digest also equals the `sha256` of some blob LogicLoom itself
+   shipped at that same path, in some commit `refs/loom-upstream/main`
+   reaches — not merely the current tip; a file's pristine content moves
+   across releases. Forging a receipt entry to pass this now also requires
+   forging a matching commit in `refs/loom-upstream/main`, a strictly higher
+   bar than editing one JSON file, even though neither step is
+   cryptographic proof.
+
+If `refs/loom-upstream/main` does not exist locally, or no commit it reaches
+ever shipped a blob at that path hashing to the receipt's recorded digest,
+the receipt candidate is treated as if it were never recorded: the item
+falls through to the next baseline candidate (`.sdd-sync-ref`, then
+`refs/loom-upstream/main` directly), or to `baseline: none` / `state:
+unknown` if none resolves — never a REMOVE recommendation from an
+uncorroborated claim. Doubt reads as KEEP and ASK, the same governing
+principle every other baseline resolution in this tool follows.
+
+**The same trust boundary applies to a `kind:"dir"` entry — corroborated
+differently, because a directory has no hash.** `record-update-writes.sh
+--reconcile` uses every `kind:"dir"` entry in the receipt to decide which
+directories are framework-scoped enough to sweep for unrecorded files
+worth reconciling. A `kind:"file"` entry at least carries a `sha256` that
+gets verified against a real blob before anything is recorded; a
+`kind:"dir"` entry carries no hash to verify. `loom_upstream_ever_had_dir`
+(`.logic-loom/lib/release-migrations.sh`) closes that gap the same cheap,
+read-only way: a directory claim is trusted only when
+`refs/loom-upstream/main`'s own reachable history ever held a TREE at that
+exact path — not merely a plausible `generator` string in the same
+hand-editable file. An uncorroborated `kind:"dir"` entry is dropped from
+the sweep silently (other, corroborated entries in the same receipt still
+reconcile normally); nothing under an uncorroborated directory is ever
+evaluated, let alone recorded.
 
 ## How a 6.x install receives this
 
