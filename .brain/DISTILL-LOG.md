@@ -11,6 +11,30 @@ empty repo both read zero captures.
 Grammar and the four promotion outcomes: `.brain/README.md` and
 `plugins/loom-orchestrator/skills/distillation-pass/SKILL.md`.
 
+## 2026-09-29
+
+- run: /distill
+- scanned: 2 captures under .brain/raw/ (0 unprocessed)
+- result: zero-op
+
+## 2026-09-28
+
+- run: /distill
+- scanned: 2 captures under .brain/raw/ (0 unprocessed)
+- result: zero-op
+
+## 2026-09-21
+
+- run: /distill
+- scanned: 2 captures under .brain/raw/ (1 unprocessed)
+- promoted: .brain/raw/research/2026-09-17-loom-0071-bash-sandbox.md -> .brain/wiki/concepts/bash-sandbox-structural-layer.md
+- result: promoted as a concept page, not a decision — LOOM-0071 is still
+  `status:open` in the backlog and no `sandbox` block exists in
+  `.claude/settings.json`. The capture's internal disagreement on
+  `failIfUnavailable` (external reviewers `true`, author `false`) is carried
+  onto the page unresolved for the maintainer; not a cross-source
+  contradiction, so no `contradiction:` line.
+
 ## 2026-09-14
 
 - run: /distill

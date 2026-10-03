@@ -3,7 +3,8 @@ type: capture
 title: "LOOM-0071: can Claude Code's built-in Bash sandbox replace the string-parsing governance guard?"
 date: 2026-09-17
 source: "research task (LOOM-0071) — live doc review of code.claude.com/docs sandboxing + settings, empirical probes with nested `claude -p` on macOS Seatbelt (Claude Code 2.1.252), plus two decorrelated external CLI reviewers (Codex GPT, Antigravity)"
-status: unprocessed
+status: processed
+distilled-into: .brain/wiki/concepts/bash-sandbox-structural-layer.md
 ---
 
 # LOOM-0071 — Bash sandbox as the structural answer to string-parsing bypasses
