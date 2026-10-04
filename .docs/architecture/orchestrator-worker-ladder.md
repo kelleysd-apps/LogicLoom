@@ -83,6 +83,10 @@ that adopts this ladder — generic, not tied to any individual's own config:
 - **Cost sets effort; width sets how many workers** — never the other way. A
   wide, cheap, reversible sweep gets many low-effort workers; a narrow,
   irreversible change gets one high-effort worker.
+- **Review cadence**: the rung sets how hard a reviewer works, not how often
+  it runs. On multi-package work, reviewers and external CLIs run once per
+  phase on the combined diff; a package that touches hooks, auth, payment,
+  customer data or the governance floor still gets its own review.
 - **Mechanics**: raw Task-spawned subagents only honour *static* frontmatter
   `effort:` (see `deep-reasoner` = high, `fast-worker` = medium above); a
   **dynamic** per-dispatch effort needs `/workflow`'s `agent()` call, as shown

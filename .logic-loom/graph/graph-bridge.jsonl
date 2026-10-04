@@ -55,6 +55,7 @@
 {"type":"entity","name":".docs/reviews/LOGICLOOM_ISSUE_harness-product-boundary.md","entityType":"note","observations":["LogicLoom issue draft — Clarify the harness ↔ product boundary; support products with their own toolchain"]}
 {"type":"entity","name":".docs/reviews/adopt-smoke-test-findings.md","entityType":"note","observations":["`logicloom init` — first real-repo smoke test: findings"]}
 {"type":"entity","name":".logic-loom/memory/constitution.md","entityType":"note","observations":["constitution.md"]}
+{"type":"entity","name":":space:.md","entityType":"note","observations":[":space:"]}
 {"type":"entity","name":"AGENTS.md","entityType":"note","observations":["LogicLoom Agent Registry"]}
 {"type":"entity","name":"CLAUDE.md","entityType":"note","observations":["CLAUDE.md — LogicLoom"]}
 {"type":"entity","name":"KNOWN_ISSUES.md","entityType":"note","observations":["KNOWN_ISSUES.md"]}
@@ -63,6 +64,7 @@
 {"type":"entity","name":"VISION.md","entityType":"note","observations":["Vision: LogicLoom"]}
 {"type":"entity","name":"artifacts/README.md","entityType":"code-path","observations":["README.md"]}
 {"type":"entity","name":"artifacts/backlog-dashboard.html","entityType":"code-path","observations":["backlog-dashboard.html"]}
+{"type":"entity","name":"features/.gitkeep","entityType":"code-path","observations":[".gitkeep"]}
 {"type":"entity","name":"features/README.md","entityType":"note","observations":["`features/` — Vision / Swarm workflow pack"]}
 {"type":"entity","name":"features/code-knowledge-graph/exploration/graph-design.md","entityType":"code-path","observations":["graph-design.md"]}
 {"type":"entity","name":"features/code-knowledge-graph/exploration/graph-stack-decision.md","entityType":"code-path","observations":["graph-stack-decision.md"]}
@@ -71,6 +73,9 @@
 {"type":"entity","name":"features/harness-product-boundary/exploration/harness-product-boundary.md","entityType":"note","observations":["Exploration — harness↔product boundary"]}
 {"type":"entity","name":"features/modular-harness/exploration/modular-harness-design.md","entityType":"note","observations":["Modular Harness Design — Cherry-Pickable Packs over a Fixed Governance Core"]}
 {"type":"entity","name":"features/modular-harness/exploration/unified-architecture.md","entityType":"note","observations":["LogicLoom — The Unified Architecture"]}
+{"type":"entity","name":"features/update-loom/exploration/design.md","entityType":"note","observations":["Design: `/update-loom` — purpose-based updates for LogicLoom"]}
+{"type":"entity","name":"features/update-loom/exploration/study-launchhouse.md","entityType":"note","observations":["Study: the Launchhouse purpose-based update engine (Reader A)"]}
+{"type":"entity","name":"features/update-loom/exploration/study-logicloom.md","entityType":"note","observations":["Reader B: LogicLoom's current update system and the v7 work"]}
 {"type":"entity","name":"kelleysd.com/.docs/reports/FRAMEWORK_ENHANCEMENTS_SUMMARY.md","entityType":"note","observations":["FRAMEWORK_ENHANCEMENTS_SUMMARY.md"]}
 {"type":"entity","name":"packaging/adopt/AGENT-INSTALL.md","entityType":"code-path","observations":["AGENT-INSTALL.md"]}
 {"type":"entity","name":"packaging/adopt/AGENT-INSTALL.md","entityType":"note","observations":["AGENT-INSTALL.md"]}
@@ -81,17 +86,24 @@
 {"type":"entity","name":"plugins/CONTRIBUTING.md","entityType":"code-path","observations":["CONTRIBUTING.md"]}
 {"type":"entity","name":"plugins/MANIFEST-SCHEMA.md","entityType":"code-path","observations":["MANIFEST-SCHEMA.md"]}
 {"type":"entity","name":"plugins/loom-git/commands/finalize.md","entityType":"code-path","observations":["finalize.md"]}
+{"type":"entity","name":"plugins/loom-governance/.claude-plugin/plugin.json","entityType":"code-path","observations":["plugin.json"]}
 {"type":"entity","name":"plugins/loom-governance/agents/constitutional-governance-agent.md","entityType":"code-path","observations":["constitutional-governance-agent.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/security.md","entityType":"code-path","observations":["security.md"]}
 {"type":"entity","name":"plugins/loom-governance/domain-briefs/testing.md","entityType":"code-path","observations":["testing.md"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/git-safety-gate.sh","entityType":"code-path","observations":["git-safety-gate.sh"]}
 {"type":"entity","name":"plugins/loom-governance/hooks/scripts/subagent-git-guard.sh","entityType":"code-path","observations":["subagent-git-guard.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/.claude-plugin/plugin.json","entityType":"code-path","observations":["plugin.json"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/initialize-project.md","entityType":"code-path","observations":["initialize-project.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/scaffold-environments.md","entityType":"code-path","observations":["scaffold-environments.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/commands/update-framework.md","entityType":"code-path","observations":["update-framework.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/extract-proposals.sh","entityType":"code-path","observations":["extract-proposals.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/scripts/json-valid.sh","entityType":"code-path","observations":["json-valid.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/record-update-writes.sh","entityType":"code-path","observations":["record-update-writes.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/scripts/release-migrations.sh","entityType":"code-path","observations":["release-migrations.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/scripts/security-invariants.sh","entityType":"code-path","observations":["security-invariants.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/scripts/update-loom-common.sh","entityType":"code-path","observations":["update-loom-common.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/scripts/update-loom.sh","entityType":"code-path","observations":["update-loom.sh"]}
+{"type":"entity","name":"plugins/loom-maintenance/scripts/updates-lint.sh","entityType":"code-path","observations":["updates-lint.sh"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/environment-scaffolding/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/loom-memory/config/memory.conf","entityType":"code-path","observations":["memory.conf"]}
@@ -112,7 +124,9 @@
 {"type":"entity","name":"plugins/sdd-specification/README.md","entityType":"note","observations":["README.md"]}
 {"type":"entity","name":"plugins/sdd-specification/skills/unified-specification/SKILL.md","entityType":"code-path","observations":["SKILL.md"]}
 {"type":"entity","name":"plugins/sdd-specification/skills/unified-specification/SKILL.md","entityType":"note","observations":["SKILL.md"]}
+{"type":"entity","name":"specs/.gitkeep","entityType":"code-path","observations":[".gitkeep"]}
 {"type":"entity","name":"specs/README.md","entityType":"note","observations":["Feature Specifications Directory"]}
+{"type":"entity","name":"tests/contract/test_adopt_applier.sh","entityType":"code-path","observations":["test_adopt_applier.sh"]}
 {"type":"entity","name":"tests/contract/test_adopt_payload_manifest.sh","entityType":"code-path","observations":["test_adopt_payload_manifest.sh"]}
 {"type":"entity","name":"tests/contract/test_bash32_floor.sh","entityType":"code-path","observations":["test_bash32_floor.sh"]}
 {"type":"entity","name":"tests/contract/test_environment_scaffolding.sh","entityType":"code-path","observations":["test_environment_scaffolding.sh"]}
@@ -120,12 +134,19 @@
 {"type":"entity","name":"tests/contract/test_git_adapter.sh","entityType":"code-path","observations":["test_git_adapter.sh"]}
 {"type":"entity","name":"tests/contract/test_governance_verdicts.sh","entityType":"code-path","observations":["test_governance_verdicts.sh"]}
 {"type":"entity","name":"tests/contract/test_graph_bridge.sh","entityType":"code-path","observations":["test_graph_bridge.sh"]}
+{"type":"entity","name":"tests/contract/test_keyword_backend_scoring.sh","entityType":"code-path","observations":["test_keyword_backend_scoring.sh"]}
 {"type":"entity","name":"tests/contract/test_model_agnostic.sh","entityType":"code-path","observations":["test_model_agnostic.sh"]}
+{"type":"entity","name":"tests/contract/test_plugin_command_bridge.sh","entityType":"code-path","observations":["test_plugin_command_bridge.sh"]}
 {"type":"entity","name":"tests/contract/test_promotion_lifecycle.sh","entityType":"code-path","observations":["test_promotion_lifecycle.sh"]}
 {"type":"entity","name":"tests/contract/test_release_migrations.sh","entityType":"code-path","observations":["test_release_migrations.sh"]}
 {"type":"entity","name":"tests/contract/test_shipped_gates_vs_strip.sh","entityType":"code-path","observations":["test_shipped_gates_vs_strip.sh"]}
 {"type":"entity","name":"tests/contract/test_spec006_integration.sh","entityType":"code-path","observations":["test_spec006_integration.sh"]}
+{"type":"entity","name":"tests/contract/test_suite_registration.sh","entityType":"code-path","observations":["test_suite_registration.sh"]}
 {"type":"entity","name":"tests/contract/test_update_framework_ownership.sh","entityType":"code-path","observations":["test_update_framework_ownership.sh"]}
+{"type":"entity","name":"tests/contract/test_update_from_6x.sh","entityType":"code-path","observations":["test_update_from_6x.sh"]}
+{"type":"entity","name":"tests/contract/test_update_loom.sh","entityType":"code-path","observations":["test_update_loom.sh"]}
+{"type":"entity","name":"tests/fixtures/update-from-6x/v7-machinery-paths.txt","entityType":"code-path","observations":["v7-machinery-paths.txt"]}
+{"type":"entity","name":"tests/lib/tree-provenance.sh","entityType":"code-path","observations":["tree-provenance.sh"]}
 {"type":"entity","name":"tests/run_all_tests.sh","entityType":"code-path","observations":["run_all_tests.sh"]}
 {"type":"entity","name":"wikilink.md","entityType":"note","observations":["wikilink"]}
 {"type":"entity","name":"wikilinks.md","entityType":"note","observations":["wikilinks"]}
@@ -227,4 +248,47 @@
 {"type":"relation","from":"features/modular-harness/exploration/unified-architecture.md","to":"features/code-knowledge-graph/exploration/graph-design.md","relationType":"mentions"}
 {"type":"relation","from":"features/modular-harness/exploration/unified-architecture.md","to":"tests/contract/test_governance_verdicts.sh","relationType":"mentions"}
 {"type":"relation","from":"features/modular-harness/exploration/unified-architecture.md","to":"wikilink.md","relationType":"links-to"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":":space:.md","relationType":"links-to"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"features/.gitkeep","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/commands/update-framework.md","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/json-valid.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/record-update-writes.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/release-migrations.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/security-invariants.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/update-loom-common.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/update-loom.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/scripts/updates-lint.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"specs/.gitkeep","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/contract/test_release_migrations.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/contract/test_suite_registration.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/contract/test_update_from_6x.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/contract/test_update_loom.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/fixtures/update-from-6x/v7-machinery-paths.txt","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/lib/tree-provenance.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/design.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-launchhouse.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"artifacts/backlog-dashboard.html","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"packaging/adopt/lib/apply.js","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"packaging/adopt/payload-manifest.txt","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/CONTRIBUTING.md","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-governance/.claude-plugin/plugin.json","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-maintenance/.claude-plugin/plugin.json","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-maintenance/commands/update-framework.md","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-maintenance/scripts/extract-proposals.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-maintenance/scripts/record-update-writes.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-maintenance/scripts/release-migrations.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-maintenance/skills/framework-updater/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-memory/lib/keyword-backend.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"plugins/loom-orchestrator/skills/cross-check/SKILL.md","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/contract/test_adopt_applier.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/contract/test_keyword_backend_scoring.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/contract/test_plugin_command_bridge.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/contract/test_release_migrations.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/contract/test_update_framework_ownership.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/contract/test_update_from_6x.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/fixtures/update-from-6x/v7-machinery-paths.txt","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/lib/tree-provenance.sh","relationType":"mentions"}
+{"type":"relation","from":"features/update-loom/exploration/study-logicloom.md","to":"tests/run_all_tests.sh","relationType":"mentions"}
 {"type":"relation","from":"specs/README.md","to":"README.md","relationType":"links-to"}

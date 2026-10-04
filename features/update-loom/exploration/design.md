@@ -563,3 +563,9 @@ stage-abandon, finish-undo, e2e-floor. Not yet done for Phase 0: the phase
 gate (full suite) and the cross-provider review. Phases 1-4 not started.
 `tests/contract/test_update_loom.sh`: 1153 passing under `sh`.
 The v7 scanner is still in the tree; it is retired in Phase 2.
+
+Known red at the pause point (found 2026-10-04): `tests/contract/test_shipped_path_references.sh`
+fails 9/10 — `plugins/loom-maintenance/scripts/update-loom.sh:312-313` and
+`.logic-loom/config/update-loom-channels:63-64` cite two maintainer-only guides
+(`.docs/guides/dev-main-template-split.md`, `adopt-smoke-test.md`) that are
+stripped at release. Fix when the build resumes; the full suite was not run at the pause.
