@@ -1,0 +1,265 @@
+# Critical Design Review: `/update-loom`
+
+This review analyzes the proposed `/update-loom` design against the seven core requirements, focusing on concrete failure modes, architectural contradictions, and latent edge cases. Section references correspond directly to the design document.
+
+---
+
+## 1. The Bootstrap Story: Why the Engine Fails to Arrive and Hand Off
+
+### 1.1 The Base-Sync Paradox: Rule 1.5(b) Breaks Three-Way Engine Mechanics
+* **Section Reference:** §1.1, §1.5, §2.2 (Step 2), §3.2 (Step 2–3)
+* **Finding:** In §3.2 Step 2, the legacy updater advances `.sdd-sync-ref` to target commit $T$ (`v6.6.2:SKILL.md` Step 8). In §3.2 Step 3, the design acknowledges that because `.sdd-sync-ref = T`, condition 1.5(a) ("absent from base tree") is false for all 7.0.0 notes. The design attempts to escape this by asserting that condition 1.5(b) ("its check exits non-zero against the live tree") will re-offer the notes.
+* **Failure Mode:** This ignores the underlying three-way merge engine (§1.1). When `--plan` executes (§2.2 Step 2), it inspects the three trees: $\text{Base}$ (from `.sdd-sync-ref` = $T$), $\text{HEAD}$ (user working copy), and $\text{Upstream}$ ($T$). Because $\text{Base} \equiv \text{Upstream}$ for every file in release 7.0.0, the three-way file classifier observes:
+  $$\Delta(\text{Base}, \text{Upstream}) = \emptyset$$
+  Under standard git three-way classification (`LH:update.sh:546-677`), if upstream has no changes relative to base, the path is classified as **`keep-mine` / unchanged-upstream**, regardless of whether HEAD has local customizations or matches base. The file **never enters `held` or `conflict`**, never enters `adapt.tsv`, and is never presented to `update-adapter`. 
+* **Impact:** Even if condition 1.5(b) marks the *note* as applicable, the *engine* has zero rows to merge or adapt for that note. Claiming in §3.2 Step 3 that "(b) alone suffices when no tag survives" is mathematically and architecturally false.
+
+### 1.2 Dispatch Ladder Contradiction in `--detect-base`
+* **Section Reference:** §2.2 (Step 1) vs. §3.2 (Step 3)
+* **Finding:** In §3.2 Step 3, the design claims:
+  > *"`--detect-base` reports `handover <tag-sha>` when the newest `loom/pre-update-*` tag exists and its tree predates the 7.0.0 notes..."*
+  
+  However, in §2.2 Step 1, the explicit dispatch ladder for `--detect-base` is defined as:
+  > *"`recorded <sha>` from `.sdd-sync-ref` if it is a commit reachable from `refs/loom-upstream/main`; else the known-bad remap... else closest... else none"*
+* **Failure Mode:** Because the old updater recorded commit $T$ into `.sdd-sync-ref`, and $T$ is by definition reachable from `refs/loom-upstream/main`, Step 1 of the engine **will always select `recorded T`**. The `handover <tag-sha>` logic is completely absent from the engine's operational dispatch ladder in §2.2. The fallback to the pre-update tag will never execute.
+
+### 1.3 Stranding the Most Vulnerable Adopters (Phase 4 Deferral)
+* **Section Reference:** §3.3, §8 (Phase 4), §9 (Decision 9.6)
+* **Finding:** §3.3 admits that users on v6.3.0/v6.4.1/v6.5.0 tag clones have a broken `.sdd-sync-ref` (`c6092b0`) that fails reachability checks, and that adopted installations with a missing `.sdd-sync-ref` exit immediately without adopting anything (`v6.6.2:extract-proposals.sh:149-155`). Re-running the installer fails because `preconditions.js:416` refuses an already-adopted repository.
+* **Failure Mode:** The only automated remediation proposed is `npx logicloom@7 update-bootstrap` (§9.6), but §8 places this tool in **"Phase 4 — optional"**. This leaves adopters with corrupted or missing stamps permanently stranded with no non-manual migration path.
+
+### 1.4 Command Discovery Deadlock and Bridge Manifest Pruning
+* **Section Reference:** §1.2, §3.2 (Step 1), §3.4
+* **Finding:** In §1.2, the command bridge stub is located at `.claude/commands/update-loom.md` via `sync-plugin-commands.sh sync`. In §3.2 Step 1, the 6.6.x legacy updater writes incoming files using `git show > path` (`v6.6.2:SKILL.md` Step 7).
+* **Failure Mode:** The 6.6.2 updater performs raw file writes; it does not execute `sync-plugin-commands.sh sync`. If `.claude/commands/.bridge-manifest.json` (§3.4) is not explicitly updated in the 7.0.0 file list to register `update-loom.md`, any future automated run of `sync-plugin-commands.sh` will treat `.claude/commands/update-loom.md` as an unmanaged orphan and delete it. Furthermore, Claude Code will not register the command mid-session, leaving the user with a broken stub until a full session restart occurs.
+
+---
+
+## 2. Silent Loss or Modification of User Work
+
+### 2.1 The Silent `take-theirs` Fallback on Safety Failures
+* **Section Reference:** §0, §2.2 (Step 4), §4.3
+* **Finding:** §2.2 Step 4 specifies:
+  > *"`cannot-adapt`/refusal: safety → `take-theirs` (customer's copy preserved at the tag and in `state/mine/`); otherwise `hold`."*
+* **Failure Mode:** This directly contradicts the core guarantee in §0 (*"Nothing of yours is deleted or overwritten without your yes"*). If an LLM adapter hallucinates, errors, or hits a refusal when adapting a modified security file (e.g., `.claude/settings.json`), the engine **unilaterally overwrites the user's file with the upstream version**.
+* **Concrete Impact:** In an adopted repository (such as `kori-beta` in §4.3), the adopter's `.claude/settings.json` contains custom hooks like `bash scripts/hooks/guard-prod-db.sh`, customized `permissions.allow`, and specific `enabledPlugins`. If an upstream safety note modifies `.claude/settings.json` and the adapter fails, `take-theirs` **silently strips the adopter's database guard hook and permissions**. Preserving the old version in an unpushed git tag or hidden `.git/loom/update/state/mine/` directory does not prevent the live file from losing its protection upon merge.
+
+### 2.2 Clean Three-Way Merges Bypass the AI Adapter Entirely
+* **Section Reference:** §1.1, §2.2 (Step 4, 5), §4.3
+* **Finding:** §1.1 specifies:
+  > *"...untouched files take the new version, both-changed files merge or are held; only held files reach the adapter."*
+* **Failure Mode:** If upstream refactors lines 100–300 of a customized file (e.g., `CLAUDE.md` in §4.3) while the user customized lines 1–50, a standard git three-way merge (`git merge-file`) resolves cleanly without conflicts (`merged-clean`).
+* **Impact:** 
+  1. The file is never marked `held`.
+  2. Because only held files reach the adapter (§1.1, §2.2 Step 4), **the adapter never inspects the file**.
+  3. Git's mechanical merge silently lands upstream changes into the customized file without verifying that the customer's edits still make semantic sense in the new context.
+  4. While §2.2 Step 5 states `update-reviewer` performs a "merged-clean sense read", the reviewer runs *after* Step 4 and *can only make a row more cautious (`hold`)*. If marked `hold` in Step 5, Step 4 does not re-run; the file is simply unapplied or stalled, leaving the user with an incomplete update and no adapted version.
+
+### 2.3 Cascading Breakage in Non-Safety Hold-Back
+* **Section Reference:** §1.7, §1.9, §2.2 (Step 7)
+* **Finding:** In §2.2 Step 7, during staging in the temporary worktree, the engine executes a hold-back pass (`LH:update.sh:1855-2072`): any non-safety check that fails causes the engine to amend the commit and set aside that specific note.
+* **Failure Mode:** §1.9 establishes `requires` chains between notes, but the hold-back pass in Step 7 contains no topological dependency resolution. If Note $B$ fails its check and is held back, but Note $C$ depends on Note $B$ (`requires: [B]`), Note $C$ is **not** set aside. 
+* **Impact:** The worktree commit is amended to strip Note $B$ while retaining Note $C$. Note $C$ is merged in a half-applied, broken state, violating the exact guarantee §1.9 claimed to enforce.
+
+### 2.4 Uncommitted Local State Causes State Loss Across Clones
+* **Section Reference:** §1.2, §1.5(c), §2.2 (Step 9), §7.3
+* **Finding:** §1.2 stores update state in `$(git rev-parse --absolute-git-dir)/loom/update/` (`declined.tsv`, `held.tsv`, `applied`). §7.3 explicitly notes:
+  > *"`declined.tsv`, `held.tsv` and `state/mine/` live in `.git/` and die with a re-clone..."*
+* **Failure Mode:** When a user declines a note, `.sdd-sync-ref` is still advanced to the upstream commit upon update completion (§2.2 Step 9). If another team member clones the repo, or the user switches machines:
+  1. `declined.tsv` does not exist on the new clone.
+  2. The base tree (`.sdd-sync-ref`) already contains the declined note.
+  3. For any non-safety note with `check: none` or a passing check, condition 1.5(a) is false, 1.5(b) is false, and 1.5(c) is false.
+  4. **The declined note is silently dropped forever.** The user is never informed on the second machine that a note was skipped, and the skipped improvement can never be re-offered.
+
+### 2.5 Incomplete "Forbidden-Touch" Protection in Adopted Monorepos
+* **Section Reference:** §1.3, §1.4
+* **Finding:** §1.3 defines the forbidden-touch set strictly as:
+  > *"`web/`, `apps/`, `features/`, `specs/`, `.brain/` except `.brain/README.md`, `node_modules/`, and in an adopted repo everything the channel map marks adopter-owned."*
+* **Failure Mode:** In an adopted repository, the user's application code does not necessarily live in `web/` or `apps/`. A user may have `services/`, `backend/`, `src/`, `internal/`, or top-level project files. The channel map (§1.4) is generated purely from `payload-manifest.txt` at maintainer promote time; it has no visibility into arbitrary paths in a user's repository.
+* **Impact:** If an upstream release introduces a directory that collides with a customer's top-level directory (e.g., `lib/`, `pkg/`, `scripts/deploy/`), the tree-hash equality gate does not protect it. Git will attempt a three-way merge or clean addition directly inside the user's proprietary application directories.
+
+---
+
+## 3. Security Setting Degradation and Governance Evasion
+
+### 3.1 Unenforced LLM Constraints on Security Permissions
+* **Section Reference:** §1.7, §2.2 (Step 4), §4.3
+* **Finding:** §2.2 Step 4 relies on prompt instructions to the subagent:
+  > *"...`update-adapter` rules carry over: never drop a base hook, never loosen a permission, safety fix wins over the customisation that is the hole..."*
+* **Failure Mode:** LLM instructions are non-deterministic and provide zero security guarantees. If upstream changes `.claude/settings.json` and the adapter broadens an allow pattern (e.g., rewriting `Bash(git fetch origin)` to `Bash(git *)` to resolve a conflict) or removes a custom user deny rule, the engine's automated validation (§1.7) will not catch it.
+* **Vulnerability:** §1.7 defines the check contract for `settings.json`:
+  1. Validate JSON syntax via `json-valid.sh`.
+  2. Run `hooks-resolve` to verify referenced harness shell scripts exist and pass `bash -n`.
+  
+  The engine performs **zero structural diff analysis on permissions**. It does not assert that `permissions.deny` is a superset of the pre-update configuration, nor that `permissions.allow` has not expanded. A prompt injection or LLM drift can silently strip an enterprise user's security restrictions.
+
+### 3.2 `project-data` Mutation of Governance Policies
+* **Section Reference:** §1.3, §2.2 (Step 4)
+* **Finding:** §1.3 places `gate-policy.conf posture lines` inside the `project-data` allowlist. It specifies that a `project-data` note:
+  > *"...is never `safety: true`; has no upstream blob, so the engine can only adapt, never take; its check may test only the specific defect pattern, never conformance to LogicLoom wording..."*
+* **Failure Mode:** `gate-policy.conf` governs whether git operations are `silent`, `ask`, or `floor` (blocked). Because the note has no upstream blob, the adapter is asked to modify security posture lines freehand. Because the note cannot be marked `safety: true`, and its check is constrained to only test for the defect pattern (e.g. `grep -v "broken_syntax"`), any hallucinated or malformed governance line that eliminates the defect pattern will **pass the check vacuously**. A faulty adaptation can silently downgrade a project's git governance gate to `silent`.
+
+### 3.3 Non-Safety Classification Allows Security Checks to Fail Silently
+* **Section Reference:** §1.3, §1.7
+* **Finding:** §1.3 states:
+  > *"Protected paths... must name an executable `check` (not `none`). `safety` stays the author's call."*
+* **Failure Mode:** Making `safety` the author's call creates a dangerous loophole. §1.7 dictates that for non-safety notes:
+  > *"in a customer copy a failure is `WARN` and the run stays green"*
+* **Impact:** If a maintainer modifies a protected path (such as `.claude/hooks/` or `governance.conf`) but forgets to mark `safety: true`, a customer whose update breaks governance checks will only see a `WARN` in the log. The update will proceed to stage, land, and merge, despite failing the check on a protected security file.
+
+### 3.4 Missing Enforcement of Subagent Execution Boundaries
+* **Section Reference:** §2.1
+* **Finding:** §2.1 notes:
+  > *"UNVERIFIED: no environment marker tells a child process it was launched by a subagent (B §5.3), so the engine itself cannot refuse on that basis."*
+* **Failure Mode:** While `update-adapter` and `update-reviewer` have no Bash tool, §2.1 admits that if any subagent invokes `sh update-loom.sh --stage`, the engine has no mechanism to detect that the caller is an unauthorized subagent. The engine will happily create worktrees, branches, and tags inside `.git/` on behalf of an untrusted subagent.
+
+---
+
+## 4. Vacuous Checks and Verification Blind Spots
+
+### 4.1 Case 6(c) (`claude-md-trim`): Textbook Vacuous Assertion
+* **Section Reference:** §4.3
+* **Finding:** The check contract for the `CLAUDE.md` trim note is defined as:
+  > *"Check tests the outcome that can be tested without judging the customer's prose: the three destination docs exist and carry their headings (`## Directory structure` in `loom-architecture.md`)..."*
+* **Failure Mode:** The three destination documents (`.docs/architecture/loom-architecture.md`, `.docs/policies/project-amendments-policy.md`, `.brain/README.md`) are created upstream and are copied directly into the repo during the update.
+* **Impact:** The check passes 100% of the time simply because upstream files exist. It performs **zero validation of `CLAUDE.md`**. If the adapter corrupts, empties, or deletes the customer's customized `CLAUDE.md`, the check exits 0.
+
+### 4.2 Case 6(b) (Escalation Ladder): Destructive Edits Pass Negative Checks
+* **Section Reference:** §4.2
+* **Finding:** The check for the escalation ladder runs a `grep -E` looking for the defect regex:
+  `- 3 = it changes auth, payment, or customer-data logic`.
+* **Failure Mode:** This is a purely negative check (it asserts the absence of the bad string). 
+* **Impact:** If the adapter wipes out `amendments.md`, truncates the file, or deletes the entire escalation section, the defect string is absent. The check exits 0. Furthermore, in an adopted project that never had `amendments.md` to begin with, the file is absent, `grep` finds nothing, and the check passes vacuously.
+
+### 4.3 Case 6(a) (Retired Plugins): Always Exits 0
+* **Section Reference:** §4.1
+* **Finding:** For retired plugin directories (`plugins/sdd-dev-loop`, etc.), the check specification states:
+  > *"for each directory present on disk print `WARN ...` — still exit 0."*
+* **Failure Mode:** A check that exits 0 when the targeted condition is unresolved is not a verification check; it is a notification logger. The note's done-when claims:
+  > *"`if any of the four directories is still on disk, the user has been told what replaced it...`"*
+  
+  The check script cannot verify whether an interactive user was actually presented with or comprehended that message.
+
+### 4.4 Non-Safety Checks Exempt from CI Mutation Testing
+* **Section Reference:** §5
+* **Finding:** §5 specifies:
+  > *"`tests/contract/test_update_notes.sh` runs every check against the template tree (must exit 0) and, for safety notes, against a planted-defect fixture listed in the test..."*
+* **Failure Mode:** Only `safety: true` checks are tested against negative fixtures. Non-safety checks are never subjected to defect injection in CI. A non-safety check script consisting solely of `exit 0` will pass all maintainer gates and ship to production completely untested.
+
+### 4.5 The `check: none` Applicability Loophole
+* **Section Reference:** §1.3, §1.5
+* **Finding:** §1.3 permits notes on non-protected paths to specify `check: none`.
+* **Failure Mode:** Under Rule 1.5:
+  > *"`A note applies iff it is in the upstream tree and any of: (a) absent from the base tree; (b) its check exits non-zero against the live tree; (c) its id is in held.tsv or declined.tsv.`"*
+  
+  The specification never defines what `check: none` evaluates to under condition (b). If `check: none` is treated as exit 0, any historical note with `check: none` can never be re-evaluated or caught by handover. If it is treated as non-zero, it will trigger applicability on every run indefinitely.
+
+---
+
+## 5. The Undo Story: Branch Contamination and Revert Traps
+
+### 5.1 Poisoning Future Upstream Merges via `git revert`
+* **Section Reference:** §2.1, §2.2 (Step 8, 11)
+* **Finding:** §2.1 rejects Launchhouse's reset mechanism and mandates `git revert --no-edit <recorded commit>` for `--undo`. Step 8 lands updates via `git merge --ff-only`.
+* **Failure Mode:** In a fast-forward merge, the update commit becomes part of the customer's first-parent git history. When `--undo` runs, it appends a new revert commit whose diff is the exact inverse of the update commit.
+* **The Git Merge Trap:** When the customer runs `/update-loom` for the next release (e.g., 7.1.0), the git three-way merge engine compares:
+  - $\text{Base}$: Upstream 7.0.0
+  - $\text{HEAD}$: Customer branch containing `[Update 7.0.0] -> [Revert 7.0.0]`
+  - $\text{Upstream}$: Upstream 7.1.0
+  
+  Because HEAD explicitly reverted the 7.0.0 changes, git's three-way merge logic treats the reversion as an **intentional user modification**. Any file from 7.0.0 that upstream did not modify again in 7.1.0 **will remain reverted**. The user will not receive the 7.0.0 code unless they manually revert their revert commit.
+
+### 5.2 Subsequent Commits Paralyze the Undo Engine
+* **Section Reference:** §2.2 (Step 11)
+* **Finding:** §2.2 Step 11 states:
+  > *"verifies every touched path matches the tag... on overlap with later edits, `revert --abort` and name the paths."*
+* **Failure Mode:** If a user completes an update, makes a single commit touching a harness file or configuration (e.g., updating a dependency, tweaking `.claude/settings.json`, or modifying a script), and then realizes an update introduced a regression, `--undo` refuses to run and aborts.
+* **Impact:** The promised safety net fails precisely when real-world users need it most: after they have started working and discovered an issue. The user is stranded with a failed revert and must manually untangle git history.
+
+### 5.3 Permanent Destruction of Update State Upon Undo
+* **Section Reference:** §2.2 (Step 9, 11)
+* **Finding:** In §2.2 Step 9, `--finish` mutates and clears `held.tsv` and `declined.tsv`. In §2.2 Step 11, `--undo` runs `git revert`.
+* **Failure Mode:** `--undo` restores file trees, but contains **no mechanism to restore the local state files** in `.git/loom/update/`. The historical records of which notes were previously held or declined are permanently erased.
+
+---
+
+## 6. Approval Fatigue and Friction Collapse
+
+### 6.1 Unbounded Decision Explosions on Routine Updates
+* **Section Reference:** §2.2 (Step 3), §4.1
+* **Finding:** §2.2 Step 3 dictates:
+  > *"Ask per improvement (skill, AskUserQuestion, batched): for every applying note, not only those with held rows (fixes A §3.1)."*
+* **Failure Mode:** In Launchhouse (A §3.1), untouched files were cleanly updated without bothering the user; only genuine conflicts required user intervention. In this design, **every single improvement prompts the user for approval**, even if it touches files the user has never seen or edited.
+* **Calculation of Fatigue:**
+  - 7.0.0 ships 8 notes (§7.1) = 8 prompts.
+  - Case 6(a) breaks retired plugins into 4 separate family notes (§4.1) = 4 prompts.
+  - Case 6(b) escalation ladder = 1 prompt.
+  - Case 6(c) `claude-md-trim` = 1 prompt.
+  - If a minor release ships 15 bug fixes across maintenance scripts, the user must review and answer 15 individual questions.
+* **Impact:** When presented with 10–20 consecutive prompts, users reflexively select "yes" to all options without reading the descriptions. This defeats the entire premise of "plain-words understanding" and reintroduces human error.
+
+### 6.2 Redundant Multi-Tier Governance Approvals
+* **Section Reference:** §2.2 (Step 3, 6, 8), §4.1
+* **Finding:** A single update run requires approvals at four distinct architectural layers:
+  1. **Layer 1 (Step 3):** Batched per-note approvals via `AskUserQuestion`.
+  2. **Layer 2 (Step 6):** An overall summary approval ("Show and one yes").
+  3. **Layer 3 (Step 8):** A git governance gate prompt triggered when the skill types `git merge --ff-only` (`git.merge = ask`).
+  4. **Layer 4 (§4.1):** Manual shell execution: to delete 4 retired plugin directories, the user must manually execute 4 separate `git rm -r` commands, each triggering its own governance confirmation prompt (`git.rm = ask`).
+* **Impact:** The claim in §0 that *"You get one approval prompt from the governance gate per update"* is true only of git merges, but deeply misleading regarding overall user interaction. A typical 7.0.0 update demands upwards of **14 interactive user prompts**.
+
+---
+
+## 7. What Works in the Framework Repo but Breaks in a User's Repo
+
+### 7.1 Sandbox Network Isolation Blocks Remote Fetch
+* **Section Reference:** §2.1
+* **Finding:** §2.1 delegates the upstream fetch to the engine:
+  `git fetch <url> +refs/heads/main:refs/loom-upstream/main`
+* **Failure Mode:** Under standard execution constraints, commands run inside the Secure Sandbox (`BypassSandbox: false`), which permits workspace read/write but **strictly denies outbound network access**.
+* **Impact:** In the framework repo or during local maintainer testing, upstream is often a local ref or already populated. In a user's repository, running `update-loom.sh --plan` in the sandbox causes `git fetch` to immediately fail with a network error unless the entire command execution is elevated to bypass the sandbox.
+
+### 7.2 Shallow Clones and CI Container Failures
+* **Section Reference:** §1.4, §2.1, §2.2 (Step 1)
+* **Finding:** §2.2 Step 1 validates base commits by checking reachability from `refs/loom-upstream/main` using `git merge-base --is-ancestor`.
+* **Failure Mode:** In many developer environments, containerized setups, and CI pipelines, repositories are cloned as shallow copies (`git clone --depth 1`).
+* **Impact:** In a shallow repository, the commit history between `.sdd-sync-ref` and upstream HEAD is truncated. `git merge-base` fails to find a common ancestor, reachability checks return false, and `--detect-base` falls through to `none`, causing the update command to abort with `KNOWN_ISSUES.md` errors.
+
+### 7.3 Fragility of Git Worktrees in User Environments
+* **Section Reference:** §1.2, §2.1
+* **Finding:** §2.1 executes worktree operations inside the git directory:
+  `git worktree add -b loom-update/<ts> <state>/wt HEAD`
+* **Failure Modes in User Repositories:**
+  1. **User is already in a linked worktree:** If the user develops on a feature branch inside a secondary `git worktree`, `$(git rev-parse --absolute-git-dir)` points to `.git/worktrees/<name>/`. Nested worktree operations referencing `.git/loom/update/` risk path mismatches and index lock collisions with the primary checkout.
+  2. **Submodule environments:** If LogicLoom is included as a git submodule, `.git` is a file, not a directory. Path operations assuming `.git/` is a directory will fail.
+  3. **Stale crash locks:** If a previous update invocation was interrupted or crashed (`kill -9`), git's internal worktree lock remains active. Subsequent runs of `git worktree add` fail immediately with `fatal: worktree is locked` or `fatal: branch already exists`.
+
+### 7.4 False Tree Conflicts from Raw Git Blobs and `.gitattributes`
+* **Section Reference:** §1.1, §2.1, §7.2 (#11)
+* **Finding:** §1.1 and §2.1 compare raw git blobs (`git cat-file blob`) to classify files and calculate three-way diffs.
+* **Failure Mode:** In customer repositories configured with `.gitattributes` (e.g., `* text=auto`, end-of-line normalizations, or smudge/clean filters such as `git-lfs` or secret filters), working tree files undergo checkout filtering.
+* **Impact:** Comparing an unsmudged raw upstream blob from the object database against a smudged or CRLF-normalized working tree file causes the engine to detect differences on every line. Files that are identical in content will register as conflicting, dumping dozens of untouched files into `held` and overwhelming the adapter.
+
+### 7.5 Template Clone Misclassification in `tree-provenance.sh`
+* **Section Reference:** §1.7
+* **Finding:** §1.7 distinguishes maintainer repos from customer repos via:
+  > *"Copy mode detector: template = `tests/lib/tree-provenance.sh` says 'maintainer' (its five marker files all present...); anything else is a customer copy."*
+* **Failure Mode:** A customer who clones the framework's template repository directly from GitHub retains the full repository tree, including the test directory and its marker files.
+* **Impact:** The detector misclassifies the template clone as a **maintainer repository**. Consequently, all non-safety checks become hard gating failures (`FAIL` instead of `WARN`). If a user customizes a template file whose non-safety check expects stock contents, the update engine hard-fails and blocks all future updates.
+
+---
+
+## 8. Summary of Critical Deficiencies and Required Action Items
+
+| Category | Concrete Design Defect | Severity | Architectural Remedy |
+|---|---|---|---|
+| **Bootstrap** | Base commit $T$ in `.sdd-sync-ref` causes 3-way engine to see $\Delta = \emptyset$, ignoring condition 1.5(b). | **Blocker** | Synthesize base/theirs sides from the note itself when base $\equiv$ upstream; do not rely on git 3-way diffs during bootstrap handover. |
+| **Bootstrap** | Missing / broken stamps cannot be updated; fallback tool relegated to Phase 4 (§3.3, §8). | **High** | Promote `update-bootstrap` to Phase 0 as an essential release requirement. |
+| **Data Safety** | Safety adaptation failure silently triggers `take-theirs`, wiping custom security hooks (§2.2 Step 4). | **Critical** | Remove automatic `take-theirs` fallback. On adapter failure, abort the update or prompt the user explicitly; never overwrite live files silently. |
+| **Data Safety** | Git `merged-clean` files bypass AI adapter completely (§1.1, §2.2). | **High** | Route all both-changed files through `update-reviewer` *before* staging; trigger adaptation if semantic coherence is broken. |
+| **Security** | LLM instructed "never loosen permissions" with zero deterministic structural validation (§1.7, §2.2). | **Critical** | Implement a deterministic AST/JSON permissions diff in `json-valid.sh` that fails if `permissions.deny` shrinks or `permissions.allow` broadens. |
+| **Verification** | Checks for `CLAUDE.md`, escalation ladder, and retired plugins pass vacuously (§4.1–§4.3). | **High** | Require checks to test both positive conformance and customer content retention; mandate planted-defect tests for non-safety checks in CI. |
+| **Undo** | `git revert` pollutes branch history and disables future upstream updates for those paths (§2.1, §5.1). | **High** | Document that undo is a branch reset (`git reset --hard loom/pre-update-<ts>`) before merge, or supply an automated un-revert mechanism for subsequent updates. |
+| **UX** | Every applying note requires explicit confirmation, generating 10–18 prompts per update (§2.2 Step 3). | **Medium** | Restore Launchhouse behavior: auto-apply non-held, non-safety notes on untouched paths; batch approvals by release family. |
+| **Portability** | `git fetch` blocked by sandbox; shallow clones and worktrees fail in user repos (§7.1–§7.4). | **High** | Explicitly declare sandbox bypass for network fetch; add shallow-clone detection (`git rev-parse --is-shallow-repository`) and pre-clean worktree locks. |
+
+<!-- GOAL_COMPLETE -->
