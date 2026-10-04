@@ -221,3 +221,14 @@ the default; role-to-model routing and parts of the ladder could be enforced
 rather than followed. Also new: an installed mod can override a project
 `PreToolUse` hook — a threat-model change. Decisions 2, 4, 5 and 8 wait on the
 proof. Docs: https://code.claude.com/docs/en/plugins/mods/overview
+
+## Addendum 2026-10-04 — Orca as an external-worker runner (deferred)
+
+Orca (installed locally, `orca` CLI) can host the non-Claude worker pattern:
+a Claude Code coordinator dispatches tasks to Codex or Claude sessions, each in
+its own Orca-managed worktree, with a mailbox, blocking ask, decision gates
+and supervised workers. Codex keeps its full agent loop there (edits, runs
+tests, retries). Trade-off versus the mod mechanism: LogicLoom's hooks see the
+work only at review and merge, not per edit. Maintainer decision 2026-10-04:
+try it later, after the Codex bake-off result. Aside (an agentic web browser)
+was evaluated and does not fit this use.
