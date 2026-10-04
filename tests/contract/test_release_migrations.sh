@@ -5304,6 +5304,263 @@ assert it[\"state\"] == \"pristine\" and it[\"recommended\"] == \"REMOVE\", it
 '"
 
 # ═══════════════════════════════════════════════════════════════════════════
+# SECTION F — round-7 (loop round 1). Every block below was reproduced
+# against the starting tree (assertions FAIL there), then closed.
+# ═══════════════════════════════════════════════════════════════════════════
+echo ""
+echo "═══════════════════════════════════════════════════════════"
+echo "  F. Round-7 review findings"
+echo "═══════════════════════════════════════════════════════════"
+
+echo ""
+echo "F1. low finding: the EXIT cleanup's final 'rm -rf' of the proof base had no boundary check beyond 'not a symlink' — a base that is not the mktemp directory this run created is now refused"
+# _loom_rm_cleanup removes $_LOOM_RM_PROOF_BASE wholesale. The per-entry
+# loop is guarded by _loom_rm_safe_to_remove; the base itself was guarded
+# only by -d / ! -L. A check-then-rm is inherently two operations in
+# portable bash, so the race cannot be closed outright, but the base can be
+# required to look like exactly what _loom_rm_proof_base creates (a direct
+# mktemp child named loom-rm-fixtureproof-base.*, owned by this user) so a
+# corrupted/overwritten variable can never aim `rm -rf` at an arbitrary
+# directory.
+F1_VICTIM="$TMP/rv7-not-our-base"
+mkdir -p "$F1_VICTIM/inner"
+echo "customer bytes" > "$F1_VICTIM/inner/f"
+F1_OUT="$(
+  source "$RM" --root "$UNIT_CHMOD_ROOT" >/dev/null 2>&1
+  _LOOM_RM_PROOF_BASE="$F1_VICTIM"
+  _LOOM_RM_PROOF_TMP_DIRS=""
+  _loom_rm_cleanup
+  if [ -e "$F1_VICTIM/inner/f" ]; then echo "VICTIM=survived"; else echo "VICTIM=deleted"; fi
+  _LOOM_RM_PROOF_BASE=""
+)"
+assert "cleanup refuses to rm -rf a proof base that is not a loom-rm-fixtureproof-base.* mktemp directory" \
+  "printf '%s\n' \"\$F1_OUT\" | grep -qF 'VICTIM=survived'"
+F1_CTL_OUT="$(
+  source "$RM" --root "$UNIT_CHMOD_ROOT" >/dev/null 2>&1
+  _loom_rm_proof_base >/dev/null
+  _b="$_LOOM_RM_PROOF_BASE"
+  mkdir -p "$_b/child"; echo x > "$_b/child/f"
+  _LOOM_RM_PROOF_TMP_DIRS="$_b/child"
+  _loom_rm_cleanup
+  if [ -e "$_b" ]; then echo "BASE=left"; else echo "BASE=removed"; fi
+  _LOOM_RM_PROOF_BASE=""
+)"
+assert "control: a genuine mktemp-created proof base (and its children) is still fully cleaned up" \
+  "printf '%s\n' \"\$F1_CTL_OUT\" | grep -qF 'BASE=removed'"
+
+echo ""
+echo "F2. low finding: after the plugin source is edited and 'convert --apply' re-run, the (never-rewritten) CONVERTED.md still says 'delete' — the run must now say so, loudly, without rewriting the file"
+RV7K="$TMP/rv7-converted-md-stale"
+mk_rv2_fixture "$RV7K" sdd-rv7k
+RV7K_RUN1="$(bash "$RM" convert sdd-rv7k --apply --root "$RV7K" 2>&1)"
+RV7K_CONVERTED="$RV7K/.claude/skills/sdd-rv7k/CONVERTED.md"
+assert "control: the first (clean) convert --apply emits no stale-record NOTE" \
+  "! printf '%s\n' \"\$RV7K_RUN1\" | grep -q '^NOTE '"
+assert "sanity: the first run's CONVERTED.md recommends delete" \
+  "grep -qF 'delete plugins/sdd-rv7k once its converted' '$RV7K_CONVERTED'"
+( cd "$RV7K" && git add -A >/dev/null && git commit -q -m converted ) >/dev/null 2>&1
+RV7K_RUN1B="$(bash "$RM" convert sdd-rv7k --apply --root "$RV7K" 2>&1)"
+assert "control: an unchanged re-run (every target SKIP) emits no NOTE either" \
+  "! printf '%s\n' \"\$RV7K_RUN1B\" | grep -q '^NOTE '"
+RV7K_CKSUM1="$(cksum "$RV7K_CONVERTED")"
+echo "echo RV7K-SOURCE-EDIT" >> "$RV7K/plugins/sdd-rv7k/hooks/h.sh"
+RV7K_RUN2="$(bash "$RM" convert sdd-rv7k --apply --root "$RV7K" 2>&1)"
+assert "the re-run after a source edit prints a NOTE naming CONVERTED.md as STALE (its 'delete' line is no longer current)" \
+  "printf '%s\n' \"\$RV7K_RUN2\" | grep -q '^NOTE .claude/skills/sdd-rv7k/CONVERTED.md' && printf '%s\n' \"\$RV7K_RUN2\" | grep '^NOTE ' | grep -qF 'STALE'"
+assert "…and points at DO NOT delete / scan for the current recommendation" \
+  "printf '%s\n' \"\$RV7K_RUN2\" | grep '^NOTE ' | grep -qF 'DO NOT delete' && printf '%s\n' \"\$RV7K_RUN2\" | grep '^NOTE ' | grep -qF 'scan --json'"
+assert "…while CONVERTED.md itself is still byte-for-byte unchanged (the ledger and its dating stay frozen; the record may be the customer's to edit)" \
+  "[ '$RV7K_CKSUM1' = \"\$(cksum '$RV7K_CONVERTED')\" ]"
+RV7K_SCAN="$(bash "$RM" scan --root "$RV7K" 2>&1)"
+assert "…and the live scan path still says KEEP-AS-IS (the NOTE line is not mistaken for a re-render difference)" \
+  "printf '%s\n' \"\$RV7K_SCAN\" | grep -qF 'recommended: KEEP-AS-IS' && ! printf '%s\n' \"\$RV7K_SCAN\" | grep -qF 'recommended: REMOVE'"
+
+echo ""
+echo "F3. low finding: '--registry' / '--since' as the LAST argument die with a raw 'unbound variable' shell error instead of a usage error (--root was fixed in round 6, its siblings were not)"
+for RV7CMD in lint scan plan check-release; do
+  RV7R_OUT="$(rv6_run_with_timeout 10 bash "$RM" "$RV7CMD" --registry 2>&1)"
+  RV7R_RC=$?
+  assert "'$RV7CMD --registry' with no value: clean usage error (rc 1, '--registry requires a value', no shell 'unbound variable')" \
+    "[ '$RV7R_RC' -eq 1 ] && printf '%s\n' \"\$RV7R_OUT\" | grep -qF -- '--registry requires a value' && ! printf '%s\n' \"\$RV7R_OUT\" | grep -qF 'unbound variable'"
+done
+RV7C_OUT="$(rv6_run_with_timeout 10 bash "$RM" convert somename --registry 2>&1)"
+RV7C_RC=$?
+assert "'convert <name> --registry' with no value: clean usage error" \
+  "[ '$RV7C_RC' -eq 1 ] && printf '%s\n' \"\$RV7C_OUT\" | grep -qF -- '--registry requires a value' && ! printf '%s\n' \"\$RV7C_OUT\" | grep -qF 'unbound variable'"
+RV7S_OUT="$(rv6_run_with_timeout 10 bash "$RM" check-release --since 2>&1)"
+RV7S_RC=$?
+assert "'check-release --since' with no value: clean usage error" \
+  "[ '$RV7S_RC' -eq 1 ] && printf '%s\n' \"\$RV7S_OUT\" | grep -qF -- '--since requires a value' && ! printf '%s\n' \"\$RV7S_OUT\" | grep -qF 'unbound variable'"
+
+echo ""
+echo "F4. HIGH (governing principle, loop-round-1 REVIEWER): a git clean filter (nbstripout / git-lfs / git-crypt / any filter.<driver>.clean) hid a working-tree edit from the pristine test — the edited file read as pristine and got REMOVE"
+# Reproduction on the starting tree (git 2.54): `git diff --quiet <base> --
+# <path>` compares the base blob against the working-tree file AS GIT READS
+# IT — through the file's `filter=<driver>` clean command — so an edit the
+# filter strips (a notebook's re-run cell outputs under nbstripout, a value
+# a redaction filter blanks) hashes straight back to the tracked blob:
+# state pristine, changed_files [], REMOVE, `git rm -r plugins/<p>` printed
+# over a customer edit. E7's `--no-ext-diff --no-textconv` does not reach
+# this: a clean filter is content conversion, not a diff helper. (`git
+# status` / `git rm` flagged the file in the reproduction only because its
+# SIZE changed — read-cache.c's sd_size shortcut — so a same-size edit would
+# not even be refused by the printed command.) Nothing the customer set is
+# wrong: clean filters are ordinary git usage. Closed by
+# _loom_rm_filtered_paths: every TRACKED file under the item that carries a
+# `filter` attribute (git check-attr, read-only) is listed under `changed`
+# and the item is customized — doubt -> KEEP and ASK.
+RV7F="$TMP/rv7-clean-filter"
+mk_rv1_fixture "$RV7F" sdd-rv7f
+RV7F_EDITED="plugins/sdd-rv7f/commands/sdd-rv7f-cmd.md"
+printf '# LOCAL: customer edit the clean filter strips\n' >> "$RV7F/$RV7F_EDITED"
+rv7f_check() {  # $1 = json file; the edited file must be customized and named under changed_files (an entry may carry a trailing " (reason)")
+  python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+it = next(i for i in d['items'] if i['path'] == 'plugins/sdd-rv7f')
+assert it['state'] != 'pristine', it
+assert it['recommended'] != 'REMOVE', it
+assert it['remove_command'] == '', it
+assert any(c == sys.argv[2] or c.startswith(sys.argv[2] + ' ') for c in it['changed_files']), it
+" "$1" "$RV7F_EDITED"
+}
+# (a) the purely local route: .git/info/attributes + filter.<d>.clean in the
+#     repository's own config — nothing in the working tree hints at it
+echo "$RV7F_EDITED filter=rv7strip" > "$RV7F/.git/info/attributes"
+git -C "$RV7F" config filter.rv7strip.clean "sed '/^# LOCAL:/d'"
+if git -C "$RV7F" diff --no-ext-diff --no-textconv --quiet HEAD -- plugins/sdd-rv7f 2>/dev/null; then
+  echo "  (this git reads the working tree through the clean filter for --quiet: the pre-fix defect is provokable here)"
+else
+  skip "F4 reproduction note: this git version does not apply the clean filter in diff --quiet, so the pre-fix defect cannot be provoked on it — the assertions below still hold, but prove only the fixed behaviour"
+fi
+bash "$RM" scan --json --root "$RV7F" > "$TMP/rv7f-local.json" 2>"$TMP/rv7f-local.err"
+assert ".git/info/attributes filter=<driver> + filter.<driver>.clean: the edited file is customized, never pristine/REMOVE, and is named under changed_files" \
+  "rv7f_check '$TMP/rv7f-local.json'"
+assert "…and the entry names the filter by driver, so the user knows WHY git diff cannot see the edit" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/rv7f-local.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-rv7f\")
+assert any(\"filter=rv7strip\" in c for c in it[\"changed_files\"]), it
+'"
+RV7F_PLAN="$(bash "$RM" plan sdd-rv7f --root "$RV7F" 2>&1)"
+assert "…and plan prints no git rm line for it (recommended: CONVERT-TO-LOCAL)" \
+  "! printf '%s\n' \"\$RV7F_PLAN\" | grep -q 'git rm' && printf '%s\n' \"\$RV7F_PLAN\" | grep -q 'recommended: CONVERT-TO-LOCAL'"
+rm -f "$RV7F/.git/info/attributes"
+# (b) the tracked .gitattributes route (committed, so it is in HEAD; the
+#     attributes file sits at the repo root, outside the item's path, so it
+#     is not itself what flips the verdict)
+echo "$RV7F_EDITED filter=rv7strip" > "$RV7F/.gitattributes"
+( cd "$RV7F" && git add .gitattributes >/dev/null && git commit -q -m attrs ) >/dev/null 2>&1
+bash "$RM" scan --json --root "$RV7F" > "$TMP/rv7f-tracked.json" 2>"$TMP/rv7f-tracked.err"
+assert "a committed .gitattributes filter=<driver>: still customized, never pristine/REMOVE" \
+  "rv7f_check '$TMP/rv7f-tracked.json'"
+rm -f "$RV7F/.gitattributes"
+( cd "$RV7F" && git add -A >/dev/null && git commit -q -m unattrs ) >/dev/null 2>&1
+git -C "$RV7F" config --unset filter.rv7strip.clean
+# (c) control: with no filter at all the same edit was ALWAYS caught, so
+#     (a)/(b) test the filter route, not the edit
+bash "$RM" scan --json --root "$RV7F" > "$TMP/rv7f-ctl.json" 2>"$TMP/rv7f-ctl.err"
+assert "control: with no filter configured the edit is caught the ordinary way (customized, named under changed_files)" \
+  "rv7f_check '$TMP/rv7f-ctl.json'"
+# (d) what is NOT flagged — a `-filter` (explicitly unset) attribute and the
+#     unspecified default — so the check cannot creep into refusing every
+#     repository that mentions `filter` somewhere: a pristine plugin stays
+#     pristine/REMOVE under it
+RV7G="$TMP/rv7-clean-filter-pristine"
+mk_rv1_fixture "$RV7G" sdd-rv7g
+rv7g_json() {  # $1 = json file, $2 = expected state, $3 = expected recommended
+  python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+it = next(i for i in d['items'] if i['path'] == 'plugins/sdd-rv7g')
+assert it['state'] == sys.argv[2], it
+assert it['recommended'] == sys.argv[3], it
+" "$1" "$2" "$3"
+}
+echo "plugins/sdd-rv7g/commands/sdd-rv7g-cmd.md -filter" > "$RV7G/.git/info/attributes"
+bash "$RM" scan --json --root "$RV7G" > "$TMP/rv7g-unset.json" 2>"$TMP/rv7g-unset.err"
+assert "control: a pristine plugin whose file carries '-filter' (the attribute explicitly UNSET, so git applies no filter) still scans pristine/REMOVE" \
+  "rv7g_json '$TMP/rv7g-unset.json' pristine REMOVE"
+# (e) …but a bare `filter` (set, no driver) IS refused: git itself ignores
+#     a driverless `filter`, yet refusing it costs nothing and keeps the
+#     rule one line — any driver-shaped value is doubt, and doubt is KEEP
+echo "plugins/sdd-rv7g/commands/sdd-rv7g-cmd.md filter" > "$RV7G/.git/info/attributes"
+bash "$RM" scan --json --root "$RV7G" > "$TMP/rv7g-set.json" 2>"$TMP/rv7g-set.err"
+assert "a bare 'filter' attribute (set, no driver named) on an otherwise pristine plugin: customized, never REMOVE — the file is listed under changed_files" \
+  "rv7g_json '$TMP/rv7g-set.json' customized CONVERT-TO-LOCAL && python3 -c '
+import json
+d = json.load(open(\"$TMP/rv7g-set.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-rv7g\")
+assert any(c.startswith(\"plugins/sdd-rv7g/commands/sdd-rv7g-cmd.md \") for c in it[\"changed_files\"]), it
+assert it[\"remove_command\"] == \"\", it
+'"
+rm -f "$RV7G/.git/info/attributes"
+# (f) the enumeration-failure route (same fail-closed class as E2/E3): a
+#     `git check-attr` that cannot run proves nothing about filters, so the
+#     path is refused, never read as "no filter applies"
+RV7F_STUBBIN="$TMP/rv7f-stubbin"
+mkdir -p "$RV7F_STUBBIN"
+RV7F_REALGIT="$(command -v git)"
+cat > "$RV7F_STUBBIN/git" << STUBEOF
+#!/usr/bin/env bash
+args=("\$@")
+if [ "\${args[0]}" = "-C" ]; then sub="\${args[2]}"; else sub="\${args[0]}"; fi
+if [ "\$sub" = "check-attr" ]; then
+  echo "fake git: simulated check-attr failure" >&2
+  exit 128
+fi
+exec "$RV7F_REALGIT" "\$@"
+STUBEOF
+chmod +x "$RV7F_STUBBIN/git"
+PATH="$RV7F_STUBBIN:$PATH" bash "$RM" scan --json --root "$RV7G" > "$TMP/rv7g-attrfail.json" 2>"$TMP/rv7g-attrfail.err"
+assert "with git check-attr failing: the (otherwise pristine) plugin is never pristine/REMOVE — a failed attribute check is refused, not read as 'no filter applies'" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/rv7g-attrfail.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-rv7g\")
+assert it[\"state\"] != \"pristine\", it
+assert it[\"recommended\"] != \"REMOVE\", it
+assert it[\"remove_command\"] == \"\", it
+assert any(\"could not check git attributes\" in c for c in it[\"changed_files\"]), it
+'"
+# (g) the converted-plugin status has the same blob compare ("unchanged
+#     since the decision commit") and the same hole — closed at that call
+#     site too, before the re-render gate, so the reason is the direct
+#     "edited after conversion" one, not a render-stale fallback
+RV7FC="$TMP/rv7-clean-filter-converted"
+mk_rv2_fixture "$RV7FC" sdd-rv7fc
+bash "$RM" convert sdd-rv7fc --apply --root "$RV7FC" >/dev/null 2>&1
+( cd "$RV7FC" && git add -A >/dev/null && git commit -q -m converted ) >/dev/null 2>&1
+echo "plugins/sdd-rv7fc/hooks/h.sh filter=rv7strip" > "$RV7FC/.git/info/attributes"
+git -C "$RV7FC" config filter.rv7strip.clean "sed '/^# LOCAL:/d'"
+printf '# LOCAL: post-conversion edit the clean filter strips\n' >> "$RV7FC/plugins/sdd-rv7fc/hooks/h.sh"
+bash "$RM" scan --json --root "$RV7FC" > "$TMP/rv7fc.json" 2>"$TMP/rv7fc.err"
+assert "converted-plugin status: a filtered file under the plugin is 'edited after conversion' (changed:), KEEP-AS-IS, no remove command — not merely caught downstream as render-stale" \
+  "python3 -c '
+import json
+d = json.load(open(\"$TMP/rv7fc.json\"))
+it = next(i for i in d[\"items\"] if i[\"path\"] == \"plugins/sdd-rv7fc\")
+assert it[\"decision\"] == \"converted\", it
+assert it[\"recommended\"] == \"KEEP-AS-IS\", it
+assert it[\"remove_command\"] == \"\", it
+assert \"edited after conversion\" in it[\"reason\"], it
+assert \"clean filter\" in it[\"reason\"], it
+'"
+# (h) source pins, independent of which git is installed: both blob-compare
+#     sites consult the helper, and the helper never masks the enumeration's
+#     own exit status
+RV7F_CALLS="$(grep -c '_loom_rm_filtered_paths "\$path"' "$RM" | tr -d ' ')"
+assert "source pin: _loom_rm_filtered_paths is consulted at both blob-compare sites (resolve_state and the converted-plugin status) — $RV7F_CALLS call sites" \
+  "[ '$RV7F_CALLS' -ge 2 ]"
+assert "source pin: the helper returns the ls-files|check-attr pipeline's own status (no unconditional 'return 0' after the capture)" \
+  "sed -n '/^_loom_rm_filtered_paths()/,/^}/p' '$RM' | grep -q 'return \"\$_fp_rc\"'"
+# (i) prose pin: MIGRATION_GUIDE.md tells the user a clean filter makes a
+#     file never-pristine, next to the external-diff rule it extends
+assert "MIGRATION_GUIDE.md documents the clean-filter rule (filter=<driver> is never pristine) beside the --no-ext-diff rule" \
+  "grep -qF 'filter=<driver>' '$ROOT/.docs/guides/MIGRATION_GUIDE.md' && tr '\n' ' ' < '$ROOT/.docs/guides/MIGRATION_GUIDE.md' | tr -s ' ' | grep -qi 'runs the clean filter when it reads the working-tree file'"
+
+# ═══════════════════════════════════════════════════════════════════════════
 echo ""
 echo "═══════════════════════════════════════════════════════════"
 echo "  RESULTS: $PASS/$TOTAL passed, $FAIL failed, $SKIP skipped"

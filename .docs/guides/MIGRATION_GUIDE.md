@@ -172,7 +172,15 @@ never wrote that line sees nothing.
   an external diff driver or textconv you have configured —
   `GIT_EXTERNAL_DIFF`, `diff.external`, a `.gitattributes` `diff=<driver>`,
   even one whose exit code git is told to trust — never gets to decide
-  whether a file is pristine. The command per kind:
+  whether a file is pristine. A tracked file under the item that carries a
+  `filter=<driver>` attribute (git-lfs, nbstripout, git-crypt — any
+  `filter.<driver>.clean`) is never pristine either: git runs the clean
+  filter when it reads the working-tree file, so `git diff` compares the
+  filter's output, not the bytes on disk, and an edit the filter strips
+  (a notebook's re-run cell outputs, a redacted value) is invisible to it.
+  The scan finds such files with `git check-attr`, lists them under
+  `changed` with the driver named, and asks; a `-filter` (explicitly unset)
+  attribute does not count. The command per kind:
   - `plugin` → `git rm -r plugins/<name>` (gate policy `git.rm = ask`, so you
     approve it), then `.logic-loom/scripts/bash/sync-plugin-commands.sh prune`
     to drop the bridge wrapper(s) and regenerate the bridge manifest.
@@ -313,7 +321,11 @@ then decide" instead of "delete". A `--dry-run` never prints the delete step
 at all: nothing was written yet. `.claude/skills/<p>/CONVERTED.md`'s own
 *Follow-ups* section takes exactly the same gate as the terminal, so reading
 the record later never says "delete" where the run that wrote it said "DO
-NOT". The scan applies the same gate: a `converted = <p>` decision
+NOT". That record is written once and never rewritten (it may be your own
+edit by then): if you edit the plugin afterwards and re-run `convert
+--apply`, the file on disk can still say "delete" — the re-run prints a
+`NOTE … CONVERTED.md: STALE` line saying so, and `scan --json` carries the
+current recommendation. The scan applies the same gate: a `converted = <p>` decision
 recommends `REMOVE` only while a fresh `--dry-run` re-render is all-`SKIP`
 **and** reports every file accounted for; otherwise the item stays
 `KEEP-AS-IS` and names what was left behind. A symlink at a **target** under

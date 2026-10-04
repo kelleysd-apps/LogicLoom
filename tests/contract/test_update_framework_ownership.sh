@@ -1873,9 +1873,24 @@ cat > "$GENFORGE_OK_F/.logicloom-adopt-receipt.json" <<'JSON'
   ]
 }
 JSON
+GENFORGE_OK_CKSUM_BEFORE="$(cksum "$GENFORGE_OK_F/.logicloom-adopt-receipt.json")"
 GENFORGE_OK_RECON_OUT="$(bash "$RECORDER_SCRIPT" --root "$GENFORGE_OK_F" --reconcile 2>&1)"
 assert "control: the identical fixture with a TRUSTED generator string DOES list RECONCILE for the same file" \
   "printf '%s' \"\$GENFORGE_OK_RECON_OUT\" | grep -q 'RECONCILE .logic-loom/genforge/shared.sh'"
+# Round-7 finding 4 (investigated; disposition: DOCUMENTED, ACCEPTED trust
+# boundary, not a missed defect). A hand-written receipt entry that carries a
+# trusted-SHAPED generator and a directory upstream genuinely once shipped
+# is indistinguishable, locally, from a real one: none of the receipt,
+# .sdd-sync-ref or refs/loom-upstream/main is signed (MIGRATION_GUIDE.md,
+# "Trust boundary"), and this tool does not invent signing. What bounds the
+# impact -- and is pinned here so the bound cannot silently loosen -- is that
+# the listing form of --reconcile is a PROPOSAL only: it writes nothing,
+# and only an explicit --apply records, and then only the digest of the
+# UPSTREAM blob for a file whose bytes already equal it (see the
+# "never a hash of the disk bytes" assertions above).
+GENFORGE_OK_CKSUM_AFTER="$(cksum "$GENFORGE_OK_F/.logicloom-adopt-receipt.json")"
+assert "round-7 finding 4 (accepted trust boundary): the trusted-shaped listing is a proposal only -- --reconcile without --apply leaves the receipt byte-identical" \
+  "[ '$GENFORGE_OK_CKSUM_BEFORE' = '$GENFORGE_OK_CKSUM_AFTER' ]"
 
 # ─────────────────────────────────────────────────────────────────────────
 # I-atomic-write (round-2 review, low finding). Both JSON-tool backends used

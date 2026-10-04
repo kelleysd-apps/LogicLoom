@@ -128,6 +128,20 @@ _loom_rm_safe_to_remove() {
     return 0
 }
 
+# True only for a directory that still looks like the one _loom_rm_proof_base
+# created: a real (non-symlink) directory, basename matching the mktemp
+# template, owned by the current user. See _loom_rm_cleanup's Round-7 note.
+_loom_rm_base_is_ours() {
+    local b="$1"
+    [ -n "$b" ] && [ -d "$b" ] && [ ! -L "$b" ] || return 1
+    case "${b##*/}" in
+        loom-rm-fixtureproof-base.*) : ;;
+        *) return 1 ;;
+    esac
+    [ -O "$b" ] || return 1
+    return 0
+}
+
 _loom_rm_cleanup() {
     [ -n "$_LOOM_RM_TMP_REGISTRY" ] && rm -f "$_LOOM_RM_TMP_REGISTRY"
     # Walk the NEWLINE-delimited list one entry at a time via `read -r` (never
@@ -149,7 +163,20 @@ EOF
     # catches anything the per-entry loop above could not account for — but
     # still refuse if it itself is now a symlink rather than a real
     # directory (same "never follow" rule as every entry above).
-    if [ -n "$_LOOM_RM_PROOF_BASE" ] && [ -d "$_LOOM_RM_PROOF_BASE" ] && [ ! -L "$_LOOM_RM_PROOF_BASE" ]; then
+    #
+    # Round-7 finding (low): "-d and not a symlink" was the ONLY boundary
+    # here, so a base variable that ever pointed at anything other than the
+    # mktemp directory _loom_rm_proof_base made (a corrupted variable, a
+    # directory swapped in after creation) would be `rm -rf`'d wholesale.
+    # A check-then-rm is two operations in portable bash and the race cannot
+    # be closed outright (there is no atomic check-and-delete primitive),
+    # but the base can be required to still look like exactly what this
+    # script created: a real directory, named like the mktemp template
+    # above, owned by this user (`-O` — an effective-uid test, so a
+    # directory someone else substituted is refused). Anything else is left
+    # alone: a proof gone missing is a test-integrity bug to fix, never a
+    # reason to widen what EXIT cleanup is allowed to delete.
+    if [ -n "$_LOOM_RM_PROOF_BASE" ] && _loom_rm_base_is_ours "$_LOOM_RM_PROOF_BASE"; then
         rm -rf -- "$_LOOM_RM_PROOF_BASE"
     fi
     return 0
@@ -398,7 +425,7 @@ cmd_lint() {
             # `--root` forever and this loop never terminates. Require the
             # value to actually be there before shifting past it.
             --root) [ $# -ge 2 ] || die_usage "lint: --root requires a value"; shift 2 ;;
-            --registry) registry_arg="$2"; shift 2 ;;
+            --registry) [ $# -ge 2 ] || die_usage "lint: --registry requires a value"; registry_arg="$2"; shift 2 ;;
             *) die_usage "lint: unknown argument '$1'" ;;
         esac
     done
@@ -740,8 +767,8 @@ cmd_check_release() {
             # `--root` as the last, valueless argument would hang this
             # loop forever without the bounds check.
             --root) [ $# -ge 2 ] || die_usage "check-release: --root requires a value"; shift 2 ;;
-            --registry) registry_arg="$2"; shift 2 ;;
-            --since) since_arg="$2"; shift 2 ;;
+            --registry) [ $# -ge 2 ] || die_usage "check-release: --registry requires a value"; registry_arg="$2"; shift 2 ;;
+            --since) [ $# -ge 2 ] || die_usage "check-release: --since requires a value"; since_arg="$2"; shift 2 ;;
             -*) die_usage "check-release: unknown argument '$1'" ;;
             *) positional+=("$1"); shift ;;
         esac
@@ -1630,6 +1657,60 @@ _loom_rm_index_hidden_paths() {   # $1 = repo-relative path
     return "$_rc"
 }
 
+# Loop-round-1 REVIEWER (high, governing principle). Prints, one line each,
+# every TRACKED file under repo-relative $1 that carries a `filter`
+# attribute with any value other than `unspecified` / `unset`, each
+# described for a human; the return status is the enumeration's own
+# (non-zero = could not check — the caller must refuse the path, never read
+# that as "no filter applies").
+#
+# Why: `git diff --quiet <base> -- <path>` compares the base blob against
+# the working-tree file AS GIT READS IT — through the file's clean filter
+# (`filter.<driver>.clean` / `.process`) — so an edit the filter strips
+# hashes straight back to the tracked blob. nbstripout (a notebook's re-run
+# cell outputs), git-lfs, git-crypt and any redaction filter are ordinary
+# git usage, and under every one of them this tool's blob compare is a
+# compare of the FILTER OUTPUT, not of the bytes on disk. Reproduced on git
+# 2.54 with `filter.x.clean = sed '/^# LOCAL:/d'` and an appended `# LOCAL:`
+# line on a tracked file under plugins/<p>: state pristine, changed_files
+# [], REMOVE, `git rm -r plugins/<p>` printed over the edit. The round-6
+# `--no-ext-diff --no-textconv` fix does not reach this — a clean filter is
+# content conversion, not a diff helper. (`git status` / `git rm` flagged
+# that file in the reproduction only because its SIZE changed —
+# read-cache.c's sd_size shortcut — so a same-size edit would not even be
+# refused by the printed command.) No diff this tool can run proves
+# anything about such a file, so it is customized by construction, the
+# same way a skip-worktree entry is: doubt -> KEEP and ASK.
+#
+# Mechanics: `ls-files -z` (tracked entries only — an untracked file is
+# already reported by the caller's own listings) piped through
+# `check-attr -z --stdin filter` yields <path>NUL filter NUL<value>NUL per
+# entry; NUL-delimited so a path holding a space, a quote or a non-ASCII
+# byte is never C-quoted or split. The triples are regrouped by awk after
+# `tr '\0' '\n'`; a path with an embedded newline shifts that grouping, so
+# a line count that is not a multiple of three is itself reported
+# (conservative — never silently fewer entries). Under `set -o pipefail`
+# the capture's status reflects a failing ls-files or check-attr as long
+# as tr succeeds, and that status is returned, never masked (the round-6
+# fail-open class). A `-filter` (unset) attribute is deliberately NOT
+# flagged: git applies no filter then, and the blob compare is exact.
+# Read-only git only (ls-files, check-attr).
+_loom_rm_filtered_paths() {   # $1 = repo-relative path
+    local _fp_out _fp_rc=0
+    _fp_out="$(git -C "$REPO_ROOT" ls-files -z -- "$1" 2>/dev/null \
+        | git -C "$REPO_ROOT" check-attr -z --stdin filter 2>/dev/null \
+        | tr '\0' '\n')" || _fp_rc=$?
+    [ "$_fp_rc" -eq 0 ] || return "$_fp_rc"
+    [ -n "$_fp_out" ] || return 0
+    printf '%s\n' "$_fp_out" | awk -v p="$1" '
+        NR % 3 == 1 { path = $0 }
+        NR % 3 == 0 && $0 != "unspecified" && $0 != "unset" {
+            print path " (a git clean filter applies to this file: filter=" $0 " — git runs that filter when it reads the working tree, so every diff this tool can make compares the filter output, not the bytes on disk; an edit the filter strips is invisible to git diff, and nothing here can be verified as pristine)"
+        }
+        END { if (NR % 3 != 0) print p " (could not parse git check-attr output: " NR " fields, not a multiple of three — a path with an embedded newline? nothing here can be verified as pristine)" }'
+    return 0
+}
+
 # Sets STATE, STATE_CHANGED, STATE_ADDED, STATE_DELETED (newline lists).
 resolve_state() {
     local path="$1" baseline="$2"
@@ -1736,6 +1817,26 @@ resolve_state() {
         STATE="customized"
         STATE_CHANGED="$path (could not check for skip-worktree/assume-unchanged index entries — git ls-files exited $hidden_rc; nothing here can be verified as pristine)"
         return 0
+    fi
+    # Loop-round-1 REVIEWER (high, governing principle): a tracked file
+    # under $path with a `filter` attribute — see _loom_rm_filtered_paths.
+    # The blob compare below reads the working tree THROUGH that filter, so
+    # it proves nothing about such a file; same treatment as a skip-worktree
+    # entry: listed under `changed`, never the pristine branch. A check that
+    # could not run is refused outright, like the ls-files failures above.
+    local _rs_filtered _rs_filtered_rc=0
+    _rs_filtered="$(_loom_rm_filtered_paths "$path")" || _rs_filtered_rc=$?
+    if [ "$_rs_filtered_rc" -ne 0 ]; then
+        STATE="customized"
+        STATE_CHANGED="$path (could not check git attributes under this path — git ls-files/check-attr exited $_rs_filtered_rc; a clean filter may apply, and nothing here can be verified as pristine)"
+        return 0
+    fi
+    if [ -n "$_rs_filtered" ]; then
+        if [ -n "$hidden" ]; then
+            hidden="${hidden}"$'\n'"${_rs_filtered}"
+        else
+            hidden="$_rs_filtered"
+        fi
     fi
     # Round-6 REVIEWER (high, governing principle): `git diff --quiet`
     # consults the customer's OWN diff helpers — GIT_EXTERNAL_DIFF in the
@@ -2082,15 +2183,23 @@ _loom_rm_converted_plugin_status() {
     # contract; changed by construction, same as resolve_state.
     local hidden
     hidden="$(_loom_rm_index_hidden_paths "$path")" || hidden_rc=$?
+    # Loop-round-1 REVIEWER (high, governing principle): the "unchanged
+    # since the decision commit" diff below reads the working tree through
+    # any clean filter exactly like resolve_state's pristine test does (see
+    # _loom_rm_filtered_paths) — the re-render gate further down would
+    # usually still catch an edited text source, but "usually" is not the
+    # contract; changed by construction, same as resolve_state.
+    local _cs_filtered _cs_filtered_rc=0
+    _cs_filtered="$(_loom_rm_filtered_paths "$path")" || _cs_filtered_rc=$?
     # Round-6 finding (high, fail-open — same class fixed in resolve_state
     # above): these three captures used to swallow a FAILED git enumeration
     # into the same empty string a genuinely clean result produces, so a
     # failed listing here read as "nothing hidden/untracked" and this
     # plugin could still reach the re-render gate below and come back
     # "unchanged" — the same doubt this function otherwise treats as
-    # `changed:<commit>` on purpose. Any of the three failing is doubt;
+    # `changed:<commit>` on purpose. Any of the four failing is doubt;
     # doubt is `changed`, same as an actual untracked/hidden file.
-    if [ "$untracked_rc" -ne 0 ] || [ "$ignored_rc" -ne 0 ] || [ "$hidden_rc" -ne 0 ]; then
+    if [ "$untracked_rc" -ne 0 ] || [ "$ignored_rc" -ne 0 ] || [ "$hidden_rc" -ne 0 ] || [ "$_cs_filtered_rc" -ne 0 ]; then
         printf 'changed:%s' "$commit"
         return 0
     fi
@@ -2106,7 +2215,7 @@ _loom_rm_converted_plugin_status() {
     # Round-6 REVIEWER: `--no-ext-diff --no-textconv` for the same reason as
     # resolve_state's pristine test (see its comment) — this diff decides
     # "unchanged since the conversion" and must never defer to a helper.
-    if [ -n "$untracked" ] || [ -n "$ignored" ] || [ -n "$hidden" ] || [ -n "$_cs_blind" ] || [ -n "$_cs_symanc" ] || ! git -C "$REPO_ROOT" diff --no-ext-diff --no-textconv --quiet "$commit" -- "$path" 2>/dev/null; then
+    if [ -n "$untracked" ] || [ -n "$ignored" ] || [ -n "$hidden" ] || [ -n "$_cs_filtered" ] || [ -n "$_cs_blind" ] || [ -n "$_cs_symanc" ] || ! git -C "$REPO_ROOT" diff --no-ext-diff --no-textconv --quiet "$commit" -- "$path" 2>/dev/null; then
         printf 'changed:%s' "$commit"
         return 0
     fi
@@ -2161,7 +2270,7 @@ _loom_rm_converted_briefing_consequence() {
             CONV_BRIEF_CONSEQUENCE="$path still on disk — delete it once the converted command works, then run .logic-loom/scripts/bash/sync-plugin-commands.sh prune"
             return 0 ;;
         changed:*)
-            CONV_BRIEF_CONSEQUENCE="$path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file, special file or empty directory under it, or an index entry flagged skip-worktree/assume-unchanged whose edits git diff cannot see) — KEEP-AS-IS; verify the edit was carried over, then decide by hand"
+            CONV_BRIEF_CONSEQUENCE="$path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file, special file or empty directory under it, or an index entry flagged skip-worktree/assume-unchanged or a file a git clean filter applies to, whose edits git diff cannot see) — KEEP-AS-IS; verify the edit was carried over, then decide by hand"
             return 1 ;;
         render-stale:*)
             CONV_BRIEF_CONSEQUENCE="$path was converted, but re-rendering it now (convert $plugin --dry-run) does not reproduce what is on disk under .claude/ (a KEEP/WRITE/STOP line, or the re-render could not run) — KEEP-AS-IS; the decision commit ${cstatus#render-stale:} may carry an edit the conversion never saw; reconcile by hand, then decide"
@@ -2228,7 +2337,7 @@ compute_recommendation() {
                 ;;
             changed:*)
                 REC_ACTION="KEEP-AS-IS"
-                REC_REASON="CONVERTED, but $path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file, special file or empty directory under it, or an index entry flagged skip-worktree/assume-unchanged whose edits git diff cannot see) — ASK before removing; verify the edit was carried over, then decide by hand"
+                REC_REASON="CONVERTED, but $path was edited after conversion (changed since the decision commit ${cstatus#changed:}: a tracked edit, or an untracked file, special file or empty directory under it, or an index entry flagged skip-worktree/assume-unchanged or a file a git clean filter applies to, whose edits git diff cannot see) — ASK before removing; verify the edit was carried over, then decide by hand"
                 ;;
             render-stale:*)
                 REC_ACTION="KEEP-AS-IS"
@@ -2921,7 +3030,7 @@ cmd_scan() {
             --json) json_mode="true"; shift ;;
             # Round-6 finding (low): see cmd_lint's identical fix above.
             --root) [ $# -ge 2 ] || die_usage "scan: --root requires a value"; shift 2 ;;
-            --registry) registry_arg="$2"; shift 2 ;;
+            --registry) [ $# -ge 2 ] || die_usage "scan: --registry requires a value"; registry_arg="$2"; shift 2 ;;
             *) die_usage "scan: unknown argument '$1'" ;;
         esac
     done
@@ -3024,7 +3133,7 @@ cmd_plan() {
         case "$1" in
             # Round-6 finding (low): see cmd_lint's identical fix above.
             --root) [ $# -ge 2 ] || die_usage "plan: --root requires a value"; shift 2 ;;
-            --registry) registry_arg="$2"; shift 2 ;;
+            --registry) [ $# -ge 2 ] || die_usage "plan: --registry requires a value"; registry_arg="$2"; shift 2 ;;
             -*) die_usage "plan: unknown argument '$1'" ;;
             *) name="$1"; shift ;;
         esac
@@ -4437,6 +4546,20 @@ finalize_convert() {
     if [ -e "$REPO_ROOT/$target" ]; then
         _loom_rm_refuse_existing_symlink_target "$target" || return 1
         classify_existing_text "$target" "$rendered"
+        # Round-7 finding (low): the existing record is deliberately never
+        # rewritten (ledger stability; it may also be the customer's own
+        # edit — rewriting bytes this run cannot prove it wrote is the one
+        # thing this tool refuses to do). But a record that still says
+        # "delete plugins/<p>" while THIS run's own fresh render says DO NOT
+        # delete is now wrong advice sitting on disk. The file stays
+        # untouched; the run says so on stdout instead, so the
+        # contradiction is never silent. The line starts "NOTE " — scan's
+        # re-render gate keys only off KEEP/WRITE/MKDIR/APPEND/STOP/ERROR
+        # lines, so this cannot change any recommendation.
+        if grep -qxF -- "- delete plugins/$plugin once its converted commands/skills work through .claude/skills/" "$REPO_ROOT/$target" 2>/dev/null \
+           && printf '%s\n' "$rendered" | grep -qF -- "- DO NOT delete plugins/$plugin yet"; then
+            echo "NOTE $target: STALE — its Follow-ups still say 'delete plugins/$plugin', but this run found files not carried over: DO NOT delete plugins/$plugin yet (this file is never rewritten by a later run; run \`release-migrations.sh scan --json\` for the current recommendation)"
+        fi
         return 0
     fi
     if [ "$mode" = "dry-run" ]; then
@@ -4496,7 +4619,7 @@ cmd_convert() {
         case "$1" in
             # Round-6 finding (low): see cmd_lint's identical fix above.
             --root) [ $# -ge 2 ] || die_usage "convert: --root requires a value"; shift 2 ;;
-            --registry) registry_arg="$2"; shift 2 ;;
+            --registry) [ $# -ge 2 ] || die_usage "convert: --registry requires a value"; registry_arg="$2"; shift 2 ;;
             --dry-run) mode="dry-run"; shift ;;
             --apply) mode="apply"; shift ;;
             --customized-only) customized_only="true"; shift ;;

@@ -718,6 +718,45 @@ installs start recording what `/update-framework` writes.
   (`rv6_run_with_timeout`), also used by the new FIFO regression test.
   Its E4 scratch files now live under the suite's own `mktemp -d` root
   instead of `/tmp`.
+- **A re-run of `convert --apply` over an edited plugin now says its
+  on-disk `CONVERTED.md` is stale.** (Loop round 1, low.) The file is still
+  never rewritten (ledger stability, and it may be the customer's own
+  edit), but when its Follow-ups still say `delete plugins/<p>` while the
+  run's own fresh render says DO NOT delete, the run prints a `NOTE
+  .claude/skills/<p>/CONVERTED.md: STALE …` line pointing at `scan
+  --json`. Scan/plan's re-render gate only keys off `KEEP`/`WRITE`/…
+  lines, so the note cannot change a recommendation.
+- **`--registry` / `--since` with no value now fail with a usage error**
+  like `--root` does, instead of a raw `$2: unbound variable` shell error.
+- **The EXIT cleanup no longer `rm -rf`s a proof base it cannot vouch
+  for.** (Loop round 1, low — the race itself is inherent to portable
+  bash.) The base must still be a non-symlink directory named like the
+  `mktemp` template and owned by the current user, or it is left alone.
+- **The pristine test no longer reads the working tree through the
+  customer's git clean filter.** (Loop round 1 REVIEWER, high — governing
+  principle.) `git diff --quiet <base> -- <path>` compares the base blob
+  against the working-tree file as git reads it — through a
+  `filter=<driver>` attribute's `clean` command — so an edit the filter
+  strips (a notebook's re-run cell outputs under nbstripout, a value a
+  redaction filter blanks; git-lfs and git-crypt are the same mechanism)
+  hashes straight back to the tracked blob. Reproduced on git 2.54 with
+  the attribute in `.git/info/attributes` (nothing in the working tree)
+  and again committed in `.gitattributes`: `state: pristine`,
+  `changed_files: []`, `REMOVE`, `git rm -r plugins/<p>` printed over the
+  edit. The round-6 `--no-ext-diff --no-textconv` fix does not reach this
+  — a clean filter is content conversion, not a diff helper — and `git
+  rm` refused the file in the reproduction only because its size changed
+  (read-cache.c's `sd_size` shortcut), so a same-size edit would not even
+  be refused. `_loom_rm_filtered_paths` (read-only `git ls-files -z |
+  check-attr -z --stdin filter`) now lists every tracked file under the
+  item that carries a `filter` value other than `unspecified`/`unset`;
+  both blob-compare sites — `resolve_state`'s pristine test and the
+  converted-plugin "unchanged since the decision commit" test — treat any
+  such file as customized (listed under `changed`, driver named), and a
+  `check-attr` that cannot run refuses the path rather than reading as
+  "no filter applies". Pinned by `tests/contract/test_release_migrations.sh`
+  ("F4"), including controls that a `-filter` (unset) attribute and the
+  unspecified default still scan pristine.
 
 ### Known issues (accepted, documented tradeoffs — not fixed this round)
 
@@ -726,6 +765,23 @@ installs start recording what `/update-framework` writes.
   file under a deprecated path is invisible to `git diff`, and the item
   still reads pristine — no bytes differ, and the printed `git rm` loses
   none, so this is left as-is.
+- **Line-ending normalization is not a customization.** (Loop round 1
+  REVIEWER, low, reproduced.) With `text=auto` / `core.autocrlf`, a tracked
+  file under a deprecated path converted to CRLF on disk still reads
+  pristine: git normalizes line endings when it reads the working tree, and
+  the printed `git rm` deletes the CRLF copy. That is git's own content
+  model (the LF blob is the content; the CRLF form is a checkout
+  rendering, recoverable by checking out again with the same settings), so
+  it is left as-is — unlike a `filter=<driver>` clean filter, which can
+  strip arbitrary bytes and is now refused (see *Fixed* above).
+- **A plugin skill that ships its own `CONVERTED.md`** (`plugins/<p>/skills/
+  <p>/CONVERTED.md`) lands at `.claude/skills/<p>/CONVERTED.md`, the path
+  the conversion ledger uses, so the ledger itself is never written for
+  that plugin (`finalize_convert` classifies the existing file `KEEP`) while
+  the run still prints the delete step — every byte WAS carried over, so
+  nothing is at risk, and the next `scan` reports `render-stale` /
+  KEEP-AS-IS rather than REMOVE. (Loop round 1 REVIEWER, low.) Not changed
+  this round.
 - **A converted plugin whose skill shares the plugin's name AND has
   support assets never reaches "unchanged".** (Round-6 REVIEWER, low,
   pre-existing, fail-safe.) `convert_support_index` appends its
@@ -750,8 +806,9 @@ installs start recording what `/update-framework` writes.
   plugin source is edited and `convert --apply` re-run, the file on disk
   can still show a stale "delete `plugins/<x>`" line even though
   `scan`/`plan` (the live, authoritative path) already report
-  `KEEP-AS-IS`. Pinned by `tests/contract/test_release_migrations.sh`
-  ("Round-4 finding 5").
+  `KEEP-AS-IS`. The re-run itself now prints a `NOTE … STALE` line when
+  that contradiction exists (see above); the file stays frozen. Pinned by
+  `tests/contract/test_release_migrations.sh` ("Round-4 finding 5", "F2").
 - **A run recorded with no resolvable framework version** (no `--version`,
   no `FRAMEWORK_VERSION` in `architecture.conf`) still writes a receipt
   entry whose `generator` is `logicloom-update-framework@` (nothing after
