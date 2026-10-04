@@ -1,0 +1,1 @@
+{"permissions":{"defaultMode":"default","disableBypassPermissionsMode":"disable","additionalDirectories":["/etc"],"deny":["Bash(sudo:*)"],"allow":["Bash(git status:*)"]}}

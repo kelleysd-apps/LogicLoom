@@ -1,0 +1,1 @@
+{"policies":{"dangerous_commands":{"action":"block","patterns":[{"pattern":"format-disk","reason":"x"},{"pattern":"mkfs","reason":"y"}]},"secrets":{"action":"warn","patterns":[{"pattern":"AKIA","reason":"z"}]}}}

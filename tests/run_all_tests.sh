@@ -182,6 +182,7 @@ run_suite "Adopt Plan/Apply Reconciliation" "bash tests/contract/test_adopt_plan
 run_suite "Release Migrations" "bash tests/contract/test_release_migrations.sh"
 run_suite "Update-Framework Ownership" "bash tests/contract/test_update_framework_ownership.sh"
 run_suite "Update-Framework from 6.x" "bash tests/contract/test_update_from_6x.sh"
+run_suite "Update Loom Engine" "sh tests/contract/test_update_loom.sh"
 
 # Validation Tests (Framework v2.0 enhancements)
 run_suite "Git Safety" "bash .logic-loom/tests/test-git-safety.sh"

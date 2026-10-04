@@ -1,0 +1,21 @@
+{
+  "enabledPlugins": { "fixture@local": true },
+  "hooks": {
+    "SessionStart": [
+      { "matcher": "", "hooks": [ { "type": "command", "command": "bash .claude/hooks/worktree-port-namespace.sh" } ] }
+    ],
+    "PreToolUse": [
+      { "matcher": "Bash", "hooks": [
+        { "type": "command", "command": "bash plugins/loom-governance/hooks/scripts/git-safety-gate.sh" },
+        { "type": "command", "command": "bash .claude/hooks/old-hook.sh" }
+      ] },
+      { "matcher": "Bash", "hooks": [ { "type": "command", "command": "bash scripts/hooks/guard-prod-db.sh" } ] },
+      { "matcher": "mcp__.*", "hooks": [ { "type": "command", "command": "bash scripts/hooks/guard-prod-db.sh" } ] }
+    ]
+  },
+  "permissions": {
+    "deny": ["Bash(git push --force:*)", "Bash(sudo:*)"],
+    "allow": ["Bash(git status:*)", "Bash(curl:*)"],
+    "ask": ["Bash(git push:*)", "Bash(git reset:*)"]
+  }
+}

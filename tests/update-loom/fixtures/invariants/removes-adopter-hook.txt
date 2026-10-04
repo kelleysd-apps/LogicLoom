@@ -1,0 +1,3 @@
+# removed by the 7.0.0 note
+
+./scripts/hooks/guard-prod-db.sh

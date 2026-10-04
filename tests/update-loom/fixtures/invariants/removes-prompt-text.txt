@@ -1,0 +1,2 @@
+scripts/hooks/guard-prod-db.sh
+Refuse any command that touches the prod database

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Check: docs/a.md mentions alpha.
+set -u
+cat docs/a.md >| ./out
+root=${REPO_ROOT:-.}
+if grep -F 'alpha' "$root/docs/a.md" >/dev/null 2>&1; then
+  exit 0
+fi
+printf 'hint=The guide does not mention alpha yet.\n'
+exit 1

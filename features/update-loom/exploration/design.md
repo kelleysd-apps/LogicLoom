@@ -524,3 +524,42 @@ Status key: **Addressed** — the design changed; section given. **Accepted** �
 | — | orchestrator caveat | Codex had no further different-provider reviewer available to itself | **Noted** | Stated at the top; both reviewers are different-provider from the author, so the review of the design is decorrelated; Codex's own output was not cross-checked |
 
 **Where the two reviewers disagreed**, in a sentence each: agy wanted undo to be a branch reset (`git reset --hard` to the tag) to avoid "revert poisoning"; Codex wanted durable multi-update revert metadata. The design keeps revert (reset is `ask` and destructive, `gate-policy.conf:120`) and refutes the poisoning on the sync-ref evidence, while taking Codex's durable metadata. agy wanted every applying note auto-applied on untouched paths as Launchhouse does; Codex wanted a digest with per-item toggles and persisted declines. The design does both: untouched-path notes are listed with an opt-out, and declines persist in the ledger.
+
+---
+
+## 11. Maintainer decisions 2026-10-03
+
+Recorded by the Phase 0 planner. Where these differ from the body above, **these win**. Decisions not listed here take the designer's recommended option in section 9 (9.1(a), 9.2(a), 9.4(a), 9.5(a), 9.7(a), 9.8(a), 9.9(a), 9.10(a), 9.11(a), 9.12(a)).
+
+| # | Decision | What it changes in the design |
+|---|---|---|
+| 1 | **Release shape: one 7.0.0 from `dev-main` — option 9.3(b), "fat".** No release is cut now. | No `release/7.0.0` branch, no source-ref input to `promote-to-main.yml`, **`bootstrap-shape.sh` is not built** (3.6, 5, WP3.2 lose that item). Section 0's "7.0.0 is a bootstrap release built from the last shipped tree plus the updater bundle only" is withdrawn; risk 7.2 #6 is accepted in writing. Consequences honoured in the build: (a) the handover (3.2) and the 6.x test (3.5) must work when the old `/update-framework` offers the **full dev-main change set** (~250 files), not ~20; (b) the handover preamble in `update-framework.md` and the customer docs must tell a 6.x customer plainly **which offered files to accept first** — the updater bundle, exactly the paths in `BUNDLE.sha256` — and that **everything else can then come through `/update-loom`** (and may be declined in the old run without loss, because the ledger offers every 7.0.0 note regardless of `.sdd-sync-ref`, 1.5); (c) the `claude-md-trim` note and the other dev-main content notes ship in **7.0.0**, not 7.1.0 (4.3, 6 "ship in 7.1.0 under 9.3(a)" rows move to 7.0.0); the two-release split in 3.4 (stub in 7.1.0) stands for the *command* only. |
+| 2 | **Broken or missing update pointer: ship BOTH** `npx logicloom@7 update-bootstrap` (9.6(a)) **and** written manual repair steps in `KNOWN_ISSUES.md`. | 3.3 unchanged for the installer; `KNOWN_ISSUES.md:55-112` is rewritten (not merely kept) so it covers the missing-stamp case and the `c6092b0` tag clones step by step, and names the installer as the alternative. WP2.3/WP3.3. |
+| 3 | **Retired plugins: four family notes** (9.1(a)). | 4.1 as written. |
+| 4 | **Command name `/update-loom`; `/update-framework` keeps working** for older versions per 3.2/3.4 (full procedure + handover preamble in 7.0.0; forwarding stub in 7.1.0). | As written. |
+| 5 | **Build all phases; nothing is pushed.** | Phase order 0 → 1 → 2 → 3 (→ 4) stands; every phase ends with the work committed locally only when the user approves; `/git-push` is never run by the build. |
+
+**Phase 0 planning notes** (`packages-phase-0.json` beside this file holds the packages):
+
+- Phase 0 is split into ten sequential-where-needed Sonnet packages instead of the single "one worker, high effort" WP0.1, because the engine alone is ~2,200 lines. Shared contract (state layout, TSV columns, decision vocabulary, check contract) is written once as the header of a new sourceable `plugins/loom-maintenance/scripts/update-loom-common.sh` (POSIX sh), which the engine, linter, checks runner and invariants script all source. This file is an addition to the 1.2 table; it ships with the bundle.
+- Per-package test cases live under **`tests/update-loom/`** (`lib.sh`, `cases-*.sh`, `fixtures/`), driven by one registered suite `tests/contract/test_update_loom.sh`. Reason: `tests/contract/test_suite_registration.sh` requires every `tests/contract/**/*.sh` to be registered in both `tests/run_all_tests.sh` and `plugin-tests.yml`, so case files cannot sit under `tests/contract/`. The suite is POSIX sh and runs every case file under `${LOOM_TEST_SH:-/bin/sh}`; CI's `/bin/sh` is dash, and `/bin/dash` exists on current macOS, so the "under dash" done-criterion is runnable locally too.
+- Forbidden-touch set, refined: `web/`, `apps/`, `node_modules/`, `features/*/` and `specs/*/` (the subdirectories — `features/README.md`, `features/.gitkeep`, `specs/README.md`, `specs/.gitkeep` are shipped by the payload manifest and stay harness-owned), `.brain/` except `.brain/README.md`, the ledger and `.logic-loom/memory/updates/*.applied` (engine-written only). The tree-sha equality gate covers `web`, `apps`, `.brain`, `features`, `specs` with the two shipped files excluded by comparing per-subdirectory trees.
+- Check contract addition: the engine exports **`UPDATE_TOOLS`** (= `<state>/tools`, upstream's `json-valid.sh`/`json-flat.sh` saved at plan time) to every check; a check reads JSON via `${UPDATE_TOOLS:-$REPO_ROOT/plugins/loom-maintenance/scripts}/json-flat.sh`, because the export of a 6.x HEAD may not yet hold the tools. `updates-checks.sh` exports the same variable pointing at its own directory.
+- `BUNDLE.sha256` lines are `<sha256 hex>  <path>` computed by `sha256sum`, else `shasum -a 256`, else `openssl dgst -sha256`; `--status` prints `bundle=complete`, `bundle=incomplete missing=<a,b>`, `bundle=absent` (no file — the handover preamble's "continue with the old procedure" case) or `bundle=unverifiable` (no hash tool).
+- The ladder `pattern` (4.2) must match the kori fixture's **both** forms (`- 3 = …` and the indented `  3 = …` at `kori-amendments-ladder.before:20,32`): `^[[:space:]-]*3[[:space:]]*=[[:space:]]*it changes auth, payment, or customer-data logic`.
+- `--undo <id>` locates the update commit as the single commit that **adds** `.logic-loom/memory/updates/<id>.applied` (`git log --diff-filter=A --format=%H -- <path>`), whose parent equals the record's `parent=` line and whose subject starts `LogicLoom update to`; the record cannot carry its own commit sha because it is inside the commit.
+- The `.logic-loom/config/update-channels.conf` reader ships in Phase 0 with a hand-derived first version of the file (from `payload-manifest.txt` rows); the generator and freshness gate remain WP3.2.
+- Protected-file edits the engine implies (`subagent-git-guard.sh` deny pattern for the engine's mutating verbs; `governance.conf` `protected_paths` lines for the updater, agents, `framework-upstream.conf`, `tool-restrictions.json`) are listed in `packages-phase-0.json` → `protected_edits` for the main session; the design schedules them in WP2.2, and applying them at the end of Phase 0 is also acceptable.
+
+---
+
+## Build status — paused 2026-10-03
+
+Paused at the maintainer's request (token spend). Phase 0 is split into ten
+packages (`packages-phase-0.json`); four are built and reviewed:
+`p0-foundation`, `p0-lint-checks`, `p0-invariants`, `p0-engine-status-base`.
+Next package: `p0-engine-plan-classify`, then plan-notes, adapt-save,
+stage-abandon, finish-undo, e2e-floor. Not yet done for Phase 0: the phase
+gate (full suite) and the cross-provider review. Phases 1-4 not started.
+`tests/contract/test_update_loom.sh`: 1153 passing under `sh`.
+The v7 scanner is still in the tree; it is retired in Phase 2.

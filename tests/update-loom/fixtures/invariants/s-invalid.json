@@ -1,0 +1,3 @@
+{
+  "enabledPlugins": { "fixture@local": true },
+  "permissions": { "deny": ["Bash(sudo:*)"

@@ -314,6 +314,9 @@ jobs:
       - name: Run Update-Framework from 6.x Tests
         run: bash tests/contract/test_update_from_6x.sh
 
+      - name: Run Update Loom Engine Tests
+        run: sh tests/contract/test_update_loom.sh
+
       # Same contract as before (valid JSON + name/version/dependencies present),
       # lifted out of an inline heredoc so it can be run and tested locally, plus
       # a shape check for the OPTIONAL `eval` block (absent = fine).
