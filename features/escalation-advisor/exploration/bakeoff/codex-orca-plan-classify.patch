@@ -1,0 +1,274 @@
+diff --git a/plugins/loom-maintenance/scripts/update-loom.sh b/plugins/loom-maintenance/scripts/update-loom.sh
+index 42f01d9..a30c787 100644
+--- a/plugins/loom-maintenance/scripts/update-loom.sh
++++ b/plugins/loom-maintenance/scripts/update-loom.sh
+@@ -109,7 +109,7 @@ cmd=${1:-}
+ case $cmd in
+   --help|-h) usage; exit 0;;
+   --status|--detect-base|--set-base|--bootstrap-copy|--plan|--adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo) ;;
+-  --selftest-write-path|--selftest-lock|--selftest-channel|--selftest-map|--selftest-remap) ;;
++  --selftest-write-path|--selftest-lock|--selftest-channel|--selftest-map|--selftest-remap|--selftest-two-way) ;;
+   *) usage >&2; exit 2;;
+ esac
+ 
+@@ -1068,6 +1068,213 @@ cmd_bootstrap_copy() {
+   return 0
+ }
+ 
++# ---------------------------------------------------------- plan/classification
++plan_abort() { printf 'result=aborted reason=%s unchanged=yes\n' "$1"; exit 1; }
++
++tree_mode() { # COMMIT PATH
++  git -C "$root" ls-tree "$1" -- "$2" 2>/dev/null | awk '{ print $1; exit }'
++}
++
++local_path_for() { # UPSTREAM_PATH
++  if [ "$CHANNEL" = adopted ]; then
++    lpf=$(path_rename "$1")
++    [ -n "$lpf" ] && { printf '%s' "$lpf"; return 0; }
++  fi
++  printf '%s' "$1"
++}
++
++group_installed() { # GROUP
++  [ "$CH_GROUPS" = all ] && return 0
++  [ "$CH_GROUPS" = none ] && return 1
++  printf '%s\n' "$CH_GROUPS" | awk -F, -v g="$1" '{ for (i=1;i<=NF;i++) if ($i==g) found=1 } END { exit !found }'
++}
++
++plan_row() { printf '%s\t%s\t%s\t%s\n' "$1" "$2" "$3" "$4" >> "$state/plan.tsv"; }
++
++save_plan_side() { # COMMIT PATH DEST (writes '-' when absent)
++  sps_sha=$(blob_sha "$1" "$2")
++  mkdir -p "$(dirname "$3")" || return 1
++  if [ -n "$sps_sha" ]; then git -C "$root" show "$1:$2" > "$3" 2>/dev/null; else printf '%s\n' - > "$3"; fi
++}
++
++save_adapt_sides() { # OUTPUT_PATH UPSTREAM_PATH BASE_REF
++  sas_p=$1; sas_u=$2; sas_b=$3
++  save_plan_side "$sas_b" "$sas_p" "$state/adapt/base/$sas_p"
++  save_plan_side "$UPSTREAM_HEAD" "$sas_u" "$state/adapt/theirs/$sas_p"
++  save_plan_side HEAD "$sas_p" "$state/adapt/mine/$sas_p"
++}
++
++write_plan_diffs() { # OUTPUT_PATH UPSTREAM_PATH BASE_REF
++  wpd_p=$1; wpd_u=$2; wpd_b=$3
++  mkdir -p "$state/diffs/$(dirname "$wpd_p")"
++  git -C "$root" diff "$wpd_b" "$UPSTREAM_HEAD" -- "$wpd_u" > "$state/diffs/$wpd_p.base-upstream.diff" 2>/dev/null || :
++  git -C "$root" diff "$wpd_b" HEAD -- "$wpd_p" > "$state/diffs/$wpd_p.base-local.diff" 2>/dev/null || :
++}
++
++write_reviewer_log() { # OUTPUT_PATH UPSTREAM_PATH
++  mkdir -p "$state/reviewer/$(dirname "$1")"
++  git -C "$root" log --format='%h %s' "$BASE_COMMIT..$UPSTREAM_HEAD" -- "$2" > "$state/reviewer/$1.log" 2>/dev/null || :
++}
++
++write_two_way_row() { # PATH [UPSTREAM_PATH]
++  wtw_p=$1; wtw_u=${2:-$1}
++  plan_row "$wtw_p" two-way hold 'no common base; review both sides'
++  save_plan_side "$UPSTREAM_HEAD" "$wtw_u" "$state/adapt/theirs/$wtw_p"
++  save_plan_side HEAD "$wtw_p" "$state/adapt/mine/$wtw_p"
++  mkdir -p "$state/adapt/base/$(dirname "$wtw_p")"
++  printf '%s\n' - > "$state/adapt/base/$wtw_p"
++}
++
++process_plan_path() { # UPSTREAM PATH
++  ppp_u=$1
++  [ "$ppp_u" = "$UL_SYNC_REF" ] && return 0
++  ppp_p=$(local_path_for "$ppp_u")
++  ppp_bref=$BASE_COMMIT
++  ppp_bpath=$ppp_p
++  ppp_base_note=
++
++  ppp_b=$(blob_sha "$ppp_bref" "$ppp_bpath"); ppp_h=$(blob_sha HEAD "$ppp_p"); ppp_u_sha=$(blob_sha "$UPSTREAM_HEAD" "$ppp_u")
++  ppp_bn=; ppp_hn=; ppp_un=
++  [ -n "$ppp_b" ] && ppp_bn=$(norm_hash "$ppp_bref" "$ppp_bpath")
++  [ -n "$ppp_h" ] && ppp_hn=$(norm_hash HEAD "$ppp_p")
++  [ -n "$ppp_u_sha" ] && ppp_un=$(norm_hash "$UPSTREAM_HEAD" "$ppp_u")
++  ppp_bm=$(tree_mode "$ppp_bref" "$ppp_bpath"); ppp_hm=$(tree_mode HEAD "$ppp_p"); ppp_um=$(tree_mode "$UPSTREAM_HEAD" "$ppp_u")
++
++  # The user must see upstream changes to paths the engine categorically will not touch.
++  if ul_path_forbidden "$ppp_p"; then
++    [ "$ppp_hn:$ppp_hm" = "$ppp_un:$ppp_um" ] && return 0
++    plan_row "$ppp_p" excluded skip forbidden
++    return 0
++  fi
++  case $ppp_p in "$UL_NOTES_DIR"/*|"$UL_SCRIPTS_DIR"/*)
++    [ "$ppp_hn:$ppp_hm" = "$ppp_un:$ppp_um" ] && return 0
++    if [ -z "$ppp_u_sha" ]; then plan_row "$ppp_p" delete apply upstream-owned
++    elif [ -z "$ppp_h" ]; then plan_row "$ppp_p" add apply upstream-owned
++    else plan_row "$ppp_p" take apply upstream-owned; fi
++    write_reviewer_log "$ppp_p" "$ppp_u"
++    return 0;;
++  esac
++  if git -C "$root" check-ignore -q -- "$ppp_p" 2>/dev/null; then return 0; fi
++  if [ "$CHANNEL" = adopted ]; then
++    ppp_g=$(path_harness_group "$ppp_u")
++    if [ -z "$ppp_g" ]; then
++      [ "$ppp_hn:$ppp_hm" = "$ppp_un:$ppp_um" ] || plan_row "$ppp_p" adopter-owned skip 'not harness-owned'
++      return 0
++    fi
++    if ! group_installed "$ppp_g"; then
++      [ "$ppp_hn:$ppp_hm" = "$ppp_un:$ppp_um" ] || plan_row "$ppp_p" adopter-owned skip "group $ppp_g not installed"
++      return 0
++    fi
++    if path_adopt_excluded "$ppp_u"; then
++      [ "$ppp_hn:$ppp_hm" = "$ppp_un:$ppp_um" ] || plan_row "$ppp_p" excluded skip adopt-excluded
++      return 0
++    fi
++    if [ "$ppp_p" = .claude/settings.json ] || path_is_merge "$ppp_u"; then
++      [ "$ppp_hn:$ppp_hm" = "$ppp_un:$ppp_um" ] && return 0
++      if [ "$ppp_p" = .claude/settings.json ] && [ -f "$root/.claude/.logicloom-adopt-settings.json" ]; then
++        ppp_bref=HEAD; ppp_bpath=.claude/.logicloom-adopt-settings.json; ppp_base_note=' base_side=adopt-settings'
++      else ppp_bref=HEAD; ppp_bpath=__absent__; fi
++      plan_row "$ppp_p" posture hold "adopted merge path$ppp_base_note"
++      save_adapt_sides "$ppp_p" "$ppp_u" "$ppp_bref"
++      if [ "$ppp_bpath" != "$ppp_p" ]; then save_plan_side "$ppp_bref" "$ppp_bpath" "$state/adapt/base/$ppp_p"; fi
++      write_plan_diffs "$ppp_p" "$ppp_u" "$BASE_COMMIT"; write_reviewer_log "$ppp_p" "$ppp_u"; return 0
++    fi
++  fi
++
++  ppp_class=; ppp_prop=; ppp_detail=
++  if [ -z "$ppp_b" ]; then
++    if [ -n "$ppp_u_sha" ] && [ -z "$ppp_h" ]; then ppp_class=add; ppp_prop=apply; ppp_detail='new upstream file'
++    elif [ -n "$ppp_u_sha" ] && [ -n "$ppp_h" ] && [ "$ppp_hn:$ppp_hm" != "$ppp_un:$ppp_um" ]; then ppp_class=add-conflict; ppp_prop=hold; ppp_detail='new upstream file differs locally'
++    else return 0; fi
++  elif [ "$ppp_bn" = "$ppp_hn" ] && [ "$ppp_bn" = "$ppp_un" ]; then
++    [ "$ppp_hm" = "$ppp_um" ] && return 0
++    if [ "$ppp_hm" = "$ppp_bm" ]; then ppp_class=mode; ppp_prop=apply; ppp_detail='upstream mode changed'
++    else ppp_class=mode; ppp_prop=hold; ppp_detail='local mode changed'; fi
++  elif [ "$ppp_hn:$ppp_hm" = "$ppp_bn:$ppp_bm" ]; then
++    if [ -z "$ppp_u_sha" ]; then ppp_class=delete; else ppp_class=take; fi
++    ppp_prop=apply; ppp_detail='changed upstream, unchanged locally'
++  elif [ "$ppp_un:$ppp_um" = "$ppp_bn:$ppp_bm" ]; then
++    ppp_class=keep; ppp_prop=keep; ppp_detail='changed locally only'
++  elif [ -z "$ppp_u_sha" ]; then ppp_class=deleted-upstream-kept; ppp_prop=hold; ppp_detail='deleted upstream, changed locally'
++  elif [ -z "$ppp_h" ]; then ppp_class=conflict; ppp_prop=hold; ppp_detail='deleted locally, changed upstream'
++  elif ul_path_posture "$ppp_p" || [ "$ppp_p" = .claude/settings.json ]; then ppp_class=posture; ppp_prop=hold; ppp_detail='posture file changed on both sides'
++  else
++    ppp_tb=$(ul_mktemp); ppp_th=$(ul_mktemp); ppp_tu=$(ul_mktemp); ppp_to=$(ul_mktemp)
++    git -C "$root" show "$ppp_bref:$ppp_bpath" > "$ppp_tb" 2>/dev/null
++    git -C "$root" show "HEAD:$ppp_p" > "$ppp_th" 2>/dev/null
++    git -C "$root" show "$UPSTREAM_HEAD:$ppp_u" > "$ppp_tu" 2>/dev/null
++    if git merge-file -p "$ppp_th" "$ppp_tb" "$ppp_tu" > "$ppp_to" 2>/dev/null; then
++      ppp_class=merged-clean; ppp_prop=apply; ppp_detail='three-way merge was clean'
++      mkdir -p "$state/merged/$(dirname "$ppp_p")"; cp "$ppp_to" "$state/merged/$ppp_p"
++    else ppp_class=conflict; ppp_prop=hold; ppp_detail='three-way merge left conflicts'; fi
++  fi
++  plan_row "$ppp_p" "$ppp_class" "$ppp_prop" "$ppp_detail"
++  write_reviewer_log "$ppp_p" "$ppp_u"
++  case $ppp_prop:$ppp_class in hold:*|*:merged-clean)
++    write_plan_diffs "$ppp_p" "$ppp_u" "$BASE_COMMIT"
++    save_adapt_sides "$ppp_p" "$ppp_u" "$BASE_COMMIT";;
++  esac
++}
++
++cmd_plan() {
++  po=$(clean_offenders)
++  [ -z "$po" ] || plan_abort "working tree is not clean: $(printf '%s' "$po" | tr '\n' ' ')"
++  in_progress && plan_abort 'a git operation is in progress'
++  is_shallow && plan_abort 'run git fetch --unshallow first'
++  resolve_channel
++  [ "$CHANNEL" != ambiguous ] || plan_abort 'channel is ambiguous; rerun with --channel template or --channel adopted'
++  if [ -f "$state/stage.lock" ]; then
++    pp_pid=$(sed -n '1p' "$state/stage.lock" 2>/dev/null | tr -d ' \t\r\n')
++    lock_pid_live "$pp_pid" && plan_abort "stage.lock is held by live pid $pp_pid"
++  fi
++  [ ! -f "$state/staged" ] || plan_abort 'a staged update exists; run --finish or --abandon'
++  fetch_upstream || { echo "error $FETCH_ERROR"; exit 1; }
++  UPSTREAM_HEAD=$(upstream_head); channel_map_load
++  pp_rec=$(recorded_stamp); pp_full=$(reach_full "$pp_rec") || pp_full=
++  BASE_RUNG=; BASE_COMMIT=
++  if [ -n "$pp_full" ] && [ "$(ledger_row_count)" = 0 ]; then
++    pp_tag=$(git -C "$root" for-each-ref --sort=-refname --sort=-creatordate --format='%(refname)' 'refs/tags/loom/pre-update-*' 2>/dev/null | sed -n '1p')
++    if [ -n "$pp_tag" ] && git -C "$root" merge-base --is-ancestor "$pp_tag" HEAD 2>/dev/null; then
++      pp_old=$(git -C "$root" show "$pp_tag:$UL_SYNC_REF" 2>/dev/null | tr -d ' \t\r\n')
++      if pp_old_full=$(reach_full "$pp_old") && [ "$pp_old_full" != "$pp_full" ]; then
++        BASE_RUNG=handover; BASE_COMMIT=$pp_old_full
++      fi
++    fi
++  fi
++  if [ -z "$BASE_COMMIT" ] && [ -n "$pp_full" ]; then BASE_RUNG=recorded; BASE_COMMIT=$pp_full
++  else
++    pp_map=$(remap_known_bad "$pp_rec"); [ -n "$pp_map" ] && BASE_COMMIT=$(reach_full "$pp_map") && BASE_RUNG=remap
++  fi
++  if [ -z "$BASE_COMMIT" ] && closest_search; then
++    printf 'closest %s %s\n' "$CL_SHA" "$CL_N"
++    plan_abort 'base unconfirmed; run --set-base <sha>'
++  fi
++  [ -n "$BASE_COMMIT" ] || plan_abort 'base unavailable; see KNOWN_ISSUES.md or run npx logicloom@7 update-bootstrap'
++  if [ -d "$state/export" ]; then chmod -R u+w "$state/export" 2>/dev/null || :; fi
++  rm -rf "$state"
++  mkdir -p "$state/diffs" "$state/merged" "$state/adapt/base" "$state/adapt/theirs" \
++    "$state/adapt/mine" "$state/reviewer" "$state/export" "$state/tools"
++  : > "$state/plan.tsv"
++  pp_tools=absent
++  for pp_tool in json-valid.sh json-flat.sh; do
++    if git -C "$root" show "$UPSTREAM_HEAD:$UL_SCRIPTS_DIR/$pp_tool" > "$state/tools/$pp_tool" 2>/dev/null; then pp_tools=saved; else rm -f "$state/tools/$pp_tool"; fi
++  done
++  git -C "$root" archive HEAD | tar -x -C "$state/export" || { echo 'error could not export HEAD'; exit 1; }
++  chmod -R a-w "$state/export"
++  pp_paths=$(ul_mktemp)
++  { git -C "$root" ls-tree -r --name-only "$BASE_COMMIT"; git -C "$root" ls-tree -r --name-only HEAD; git -C "$root" ls-tree -r --name-only "$UPSTREAM_HEAD"; } | sort -u > "$pp_paths"
++  while IFS= read -r pp_path; do [ -n "$pp_path" ] && process_plan_path "$pp_path"; done < "$pp_paths"
++  pp_head=$(git -C "$root" rev-parse HEAD)
++  pp_now=$(date -u +%Y%m%dT%H%M%SZ); pp_id=$pp_now-$(printf '%.12s' "$UPSTREAM_HEAD")
++  { printf 'base=%s\nbase_rung=%s\nupstream=%s\nhead=%s\nchannel=%s\nupdate_id=%s\ntime=%s\n' "$BASE_COMMIT" "$BASE_RUNG" "$UPSTREAM_HEAD" "$pp_head" "$CHANNEL" "$pp_id" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"; } > "$state/meta"
++  printf 'tools=%s\n' "$pp_tools"
++  awk -F '\t' '{ c[$2]++ } END { for (k in c) print "class." k "=" c[k] }' "$state/plan.tsv" | sort
++  pp_rows=$(awk 'END { print NR+0 }' "$state/plan.tsv")
++  printf 'rows=%s\nplan=%s/plan.tsv\n' "$pp_rows" "$state"
++  pp_action=$(awk -F '\t' '$2!="keep" && $2!="excluded" && $2!="adopter-owned" { n++ } END { print n+0 }' "$state/plan.tsv")
++  [ "$pp_action" -ne 0 ] || echo 'uptodate=yes'
++}
++
+ # ------------------------------------------------------------- test-only
+ cmd_selftest_channel() {
+   resolve_channel
+@@ -1105,13 +1312,21 @@ cmd_selftest_lock() { # [SECONDS]
+   return 0
+ }
+ 
++cmd_selftest_two_way() {
++  [ "$#" -eq 1 ] || { echo 'error --selftest-two-way takes PATH'; exit 2; }
++  fetch_upstream || exit 1; UPSTREAM_HEAD=$(upstream_head); BASE_COMMIT=$(recorded_stamp)
++  rm -rf "$state/adapt" "$state/plan.tsv"; mkdir -p "$state/adapt/base" "$state/adapt/theirs" "$state/adapt/mine"; : > "$state/plan.tsv"
++  write_two_way_row "$1"
++}
++
+ # ----------------------------------------------------------------- dispatch
+ case $cmd in
+   --status) cmd_status;;
+   --detect-base) cmd_detect_base;;
+   --set-base) cmd_set_base "$@";;
+   --bootstrap-copy) cmd_bootstrap_copy;;
+-  --plan|--adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo)
++  --plan) cmd_plan;;
++  --adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo)
+     echo "error not implemented"
+     exit 1;;
+   --selftest-write-path)
+@@ -1122,5 +1337,6 @@ case $cmd in
+   --selftest-channel) cmd_selftest_channel;;
+   --selftest-map) cmd_selftest_map "$@";;
+   --selftest-remap) printf '%s\n' "$(remap_known_bad "${1:-}")";;
++  --selftest-two-way) cmd_selftest_two_way "$@";;
+ esac
+ exit 0
+diff --git a/tests/update-loom/lib.sh b/tests/update-loom/lib.sh
+index 150c888..edc4f27 100644
+--- a/tests/update-loom/lib.sh
++++ b/tests/update-loom/lib.sh
+@@ -183,3 +183,12 @@ ul_t_run_engine() { # ARGS...
+   OUT=$(cd "$W_CUST" && "$SH" "$ENGINE" "$@" </dev/null 2>&1)
+   RC=$?
+ }
++
++ul_t_state() { git -C "$W_CUST" rev-parse --absolute-git-dir | awk '{ print $0 "/loom/update" }'; }
++ul_t_plan_class() { awk -F '\t' -v p="$1" '$1 == p { print $2; exit }' "$(ul_t_state)/plan.tsv"; }
++ul_t_plan_field() { awk -F '\t' -v p="$1" -v n="$2" '$1 == p { print $n; exit }' "$(ul_t_state)/plan.tsv"; }
++ul_t_edit() { # REPO PATH CONTENT MSG
++  mkdir -p "$1/$(dirname "$2")" || return 1
++  printf '%s\n' "$3" > "$1/$2" || return 1
++  ul_t_commit "$1" "${4:-edit $2}" >/dev/null
++}

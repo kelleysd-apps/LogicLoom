@@ -39,3 +39,35 @@ reported the conflict with the same options. Neither cheated. Codex: 364 s,
 - Mechanisms proven separately: `../mods-proof/` (a mod can drive a subagent
   from Codex with project hooks seeing the writes); Codex's own hooks can deny
   commands and edits but need per-user trust (silent when missing).
+
+## Test 3 — Codex as a supervised worker in Orca (2026-10-05)
+
+Claude Code session as Orca coordinator (`orchestration run-create`,
+`worker-start --agent codex --worktree new-child --base-branch 991f306`); Codex
+built the same package in its own worktree and reported `worker_done` through
+the Orca mailbox. First start blocked on Codex's directory-trust prompt;
+answered with maintainer approval, then retried the same task on the same terminal.
+
+| | Sonnet | Codex, test 1 (high effort, cut off at 34 min) | Codex in Orca (default effort, 9 min 17 s) |
+|---|---|---|---|
+| Own tests | 1387 pass | 1232 pass | 1176 pass |
+| Failures on Sonnet's tests | — | 30 | 50 |
+| Sonnet engine on its tests | — | 5 (wording) | 5 (one helper interface) |
+| Engine lines added | 534 | 393 | 227 |
+| Test file lines | 574 | 234 | 57 |
+
+- Backup-deletion defect present again (`rm -rf "$state"`); the tracked-ignored
+  defect from test 1 is gone.
+- Of the 50 failures roughly 20 look like real spec gaps (adopted-install rows,
+  settings posture, both-deleted, same-edit, mode keep, adapt.tsv shas); the
+  rest are wording/style. Not formally reviewed.
+- Leak audit of the full Codex session log: no read of the main checkout's
+  answer files. Scope held to the three owned files; no commit.
+- Confounds: Orca launched Codex at DEFAULT effort (test 1 used high), and in
+  "YOLO mode" (no approvals, no sandbox) per the user's Orca default.
+- Not tested: the coordinator sending review findings back for the worker to
+  fix (the feedback loop); a high-effort rerun.
+
+Reading: the coordinator/worker plumbing works in Orca. A Codex worker alone,
+on a spec-heavy package, produced a build that passes its own thin tests and
+misses much of the spec.
