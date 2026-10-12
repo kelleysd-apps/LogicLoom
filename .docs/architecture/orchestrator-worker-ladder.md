@@ -16,6 +16,9 @@ runtime system, and it does not change LogicLoom's governance floor.
 | **Orchestrator** | `frontier` | `claude-fable-5` → `claude-opus-4-8` | The main Claude Code session. Plans, reasons, decomposes, delegates, synthesizes. Emits few tokens; does **not** do bulk execution. |
 | **deep-reasoner** | `opus` (effort `high`) | `claude-opus-4-8` | Architecture decisions, hard debugging, design tradeoffs. `.claude/agents/deep-reasoner.md`. |
 | **fast-worker** | `sonnet` (effort `medium`) | `claude-sonnet-5` | Boilerplate, tests, routine mechanical edits. `.claude/agents/fast-worker.md`. |
+| **advisor** | `inherit` (effort `medium`) | session model | Adversarial second opinion on a design, plan, or diff; read-only. `.claude/agents/advisor.md`. |
+| **checker** | `haiku` (no effort) | `claude-haiku-4-5-20251001` | Check-and-report: lookups, tests, summaries. Never hooks, auth, payment, customer data, or a governance floor. `.claude/agents/checker.md`. |
+| **reviewer** | `opus` (effort `high`) | `claude-opus-4-8` | Phase review over a combined diff; read-only. `.claude/agents/reviewer.md`. |
 
 **Economics**: the orchestrator is the priciest tier per token (Fable 5 is
 $10/$50 per MTok), but a planner/delegator emits few tokens — the bulk-token
@@ -74,6 +77,13 @@ const design = await agent(designPrompt, { agentType: 'deep-reasoner', phase: 'D
 await parallel(design.tasks.map(t => () =>
   agent(t.prompt, { agentType: 'fast-worker', phase: 'Implement', effort: 'medium' })))
 ```
+
+## Execution mode
+
+Which native mechanism runs the work (background task, workers, `/workflow`,
+`/swarm`) is chosen by the width and shape of the work, lightest first, and
+stated in one line with the rung. The full clause is in
+`.docs/policies/escalation-policy.md` section 4. Followed, not enforced.
 
 ## Effort follows cost, fan-out follows width
 
@@ -137,7 +147,9 @@ Claude-Code hook floor (see `.docs/architecture/governance-threat-model.md`).
 ## Setup
 
 1. Set the session model: `/model claude-fable-5` (or `claude-opus-4-8`).
-2. The `deep-reasoner` / `fast-worker` project agents travel with the repo — no
+2. The `deep-reasoner` / `fast-worker` project agents (and the `advisor`,
+   `checker`, and `reviewer` agents, which are also project agents and need a
+   session restart to be picked up) travel with the repo — no
    `/agents` setup per clone. **File-based agents load at session start; editing
    them requires a session restart to take effect.**
 3. Keep them as **project** agents (`.claude/agents/`), never plugin agents —

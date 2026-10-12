@@ -118,6 +118,15 @@ defense-in-depth; the known residual bypasses are documented in
 - **X Delegation & Context Isolation** — delegate specialized or parallel work to subagents/swarm for *isolation and parallelism*, not because the base model lacks capability.
 - Cross-Check Disposition — when output correctness materially matters AND the ask invites scrutiny (double-check, cross-check, red-team, peer-review, second opinion, sanity-check, 'are you sure', 'poke holes', 'prove me wrong'), default to a decorrelated second look from a DIFFERENT-PROVIDER model rather than reviewing your own output in-lineage — a same-lineage self-review shares your blind spots. HOST-GATED: On the Claude Code host, this is surfaced as /cross-check (or the cross-provider slot in /review-team / --adversary on /plan-review), which hands a bounded artifact to a non-Claude model; advisory, read-only, key-gated and fail-open. On any host where you are the ONLY model reachable, a self-review is NOT decorrelation — say so plainly, do not label it a cross-check, and proceed. It never blocks and never touches git. Skip it for trivial asks. (Neutral source: AGENTS.md Tier 1; the Claude Code preflight hook also nudges toward `/cross-check` on verification-shaped asks.)
 
+Escalation Disposition — size the checking to the work, not to the subject.
+Score the work on two questions, what a wrong answer costs and how widely it reaches, and run the rung that sum sets.
+Light needs no advisor; Standard adds one advisor; Heavy adds one external CLI; Max adds both and runs them concurrently.
+Effort follows cost, fan-out follows width, never the other way.
+Reviewers run once per phase on the combined diff; a package touching hooks, auth, payment, customer data or the governance floor gets its own review.
+Worker tiers: checker (check-and-report, never floor-adjacent work), builder (the default worker), deep-reasoner (architecture, hard debugging).
+Pick the lightest execution mode that fits: background task, workers, workflow, or swarm; state it in one line.
+Followed, not enforced; no hook checks the rung or the mode. Full text: .docs/policies/escalation-policy.md.
+
 ### Governance modes (capability-gated assist)
 
 Set via `LOOM_GOVERNANCE_MODE` or `.logic-loom/config/governance.conf`:
@@ -607,6 +616,9 @@ reference: `.docs/architecture/orchestrator-worker-ladder.md`.
 | **Orchestrator** | `frontier` | Fable 5 → Opus 4.8 fallback | Main session. Plans, reasons, delegates, synthesizes. Set via `/model claude-fable-5`. |
 | **deep-reasoner** | `opus` (effort `high`) | Opus 4.8 | Architecture, hard debugging. `.claude/agents/deep-reasoner.md`. |
 | **fast-worker** | `sonnet` (effort `medium`) | Sonnet 5 | Boilerplate, tests, routine edits. `.claude/agents/fast-worker.md`. |
+| **advisor** | `inherit` (effort `medium`) | session model | Adversarial second opinion; read-only. `.claude/agents/advisor.md`. |
+| **checker** | `haiku` | Haiku 4.5 | Check-and-report; never floor-adjacent work. `.claude/agents/checker.md`. |
+| **reviewer** | `opus` (effort `high`) | Opus 4.8 | Phase review of a combined diff. `.claude/agents/reviewer.md`. |
 
 - **Orchestrator = model-agnostic-but-frontier**: a *role* targeting the frontier
   tier, defaulting to Fable 5 with a one-line downgrade to Opus 4.8 when Fable is
@@ -615,12 +627,14 @@ reference: `.docs/architecture/orchestrator-worker-ladder.md`.
 - **Delegation policy**: reasoning/architecture → `deep-reasoner`; mechanical/
   boilerplate → `fast-worker`; correctness-critical + scrutiny-inviting → also run
   `/cross-check`. The orchestrator keeps the decision.
+- **Escalation rungs and execution mode**: `.docs/policies/escalation-policy.md`.
 - **In workflows**: dispatch via `agent(prompt, { agentType: 'deep-reasoner' })`
   inside `/workflow`; `agent()`'s per-call `effort` gives the dynamic
   per-dispatch effort that raw Task subagents lack (Claude Code honours only
   *static* frontmatter `effort:`).
 - **Boundary unchanged**: non-Claude models stay advisory-only (`/research`,
-  `/cross-check`) — the ladder adds no non-Claude workers. Keep the two agents as
+  `/cross-check`) — the ladder adds no non-Claude workers. Keep the five agents
+  (deep-reasoner, fast-worker, advisor, checker, reviewer) as
   **project** files (`.claude/agents/`), never plugin agents (which lose
   `hooks`/`mcpServers`/`permissionMode`). File-based agents load at session
   start — **restart to pick up edits**.

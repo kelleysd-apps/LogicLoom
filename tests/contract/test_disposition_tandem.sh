@@ -66,6 +66,21 @@ assert "CLAUDE.md records the portability supersession" "grep -q 'superseded sta
 assert "AGENTS.md points to the threat-model matrix" "grep -q 'governance-threat-model.md' $AGENTS"
 assert "threat-model has the enforced-vs-followed matrix" "grep -q 'enforced-vs-followed' .docs/architecture/governance-threat-model.md"
 
+echo ""
+echo "Escalation Disposition tandem"
+POLICY=".docs/policies/escalation-policy.md"
+E1="Score the work on two questions, what a wrong answer costs and how widely it reaches, and run the rung that sum sets."
+E2="Effort follows cost, fan-out follows width, never the other way."
+E3="Pick the lightest execution mode that fits: background task, workers, workflow, or swarm; state it in one line."
+for n in 1 2 3; do
+  eval "sent=\$E$n"
+  assert "escalation sentence $n is at most 120 chars" "[ \${#sent} -le 120 ]"
+  assert "escalation sentence $n in AGENTS.md" "grep -qF \"\$sent\" $AGENTS"
+  assert "escalation sentence $n in CLAUDE.md" "grep -qF \"\$sent\" $CLAUDE"
+  assert "escalation sentence $n in the policy doc" "grep -qF \"\$sent\" $POLICY"
+done
+assert "CLAUDE.md points to the escalation policy" "grep -qF '.docs/policies/escalation-policy.md' $CLAUDE"
+
 # NOTE: provenance/ID-marker scanning of shipped files is leak-guard.sh's job
 # (the promote-time sanitization audit), NOT this contract test's — hardcoding
 # the marker patterns here would itself trip leak-guard on the shipped tree.
