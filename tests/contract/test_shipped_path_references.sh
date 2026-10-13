@@ -148,6 +148,14 @@ const MANIFEST_LIB = process.env.MANIFEST_LIB;
 const SHIPPED_LIST_FILE = process.env.SHIPPED_LIST_FILE || '';
 const PLANNER_BIN = process.env.PLANNER_BIN || '';
 const ALLOWLIST_FILE = process.env.ALLOWLIST_FILE || '';
+// EXCLUDE_ROW_FILES: newline-separated repo-relative files whose
+// `adopt-exclude = <path>` DATA rows are exempt. Those rows are functional
+// (they NAME paths to exclude from an adopt; they do not point a reader at a
+// document), so naming a stripped doc there is correct. The exemption is
+// per-LINE: the whole line must be exactly `adopt-exclude = <token>`. A
+// prose/comment/other-kind citation of the same path, even in the same file,
+// still fails.
+const EXCLUDE_ROW_FILES = (process.env.EXCLUDE_ROW_FILES || '').split('\n').map((s) => s.trim()).filter(Boolean);
 
 if (!REPO_ROOT || !MANIFEST_FILE || !MANIFEST_LIB) {
   console.error('checker.js: missing required env vars (REPO_ROOT, MANIFEST_FILE, MANIFEST_LIB)');
@@ -261,6 +269,8 @@ for (const relFile of shippedFiles) {
       const token = m[0].replace(/^\.\//, '');
       const key = relFile + '::' + token;
       if (allow.indexOf(key) !== -1) continue;
+      if (EXCLUDE_ROW_FILES.indexOf(relFile) !== -1 &&
+          line.trim() === 'adopt-exclude = ' + token) continue;
       const hit = manifestLib.isExcluded(literalParsed, token, false);
       if (hit) {
         findings.push(relFile + ':' + (i + 1) + ': ' + token + '  [excluded by manifest line ' + hit.lineNo + ': "' + hit.path + '"]');
@@ -318,6 +328,14 @@ while [ "$i" -lt "${#ALLOWLIST_KEYS[@]}" ]; do
   printf '%s\n' "${ALLOWLIST_KEYS[$i]}" >> "$ALLOWLIST_FILE"
   i=$((i + 1))
 done
+
+# Files carrying functional `adopt-exclude = <path>` rows (see checker comment).
+# update-loom.sh embeds the default channel config; update-channels.conf is the
+# config itself. tests/update-loom/cases-status-base.sh asserts those rows equal
+# the manifest, so they cannot be reworded away.
+EXCLUDE_ROW_FILES="plugins/loom-maintenance/scripts/update-loom.sh
+.logic-loom/config/update-channels.conf"
+export EXCLUDE_ROW_FILES
 
 run_checker() {
   # env: REPO_ROOT MANIFEST_FILE MANIFEST_LIB [SHIPPED_LIST_FILE] [PLANNER_BIN] [ALLOWLIST_FILE]
@@ -394,6 +412,51 @@ B_EXIT=$?
 
 assert "fixture B: gate exits zero — write targets are not citations" "[ $B_EXIT -eq 0 ]"
 assert "fixture B: gate reports nothing" "[ ! -s '$B_OUT' ]"
+
+echo ""
+
+# ═══════════════════════════════════════════════════════════════════════════
+# D. THE adopt-exclude EXEMPTION IS NARROW — it must not blind the gate
+# ═══════════════════════════════════════════════════════════════════════════
+echo "D. adopt-exclude rows are exempt; other citations in the same file are not"
+
+FIXTURE_D="$WORKDIR/fixture-d"
+mkdir -p "$FIXTURE_D/shipped"
+cat > "$FIXTURE_D/manifest.txt" <<'EOF'
+include: shipped
+exclude: docs/guides/stripped.md
+EOF
+printf '%s\n' "shipped/channels.conf" > "$FIXTURE_D/shipped-list.txt"
+run_d() {
+  REPO_ROOT="$FIXTURE_D" MANIFEST_FILE="$FIXTURE_D/manifest.txt" MANIFEST_LIB="$MANIFEST_LIB" \
+  SHIPPED_LIST_FILE="$FIXTURE_D/shipped-list.txt" EXCLUDE_ROW_FILES="$1" run_checker
+}
+
+printf '%s\n' "adopt-exclude = docs/guides/stripped.md" > "$FIXTURE_D/shipped/channels.conf"
+D1_OUT="$WORKDIR/d1.out"
+run_d "shipped/channels.conf" > "$D1_OUT" 2>&1
+D1_EXIT=$?
+assert "fixture D1: a pure adopt-exclude row in an exempt file is not a finding" "[ $D1_EXIT -eq 0 ] && [ ! -s '$D1_OUT' ]"
+
+cat > "$FIXTURE_D/shipped/channels.conf" <<'EOF'
+adopt-exclude = docs/guides/stripped.md
+# see docs/guides/stripped.md for the rationale
+adopt-exclude = docs/guides/stripped.md  # trailing prose citation
+harness = docs/guides/stripped.md
+EOF
+D2_OUT="$WORKDIR/d2.out"
+run_d "shipped/channels.conf" > "$D2_OUT" 2>&1
+D2_EXIT=$?
+assert "fixture D2: non-exclude citations in the same exempt file still fail" "[ $D2_EXIT -eq 1 ]"
+assert "fixture D2: comment citation (line 2) reported" "grep -qF 'shipped/channels.conf:2: docs/guides/stripped.md' '$D2_OUT'"
+assert "fixture D2: row with trailing prose (line 3) reported" "grep -qF 'shipped/channels.conf:3:' '$D2_OUT'"
+assert "fixture D2: other-kind row (line 4) reported" "grep -qF 'shipped/channels.conf:4:' '$D2_OUT'"
+assert "fixture D2: the pure adopt-exclude row (line 1) is not reported" "! grep -qF 'shipped/channels.conf:1:' '$D2_OUT'"
+
+D3_OUT="$WORKDIR/d3.out"
+run_d "" > "$D3_OUT" 2>&1
+D3_EXIT=$?
+assert "fixture D3: a file NOT on the exempt list gets no exemption" "[ $D3_EXIT -eq 1 ] && grep -qF 'shipped/channels.conf:1:' '$D3_OUT'"
 
 echo ""
 

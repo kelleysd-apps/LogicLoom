@@ -183,3 +183,24 @@ ul_t_run_engine() { # ARGS...
   OUT=$(cd "$W_CUST" && "$SH" "$ENGINE" "$@" </dev/null 2>&1)
   RC=$?
 }
+
+# ---------------------------------------------------------- plan-state helpers
+# For the cases that read what --plan wrote. They know the state layout only
+# (the header of update-loom-common.sh), never the engine's internals.
+ul_t_state() { # -> the state dir of the customer repo (W_CUST)
+  printf '%s/loom/update' "$(git -C "$W_CUST" rev-parse --absolute-git-dir)"
+}
+
+ul_t_plan_row() { # PATH -> `class TAB proposed TAB detail` of PATH's plan.tsv row, nothing when there is none
+  awk -F'\t' -v p="$1" '$1 == p { printf "%s\t%s\t%s\n", $2, $3, $4; exit }' "$(ul_t_state)/plan.tsv" 2>/dev/null
+}
+
+ul_t_plan_class() { # PATH -> the class column, nothing when there is no row
+  awk -F'\t' -v p="$1" '$1 == p { print $2; exit }' "$(ul_t_state)/plan.tsv" 2>/dev/null
+}
+
+ul_t_edit() { # REPO PATH CONTENT [MSG] : write CONTENT (+ newline), commit everything, print the sha
+  mkdir -p "$(dirname -- "$1/$2")" || return 1
+  printf '%s\n' "$3" > "$1/$2" || return 1
+  ul_t_commit "$1" "${4:-edit $2}"
+}

@@ -16,9 +16,8 @@
 # plus the internal helpers the later subcommands call: write_path, lock_acquire /
 # lock_release / heal_stale, channel detection, the channel map reader, the trust
 # root (upstream_url) and fetch_upstream.
-# Not built yet (they print `error not implemented`): --plan --adapt-save
-# --mark-unresolved --stage --abandon --finish --undo.
-#
+# Not built yet (they print `error not implemented`): --adapt-save --mark-unresolved
+# --stage --abandon --finish --undo. --plan is built (cmd_plan: classify, no notes yet).
 # TEST-ONLY subcommands (no skill or command uses them; the cases do, so every
 # helper has an assertion that fails without it):
 #   --selftest-write-path WT PATH SRC MODE   write_path
@@ -27,6 +26,7 @@
 #   --selftest-map dump [--builtin]          the parsed channel map
 #   --selftest-map path PATH                 group / excluded / merge / rename of PATH
 #   --selftest-remap SHA                     the known-bad stamp table
+#   --selftest-two-way PATH                  write_two_way_row against the last plan
 #
 # Global options (accepted before or after the subcommand):
 #   --upstream-url <url>           refused unless --i-am-pointing-at-a-fork is also given
@@ -72,7 +72,7 @@ Usage: update-loom.sh [--upstream-url URL --i-am-pointing-at-a-fork] [--channel 
   --detect-base         which upstream commit this copy was last updated from
   --set-base <sha>      record that commit in .sdd-sync-ref
   --bootstrap-copy      copy upstream's engine into <gitdir>/loom/bootstrap/
-  --plan                (not built yet) classify every path and the offered notes
+  --plan                classify every path (the notes layer comes next)
   --adapt-save          (not built yet) validate and save an adapted file
   --mark-unresolved     (not built yet)
   --stage               (not built yet) build the update commit in a detached worktree
@@ -109,7 +109,7 @@ cmd=${1:-}
 case $cmd in
   --help|-h) usage; exit 0;;
   --status|--detect-base|--set-base|--bootstrap-copy|--plan|--adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo) ;;
-  --selftest-write-path|--selftest-lock|--selftest-channel|--selftest-map|--selftest-remap) ;;
+  --selftest-write-path|--selftest-lock|--selftest-channel|--selftest-map|--selftest-remap|--selftest-two-way) ;;
   *) usage >&2; exit 2;;
 esac
 
@@ -895,6 +895,535 @@ closest_search() {
   return 0
 }
 
+# ===================================================================== plan
+# Globals of one planning run (the sh family has no `local`; every name here is
+# prefixed PL_ or pp_ so no helper above can collide with it).
+PL_BASE=
+PL_RUNG=
+PL_UP=
+PL_HEAD=
+PL_INST=
+PL_SIDEBASE=-
+PL_ADOPT_BASE_USED=0
+PL_SIDE_FAIL=0
+RN_SRCS=
+RN_DSTS=
+MERGE_PATHS=
+
+abort_plan() { # REASON : the one refusal shape; nothing has been touched yet
+  printf 'result=aborted reason=%s unchanged=yes\n' "$1"
+  exit 1
+}
+
+offender_paths() { # `git status --porcelain` lines -> up to five paths, comma-joined
+  printf '%s\n' "$1" | awk '
+    NF == 0 { next }
+    { n++; if (n <= 5) { p = substr($0, 4); out = out (out == "" ? "" : ", ") p } }
+    END { printf "%s", out; if (n > 5) printf " (and %d more)", n - 5 }'
+}
+
+# The payload groups an adopted copy has installed: the receipt's union, `all`, or --
+# for an ambiguous copy settled with --channel adopted -- only the core group.
+plan_groups_load() {
+  case $CH_GROUPS in
+    all) PL_INST=all;;
+    none) PL_INST=harness;;
+    *) PL_INST=$CH_GROUPS;;
+  esac
+}
+
+group_installed() { # GROUP
+  [ "$PL_INST" = all ] && return 0
+  case ",$PL_INST," in *",$1,"*) return 0;; esac
+  return 1
+}
+
+plan_maps_load() { # the rename and merge lists, as newline-separated strings
+  RN_SRCS=
+  RN_DSTS=
+  MERGE_PATHS=
+  [ "$CHANNEL" = adopted ] || return 0
+  RN_SRCS=$(renames | awk -F'\t' '{ print $1 }')
+  RN_DSTS=$(renames | awk -F'\t' '{ print $2 }')
+  MERGE_PATHS=$(merge_paths)
+}
+
+# The path this copy keeps UPSTREAM_PATH at. Only the adopted channel renames
+# (AGENTS.md lives at .logic-loom/AGENTS.md); the upstream side always keeps the
+# upstream name, and every other side of the three is read at this one.
+local_path_for() { # UPSTREAM_PATH
+  lpf_r=
+  if [ "$CHANNEL" = adopted ]; then
+    case "$ul__nl$RN_SRCS$ul__nl" in
+      *"$ul__nl$1$ul__nl"*) lpf_r=$(path_rename "$1");;
+    esac
+  fi
+  if [ -n "$lpf_r" ]; then printf '%s' "$lpf_r"; else printf '%s' "$1"; fi
+}
+
+entry_at() { # COMMIT PATH -> `mode sha`, or `- -` when the path is not a file there
+  ea_l=$(git --literal-pathspecs -C "$root" ls-tree "$1" -- "$2" 2>/dev/null | sed -n '1p')
+  if [ -n "$ea_l" ]; then
+    ea_meta=${ea_l%%"$ul__tab"*}
+    set -- $ea_meta
+    if [ "$#" -ge 3 ]; then
+      case $2 in blob|commit) printf '%s %s' "$1" "$3"; return 0;; esac
+    fi
+  fi
+  printf '%s' '- -'
+}
+
+sha_norm() { # SHA MODE -> CRLF-insensitive fingerprint; nothing when the side is absent
+  case ${1:-} in -|'') return 0;; esac
+  if [ "${2:-}" = 160000 ]; then printf 'gitlink-%s' "$1"; return 0; fi
+  git -C "$root" cat-file blob "$1" 2>/dev/null | ul_norm_hash
+}
+
+save_side() { # SHA DEST : the blob as a regular file; `-` writes nothing
+  case ${1:-} in -|'') return 0;; esac
+  mkdir -p "$(dirname -- "$2")" 2>/dev/null
+  if git -C "$root" cat-file blob "$1" > "$2.part" 2>/dev/null && mv -f "$2.part" "$2" 2>/dev/null; then
+    return 0
+  fi
+  rm -f "$2.part" "$2"
+  PL_SIDE_FAIL=$((PL_SIDE_FAIL + 1))
+  return 1
+}
+
+plan_reviewer_log() { # `git log base..upstream -- <upstream path>`: the reviewer agent has no git
+  prl_f=$state/reviewer/$pp_lp.log
+  mkdir -p "$(dirname -- "$prl_f")" 2>/dev/null
+  git --literal-pathspecs -C "$root" -c log.showSignature=false log --no-color --format='%h %s' "$PL_BASE..$PL_UP" -- "$pp_p" > "$prl_f" 2>/dev/null
+  return 0
+}
+
+plan_sides() { # base / theirs / mine into state/adapt, and the adapt.tsv row
+  save_side "$PL_SIDEBASE" "$state/adapt/base/$pp_lp"
+  save_side "$pp_us" "$state/adapt/theirs/$pp_lp"
+  save_side "$pp_hs" "$state/adapt/mine/$pp_lp"
+  printf '%s\t-\t%s\t%s\t%s\n' "$pp_lp" "$PL_SIDEBASE" "$pp_us" "$pp_hs" >> "$state/adapt.tsv"
+}
+
+# Diffs are made from the saved sides, so a renamed path and the adopt-settings base
+# read like any other; a missing side diffs against /dev/null.
+plan_diffs() {
+  pdf_d=$state/diffs/$pp_lp
+  mkdir -p "$(dirname -- "$pdf_d")" 2>/dev/null
+  pdf_b=base/$pp_lp; [ -f "$state/adapt/$pdf_b" ] || pdf_b=/dev/null
+  pdf_t=theirs/$pp_lp; [ -f "$state/adapt/$pdf_t" ] || pdf_t=/dev/null
+  pdf_m=mine/$pp_lp; [ -f "$state/adapt/$pdf_m" ] || pdf_m=/dev/null
+  git -c diff.noprefix=false -c diff.mnemonicPrefix=false -C "$state/adapt" diff --no-index --no-color --no-ext-diff --no-textconv -- "$pdf_b" "$pdf_t" > "$pdf_d.base-upstream.diff" 2>/dev/null
+  git -c diff.noprefix=false -c diff.mnemonicPrefix=false -C "$state/adapt" diff --no-index --no-color --no-ext-diff --no-textconv -- "$pdf_b" "$pdf_m" > "$pdf_d.base-local.diff" 2>/dev/null
+  return 0
+}
+
+# One plan.tsv row for pp_lp, and the files that go with it: a reviewer log for every
+# non-skip row; sides, adapt.tsv row and both diffs for a hold or merged-clean row.
+plan_row() { # CLASS PROPOSED DETAIL
+  printf '%s\t%s\t%s\t%s\n' "$pp_lp" "$1" "$2" "$3" >> "$state/plan.tsv"
+  if [ "$2" != skip ]; then plan_reviewer_log; fi
+  if [ "$2" = hold ] || [ "$1" = merged-clean ]; then
+    plan_sides
+    plan_diffs
+  fi
+}
+
+# A row for a path the engine will never touch. It is written only when upstream changed
+# the path since the base AND this copy differs from upstream, so the customer sees that
+# upstream moved something the engine leaves alone -- and a customer's own product
+# files, which upstream does not have, do not bury the plan.
+skip_row() { # CLASS DETAIL
+  if [ "$pp_uch" = 1 ] && [ "$pp_hdu" = 1 ]; then plan_row "$1" skip "$2"; fi
+  return 0
+}
+
+# Three-way merge of the saved blobs. A clean merge keeps its body for --stage.
+plan_merge() {
+  pm_b=$(ul_mktemp) || exit 1
+  pm_h=$(ul_mktemp) || exit 1
+  pm_u=$(ul_mktemp) || exit 1
+  pm_o=$(ul_mktemp) || exit 1
+  git -C "$root" cat-file blob "$pp_bs" > "$pm_b" 2>/dev/null
+  git -C "$root" cat-file blob "$pp_hs" > "$pm_h" 2>/dev/null
+  git -C "$root" cat-file blob "$pp_us" > "$pm_u" 2>/dev/null
+  if git -C "$root" merge-file -p -L mine -L base -L theirs "$pm_h" "$pm_b" "$pm_u" > "$pm_o" 2>/dev/null; then
+    mkdir -p "$(dirname -- "$state/merged/$pp_lp")" 2>/dev/null
+    cp "$pm_o" "$state/merged/$pp_lp"
+    plan_row merged-clean apply "three-way merge was clean"
+  else
+    plan_row conflict hold "three-way merge left conflict markers"
+  fi
+  rm -f "$pm_b" "$pm_h" "$pm_u" "$pm_o"
+}
+
+# The heart (LH:update.sh:546-687, minus the skill-pack and registry branches). Arguments
+# are the path under its UPSTREAM name and its three tree entries (mode, sha; `-` =
+# absent) at base, HEAD and upstream.
+process_path() { # P BM BS HM HS UM US
+  pp_p=$1; pp_bm=$2; pp_bs=$3; pp_hm=$4; pp_hs=$5; pp_um=$6; pp_us=$7
+  pp_lp=$pp_p
+  case /$pp_p/ in
+    */../*|*/./*|*//*|*/[.][gG][iI][tT]/*) return 0;;
+  esac
+  if [ "$CHANNEL" = adopted ]; then
+    case "$ul__nl$RN_DSTS$ul__nl" in
+      *"$ul__nl$pp_p$ul__nl"*)
+        # a rename target is the same file as its source; the source's row covers it
+        if [ "$pp_bs" = - ] && [ "$pp_us" = - ]; then return 0; fi;;
+    esac
+    case "$ul__nl$RN_SRCS$ul__nl" in
+      *"$ul__nl$pp_p$ul__nl"*)
+        pp_t=$(path_rename "$pp_p")
+        if [ -n "$pp_t" ] && [ "$pp_t" != "$pp_p" ]; then
+          pp_lp=$pp_t
+          set -- $(entry_at HEAD "$pp_lp"); pp_hm=$1; pp_hs=$2
+          # the base is an upstream commit, so the source name is its name; the
+          # target name is tried only when the source is not there
+          if [ "$pp_bs" = - ]; then set -- $(entry_at "$PL_BASE" "$pp_lp"); pp_bm=$1; pp_bs=$2; fi
+        fi;;
+    esac
+  fi
+  PL_SIDEBASE=$pp_bs
+  if [ "$pp_bs" = "$pp_hs" ] && [ "$pp_hs" = "$pp_us" ] && [ "$pp_bm" = "$pp_hm" ] && [ "$pp_hm" = "$pp_um" ]; then
+    return 0
+  fi
+
+  pp_bn=$(sha_norm "$pp_bs" "$pp_bm")
+  if [ "$pp_hs" = "$pp_bs" ]; then pp_hn=$pp_bn; else pp_hn=$(sha_norm "$pp_hs" "$pp_hm"); fi
+  if [ "$pp_us" = "$pp_bs" ]; then pp_un=$pp_bn
+  elif [ "$pp_us" = "$pp_hs" ]; then pp_un=$pp_hn
+  else pp_un=$(sha_norm "$pp_us" "$pp_um"); fi
+  pp_uch=0
+  if [ "$pp_un" != "$pp_bn" ] || [ "$pp_um" != "$pp_bm" ]; then pp_uch=1; fi
+  pp_hdu=0
+  if [ "$pp_hn" != "$pp_un" ] || [ "$pp_hm" != "$pp_um" ]; then pp_hdu=1; fi
+
+  # (a) the forbidden-touch set, both channels
+  if ul_path_forbidden "$pp_lp" || ul_path_forbidden "$pp_p"; then
+    skip_row excluded forbidden
+    return 0
+  fi
+
+  # (b) the channel map, adopted copies only
+  if [ "$CHANNEL" = adopted ]; then
+    if path_adopt_excluded "$pp_p" || path_adopt_excluded "$pp_lp"; then
+      skip_row excluded adopt-excluded
+      return 0
+    fi
+    case "$ul__nl$MERGE_PATHS$ul__nl" in
+      *"$ul__nl$pp_lp$ul__nl"*)
+        if [ -n "$pp_hn" ] && [ -n "$pp_un" ]; then
+          # changed in place by the installer: never merged, always a person's call
+          if [ "$pp_hdu" = 1 ] && [ "$pp_uch" = 1 ]; then
+            PL_SIDEBASE=-
+            if [ "$pp_lp" = .claude/settings.json ]; then
+              pp_as=$(git -C "$root" rev-parse -q --verify "HEAD:.claude/.logicloom-adopt-settings.json" 2>/dev/null) || pp_as=
+              if [ -n "$pp_as" ]; then PL_SIDEBASE=$pp_as; PL_ADOPT_BASE_USED=1; fi
+            fi
+            plan_row posture hold "merge file in an adopted install: held for review"
+          fi
+          return 0
+        fi;;
+    esac
+    pp_g=$(path_harness_group "$pp_lp")
+    if [ -z "$pp_g" ]; then
+      skip_row adopter-owned "not harness-owned"
+      return 0
+    fi
+    if ! group_installed "$pp_g"; then
+      skip_row adopter-owned "group $pp_g not installed"
+      return 0
+    fi
+  fi
+
+  # (0) the notes tree, the engine and its tools: upstream-owned, never held or kept
+  case $pp_p in
+    "$UL_NOTES_DIR"/*|"$UL_SCRIPTS_DIR"/*)
+      if [ "$pp_hdu" = 0 ]; then return 0; fi
+      if [ -z "$pp_hn" ]; then plan_row add apply upstream-owned
+      elif [ -z "$pp_un" ]; then plan_row delete apply upstream-owned
+      else plan_row take apply upstream-owned; fi
+      return 0;;
+  esac
+
+  # (1) absent in base
+  if [ "$pp_bs" = - ]; then
+    if [ -n "$pp_un" ]; then
+      if [ -z "$pp_hn" ]; then
+        plan_row add apply "new upstream file"
+      elif [ "$pp_hn" != "$pp_un" ]; then
+        plan_row add-conflict hold "new upstream file, and a different local file already exists"
+      fi
+    fi
+    return 0
+  fi
+
+  pp_hc=0; if [ "$pp_hn" != "$pp_bn" ]; then pp_hc=1; fi
+  pp_uc=0; if [ "$pp_un" != "$pp_bn" ]; then pp_uc=1; fi
+
+  # (2) equal blobs everywhere: only the modes can differ
+  if [ "$pp_hc" = 0 ] && [ "$pp_uc" = 0 ]; then
+    if [ "$pp_hm" = "$pp_um" ]; then return 0; fi
+    if [ "$pp_hm" = "$pp_bm" ]; then plan_row mode apply "upstream changed the file mode to $pp_um"; return 0; fi
+    if [ "$pp_um" = "$pp_bm" ]; then plan_row keep keep "file mode changed locally only"; return 0; fi
+    plan_row mode hold "the file mode differs from both upstream's and the base's"
+    return 0
+  fi
+  # (3) upstream changed it, this copy did not
+  if [ "$pp_uc" = 1 ] && [ "$pp_hc" = 0 ]; then
+    if [ -z "$pp_un" ]; then plan_row delete apply "deleted upstream, unchanged locally"
+    else plan_row take apply "changed upstream, unchanged locally"; fi
+    return 0
+  fi
+  # (4) this copy changed it, upstream did not
+  if [ "$pp_hc" = 1 ] && [ "$pp_uc" = 0 ]; then
+    plan_row keep keep "changed locally only"
+    return 0
+  fi
+  # both changed. The same change on both sides needs nothing.
+  if [ "$pp_hn" = "$pp_un" ]; then return 0; fi
+  if [ -z "$pp_un" ]; then
+    plan_row deleted-upstream-kept hold "deleted upstream, changed locally"      # (5)
+  elif [ -z "$pp_hn" ]; then
+    plan_row conflict hold "deleted locally, changed upstream"                   # (6)
+  elif ul_path_posture "$pp_lp" || [ "$pp_lp" = .claude/settings.json ]; then
+    plan_row posture hold "posture file changed on both sides; always held for review"
+  else
+    case "$pp_bm$pp_hm$pp_um" in
+      *120000*|*160000*) plan_row conflict hold "a symlink or submodule changed on both sides";;
+      *) plan_merge;;
+    esac
+  fi
+  return 0
+}
+
+# Adds (or replaces) the two-way held row for one path: base -, theirs = upstream's blob,
+# mine = this copy's. The notes layer calls it for a `keep` path an offered note touches.
+# PATH is the UPSTREAM name; the row is written at local_path_for(PATH). Needs PL_BASE,
+# PL_UP, PL_HEAD and CHANNEL (cmd_plan sets them; --selftest-two-way reads them from meta).
+write_two_way_row() { # UPSTREAM_PATH
+  w2_p=$1
+  w2_l=$(local_path_for "$w2_p")
+  w2_u=$(git -C "$root" rev-parse -q --verify "$PL_UP:$w2_p" 2>/dev/null) || w2_u=-
+  w2_h=$(git -C "$root" rev-parse -q --verify "$PL_HEAD:$w2_l" 2>/dev/null) || w2_h=-
+  rm -f "$state/adapt/base/$w2_l" "$state/adapt/theirs/$w2_l" "$state/adapt/mine/$w2_l"
+  save_side "$w2_u" "$state/adapt/theirs/$w2_l"
+  save_side "$w2_h" "$state/adapt/mine/$w2_l"
+  w2_t=$(ul_mktemp) || exit 1
+  for w2_f in plan.tsv adapt.tsv; do
+    [ -f "$state/$w2_f" ] || : > "$state/$w2_f"
+    awk -F'\t' -v p="$w2_l" '$1 != p' "$state/$w2_f" > "$w2_t"
+    cp "$w2_t" "$state/$w2_f"
+  done
+  printf '%s\ttwo-way\thold\t%s\n' "$w2_l" "no common base; compared two-way" >> "$state/plan.tsv"
+  printf '%s\t-\t-\t%s\t%s\n' "$w2_l" "$w2_u" "$w2_h" >> "$state/adapt.tsv"
+  for w2_f in plan.tsv adapt.tsv; do
+    LC_ALL=C sort -t "$ul__tab" -k1,1 "$state/$w2_f" > "$w2_t"
+    cp "$w2_t" "$state/$w2_f"
+  done
+  return 0
+}
+
+# The notes layer attaches here: classification is done, plan.tsv and adapt.tsv are
+# complete and sorted, and the state directory holds the sides. Does nothing yet.
+plan_after_classify() {
+  return 0
+}
+
+# Everything --plan rebuilds. Nothing else under the state directory is touched: the
+# customer's backups (mine/<update-id>/), the stage lock, the throwaway worktree, the
+# staged marker and the last smoke log outlive a re-plan.
+plan_reset_state() {
+  case $state in
+    ?*/loom/update) ;;
+    *) echo "error refusing to rebuild an unexpected state directory"; exit 1;;
+  esac
+  mkdir -p "$state" || { echo "error could not create $state"; exit 1; }
+  for prs_f in plan.tsv meta notes.tsv groups.tsv adapt.tsv adapted.tsv transaction.txt checks.log; do
+    rm -f "$state/$prs_f"
+  done
+  for prs_d in notes adapt merged diffs reviewer export tools unresolved; do
+    if [ -e "$state/$prs_d" ]; then
+      chmod -R u+w "$state/$prs_d" 2>/dev/null
+      rm -rf "$state/$prs_d"
+    fi
+  done
+  mkdir -p "$state/diffs" "$state/merged" "$state/reviewer" "$state/adapt" "$state/tools" || { echo "error could not create $state"; exit 1; }
+  : > "$state/plan.tsv"
+  : > "$state/adapt.tsv"
+}
+
+plan_universe() { # -> state-independent temp file of `path bm bs hm hs um us` rows, sorted
+  pu_b=$(ul_mktemp) || exit 1
+  pu_h=$(ul_mktemp) || exit 1
+  pu_u=$(ul_mktemp) || exit 1
+  pu_t=$(ul_mktemp) || exit 1
+  git -c core.quotepath=off -C "$root" ls-tree -r "$PL_BASE" > "$pu_b" 2>/dev/null || { echo "error could not list the base tree"; exit 1; }
+  git -c core.quotepath=off -C "$root" ls-tree -r HEAD > "$pu_h" 2>/dev/null || { echo "error could not list HEAD"; exit 1; }
+  git -c core.quotepath=off -C "$root" ls-tree -r "$PL_UP" > "$pu_u" 2>/dev/null || { echo "error could not list upstream"; exit 1; }
+  awk -F'\t' -v SYNC="$UL_SYNC_REF" -v B="$pu_b" -v H="$pu_h" '
+    # three listings: base, HEAD, upstream. A listing line is
+    # `<mode> <type> <sha>TAB<path>`; the path is everything after the first tab.
+    {
+      tag = (FILENAME == B) ? "b" : ((FILENAME == H) ? "h" : "u")
+      i = index($0, "\t"); if (i == 0) next
+      n = split(substr($0, 1, i - 1), a, " ")
+      path = substr($0, i + 1)
+      if (n < 3 || (a[2] != "blob" && a[2] != "commit")) next
+      mode[tag, path] = a[1]; sha[tag, path] = a[3]; seen[path] = 1
+    }
+    END {
+      for (p in seen) {
+        if (index(p, "\t") || p == SYNC) continue
+        printf "%s", p
+        for (k = 1; k <= 3; k++) {
+          t = substr("bhu", k, 1)
+          printf "\t%s\t%s", ((t, p) in mode) ? mode[t, p] : "-", ((t, p) in sha) ? sha[t, p] : "-"
+        }
+        printf "\n"
+      }
+    }' "$pu_b" "$pu_h" "$pu_u" | LC_ALL=C sort -t "$ul__tab" -k1,1 > "$pu_t"
+  # drop what the customer's own ignore rules cover -- except the notes tree and the
+  # engine's scripts, which are upstream-owned whatever the customer ignores
+  pu_i=$(ul_mktemp) || exit 1
+  pu_p=$(ul_mktemp) || exit 1
+  cut -f1 "$pu_t" > "$pu_p"
+  git -c core.quotepath=off -C "$root" check-ignore --stdin < "$pu_p" > "$pu_i" 2>/dev/null
+  pu_rc=$?
+  if [ "$pu_rc" -gt 1 ]; then
+    # one bad path (beyond a symlink, say) fails the whole batch: ask one path at a time
+    : > "$pu_i"
+    while IFS= read -r pu_x; do
+      if git -C "$root" check-ignore -q -- "$pu_x" 2>/dev/null; then printf '%s\n' "$pu_x" >> "$pu_i"; fi
+    done < "$pu_p"
+  fi
+  PU_OUT=$(ul_mktemp) || exit 1
+  awk -F'\t' -v IGN="$pu_i" -v ND="$UL_NOTES_DIR/" -v SD="$UL_SCRIPTS_DIR/" '
+    BEGIN { while ((getline l < IGN) > 0) ig[l] = 1 }
+    ($1 in ig) && index($1, ND) != 1 && index($1, SD) != 1 { next }
+    { print }' "$pu_t" > "$PU_OUT"
+}
+
+cmd_plan() {
+  # ---- refusals, in the documented order: nothing has been touched
+  resolve_channel
+  channel_map_load
+  pl_off=$(clean_offenders)
+  if [ -n "$pl_off" ]; then
+    if status_failed "$pl_off"; then abort_plan "git status failed in this repository"; fi
+    abort_plan "your working tree has uncommitted changes: $(offender_paths "$pl_off")"
+  fi
+  if in_progress; then abort_plan "a merge, rebase, cherry-pick or revert is unfinished; finish or abort it first"; fi
+  if is_shallow; then abort_plan "run git fetch --unshallow first"; fi
+  if [ "$CH" = ambiguous ] && [ -z "$OPT_CHANNEL" ]; then
+    pl_n=${CH_NOTICE:-this copy looks like both a template clone and an adopted install}
+    abort_plan "the channel is ambiguous ($pl_n); run again with --channel template or --channel adopted"
+  fi
+  if ! heal_stale; then abort_plan "another update is staging (pid $LOCK_LIVE)"; fi
+  if [ -f "$state/staged" ]; then abort_plan "a staged update exists; run --finish or --abandon"; fi
+
+  # ---- fetch, then the three commits
+  if ! fetch_upstream; then abort_plan "$FETCH_ERROR"; fi
+  UPSTREAM_HEAD=$(upstream_head) || UPSTREAM_HEAD=
+  [ -n "$UPSTREAM_HEAD" ] || abort_plan "upstream has no main branch"
+  UL_MAP=            # upstream's own copy of the channel map is now the freshest
+  channel_map_load
+  detect_base_verdict
+  set -- $db_verdict
+  case ${1:-} in
+    handover|recorded|remap) PL_BASE=${2:-}; PL_RUNG=$1;;
+    closest)
+      printf '%s\n' "$db_verdict"
+      abort_plan "base unconfirmed; run --set-base ${2:-}";;
+    *) abort_plan "the update pointer is missing or cannot be found in upstream's history; see KNOWN_ISSUES.md or run npx logicloom@7 update-bootstrap";;
+  esac
+  PL_UP=$UPSTREAM_HEAD
+  PL_HEAD=$(git -C "$root" rev-parse HEAD 2>/dev/null) || { echo "error could not read HEAD"; exit 1; }
+  plan_groups_load
+  plan_maps_load
+  PL_ADOPT_BASE_USED=0
+  PL_SIDE_FAIL=0
+
+  # ---- rebuild the derived state, then meta
+  plan_reset_state
+  pl_id="$(date -u +%Y%m%dT%H%M%SZ)-$(printf '%s' "$PL_UP" | cut -c1-12)"
+  {
+    printf 'base=%s\n' "$PL_BASE"
+    printf 'base_rung=%s\n' "$PL_RUNG"
+    printf 'upstream=%s\n' "$PL_UP"
+    printf 'head=%s\n' "$PL_HEAD"
+    printf 'channel=%s\n' "$CHANNEL"
+    printf 'update_id=%s\n' "$pl_id"
+    printf 'time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } > "$state/meta"
+
+  # ---- upstream's JSON tools, for the checks and --adapt-save
+  pl_tools=saved
+  for pl_t in json-valid.sh json-flat.sh; do
+    if git -C "$root" show "$UL_UPSTREAM_REF:$UL_SCRIPTS_DIR/$pl_t" > "$state/tools/$pl_t" 2>/dev/null && [ -s "$state/tools/$pl_t" ]; then
+      :
+    else
+      rm -f "$state/tools/$pl_t"
+      pl_tools=absent
+    fi
+  done
+
+  # ---- the read-only export of HEAD
+  pl_tar=$(ul_mktemp) || exit 1
+  if ! git -C "$root" archive --format=tar HEAD > "$pl_tar" 2>/dev/null; then
+    echo "error could not export HEAD"; exit 1
+  fi
+  mkdir -p "$state/export" || { echo "error could not create the export directory"; exit 1; }
+  if ! tar -xf "$pl_tar" -C "$state/export" 2>/dev/null; then
+    echo "error could not unpack the export of HEAD"; exit 1
+  fi
+  chmod -R a-w "$state/export" 2>/dev/null
+
+  # ---- classify
+  plan_universe
+  while IFS=$ul__tab read -r pl_p pl_bm pl_bs pl_hm pl_hs pl_um pl_us <&3; do
+    [ -n "$pl_p" ] || continue
+    process_path "$pl_p" "$pl_bm" "$pl_bs" "$pl_hm" "$pl_hs" "$pl_um" "$pl_us"
+  done 3< "$PU_OUT"
+  if [ "$PL_ADOPT_BASE_USED" = 1 ]; then printf 'base_side=adopt-settings\n' >> "$state/meta"; fi
+  plan_after_classify
+
+  # ---- report
+  pl_rows=$(awk 'END { print NR + 0 }' "$state/plan.tsv")
+  pl_pending=$(awk -F'\t' '$2 != "keep" && $2 != "excluded" && $2 != "adopter-owned" { n++ } END { print n + 0 }' "$state/plan.tsv")
+  printf 'result=planned\n'
+  printf 'channel=%s\n' "$CHANNEL"
+  printf 'base=%s\n' "$PL_BASE"
+  printf 'base_rung=%s\n' "$PL_RUNG"
+  printf 'upstream=%s\n' "$PL_UP"
+  printf 'head=%s\n' "$PL_HEAD"
+  printf 'update_id=%s\n' "$pl_id"
+  printf 'tools=%s\n' "$pl_tools"
+  if [ "$PL_SIDE_FAIL" -gt 0 ]; then printf 'warning=%s side file(s) could not be saved\n' "$PL_SIDE_FAIL"; fi
+  awk -F'\t' '{ c[$2]++ } END { for (k in c) print k "\t" c[k] }' "$state/plan.tsv" | LC_ALL=C sort | awk -F'\t' '{ print "class." $1 "=" $2 }'
+  printf 'rows=%s\n' "$pl_rows"
+  printf 'plan=%s/plan.tsv\n' "$state"
+  if [ "$pl_pending" -eq 0 ]; then printf 'uptodate=yes\n'; fi
+  return 0
+}
+
+meta_val() { # KEY -> the value from state/meta
+  sed -n "s/^$1=//p" "$state/meta" 2>/dev/null | sed -n '1p'
+}
+
+cmd_selftest_two_way() { # PATH
+  [ -n "${1:-}" ] || { echo "error --selftest-two-way needs a path"; exit 2; }
+  [ -f "$state/meta" ] || { echo "error no plan found; run --plan first"; exit 1; }
+  PL_BASE=$(meta_val base)
+  PL_UP=$(meta_val upstream)
+  PL_HEAD=$(meta_val head)
+  CHANNEL=$(meta_val channel)
+  channel_map_load
+  plan_maps_load
+  write_two_way_row "$1"
+  printf 'two-way=%s\n' "$(local_path_for "$1")"
+}
+
 # =============================================================== subcommands
 cmd_status() {
   if heal_stale; then :; fi
@@ -932,19 +1461,10 @@ cmd_status() {
   return 0
 }
 
-cmd_detect_base() {
-  if ! fetch_upstream; then
-    echo "error $FETCH_ERROR"
-    exit 1
-  fi
-  UPSTREAM_HEAD=$(upstream_head) || UPSTREAM_HEAD=
-  if [ -z "$UPSTREAM_HEAD" ]; then
-    echo "error upstream has no main branch"
-    exit 1
-  fi
-  channel_map_load
+# The base ladder (design 2.2 step 1). Sets db_verdict (`<rung> <sha> [n]` or `none`) and
+# db_rec (the pointer as committed). Needs UPSTREAM_HEAD and the channel map.
+detect_base_verdict() {
   db_rec=$(recorded_stamp)
-  db_sh=no; is_shallow && db_sh=yes
   db_verdict=
   db_full=$(reach_full "$db_rec") || db_full=
 
@@ -974,6 +1494,21 @@ cmd_detect_base() {
     db_verdict="closest $CL_SHA $CL_N"
   fi
   [ -n "$db_verdict" ] || db_verdict=none
+}
+
+cmd_detect_base() {
+  if ! fetch_upstream; then
+    echo "error $FETCH_ERROR"
+    exit 1
+  fi
+  UPSTREAM_HEAD=$(upstream_head) || UPSTREAM_HEAD=
+  if [ -z "$UPSTREAM_HEAD" ]; then
+    echo "error upstream has no main branch"
+    exit 1
+  fi
+  channel_map_load
+  detect_base_verdict
+  db_sh=no; is_shallow && db_sh=yes
   printf '%s\n' "$db_verdict"
   printf 'recorded=%s\n' "${db_rec:-missing}"
   printf 'shallow=%s\n' "$db_sh"
@@ -1111,7 +1646,8 @@ case $cmd in
   --detect-base) cmd_detect_base;;
   --set-base) cmd_set_base "$@";;
   --bootstrap-copy) cmd_bootstrap_copy;;
-  --plan|--adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo)
+  --plan) cmd_plan;;
+  --adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo)
     echo "error not implemented"
     exit 1;;
   --selftest-write-path)
@@ -1121,6 +1657,7 @@ case $cmd in
   --selftest-lock) cmd_selftest_lock "$@";;
   --selftest-channel) cmd_selftest_channel;;
   --selftest-map) cmd_selftest_map "$@";;
+  --selftest-two-way) cmd_selftest_two_way "$@";;
   --selftest-remap) printf '%s\n' "$(remap_known_bad "${1:-}")";;
 esac
 exit 0
