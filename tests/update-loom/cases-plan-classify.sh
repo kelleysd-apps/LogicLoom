@@ -75,7 +75,7 @@ for n in amendments-ladder-plus-three fixture-doc-followup fixture-doc-guidance 
   ul_t_check "plan: check $n.check.sh -> add/apply upstream-owned" ul_t_eq "$(prow $NOTES/7.0.0/$n.check.sh)" "add${TAB}apply${TAB}upstream-owned"
 done
 ul_t_check "plan: an identical BUNDLE.sha256 has no row" norow $NOTES/BUNDLE.sha256
-ul_t_check "plan: customer-only amendments.md has no row" norow .logic-loom/memory/amendments.md
+ul_t_check "plan: customer-only amendments.md gets a two-way/hold row from the ladder note" ul_t_eq "$(prow .logic-loom/memory/amendments.md | cut -f1,2)" "two-way${TAB}hold"
 ul_t_check "plan: unchanged hook has no row" norow $HOOK
 ul_t_check "plan: unchanged CLAUDE.md has no row" norow CLAUDE.md
 ul_t_check "plan: unchanged web/app.js has no row" norow web/app.js
@@ -128,7 +128,7 @@ ul_t_check "sides: base side saved" filehas "$(ST)/adapt/base/$EDITED_DOC" 'Appe
 ul_t_check "sides: theirs side saved" filehas "$(ST)/adapt/theirs/$EDITED_DOC" 'plain sentence'
 ul_t_check "sides: mine side saved" filehas "$(ST)/adapt/mine/$EDITED_DOC" 'extended by the customer'
 ul_t_check "sides: settings.json mine side is the customer's file" filehas "$(ST)/adapt/mine/$SET" 'fixture@local'
-ul_t_check "adapt.tsv: held row is listed with blob shas" ul_t_eq "$(adapt_row $SET)" "$SET${TAB}-${TAB}$(cg rev-parse $W_BASE:$SET)${TAB}$(ug rev-parse HEAD:$SET)${TAB}$(cg rev-parse HEAD:$SET)"
+ul_t_check "adapt.tsv: held row is listed with blob shas" ul_t_eq "$(adapt_row $SET)" "$SET${TAB}hooks-guard-dangerous,settings-ask-restore${TAB}$(cg rev-parse $W_BASE:$SET)${TAB}$(ug rev-parse HEAD:$SET)${TAB}$(cg rev-parse HEAD:$SET)"
 ul_t_check "adapt.tsv: a non-held, non-merged row is not listed" ul_t_eq "$(adapt_row $GUARD)" ""
 ul_t_check "reviewer: log exists for the merged row" test -f "$(ST)/reviewer/$EDITED_DOC.log"
 ul_t_check "reviewer: log mentions commit 2's subject" filehas "$(ST)/reviewer/$EDITED_DOC.log" 'head'
@@ -418,6 +418,9 @@ ul_t_check "gitignore: an edited script under an ignored plugins/ is still class
 nw
 cg reset -q --hard "$W_HEAD"
 printf '%s\n' "$W_HEAD" > "$W_CUST/.sdd-sync-ref" && cc "base is the head"
+for n in amendments-ladder-plus-three fixture-doc-followup fixture-doc-guidance hooks-guard-dangerous settings-ask-restore; do
+  ul_t_ledger_append "$W_CUST" $n applied "$(ug rev-parse HEAD:$NOTES/7.0.0/$n.md)"
+done
 pl
 ul_t_check "up to date: plan succeeds" ul_t_eq "$(kv result)" planned
 ul_t_check "up to date: rows=0" ul_t_eq "$(kv rows)" 0

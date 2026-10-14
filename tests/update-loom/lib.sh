@@ -204,3 +204,54 @@ ul_t_edit() { # REPO PATH CONTENT [MSG] : write CONTENT (+ newline), commit ever
   printf '%s\n' "$3" > "$1/$2" || return 1
   ul_t_commit "$1" "${4:-edit $2}"
 }
+
+# ---------------------------------------------------------- notes-layer helpers
+UL_T_LEDGER=.logic-loom/memory/update-ledger.tsv
+
+# Appends one ledger row to REPO's tracked ledger and commits it. BLOB is the
+# sha of the note .md at upstream; UPSTREAM defaults to `-`.
+ul_t_ledger_append() { # REPO ID OUTCOME BLOB [UPSTREAM]
+  ul_tl_f=$1/$UL_T_LEDGER
+  mkdir -p "$(dirname -- "$ul_tl_f")" || return 1
+  printf '%s\t%s\t%s\t%s\t%s\n' "$2" "$3" "$4" "${5:--}" 2026-10-12 >> "$ul_tl_f" || return 1
+  ul_t_commit "$1" "ledger: $2 $3" >/dev/null
+}
+
+ul_t_notes_col() { # ID N -> column N of ID's notes.tsv row, nothing when there is no row
+  awk -F'\t' -v id="$1" -v n="$2" '$1 == id { print $n; exit }' "$(ul_t_state)/notes.tsv" 2>/dev/null
+}
+
+# ------------------------------------------------------ adapt-save helpers
+# Where --plan saved the customer's side of PATH (the file an adapter would read).
+ul_t_adapt_body() { # PATH -> the state's mine-side path
+  printf '%s/adapt/mine/%s' "$(ul_t_state)" "$1"
+}
+
+# Crafts a variant of the customer's .claude/settings.json (the mine side saved by
+# --plan) into OUT. KIND:
+#   good        the customer's file plus upstream's guard hook (inside the adopter's
+#               own Bash entry) plus Bash(git restore:*) under ask
+#   no-adopter  good, minus the adopter's guard-prod-db hook            (R1)
+#   no-rmrf     good, minus Bash(rm -rf:*) from deny                    (R2)
+#   extra-allow good, plus an allow entry neither side has              (R2)
+#   no-plugins  good, minus enabledPlugins                              (R5)
+#   invalid     good, minus its closing brace                           (not JSON)
+ul_t_settings_variant() { # KIND OUT
+  ul_tv_m=$(ul_t_adapt_body .claude/settings.json)
+  ul_tv_g=$(ul_t_tmp)/good.json
+  awk '{
+    if (index($0, "guard-prod-db.sh") > 0) {
+      print $0 ","
+      print "          { \"type\": \"command\", \"command\": \"bash .claude/hooks/guard-dangerous-commands.sh\" }"
+    } else print
+  }' "$ul_tv_m" | sed 's/"ask": \[\]/"ask": ["Bash(git restore:*)"]/' > "$ul_tv_g" || return 1
+  case $1 in
+    good) cp "$ul_tv_g" "$2";;
+    no-adopter) sed '/guard-prod-db/d' "$ul_tv_g" > "$2";;
+    no-rmrf) sed 's/, "Bash(rm -rf:\*)"//' "$ul_tv_g" > "$2";;
+    extra-allow) sed 's/"allow": \["Bash(git status:\*)"\]/"allow": ["Bash(git status:*)", "Bash(curl:*)"]/' "$ul_tv_g" > "$2";;
+    no-plugins) sed '/"enabledPlugins"/,/^  },/d' "$ul_tv_g" > "$2";;
+    invalid) sed '$d' "$ul_tv_g" > "$2";;
+    *) return 1;;
+  esac
+}

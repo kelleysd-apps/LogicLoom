@@ -16,8 +16,12 @@
 # plus the internal helpers the later subcommands call: write_path, lock_acquire /
 # lock_release / heal_stale, channel detection, the channel map reader, the trust
 # root (upstream_url) and fetch_upstream.
-# Not built yet (they print `error not implemented`): --adapt-save --mark-unresolved
-# --stage --abandon --finish --undo. --plan is built (cmd_plan: classify, no notes yet).
+# Not built yet (they print `error not implemented`): --stage --abandon --finish --undo.
+# --plan is built (cmd_plan: classify, then the notes layer: offered notes, checks,
+# groups, two-way rows, transaction.txt). --adapt-save and --mark-unresolved are built
+# (cmd_adapt_save, cmd_mark_unresolved): the gate between the read-only adapter and the
+# tree. Neither runs git beyond read-only plumbing, and both write only under the state
+# directory (merged/, adapted.tsv, unresolved/, unresolved.tsv).
 # TEST-ONLY subcommands (no skill or command uses them; the cases do, so every
 # helper has an assertion that fails without it):
 #   --selftest-write-path WT PATH SRC MODE   write_path
@@ -31,6 +35,8 @@
 # Global options (accepted before or after the subcommand):
 #   --upstream-url <url>           refused unless --i-am-pointing-at-a-fork is also given
 #   --i-am-pointing-at-a-fork
+#   --revisit                      --plan only: a declined note whose check still fails is
+#                                  listed as snoozed=no even if its text did not change
 #   --channel template|adopted     settles an ambiguous detection; refused when the
 #                                  detection is unambiguous and disagrees
 #
@@ -66,15 +72,17 @@ trap ul_exit EXIT
 
 usage() {
   cat <<'ULUSAGEEOF'
-Usage: update-loom.sh [--upstream-url URL --i-am-pointing-at-a-fork] [--channel template|adopted] <subcommand>
+Usage: update-loom.sh [--upstream-url URL --i-am-pointing-at-a-fork] [--channel template|adopted] [--revisit] <subcommand>
 
   --status              channel, upstream, base, tree state, bundle and engine status
   --detect-base         which upstream commit this copy was last updated from
   --set-base <sha>      record that commit in .sdd-sync-ref
   --bootstrap-copy      copy upstream's engine into <gitdir>/loom/bootstrap/
-  --plan                classify every path (the notes layer comes next)
-  --adapt-save          (not built yet) validate and save an adapted file
-  --mark-unresolved     (not built yet)
+  --plan                classify every path, then offer notes and run their checks
+  --adapt-save <path> <bodyfile> <note-ids>
+                        validate an adapted file (R1-R5) and save it under the state
+  --mark-unresolved <path> <note-id>
+                        a safety note's file could not be adapted: record what would be lost
   --stage               (not built yet) build the update commit in a detached worktree
   --abandon             (not built yet)
   --finish              (not built yet)
@@ -87,6 +95,7 @@ ULUSAGEEOF
 OPT_URL=
 OPT_CHANNEL=
 OPT_FORK=0
+OPT_REVISIT=0
 ul_n=$#
 while [ "$ul_n" -gt 0 ]; do
   ul_a=$1; shift; ul_n=$((ul_n - 1))
@@ -99,6 +108,7 @@ while [ "$ul_n" -gt 0 ]; do
       ul_v=$1; shift; ul_n=$((ul_n - 1))
       if [ "$ul_a" = --upstream-url ]; then OPT_URL=$ul_v; else OPT_CHANNEL=$ul_v; fi;;
     --i-am-pointing-at-a-fork) OPT_FORK=1;;
+    --revisit) OPT_REVISIT=1;;
     *) set -- "$@" "$ul_a";;
   esac
 done
@@ -1224,9 +1234,481 @@ write_two_way_row() { # UPSTREAM_PATH
   return 0
 }
 
-# The notes layer attaches here: classification is done, plan.tsv and adapt.tsv are
-# complete and sorted, and the state directory holds the sides. Does nothing yet.
+# ===================================================================== the notes layer
+# Runs from plan_after_classify: plan.tsv and adapt.tsv are complete and sorted. It
+# reads the notes under upstream's tree (never the working tree), decides which are
+# offered (design 1.5), runs their checks against the read-only export, adds the
+# two-way rows, and writes notes.tsv, groups.tsv, transaction.txt and the note ids in
+# adapt.tsv. Every temp name is a global NT_* because the sh family has no `local`.
+NT_WORK=
+NT_LED=
+NT_CK=
+NT_OFF=
+NT_ORD=
+NT_BLK=
+NT_GRP=
+NT_PM=
+NT_N=0
+NT_G=0
+NT_B=0
+NT_T=0
+NT_LIST=
+NT_BAD=
+NT_U=
+
+notes_relock() { # the export is read-only whenever no check is running
+  if [ -d "$state/export" ]; then chmod -R a-w "$state/export" 2>/dev/null; fi
+  return 0
+}
+
+# A refusal from inside the notes layer: the half-written plan goes, so nothing can
+# stage from it, and the standard refusal line is printed.
+notes_abort() { # REASON
+  notes_relock
+  rm -f "$state/.sentinel"
+  for na_f in plan.tsv notes.tsv groups.tsv adapt.tsv transaction.txt meta; do
+    rm -f "$state/$na_f"
+  done
+  abort_plan "$1"
+}
+
+nt_split() { # COMMA-LIST : one item per line, nothing for `-` or empty
+  case ${1:-} in ''|-) return 0;; esac
+  printf '%s\n' "$1" | tr ',' '\n'
+}
+
+nt_in() { # FILE ID : 0 when ID is the first column of a row of FILE
+  awk -F'\t' -v id="$2" '$1 == id { f = 1; exit } END { exit f ? 0 : 1 }' "$1"
+}
+
+nt_led_get() { # ID FIELD(outcome|blob) -> the last ledger row's value, nothing when none
+  awk -F'\t' -v id="$1" -v f="$2" '$1 == id { o = $2; b = $3; h = 1 } END { if (h) print (f == "blob" ? b : o) }' "$NT_LED"
+}
+
+nt_class() { # LOCALPATH -> its plan.tsv class, nothing when there is no row
+  awk -F'\t' -v p="$1" '$1 == p { print $2; exit }' "$state/plan.tsv"
+}
+
+nt_rows() { # FM KEY -> `path TAB channel` per list item
+  ul_fm_list "$1" "$2" | while IFS= read -r nt_r; do
+    [ -n "$nt_r" ] && ul_touch_split "$nt_r"
+  done
+  return 0
+}
+
+# FM KEY : NT_LIST = the channel-filtered paths, comma-joined; NT_BAD = the first path
+# the updater must never touch (or an unsafe one), if any.
+nt_scan_rows() {
+  NT_LIST=
+  NT_BAD=
+  nt_sr=$(ul_mktemp) || exit 1
+  nt_rows "$1" "$2" > "$nt_sr"
+  while IFS=$ul__tab read -r nt_sp nt_sc <&4; do
+    [ -n "$nt_sp" ] || continue
+    case /$nt_sp/ in
+      //*|*/../*|*/./*|*//*) [ -n "$NT_BAD" ] || NT_BAD=$nt_sp;;
+    esac
+    if ul_path_forbidden "$nt_sp"; then [ -n "$NT_BAD" ] || NT_BAD=$nt_sp; fi
+    case $nt_sc in
+      @both|"@$CHANNEL") NT_LIST=${NT_LIST:+$NT_LIST,}$nt_sp;;
+    esac
+  done 4< "$nt_sr"
+  return 0
+}
+
+# Every <release>/<id>.md in upstream's tree -> state/notes/ and NT_WORK, one row of
+# `id rel safety touches adds removes requires check project-data blob` per note
+# (`-` for an empty list). A note the linter would reject refuses the whole plan.
+notes_collect() {
+  nc_l=$(ul_mktemp) || exit 1
+  git -c core.quotepath=off -C "$root" ls-tree -r --name-only "$PL_UP" -- "$UL_NOTES_DIR" 2>/dev/null | LC_ALL=C sort > "$nc_l"
+  NT_WORK=$(ul_mktemp) || exit 1
+  : > "$NT_WORK"
+  mkdir -p "$state/notes" || { echo "error could not create $state/notes"; exit 1; }
+  while IFS= read -r nc_p <&3; do
+    case $nc_p in
+      "$UL_NOTES_DIR"/*/*.md) ;;
+      *) continue;;
+    esac
+    nc_rest=${nc_p#"$UL_NOTES_DIR"/}
+    case $nc_rest in */*/*) continue;; esac
+    nc_rel=${nc_rest%%/*}
+    nc_stem=${nc_rest#*/}
+    nc_stem=${nc_stem%.md}
+    case $nc_stem in
+      ''|.*|*[!A-Za-z0-9._-]*) notes_abort "note $nc_stem is malformed: the file name is not a plain id";;
+    esac
+    nc_f=$state/notes/$nc_stem.md
+    if ! git -C "$root" show "$PL_UP:$nc_p" > "$nc_f" 2>/dev/null; then
+      notes_abort "note $nc_stem is malformed: it could not be read from upstream"
+    fi
+    nc_fm=$(ul_frontmatter "$nc_f")
+    case $nc_fm in
+      NOFRONT|'') notes_abort "note $nc_stem is malformed: it has no frontmatter";;
+    esac
+    nc_id=$(ul_strip_quotes "$(ul_fm_scalar "$nc_fm" id)")
+    [ -n "$nc_id" ] || notes_abort "note $nc_stem is malformed: it has no id"
+    [ "$nc_id" = "$nc_stem" ] || notes_abort "note $nc_stem is malformed: its id ($nc_id) differs from the file name"
+    [ -n "$(ul_fm_scalar "$nc_fm" title)" ] || notes_abort "note $nc_id is malformed: it has no title"
+    [ -n "$(ul_fm_scalar "$nc_fm" purpose)" ] || notes_abort "note $nc_id is malformed: it has no purpose"
+    nc_sf=$(ul_strip_quotes "$(ul_fm_scalar "$nc_fm" safety)")
+    case $nc_sf in
+      true|false) ;;
+      '') notes_abort "note $nc_id is malformed: it has no safety";;
+      *) notes_abort "note $nc_id is malformed: safety must be true or false";;
+    esac
+    if nt_in "$NT_WORK" "$nc_id"; then notes_abort "note $nc_id is malformed: the id appears twice"; fi
+    nt_scan_rows "$nc_fm" touches
+    [ -z "$NT_BAD" ] || notes_abort "note $nc_id is malformed: it touches $NT_BAD, which the updater never changes"
+    nc_t=${NT_LIST:--}
+    nt_scan_rows "$nc_fm" adds
+    [ -z "$NT_BAD" ] || notes_abort "note $nc_id is malformed: it adds $NT_BAD, which the updater never changes"
+    nc_a=${NT_LIST:--}
+    nt_scan_rows "$nc_fm" removes
+    [ -z "$NT_BAD" ] || notes_abort "note $nc_id is malformed: it removes $NT_BAD, which the updater never changes"
+    nc_r=${NT_LIST:--}
+    nc_q=$(ul_fm_list "$nc_fm" requires | tr '\n' ',' | sed 's/,$//')
+    [ -n "$nc_q" ] || nc_q=-
+    nc_c=$(ul_strip_quotes "$(ul_fm_scalar "$nc_fm" check)")
+    [ -n "$nc_c" ] || nc_c=none
+    nc_d=$(ul_strip_quotes "$(ul_fm_scalar "$nc_fm" project-data)")
+    [ "$nc_d" = true ] || nc_d=false
+    if [ "$nc_c" != none ]; then
+      case $nc_c in
+        */*|.*|*[!A-Za-z0-9._-]*) notes_abort "note $nc_id is malformed: the check must be a plain file name";;
+      esac
+      if ! git -C "$root" show "$PL_UP:$UL_NOTES_DIR/$nc_rel/$nc_c" > "$state/notes/$nc_id.check.sh" 2>/dev/null; then
+        rm -f "$state/notes/$nc_id.check.sh"
+        notes_abort "note $nc_id is malformed: its check $nc_c is missing upstream"
+      fi
+    fi
+    nc_b=$(git -C "$root" rev-parse -q --verify "$PL_UP:$nc_p" 2>/dev/null) || nc_b=-
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$nc_id" "$nc_rel" "$nc_sf" "$nc_t" "$nc_a" "$nc_r" "$nc_q" "$nc_c" "$nc_d" "$nc_b" >> "$NT_WORK"
+  done 3< "$nc_l"
+  return 0
+}
+
+# Runs every note's check against the export, one at a time. The export is made
+# writable only for this loop so that a write is DETECTED (a new, removed or newer
+# path, or a changed ref) rather than merely failing; it is locked again after.
+# NT_CK gets `id TAB exit TAB class` (class pass|skip|fail|none); checks.log gets
+# `<id> exit=<n> last=<last line>`.
+notes_run_checks() {
+  NT_CK=$(ul_mktemp) || exit 1
+  : > "$NT_CK"
+  : > "$state/checks.log"
+  nk_b=$(ul_mktemp) || exit 1
+  nk_a=$(ul_mktemp) || exit 1
+  nk_nb=$(ul_mktemp) || exit 1
+  nk_na=$(ul_mktemp) || exit 1
+  chmod -R u+w "$state/export" 2>/dev/null
+  while IFS=$ul__tab read -r nk_id nk_rel nk_sf nk_t nk_ad nk_rm nk_rq nk_c nk_d nk_blob <&3; do
+    if [ "$nk_c" = none ]; then
+      printf '%s\t-\tnone\n' "$nk_id" >> "$NT_CK"
+      continue
+    fi
+    find "$state/export" 2>/dev/null | LC_ALL=C sort > "$nk_b"
+    nk_rb=$(git -C "$root" for-each-ref 2>/dev/null)
+    : > "$state/.sentinel"
+    find "$state/export" -newer "$state/.sentinel" 2>/dev/null | LC_ALL=C sort > "$nk_nb"
+    nk_out=$(cd "$state/export" && REPO_ROOT="$state/export" UPDATE_TOOLS="$state/tools" sh "$state/notes/$nk_id.check.sh" </dev/null 2>/dev/null)
+    nk_rc=$?
+    find "$state/export" 2>/dev/null | LC_ALL=C sort > "$nk_a"
+    find "$state/export" -newer "$state/.sentinel" 2>/dev/null | LC_ALL=C sort > "$nk_na"
+    nk_ra=$(git -C "$root" for-each-ref 2>/dev/null)
+    nk_last=${nk_out##*"$ul__nl"}
+    printf '%s exit=%s last=%s\n' "$nk_id" "$nk_rc" "$nk_last" >> "$state/checks.log"
+    nk_w=$(LC_ALL=C comm -13 "$nk_b" "$nk_a" | sed -n '1p')
+    [ -n "$nk_w" ] || nk_w=$(LC_ALL=C comm -23 "$nk_b" "$nk_a" | sed -n '1p')
+    [ -n "$nk_w" ] || nk_w=$(LC_ALL=C comm -13 "$nk_nb" "$nk_na" | sed -n '1p')
+    if [ -n "$nk_w" ]; then
+      nk_w=${nk_w#"$state/export"}
+      nk_w=${nk_w#/}
+      [ -n "$nk_w" ] || nk_w=.
+      notes_abort "check $nk_id wrote $nk_w (check-wrote=$nk_w)"
+    fi
+    if [ "$nk_rb" != "$nk_ra" ]; then
+      notes_abort "check $nk_id changed a git ref (check-wrote=refs)"
+    fi
+    nk_cl=fail
+    if [ "$nk_rc" -eq 0 ]; then
+      case $nk_last in skip=*) nk_cl=skip;; *) nk_cl=pass;; esac
+    fi
+    printf '%s\t%s\t%s\n' "$nk_id" "$nk_rc" "$nk_cl" >> "$NT_CK"
+  done 3< "$NT_WORK"
+  rm -f "$state/.sentinel"
+  notes_relock
+  return 0
+}
+
+# The offering rule (design 1.5). NT_OFF rows are the NT_WORK fields plus
+# offer declined-before snoozed check-class. Order of tests: (a) no ledger row,
+# (c) held, (b) the check fails and the row is not declined-final.
+notes_offer() {
+  NT_OFF=$(ul_mktemp) || exit 1
+  : > "$NT_OFF"
+  while IFS=$ul__tab read -r no_id no_rel no_sf no_t no_ad no_rm no_rq no_c no_d no_blob <&3; do
+    no_lo=$(nt_led_get "$no_id" outcome)
+    no_lb=$(nt_led_get "$no_id" blob)
+    no_cl=$(awk -F'\t' -v id="$no_id" '$1 == id { print $3; exit }' "$NT_CK")
+    no_off=
+    if ! awk -F'\t' -v id="$no_id" '$1 == id { f = 1; exit } END { exit f ? 0 : 1 }' "$NT_LED"; then
+      no_off=a
+    elif [ "$no_lo" = held ]; then
+      no_off=c
+    elif [ "$no_cl" = fail ] && [ "$no_lo" != declined-final ]; then
+      no_off=b
+    fi
+    [ -n "$no_off" ] || continue
+    no_dc=no
+    no_sn=no
+    if [ "$no_off" = b ] && [ "$no_lo" = declined ]; then
+      no_dc=yes
+      if [ "$no_blob" = "$no_lb" ] && [ "$OPT_REVISIT" != 1 ]; then no_sn=yes; fi
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$no_id" "$no_rel" "$no_sf" "$no_t" "$no_ad" "$no_rm" "$no_rq" "$no_c" "$no_d" "$no_blob" "$no_off" "$no_dc" "$no_sn" "$no_cl" >> "$NT_OFF"
+  done 3< "$NT_WORK"
+  return 0
+}
+
+# Kahn's algorithm over `requires` among the offered notes; ties by release folder,
+# then id. A cycle refuses the plan. NT_ORD = NT_OFF in that order.
+notes_order() {
+  NT_ORD=$(ul_mktemp) || exit 1
+  LC_ALL=C awk -F'\t' '
+    { n++; line[n] = $0; id[n] = $1; key[n] = $2 "\t" $1; idx[$1] = n; req[n] = $7 }
+    END {
+      for (i = 1; i <= n; i++) {
+        nd[i] = 0
+        if (req[i] != "-") {
+          m = split(req[i], r, ",")
+          for (k = 1; k <= m; k++) if (r[k] in idx) { nd[i]++; dep[i, nd[i]] = idx[r[k]] }
+        }
+      }
+      for (s = 1; s <= n; s++) {
+        best = 0
+        for (i = 1; i <= n; i++) {
+          if (fin[i]) continue
+          ok = 1
+          for (k = 1; k <= nd[i]; k++) if (!fin[dep[i, k]]) { ok = 0; break }
+          if (ok && (best == 0 || key[i] < key[best])) best = i
+        }
+        if (best == 0) {
+          rest = ""
+          for (i = 1; i <= n; i++) if (!fin[i]) rest = rest (rest == "" ? "" : ",") id[i]
+          print "CYCLE\t" rest
+          exit
+        }
+        fin[best] = 1
+        print line[best]
+      }
+    }' "$NT_OFF" > "$NT_ORD"
+  no_cy=$(sed -n 's/^CYCLE	//p' "$NT_ORD" | sed -n '1p')
+  if [ -n "$no_cy" ]; then notes_abort "the notes require each other in a cycle: $no_cy"; fi
+  return 0
+}
+
+# NT_BLK = `id TAB blocker|-`. The first `requires` id whose last ledger outcome is
+# declined, declined-final or held; or which is itself blocked (transitive); or which
+# is in upstream's tree, not offered and not applied or acknowledged.
+notes_blocked() {
+  NT_BLK=$(ul_mktemp) || exit 1
+  : > "$NT_BLK"
+  nb_rq=$(ul_mktemp) || exit 1
+  while IFS=$ul__tab read -r nb_id nb_rest <&3; do
+    nb_b=-
+    nb_q=$(awk -F'\t' -v id="$nb_id" '$1 == id { print $7; exit }' "$NT_ORD")
+    nt_split "$nb_q" > "$nb_rq"
+    while IFS= read -r nb_r <&4; do
+      nb_lo=$(nt_led_get "$nb_r" outcome)
+      case $nb_lo in
+        declined|declined-final|held) nb_b=$nb_r; break;;
+      esac
+      if nt_in "$NT_ORD" "$nb_r"; then
+        nb_rb=$(awk -F'\t' -v id="$nb_r" '$1 == id { print $2; exit }' "$NT_BLK")
+        if [ -n "$nb_rb" ] && [ "$nb_rb" != - ]; then nb_b=$nb_r; break; fi
+      elif nt_in "$NT_WORK" "$nb_r"; then
+        case $nb_lo in
+          applied|acknowledged) ;;
+          *) nb_b=$nb_r; break;;
+        esac
+      fi
+    done 4< "$nb_rq"
+    printf '%s\t%s\n' "$nb_id" "$nb_b" >> "$NT_BLK"
+  done 3< "$NT_ORD"
+  NT_B=$(awk -F'\t' '$2 != "-" { n++ } END { print n + 0 }' "$NT_BLK")
+  return 0
+}
+
+# NT_PM = `local-path TAB id TAB kind` for every path an offered note names; kind is
+# ta (touches or adds) or r (removes). The path is translated to this copy's name.
+notes_pathmap() {
+  NT_PM=$(ul_mktemp) || exit 1
+  : > "$NT_PM"
+  np_l=$(ul_mktemp) || exit 1
+  while IFS=$ul__tab read -r np_id np_rel np_sf np_t np_ad np_rm np_rest <&3; do
+    for np_k in t a r; do
+      case $np_k in t) np_v=$np_t;; a) np_v=$np_ad;; r) np_v=$np_rm;; esac
+      nt_split "$np_v" > "$np_l"
+      while IFS= read -r np_p <&4; do
+        [ -n "$np_p" ] || continue
+        np_lp=$(local_path_for "$np_p")
+        if [ "$np_k" = r ]; then np_kind=r; else np_kind=ta; fi
+        printf '%s\t%s\t%s\n' "$np_lp" "$np_id" "$np_kind" >> "$NT_PM"
+      done 4< "$np_l"
+    done
+  done 3< "$NT_ORD"
+  return 0
+}
+
+# Two-way rows (design 1.5, last paragraph). For each offered note and each touches
+# path: a customer-changed (`keep`) path whose check FAILED; for a project-data note,
+# the customer's file when it exists and its check did not pass (never when the file
+# is absent: nothing to adapt, the note is only acknowledged).
+notes_twoway() {
+  nw_l=$(ul_mktemp) || exit 1
+  while IFS=$ul__tab read -r nw_id nw_rel nw_sf nw_t nw_ad nw_rm nw_rq nw_c nw_d nw_blob nw_off nw_dc nw_sn nw_cl <&3; do
+    nt_split "$nw_t" > "$nw_l"
+    while IFS= read -r nw_p <&4; do
+      [ -n "$nw_p" ] || continue
+      nw_lp=$(local_path_for "$nw_p")
+      nw_cls=$(nt_class "$nw_lp")
+      if [ "$nw_d" = true ]; then
+        set -- $(entry_at HEAD "$nw_lp")
+        [ "$1" != - ] || continue
+        case $nw_cl in fail|none) ;; *) continue;; esac
+        case $nw_cls in ''|keep|two-way) write_two_way_row "$nw_p";; esac
+      else
+        if [ "$nw_cls" = keep ] && [ "$nw_cl" = fail ]; then write_two_way_row "$nw_p"; fi
+      fi
+    done 4< "$nw_l"
+  done 3< "$NT_ORD"
+  return 0
+}
+
+# NU : yes when the customer never changed any touches or adds path of the note.
+notes_untouched() { # TOUCHES ADDS
+  NT_U=yes
+  nu_l=$(ul_mktemp) || exit 1
+  { nt_split "$1"; nt_split "$2"; } > "$nu_l"
+  while IFS= read -r nu_p <&4; do
+    [ -n "$nu_p" ] || continue
+    nu_cls=$(nt_class "$(local_path_for "$nu_p")")
+    case $nu_cls in
+      ''|add|take|mode) ;;
+      *) NT_U=no; break;;
+    esac
+  done 4< "$nu_l"
+  return 0
+}
+
+# Overlap groups: union-find over the paths each offered note names. Groups are numbered
+# by their smallest path (C order), a note with no paths after them. Plan rows no
+# offered note covers form one more group whose only member is the pseudo-id _unnoted.
+notes_groups() {
+  NT_GRP=$(ul_mktemp) || exit 1
+  LC_ALL=C awk -F'\t' '
+    { n++; id[n] = $1; par[n] = n
+      for (f = 4; f <= 6; f++) {
+        if ($f == "-") continue
+        m = split($f, a, ",")
+        for (k = 1; k <= m; k++) {
+          p = a[k]
+          if (p in owner) {
+            x = owner[p]; while (par[x] != x) x = par[x]
+            y = n; while (par[y] != y) y = par[y]
+            if (x != y) par[y] = x
+          } else owner[p] = n
+          pp[++np] = p
+        }
+      }
+    }
+    END {
+      for (i = 1; i <= n; i++) { x = i; while (par[x] != x) x = par[x]; root[i] = x }
+      for (j = 1; j <= np; j++) { r = root[owner[pp[j]]]; if (!(r in minp) || pp[j] < minp[r]) minp[r] = pp[j] }
+      nr = 0
+      for (i = 1; i <= n; i++) {
+        r = root[i]
+        if (!(r in seen)) { seen[r] = 1; roots[++nr] = r; key[r] = (r in minp) ? minp[r] : "~~~~" id[i] }
+      }
+      for (a1 = 2; a1 <= nr; a1++) {
+        v = roots[a1]; b1 = a1 - 1
+        while (b1 >= 1 && key[roots[b1]] > key[v]) { roots[b1 + 1] = roots[b1]; b1-- }
+        roots[b1 + 1] = v
+      }
+      for (g = 1; g <= nr; g++) num[roots[g]] = g
+      for (i = 1; i <= n; i++) printf "%s\tg%d\n", id[i], num[root[i]]
+    }' "$NT_ORD" > "$NT_GRP"
+  awk -F'\t' '
+    { if (!($2 in ids)) { ord[++n] = $2 }
+      ids[$2] = ids[$2] (ids[$2] == "" ? "" : ",") $1 }
+    END { for (g = 1; g <= n; g++) { k = "g" g; print k "\t" ids[k] } }' "$NT_GRP" > "$state/groups.tsv"
+  NT_G=$(awk 'END { print NR + 0 }' "$state/groups.tsv")
+  # plan rows nothing covers (the notes tree and the engine are upstream-owned and left out)
+  ng_un=$(awk -F'\t' '
+    FNR == NR { covered[$1] = 1; next }
+    $4 == "upstream-owned" { next }
+    $2 ~ /^(take|add|delete|merged-clean|mode|conflict|add-conflict|deleted-upstream-kept|posture)$/ && !($1 in covered) { n++ }
+    END { print n + 0 }' "$NT_PM" "$state/plan.tsv")
+  if [ "$ng_un" -gt 0 ]; then
+    NT_G=$((NT_G + 1))
+    printf 'g%s\t_unnoted\n' "$NT_G" >> "$state/groups.tsv"
+  fi
+  return 0
+}
+
+notes_layer() {
+  notes_collect
+  nl_led=$(ledger_rows)
+  NT_LED=$(ul_mktemp) || exit 1
+  printf '%s\n' "$nl_led" | awk -F'\t' 'NF >= 2 { print $1 "\t" $2 "\t" $3 }' > "$NT_LED"
+  notes_run_checks
+  notes_offer
+  notes_order
+  NT_N=$(awk 'END { print NR + 0 }' "$NT_ORD")
+  notes_blocked
+  notes_pathmap
+  notes_twoway
+
+  nl_j=$(awk -F'\t' '$3 == "hold" && $1 ~ /[.]json$/ { print $1; exit }' "$state/plan.tsv")
+  if [ -n "$nl_j" ] && [ ! -s "$state/tools/json-valid.sh" ]; then
+    notes_abort "upstream ships no json-valid.sh, so the held JSON file $nl_j cannot be checked"
+  fi
+
+  notes_groups
+  : > "$state/notes.tsv"
+  while IFS=$ul__tab read -r nl_id nl_rel nl_sf nl_t nl_ad nl_rm nl_rq nl_c nl_d nl_blob nl_off nl_dc nl_sn nl_cl <&3; do
+    nl_b=$(awk -F'\t' -v id="$nl_id" '$1 == id { print $2; exit }' "$NT_BLK")
+    nl_g=$(awk -F'\t' -v id="$nl_id" '$1 == id { print $2; exit }' "$NT_GRP")
+    notes_untouched "$nl_t" "$nl_ad"
+    printf '%s\tnotes/%s.md\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$nl_id" "$nl_id" "$nl_sf" "$nl_t" "${nl_b:--}" "$nl_dc" "$nl_g" "$NT_U" "$nl_d" "$nl_c" "$nl_off" "$nl_sn" >> "$state/notes.tsv"
+  done 3< "$NT_ORD"
+
+  # note ids on every adapt.tsv row
+  nl_t2=$(ul_mktemp) || exit 1
+  awk -F'\t' -v OFS='\t' '
+    FNR == NR { if ($3 == "ta" && !(($1, $2) in seen)) { seen[$1, $2] = 1; ids[$1] = ids[$1] (ids[$1] == "" ? "" : ",") $2 } next }
+    { $2 = ($1 in ids) ? ids[$1] : "-"; print }' "$NT_PM" "$state/adapt.tsv" > "$nl_t2"
+  cp "$nl_t2" "$state/adapt.tsv"
+
+  NT_T=$(awk -F'\t' '$2 == "two-way" { n++ } END { print n + 0 }' "$state/plan.tsv")
+
+  # what --stage will do, in plain lines the skill reads back to the customer
+  {
+    printf 'tag loom/pre-update-%s\n' "$(date -u +%Y%m%d-%H%M%S)"
+    printf 'worktree add --detach %s/wt HEAD\n' "$state"
+    printf 'commit "LogicLoom update to %s"\n' "$(printf '%s' "$PL_UP" | cut -c1-12)"
+    printf 'then: git merge --ff-only <staged sha> (you approve this)\n'
+    awk -F'\t' '$3 == "apply" || $3 == "hold" { print "write " $1 }' "$state/plan.tsv"
+    awk -F'\t' '{ print "ledger " $1 }' "$NT_ORD"
+  } > "$state/transaction.txt"
+  return 0
+}
+
+# Classification is done: plan.tsv and adapt.tsv are complete and sorted, and the
+# state directory holds the sides. The notes layer (above) goes here.
 plan_after_classify() {
+  notes_layer
   return 0
 }
 
@@ -1239,7 +1721,7 @@ plan_reset_state() {
     *) echo "error refusing to rebuild an unexpected state directory"; exit 1;;
   esac
   mkdir -p "$state" || { echo "error could not create $state"; exit 1; }
-  for prs_f in plan.tsv meta notes.tsv groups.tsv adapt.tsv adapted.tsv transaction.txt checks.log; do
+  for prs_f in plan.tsv meta notes.tsv groups.tsv adapt.tsv adapted.tsv unresolved.tsv transaction.txt checks.log; do
     rm -f "$state/$prs_f"
   done
   for prs_d in notes adapt merged diffs reviewer export tools unresolved; do
@@ -1355,6 +1837,7 @@ cmd_plan() {
     printf 'channel=%s\n' "$CHANNEL"
     printf 'update_id=%s\n' "$pl_id"
     printf 'time=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    if [ "$OPT_REVISIT" = 1 ]; then printf 'revisit=yes\n'; fi
   } > "$state/meta"
 
   # ---- upstream's JSON tools, for the checks and --adapt-save
@@ -1402,8 +1885,249 @@ cmd_plan() {
   if [ "$PL_SIDE_FAIL" -gt 0 ]; then printf 'warning=%s side file(s) could not be saved\n' "$PL_SIDE_FAIL"; fi
   awk -F'\t' '{ c[$2]++ } END { for (k in c) print k "\t" c[k] }' "$state/plan.tsv" | LC_ALL=C sort | awk -F'\t' '{ print "class." $1 "=" $2 }'
   printf 'rows=%s\n' "$pl_rows"
+  printf 'notes=%s groups=%s blocked=%s twoway=%s\n' "$NT_N" "$NT_G" "$NT_B" "$NT_T"
   printf 'plan=%s/plan.tsv\n' "$state"
-  if [ "$pl_pending" -eq 0 ]; then printf 'uptodate=yes\n'; fi
+  if [ "$pl_pending" -eq 0 ] && [ "$NT_N" -eq 0 ]; then printf 'uptodate=yes\n'; fi
+  return 0
+}
+
+# ============================================== --adapt-save and --mark-unresolved
+# The deterministic gate between the read-only adapter agent and the tree (design
+# 1.10, 2.1, 2.2 steps 4 and 6). The skill hands a body file over; nothing reaches
+# state/merged/ unless every refusal below passed and security-invariants.sh accepted
+# it. A refusal prints ONE line `result=refused reason=<...>`, exits 1 and touches
+# nothing. Both subcommands write only under the state directory.
+
+as_refuse() { # REASON
+  printf 'result=refused reason=%s\n' "$1"
+  exit 1
+}
+
+# Refusals shared by both subcommands: a plan exists and is still current. The plan
+# is stale when HEAD or the fetched upstream commit is no longer what --plan saw; no
+# network is touched.
+as_plan_current() {
+  [ -f "$state/plan.tsv" ] && [ -f "$state/adapt.tsv" ] && [ -f "$state/meta" ] || as_refuse "no plan found; run --plan first"
+  as_mh=$(meta_val head)
+  as_mu=$(meta_val upstream)
+  as_ch=$(git -C "$root" rev-parse HEAD 2>/dev/null) || as_ch=
+  as_cu=$(upstream_head) || as_cu=
+  if [ -z "$as_mh" ] || [ -z "$as_mu" ] || [ "$as_ch" != "$as_mh" ] || [ "$as_cu" != "$as_mu" ]; then
+    as_refuse "the plan is stale (HEAD or upstream moved since --plan); run --plan again"
+  fi
+  CHANNEL=$(meta_val channel)
+  channel_map_load
+  plan_maps_load
+  return 0
+}
+
+as_row_ids() { # PATH -> the note-ids column of its adapt.tsv row (empty when no row)
+  awk -F'\t' -v p="$1" '$1 == p { print $2; exit }' "$state/adapt.tsv"
+}
+
+as_has_row() { # PATH
+  awk -F'\t' -v p="$1" '$1 == p { f = 1; exit } END { exit f ? 0 : 1 }' "$state/adapt.tsv"
+}
+
+# The upstream name of a local path: the rename source when the adopted channel keeps
+# the path under another name, else the path itself.
+as_upstream_name() { # LOCALPATH
+  as_un=$(renames | awk -F'\t' -v p="$1" '$2 == p { print $1; exit }')
+  if [ -n "$as_un" ] && [ "$CHANNEL" = adopted ]; then printf '%s' "$as_un"; else printf '%s' "$1"; fi
+}
+
+# 0 when PATH is a symlink at HEAD or upstream, or when any component of it in the
+# read-only export is one (a body written through such a path would land elsewhere).
+as_symlink() { # PATH
+  set -- $(entry_at HEAD "$1") "$1"
+  as_hm=$1; as_p=$3
+  [ "$as_hm" = 120000 ] && return 0
+  set -- $(entry_at "$(meta_val upstream)" "$(as_upstream_name "$as_p")")
+  [ "$1" = 120000 ] && return 0
+  as_cur=$state/export
+  as_rest=$as_p
+  while [ -n "$as_rest" ]; do
+    case $as_rest in
+      */*) as_c=${as_rest%%/*}; as_rest=${as_rest#*/};;
+      *) as_c=$as_rest; as_rest=;;
+    esac
+    [ -n "$as_c" ] || continue
+    as_cur=$as_cur/$as_c
+    [ -L "$as_cur" ] && return 0
+  done
+  return 1
+}
+
+as_note_fm() { # ID -> the note's frontmatter (the copy saved at plan time)
+  ul_frontmatter "$state/notes/$1.md"
+}
+
+# The rules --surface selects (the same table as security-invariants.sh's header).
+as_rules() { # PATH PROJECT-DATA(true|false)
+  if [ "$2" = true ]; then printf 'R4'; return 0; fi
+  case $1 in
+    .claude/settings.json) printf 'R1,R2,R5';;
+    .claude/policies/tool-restrictions.json) printf 'R2,R5';;
+    .logic-loom/config/gate-policy.conf|.logic-loom/config/governance.conf) printf 'R2';;
+    *.json) printf 'R5';;
+    *.md) printf 'R3';;
+    *) printf 'none';;
+  esac
+}
+
+cmd_adapt_save() { # PATH BODYFILE NOTE-IDS
+  if [ "$#" -ne 3 ]; then echo "error --adapt-save takes <path> <bodyfile> <note-ids>"; exit 2; fi
+  as_path=$1; as_body=$2; as_ids=$3
+  as_plan_current
+  if [ ! -f "$as_body" ] || [ ! -r "$as_body" ]; then as_refuse "the body file is missing or unreadable: $as_body"; fi
+  if [ ! -s "$as_body" ]; then as_refuse "the adapted body is empty"; fi
+  as_has_row "$as_path" || as_refuse "$as_path is not a held or two-way path in the current plan"
+  if ul_path_forbidden "$as_path"; then as_refuse "$as_path is in the forbidden set; an update never touches it"; fi
+  if as_symlink "$as_path"; then as_refuse "$as_path is a symlink, or sits under one; an adapted body is never written through it"; fi
+
+  # every id must be one the plan lists for this path; `-` rows accept only `-`
+  as_listed=$(as_row_ids "$as_path")
+  if [ -z "$as_ids" ]; then as_refuse "note-ids is empty; list the notes this body was adapted for"; fi
+  if [ "$as_listed" = - ]; then
+    [ "$as_ids" = - ] || as_refuse "$as_path has no notes in the plan, so the only note-ids accepted is -"
+  else
+    as_bad=
+    as_idl=$(ul_mktemp) || exit 1
+    nt_split "$as_ids" > "$as_idl"
+    as_n=0
+    while IFS= read -r as_i <&3; do
+      [ -n "$as_i" ] || continue
+      as_n=$((as_n + 1))
+      case ",$as_listed," in *",$as_i,"*) ;; *) as_bad="$as_bad $as_i";; esac
+    done 3< "$as_idl"
+    [ "$as_n" -gt 0 ] || as_refuse "note-ids names no note listed for $as_path"
+    [ -z "$as_bad" ] || as_refuse "note id(s) not listed for $as_path in the current plan:$as_bad"
+  fi
+
+  # line endings follow the customer's file; the body that is judged is the body saved
+  as_cand=$(ul_mktemp) || exit 1
+  as_lf=$(ul_mktemp) || exit 1
+  as_mine=$state/adapt/mine/$as_path
+  as_crlf=0
+  if [ -f "$as_mine" ] && grep -q "$(printf '\r')" "$as_mine" 2>/dev/null; then as_crlf=1; fi
+  tr -d '\r' < "$as_body" > "$as_lf" 2>/dev/null
+  if [ "$as_crlf" = 1 ]; then
+    awk '{ printf "%s\r\n", $0 }' "$as_lf" > "$as_cand"
+  else
+    cp "$as_lf" "$as_cand"
+  fi
+
+  case $as_path in
+    *.json)
+      # upstream's own validator, saved at plan time; never the customer's copy
+      if [ ! -s "$state/tools/json-valid.sh" ]; then
+        as_refuse "$as_path is JSON but json-valid.sh was not saved at plan time; refusing rather than risk writing broken JSON"
+      fi
+      as_jvo=$(sh "$state/tools/json-valid.sh" "$as_cand" 2>&1)
+      if [ "$?" -ne 0 ]; then
+        as_jvr=$(printf '%s\n' "$as_jvo" | sed -n 's/^reason=//p' | tail -1)
+        as_refuse "the adapted body is not valid json${as_jvr:+: $as_jvr}"
+      fi;;
+  esac
+
+  # what the approved notes (only those) allow
+  as_rx=$(ul_mktemp) || exit 1
+  as_rm=$(ul_mktemp) || exit 1
+  as_md=$(ul_mktemp) || exit 1
+  : > "$as_rx"; : > "$as_rm"; : > "$as_md"
+  as_pd=false
+  as_pat=
+  if [ "$as_ids" != - ]; then
+    nt_split "$as_ids" > "$as_idl"
+    while IFS= read -r as_i <&3; do
+      [ -n "$as_i" ] || continue
+      [ -f "$state/notes/$as_i.md" ] || as_refuse "the note file for $as_i is missing from the plan state; run --plan again"
+      as_fm=$(as_note_fm "$as_i")
+      ul_fm_list "$as_fm" relaxes | awk -v tb="$ul__tab" '{ s = $0; gsub(/ :: /, tb, s); print s }' >> "$as_rx"
+      ul_fm_list "$as_fm" removes | while IFS= read -r as_r; do
+        [ -n "$as_r" ] || continue
+        as_rp=$(ul_touch_split "$as_r" | cut -f1)
+        local_path_for "$as_rp"; printf '\n'
+      done >> "$as_rm"
+      ul_fm_list "$as_fm" may-drop-headings >> "$as_md"
+      if [ "$(ul_fm_scalar "$as_fm" project-data)" = true ]; then
+        as_pd=true
+        if [ -z "$as_pat" ]; then as_pat=$(ul_strip_quotes "$(ul_fm_scalar "$as_fm" pattern)"); fi
+      fi
+    done 3< "$as_idl"
+  fi
+
+  set -- --surface "$as_path"
+  [ -f "$as_mine" ] && set -- "$@" --mine "$as_mine"
+  [ -f "$state/adapt/theirs/$as_path" ] && set -- "$@" --theirs "$state/adapt/theirs/$as_path"
+  set -- "$@" --candidate "$as_cand" --tools "$state/tools" --relaxes "$as_rx" --removes "$as_rm" --may-drop-headings "$as_md"
+  if [ "$as_pd" = true ]; then set -- "$@" --pattern "$as_pat" --project-data; fi
+  as_out=$(sh "$here/security-invariants.sh" "$@" 2>&1)
+  as_rc=$?
+  if [ "$as_rc" -ne 0 ]; then
+    as_last=$(printf '%s\n' "$as_out" | tail -1)
+    case $as_last in
+      rule=*) as_refuse "invariant $as_last";;
+      *) as_refuse "invariant rule=none detail=the invariants script could not judge the body: $as_last";;
+    esac
+  fi
+
+  # save: a temp file in the destination directory renamed into place, every parent lstat-ed
+  write_file_safe "$state/merged" "$as_path" "$as_cand" 100644 || exit 1
+  as_t=$(ul_mktemp) || exit 1
+  for as_f in adapted.tsv unresolved.tsv; do
+    [ -f "$state/$as_f" ] || continue
+    awk -F'\t' -v p="$as_path" '$1 != p' "$state/$as_f" > "$as_t"
+    cp "$as_t" "$state/$as_f"
+  done
+  printf '%s\t%s\n' "$as_path" "$as_ids" >> "$state/adapted.tsv"
+  # a body now exists, so an earlier "could not adapt" mark no longer stands
+  rm -f "$state/unresolved/$as_path.lost.diff"
+  printf 'saved=%s notes=%s rules=%s\n' "$as_path" "$as_ids" "$(as_rules "$as_path" "$as_pd")"
+  return 0
+}
+
+# A safety note's file could not be adapted (the adapter said cannot-adapt, or
+# --adapt-save refused). The engine records what a full replacement would lose; the
+# skill shows it and the customer chooses (design 2.2 step 6). Nothing is replaced.
+cmd_mark_unresolved() { # PATH NOTE-ID
+  if [ "$#" -ne 2 ]; then echo "error --mark-unresolved takes <path> <note-id>"; exit 2; fi
+  mu_path=$1; mu_id=$2
+  as_plan_current
+  as_has_row "$mu_path" || as_refuse "$mu_path is not a held or two-way path in the current plan"
+  mu_listed=$(as_row_ids "$mu_path")
+  case ",$mu_listed," in
+    *",$mu_id,"*) ;;
+    *) as_refuse "note $mu_id is not listed for $mu_path in the current plan";;
+  esac
+  mu_safety=$(awk -F'\t' -v id="$mu_id" '$1 == id { print $3; exit }' "$state/notes.tsv" 2>/dev/null)
+  if [ "$mu_safety" != true ]; then as_refuse "note $mu_id is not a safety note; hold it instead"; fi
+
+  mu_m=$state/adapt/mine/$mu_path
+  mu_t=$state/adapt/theirs/$mu_path
+  [ -f "$mu_m" ] || mu_m=/dev/null
+  [ -f "$mu_t" ] || mu_t=/dev/null
+  mu_d=$state/unresolved/$mu_path.lost.diff
+  mkdir -p "$(dirname -- "$mu_d")" || { echo "error could not create the unresolved directory"; exit 1; }
+  mu_raw=$(ul_mktemp) || exit 1
+  diff -u "$mu_m" "$mu_t" > "$mu_raw" 2>/dev/null
+  if [ "$?" -gt 1 ]; then echo "error could not diff the two sides of $mu_path"; exit 1; fi
+  # the first two lines carry paths and timestamps; replace them with stable labels
+  awk -v a="--- mine/$mu_path" -v b="+++ theirs/$mu_path" 'NR == 1 { print a; next } NR == 2 { print b; next } { print }' "$mu_raw" > "$mu_d.part" \
+    && mv -f "$mu_d.part" "$mu_d" || { rm -f "$mu_d.part"; echo "error could not write $mu_d"; exit 1; }
+  mu_lost=$(awk 'NR > 2 && /^-/ { n++ } END { print n + 0 }' "$mu_d")
+
+  mu_x=$(ul_mktemp) || exit 1
+  [ -f "$state/unresolved.tsv" ] || : > "$state/unresolved.tsv"
+  awk -F'\t' -v p="$mu_path" '$1 != p' "$state/unresolved.tsv" > "$mu_x"
+  cp "$mu_x" "$state/unresolved.tsv"
+  printf '%s\t%s\n' "$mu_path" "$mu_id" >> "$state/unresolved.tsv"
+  # an unresolved file has no adapted body
+  if [ -f "$state/adapted.tsv" ]; then
+    awk -F'\t' -v p="$mu_path" '$1 != p' "$state/adapted.tsv" > "$mu_x"
+    cp "$mu_x" "$state/adapted.tsv"
+  fi
+  printf 'unresolved=%s lost=%s\n' "$mu_path" "$mu_lost"
   return 0
 }
 
@@ -1647,7 +2371,9 @@ case $cmd in
   --set-base) cmd_set_base "$@";;
   --bootstrap-copy) cmd_bootstrap_copy;;
   --plan) cmd_plan;;
-  --adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo)
+  --adapt-save) cmd_adapt_save "$@";;
+  --mark-unresolved) cmd_mark_unresolved "$@";;
+  --stage|--abandon|--finish|--undo)
     echo "error not implemented"
     exit 1;;
   --selftest-write-path)
