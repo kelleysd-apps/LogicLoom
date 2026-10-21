@@ -147,6 +147,8 @@ ul_t_write_bundle() { # DIR : one `<sha256>  <path>` line per installed script
 #   W_HEAD        upstream commit 2 (the update on offer)
 #   ENGINE        the engine as installed in the customer repo
 #   SH            the interpreter under test
+# With UL_T_STOCK=1 in the environment the customer makes no edits of its own (a stock
+# copy: only the .sdd-sync-ref commit), which the end-to-end cases use.
 ul_t_world() { # DIR
   ul_tw_dir=$(CDPATH= cd -- "$1" && pwd -P) || return 1
   W_UP=$ul_tw_dir/upstream
@@ -170,7 +172,7 @@ ul_t_world() { # DIR
   ul_t_git_config "$W_CUST"
   git -C "$W_CUST" checkout -q -B main "$W_BASE" || return 1
   git -C "$W_CUST" remote remove origin || return 1
-  cp -R "$UL_T_FIX/world/customer/." "$W_CUST/" || return 1
+  if [ "${UL_T_STOCK:-}" != 1 ]; then cp -R "$UL_T_FIX/world/customer/." "$W_CUST/" || return 1; fi
   printf '%s\n' "$W_BASE" > "$W_CUST/.sdd-sync-ref" || return 1
   ul_t_commit "$W_CUST" "customer edits" >/dev/null || return 1
 

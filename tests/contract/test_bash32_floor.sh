@@ -820,6 +820,118 @@ fi
 EXCL_COUNT="$(printf '%s\n' "$SELF_EXCLUDE" | grep -c . )"
 assert "exactly one file is excluded from the scan" "[ \"\$EXCL_COUNT\" -eq 1 ]"
 
+# ─────────────────────────────────────────────────────────────────────────────
+echo ""
+echo "7. POSIX update family executes under sh"
+# The /update-loom engine family is POSIX sh, not bash: it must parse and run under
+# the system /bin/sh (dash on Debian/Ubuntu CI) as well as dash itself. This floor
+# test is bash, so it only INVOKES those shells; it never sources the family.
+UL_DIR="plugins/loom-maintenance/scripts"
+UL_FAMILY="update-loom.sh update-loom-common.sh json-valid.sh json-flat.sh security-invariants.sh updates-lint.sh updates-checks.sh"
+UL_DASH=""
+[ -x /bin/dash ] && UL_DASH=/bin/dash
+# Non-comment lines of FILE matching the extended regex PATTERN, `<line>:<text>`.
+ul_posix_hits() {
+  grep -nE -e "$2" "$1" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#' || true
+}
+# One entry per construct that breaks dash (or is not POSIX), as `label|regex`.
+ul_posix_banned() {
+  printf '%s\n' \
+    '[[ test (bash/ksh only; dash: not found)|(^|[;&|(]|[[:space:]])\[\[[[:space:]]' \
+    'local keyword (not POSIX; posh/ksh reject it)|^[[:space:]]*local[[:space:]]' \
+    "dollar-quote with an escape (dash prints it literally)|[\$]'[^']*\\\\[abefnrtv0-9x\\\\']" \
+    '${var//x/y} substitution (dash: bad substitution)|[$][{][A-Za-z_][A-Za-z_0-9]*//' \
+    '<<< here-string (dash: syntax error)|<<<' \
+    'function NAME { keyword (dash: syntax error; awk NAME(args) is not matched)|^[[:space:]]*function[[:space:]]+[A-Za-z_][A-Za-z_0-9]*[[:space:]]*[{]?[[:space:]]*$' \
+    '${arr[i]} array element (dash: bad substitution)|[$][{][A-Za-z_][A-Za-z_0-9]*\[' \
+    '== inside [ ] (dash: unexpected operator)|^[^#]*(^|[^[])\[ [^]]* == ' \
+    '&> redirect (dash backgrounds the command)|[^&]&>[^&]' \
+    'source builtin (dash: not found)|^[[:space:]]*source[[:space:]]' \
+    'name+= append (dash: not found)|^[[:space:]]*[A-Za-z_][A-Za-z_0-9]*\+='
+}
+UL_BAD_HITS=""; UL_BAD_FIRST=""; UL_BAD_SHN=""; UL_BAD_DASHN=""; UL_MISSING=""
+for f in $UL_FAMILY; do
+  p="$UL_DIR/$f"
+  if [ ! -f "$p" ]; then UL_MISSING="$UL_MISSING $f"; continue; fi
+  [ "$(head -n 1 "$p")" = '#!/bin/sh' ] || UL_BAD_FIRST="$UL_BAD_FIRST $f"
+  /bin/sh -n "$p" 2>/dev/null || UL_BAD_SHN="$UL_BAD_SHN $f"
+  if [ -n "$UL_DASH" ]; then "$UL_DASH" -n "$p" 2>/dev/null || UL_BAD_DASHN="$UL_BAD_DASHN $f"; fi
+  while IFS='|' read -r lbl rx; do
+    [ -n "$lbl" ] || continue
+    h="$(ul_posix_hits "$p" "$rx")"
+    [ -z "$h" ] || UL_BAD_HITS="$UL_BAD_HITS
+$f: $lbl:
+$h"
+  done <<EOF_BANNED
+$(ul_posix_banned)
+EOF_BANNED
+done
+assert "every update-family script exists" "[ -z \"\$UL_MISSING\" ]"
+assert "first line is exactly #!/bin/sh in all seven" "[ -z \"\$UL_BAD_FIRST\" ]"
+assert "all seven pass /bin/sh -n" "[ -z \"\$UL_BAD_SHN\" ]"
+if [ -n "$UL_DASH" ]; then
+  assert "all seven pass dash -n" "[ -z \"\$UL_BAD_DASHN\" ]"
+else
+  echo "     ⏭  SKIPPED dash -n — no /bin/dash on this host (/bin/sh -n still ran)."
+fi
+if [ -n "$UL_BAD_HITS" ]; then printf '%s\n' "$UL_BAD_HITS" | sed 's/^/     /'; fi
+assert "no non-comment bash-only construct (dash breakers) in any of the seven" "[ -z \"\$UL_BAD_HITS\" ]"
+
+# The detector has teeth: each banned construct, planted, is caught; a comment is not.
+mkdir -p "$TMP/ulplant"
+UL_PLANT_BAD=""
+while IFS='|' read -r lbl rx; do
+  [ -n "$lbl" ] || continue
+  case "$lbl" in
+    '[[ '*) body='if [[ -n x ]]; then :; fi';;
+    'local '*) body=$'f() {\n  local x\n}';;
+    'dollar-quote'*) body="x=\$'a\\tb'";;
+    '${var//'*) body='x=${NAME//a/b}';;
+    '<<<'*) body='cat <<< hi';;
+    'function '*) body=$'function f {\n  :\n}';;
+    '${arr['*) body='x=${arr[0]}';;
+    '== inside'*) body='[ "$a" == "$b" ]';;
+    '&> '*) body='ls &> /dev/null';;
+    'source '*) body='source ./lib.sh';;
+    'name+='*) body='x+=y';;
+    *) body='';;
+  esac
+  printf '#!/bin/sh\n%s\n' "$body" > "$TMP/ulplant/p.sh"
+  [ -n "$(ul_posix_hits "$TMP/ulplant/p.sh" "$rx")" ] || UL_PLANT_BAD="$UL_PLANT_BAD [$lbl]"
+done <<EOF_PLANT
+$(ul_posix_banned)
+EOF_PLANT
+assert "every banned construct, planted, is caught by the detector${UL_PLANT_BAD:+ (missed:$UL_PLANT_BAD)}" "[ -z \"\$UL_PLANT_BAD\" ]"
+printf '#!/bin/sh\n# [[ local $'"'"'x'"'"' <<< function ${a//b/c} == only a comment\n' > "$TMP/ulplant/c.sh"
+UL_PLANT_CMT=""
+while IFS='|' read -r lbl rx; do
+  [ -n "$lbl" ] || continue
+  UL_PLANT_CMT="$UL_PLANT_CMT$(ul_posix_hits "$TMP/ulplant/c.sh" "$rx")"
+done <<EOF_CMT
+$(ul_posix_banned)
+EOF_CMT
+assert "a banned construct inside a comment does NOT trip the detector" "[ -z \"\$UL_PLANT_CMT\" ]"
+
+# Smoke runs under /bin/sh (and dash): json-valid.sh exit codes, update-loom.sh --help.
+printf '{"a": [1, 2, {"b": null}]}\n' > "$TMP/ul-valid.json"
+printf '{"a": [1, 2\n' > "$TMP/ul-invalid.json"
+UL_RC_OK=0; /bin/sh "$UL_DIR/json-valid.sh" "$TMP/ul-valid.json" >/dev/null 2>&1 || UL_RC_OK=$?
+UL_RC_BAD=0; /bin/sh "$UL_DIR/json-valid.sh" "$TMP/ul-invalid.json" >/dev/null 2>&1 || UL_RC_BAD=$?
+assert "json-valid.sh under /bin/sh: a valid file exits 0" "[ \"\$UL_RC_OK\" -eq 0 ]"
+assert "json-valid.sh under /bin/sh: an invalid file exits 1" "[ \"\$UL_RC_BAD\" -eq 1 ]"
+UL_RC_H=0; UL_H_OUT="$(cd "$ROOT" && /bin/sh "$UL_DIR/update-loom.sh" --help 2>&1)" || UL_RC_H=$?
+assert "update-loom.sh --help under /bin/sh exits 0" "[ \"\$UL_RC_H\" -eq 0 ]"
+assert "update-loom.sh --help prints the usage" "printf '%s' \"\$UL_H_OUT\" | grep -q -- '--plan'"
+if [ -n "$UL_DASH" ]; then
+  UL_RC_OK=0; "$UL_DASH" "$UL_DIR/json-valid.sh" "$TMP/ul-valid.json" >/dev/null 2>&1 || UL_RC_OK=$?
+  UL_RC_BAD=0; "$UL_DASH" "$UL_DIR/json-valid.sh" "$TMP/ul-invalid.json" >/dev/null 2>&1 || UL_RC_BAD=$?
+  UL_RC_H=0; (cd "$ROOT" && "$UL_DASH" "$UL_DIR/update-loom.sh" --help >/dev/null 2>&1) || UL_RC_H=$?
+  assert "json-valid.sh under dash: valid exits 0, invalid exits 1" "[ \"\$UL_RC_OK\" -eq 0 ] && [ \"\$UL_RC_BAD\" -eq 1 ]"
+  assert "update-loom.sh --help under dash exits 0" "[ \"\$UL_RC_H\" -eq 0 ]"
+else
+  echo "     ⏭  SKIPPED dash smoke runs — no /bin/dash on this host."
+fi
+
 echo ""
 echo "════════════════════════════════"
 echo " Results: $PASS/$TOTAL passed, $FAIL failed"
