@@ -16,7 +16,8 @@
 # plus the internal helpers the later subcommands call: write_path, lock_acquire /
 # lock_release / heal_stale, channel detection, the channel map reader, the trust
 # root (upstream_url) and fetch_upstream.
-# Not built yet (they print `error not implemented`): --stage --abandon --finish --undo.
+# --stage and --abandon are built (see the section above cmd_stage). Not built yet (they
+# print `error not implemented`): --finish --undo.
 # --plan is built (cmd_plan: classify, then the notes layer: offered notes, checks,
 # groups, two-way rows, transaction.txt). --adapt-save and --mark-unresolved are built
 # (cmd_adapt_save, cmd_mark_unresolved): the gate between the read-only adapter and the
@@ -31,6 +32,8 @@
 #   --selftest-map path PATH                 group / excluded / merge / rename of PATH
 #   --selftest-remap SHA                     the known-bad stamp table
 #   --selftest-two-way PATH                  write_two_way_row against the last plan
+#   --selftest-tree-gate WT                  the protected-tree equality gate on a worktree
+#   --selftest-allowlist WT DECISIONS        the staged-path allowlist on a worktree's HEAD commit
 #
 # Global options (accepted before or after the subcommand):
 #   --upstream-url <url>           refused unless --i-am-pointing-at-a-fork is also given
@@ -83,8 +86,9 @@ Usage: update-loom.sh [--upstream-url URL --i-am-pointing-at-a-fork] [--channel 
                         validate an adapted file (R1-R5) and save it under the state
   --mark-unresolved <path> <note-id>
                         a safety note's file could not be adapted: record what would be lost
-  --stage               (not built yet) build the update commit in a detached worktree
-  --abandon             (not built yet)
+  --stage <decisions.tsv>
+                        build the update commit in a detached worktree (never touches your tree)
+  --abandon             drop a staged update: remove the worktree, keep the tag
   --finish              (not built yet)
   --undo                (not built yet)
   --help                this text
@@ -119,7 +123,7 @@ cmd=${1:-}
 case $cmd in
   --help|-h) usage; exit 0;;
   --status|--detect-base|--set-base|--bootstrap-copy|--plan|--adapt-save|--mark-unresolved|--stage|--abandon|--finish|--undo) ;;
-  --selftest-write-path|--selftest-lock|--selftest-channel|--selftest-map|--selftest-remap|--selftest-two-way) ;;
+  --selftest-write-path|--selftest-lock|--selftest-channel|--selftest-map|--selftest-remap|--selftest-two-way|--selftest-tree-gate|--selftest-allowlist) ;;
   *) usage >&2; exit 2;;
 esac
 
@@ -1975,6 +1979,43 @@ as_rules() { # PATH PROJECT-DATA(true|false)
   esac
 }
 
+# The relaxes / removes / may-drop-headings inputs of security-invariants.sh for a
+# comma list of note ids (`-` = none). Shared by --adapt-save and the --stage gate.
+# Sets INV_RX INV_RM INV_MD (temp files), INV_PD (true|false) and INV_PAT; returns 1
+# with INV_ERR set when a note file is missing from the plan state.
+inv_inputs() { # NOTE-IDS
+  INV_RX=$(ul_mktemp) || exit 1
+  INV_RM=$(ul_mktemp) || exit 1
+  INV_MD=$(ul_mktemp) || exit 1
+  : > "$INV_RX"; : > "$INV_RM"; : > "$INV_MD"
+  INV_PD=false
+  INV_PAT=
+  INV_ERR=
+  [ "$1" != - ] || return 0
+  iv_l=$(ul_mktemp) || exit 1
+  nt_split "$1" > "$iv_l"
+  while IFS= read -r iv_i <&5; do
+    [ -n "$iv_i" ] || continue
+    if [ ! -f "$state/notes/$iv_i.md" ]; then
+      INV_ERR="the note file for $iv_i is missing from the plan state; run --plan again"
+      return 1
+    fi
+    iv_fm=$(as_note_fm "$iv_i")
+    ul_fm_list "$iv_fm" relaxes | awk -v tb="$ul__tab" '{ s = $0; gsub(/ :: /, tb, s); print s }' >> "$INV_RX"
+    ul_fm_list "$iv_fm" removes | while IFS= read -r iv_r; do
+      [ -n "$iv_r" ] || continue
+      iv_rp=$(ul_touch_split "$iv_r" | cut -f1)
+      local_path_for "$iv_rp"; printf '\n'
+    done >> "$INV_RM"
+    ul_fm_list "$iv_fm" may-drop-headings >> "$INV_MD"
+    if [ "$(ul_fm_scalar "$iv_fm" project-data)" = true ]; then
+      INV_PD=true
+      if [ -z "$INV_PAT" ]; then INV_PAT=$(ul_strip_quotes "$(ul_fm_scalar "$iv_fm" pattern)"); fi
+    fi
+  done 5< "$iv_l"
+  return 0
+}
+
 cmd_adapt_save() { # PATH BODYFILE NOTE-IDS
   if [ "$#" -ne 3 ]; then echo "error --adapt-save takes <path> <bodyfile> <note-ids>"; exit 2; fi
   as_path=$1; as_body=$2; as_ids=$3
@@ -2031,31 +2072,8 @@ cmd_adapt_save() { # PATH BODYFILE NOTE-IDS
   esac
 
   # what the approved notes (only those) allow
-  as_rx=$(ul_mktemp) || exit 1
-  as_rm=$(ul_mktemp) || exit 1
-  as_md=$(ul_mktemp) || exit 1
-  : > "$as_rx"; : > "$as_rm"; : > "$as_md"
-  as_pd=false
-  as_pat=
-  if [ "$as_ids" != - ]; then
-    nt_split "$as_ids" > "$as_idl"
-    while IFS= read -r as_i <&3; do
-      [ -n "$as_i" ] || continue
-      [ -f "$state/notes/$as_i.md" ] || as_refuse "the note file for $as_i is missing from the plan state; run --plan again"
-      as_fm=$(as_note_fm "$as_i")
-      ul_fm_list "$as_fm" relaxes | awk -v tb="$ul__tab" '{ s = $0; gsub(/ :: /, tb, s); print s }' >> "$as_rx"
-      ul_fm_list "$as_fm" removes | while IFS= read -r as_r; do
-        [ -n "$as_r" ] || continue
-        as_rp=$(ul_touch_split "$as_r" | cut -f1)
-        local_path_for "$as_rp"; printf '\n'
-      done >> "$as_rm"
-      ul_fm_list "$as_fm" may-drop-headings >> "$as_md"
-      if [ "$(ul_fm_scalar "$as_fm" project-data)" = true ]; then
-        as_pd=true
-        if [ -z "$as_pat" ]; then as_pat=$(ul_strip_quotes "$(ul_fm_scalar "$as_fm" pattern)"); fi
-      fi
-    done 3< "$as_idl"
-  fi
+  inv_inputs "$as_ids" || as_refuse "$INV_ERR"
+  as_rx=$INV_RX; as_rm=$INV_RM; as_md=$INV_MD; as_pd=$INV_PD; as_pat=$INV_PAT
 
   set -- --surface "$as_path"
   [ -f "$as_mine" ] && set -- "$@" --mine "$as_mine"
@@ -2327,6 +2345,807 @@ cmd_bootstrap_copy() {
   return 0
 }
 
+# ============================================================ --stage and --abandon
+# The one place the engine mutates git, and only inside a detached throwaway worktree
+# under <gitdir>/loom/update/wt: one commit "LogicLoom update to <upstream12>" that the
+# skill later lands with a typed `git merge --ff-only <sha>`. The live tree, HEAD and
+# every branch are never touched. Nothing here pushes, resets or deletes a branch or tag.
+#
+# Decisions (closed vocabulary, refused before anything is touched):
+#   path rows  `<path> TAB apply|take-theirs|keep-mine|hold|adapted[ TAB informed=yes]`
+#   note rows  `note:<id> TAB apply|acknowledge|decline|decline-final`; `note:_unnoted
+#              TAB apply|decline` (required when groups.tsv has _unnoted)
+#   every proposed=hold plan row needs a path row (take-theirs, keep-mine, hold, adapted);
+#   `apply` is refused on a held row, take-theirs/adapted on a row that is not held.
+#   A row is WRITTEN only when it has no covering note and is upstream-owned, or a
+#   covering note (or _unnoted) is decided `apply`; `acknowledge` and the declines never
+#   approve a write.
+# Ledger outcomes: apply -> applied, except `held` when every plan row of the note was
+# left unwritten by decision (keep-mine/hold); acknowledge -> acknowledged; decline ->
+# declined; decline-final -> declined-final; hold-back rewrites a held note to `held`.
+# The .applied record lists the CONTENT paths written (not the ledger, the record itself
+# or .sdd-sync-ref), with blob/mode before (HEAD) and after (the worktree index).
+# Gate order (fail closed): checks (updates-checks.sh, every safety note PASS|SKIP),
+# invariants R1-R5 on security surfaces (an informed take-theirs path is exempt),
+# settings.json json-valid, hooks-resolve (liveness only, never executes), protected
+# trees, staged-path allowlist. Abort: `result=aborted failed=<gate> reason=... log=...
+# unchanged=yes`, worktree removed, tag kept.
+# State added by --stage: run/ (relocated engine copy), stage.log, stage.info (tag=,
+# update_id=, parent=, upstream=), staged, wt/, mine/<update-id>/.
+# Test-only: LOOM_TEST_SLEEP_BEFORE_COMMIT=1 touches state/.test-sleeping and sleeps 30s
+# before the commit. LOOM_UPDATE_SH names the interpreter used to re-exec and to run
+# sibling scripts and checks (default sh).
+UL_SH=${LOOM_UPDATE_SH:-sh}
+ST_DP=; ST_DN=; ST_PM=; ST_WR=; ST_LR=; ST_HELD=; ST_WARN=
+STG_WT=; STG_TAG=; STG_ERR=; STG_UID=; STG_UP=; STG_HEAD=; STG_BASE=; STG_RUN=
+STG_PRE_HEAD=; STG_PRE_STATUS=
+SR_C=; SR_P=; SR_D=
+
+stg_log() { printf '%s\n' "$*" >> "$state/stage.log"; }
+
+stg_wt_remove() { # remove the throwaway worktree (guarded: only <gitdir>/loom/update/wt)
+  case $state in ?*/loom/update) ;; *) return 1;; esac
+  sw_wt=$state/wt
+  git -C "$root" worktree remove --force "$sw_wt" >/dev/null 2>&1
+  if [ -d "$sw_wt" ]; then
+    chmod -R u+w "$sw_wt" 2>/dev/null
+    rm -rf "$sw_wt"
+  fi
+  git -C "$root" worktree prune >/dev/null 2>&1
+  return 0
+}
+
+# Abort after the worktree exists: remove it, keep the tag, say whether the live tree moved.
+stg_abort() { # FAILED REASON
+  stg_log "abort failed=$1 reason=$2"
+  stg_wt_remove
+  rm -f "$state/staged" "$state/stage.info"
+  sa_h=$(git -C "$root" rev-parse HEAD 2>/dev/null)
+  sa_s=$(git -C "$root" status --porcelain 2>/dev/null)
+  sa_u=no
+  if [ "$sa_h" = "$STG_PRE_HEAD" ] && [ "$sa_s" = "$STG_PRE_STATUS" ]; then sa_u=yes; fi
+  printf 'result=aborted failed=%s reason=%s log=%s/stage.log' "$1" "$2" "$state"
+  if [ -n "$STG_TAG" ]; then printf ' tag=%s' "$STG_TAG"; fi
+  printf ' unchanged=%s\n' "$sa_u"
+  if [ -s "$ST_WARN" ]; then cat "$ST_WARN"; fi
+  exit 1
+}
+
+stg_pre() { # REASON [FAILED] : refusal before anything was written
+  printf 'result=aborted%s reason=%s unchanged=yes\n' "${2:+ failed=$2}" "$1"
+  exit 1
+}
+
+# ------------------------------------------------------------- decision lookups
+dp_get() { awk -F'\t' -v p="$1" '$1 == p { print $2; exit }' "$ST_DP"; }
+dp_inf() { awk -F'\t' -v p="$1" '$1 == p { print $3; exit }' "$ST_DP"; }
+dn_get() { awk -F'\t' -v p="$1" '$1 == p { print $2; exit }' "$ST_DN"; }
+nf_get() { awk -F'\t' -v i="$1" -v n="$2" '$1 == i { print $n; exit }' "$state/notes.tsv"; }
+
+stg_row() { # PATH -> SR_C SR_P SR_D; 1 when PATH is not a plan row
+  sr_l=$(awk -F'\t' -v p="$1" '$1 == p { print $2 "\t" $3 "\t" $4; exit }' "$state/plan.tsv")
+  [ -n "$sr_l" ] || return 1
+  SR_C=${sr_l%%"$ul__tab"*}; sr_l=${sr_l#*"$ul__tab"}
+  SR_P=${sr_l%%"$ul__tab"*}; SR_D=${sr_l#*"$ul__tab"}
+  return 0
+}
+
+stg_cover() { awk -F'\t' -v p="$1" '$1 == p { print $2 }' "$ST_PM" | LC_ALL=C sort -u; }
+
+stg_groups_has_unnoted() { awk -F'\t' '$2 == "_unnoted" { f = 1 } END { exit f ? 0 : 1 }' "$state/groups.tsv"; }
+
+stg_approved() { # PATH DETAIL -> 0 when the covering notes (or _unnoted) approve a write
+  sap_ids=$(stg_cover "$1")
+  if [ -z "$sap_ids" ]; then
+    [ "$2" = upstream-owned ] && return 0
+    [ "$(dn_get _unnoted)" = apply ]
+    return
+  fi
+  for sap_i in $sap_ids; do
+    [ "$(dn_get "$sap_i")" = apply ] && return 0
+  done
+  return 1
+}
+
+# ------------------------------------------------------------------ parse + validate
+stg_parse() { # FILE : fills ST_DP and ST_DN, or refuses on the first malformed line
+  ST_DP=$(ul_mktemp) || exit 1
+  ST_DN=$(ul_mktemp) || exit 1
+  sp_raw=$(ul_mktemp) || exit 1
+  awk -F'\t' '
+    BEGIN {
+      n = split("apply take-theirs keep-mine hold adapted", a, " "); for (i = 1; i <= n; i++) PV[a[i]] = 1
+      n = split("apply acknowledge decline decline-final", a, " "); for (i = 1; i <= n; i++) NV[a[i]] = 1
+    }
+    { sub(/\r$/, "") }
+    /^[ \t]*#/ || /^[ \t]*$/ { next }
+    {
+      key = $1; val = $2
+      if (NF < 2 || NF > 3 || key == "") { print "E\t" $0; next }
+      if (NF == 3 && $3 != "informed=yes") { print "E\t" $0; next }
+      if (key ~ /^note:/) {
+        id = substr(key, 6)
+        if (NF != 2 || id == "" || !(val in NV)) { print "E\t" $0; next }
+        if (id == "_unnoted" && val != "apply" && val != "decline") { print "E\t" $0; next }
+        if (("N" id) in seen) { print "E\t" $0; next }
+        seen["N" id] = 1
+        print "N\t" id "\t" val
+      } else {
+        if (!(val in PV)) { print "E\t" $0; next }
+        if (("P" key) in seen) { print "E\t" $0; next }
+        seen["P" key] = 1
+        print "P\t" key "\t" val "\t" ($3 == "informed=yes" ? "yes" : "no")
+      }
+    }' "$1" > "$sp_raw" 2>/dev/null
+  sp_e=$(awk -F'\t' '$1 == "E" { sub(/^E\t/, ""); print; exit }' "$sp_raw")
+  if [ -n "$sp_e" ]; then
+    stg_pre "unknown or malformed decision: $(printf '%s' "$sp_e" | tr '\t' ' ')"
+  fi
+  awk -F'\t' '$1 == "P" { print $2 "\t" $3 "\t" $4 }' "$sp_raw" > "$ST_DP"
+  awk -F'\t' '$1 == "N" { print $2 "\t" $3 }' "$sp_raw" > "$ST_DN"
+}
+
+stg_pathmap() {
+  ST_PM=$(ul_mktemp) || exit 1
+  : > "$ST_PM"
+  spm_l=$(ul_mktemp) || exit 1
+  while IFS=$ul__tab read -r spm_id spm_rest <&3; do
+    [ -f "$state/notes/$spm_id.md" ] || stg_pre "the note file for $spm_id is missing from the plan state; run --plan again"
+    spm_fm=$(ul_frontmatter "$state/notes/$spm_id.md")
+    for spm_k in touches adds removes; do
+      nt_scan_rows "$spm_fm" "$spm_k"
+      nt_split "$NT_LIST" > "$spm_l"
+      while IFS= read -r spm_p <&4; do
+        [ -n "$spm_p" ] || continue
+        spm_lp=$(local_path_for "$spm_p")
+        case $spm_k in removes) spm_kind=r;; *) spm_kind=ta;; esac
+        printf '%s\t%s\t%s\n' "$spm_lp" "$spm_id" "$spm_kind" >> "$ST_PM"
+      done 4< "$spm_l"
+    done
+  done 3< "$state/notes.tsv"
+}
+
+stg_validate() {
+  # ---- path rows
+  while IFS=$ul__tab read -r v_p v_d v_i <&3; do
+    stg_row "$v_p" || stg_pre "$v_p is not a row of the current plan"
+    case $SR_P in
+      keep|skip)
+        case $v_d in keep-mine|hold) ;; *) stg_pre "$v_p is not a writable row; its only decisions are keep-mine or hold";; esac;;
+      apply)
+        case $v_d in take-theirs|adapted) stg_pre "$v_d is only for held rows, and $v_p is not held";; esac;;
+      hold)
+        [ "$v_d" != apply ] || stg_pre "$v_p is held; decide take-theirs, keep-mine, hold or adapted";;
+    esac
+    if [ "$v_d" = adapted ]; then
+      if ! awk -F'\t' -v p="$v_p" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$state/adapted.tsv" 2>/dev/null || [ ! -f "$state/merged/$v_p" ]; then
+        stg_pre "adapted on $v_p has no saved adapted body (run --adapt-save)"
+      fi
+    fi
+    if [ "$SR_P" = hold ] && [ "$v_d" != take-theirs ] && awk -F'\t' -v p="$v_p" '$1 == p { f = 1 } END { exit f ? 0 : 1 }' "$state/unresolved.tsv" 2>/dev/null; then
+      stg_pre "$v_p is safety-unresolved: its only decision is take-theirs with informed=yes (or stop the update)"
+    fi
+    if [ "$v_d" = take-theirs ] && [ "$v_i" != yes ]; then
+      for v_n in $(stg_cover "$v_p"); do
+        if [ "$(nf_get "$v_n" 3)" = true ]; then
+          stg_pre "take-theirs on $v_p replaces a file a safety note covers ($v_n); it needs informed=yes in the same row"
+        fi
+      done
+    fi
+    case $v_d in
+      apply|take-theirs|adapted)
+        stg_approved "$v_p" "$SR_D" || stg_pre "$v_p cannot be written: the notes that cover it are declined or not applied; a declined note's paths are never written";;
+    esac
+  done 3< "$ST_DP"
+  # ---- every held row needs a decision
+  while IFS=$ul__tab read -r v_p v_c v_pr v_dt <&3; do
+    [ "$v_pr" = hold ] || continue
+    [ -n "$(dp_get "$v_p")" ] || stg_pre "$v_p is held and has no decision (take-theirs, keep-mine, hold or adapted)"
+  done 3< "$state/plan.tsv"
+  # ---- note rows
+  while IFS=$ul__tab read -r v_id v_d <&3; do
+    [ "$v_id" = _unnoted ] && continue
+    awk -F'\t' -v i="$v_id" '$1 == i { f = 1 } END { exit f ? 0 : 1 }' "$state/notes.tsv" || stg_pre "note:$v_id is not an offered note in the plan"
+  done 3< "$ST_DN"
+  if stg_groups_has_unnoted && [ -z "$(dn_get _unnoted)" ]; then
+    stg_pre "note:_unnoted has no decision (apply or decline)"
+  fi
+  while IFS=$ul__tab read -r v_id v_rest <&3; do
+    v_d=$(dn_get "$v_id")
+    [ -n "$v_d" ] || stg_pre "note $v_id is offered and has no decision (apply, acknowledge, decline or decline-final)"
+    v_sf=$(nf_get "$v_id" 3)
+    case $v_d in
+      decline|decline-final) [ "$v_sf" != true ] || stg_pre "note $v_id is a safety note (safety); it cannot be declined";;
+    esac
+    if [ "$v_d" = decline-final ] && [ "$(nf_get "$v_id" 9)" != true ] && [ "$(nf_get "$v_id" 10)" != none ]; then
+      stg_pre "decline-final is only for a project-data note or a note with no check; $v_id is neither"
+    fi
+    if [ "$v_d" = apply ]; then
+      for v_r in $(ul_fm_list "$(ul_frontmatter "$state/notes/$v_id.md")" requires); do
+        if awk -F'\t' -v i="$v_r" '$1 == i { f = 1 } END { exit f ? 0 : 1 }' "$state/notes.tsv"; then
+          case $(dn_get "$v_r") in decline|decline-final) stg_pre "note $v_id is blocked: it requires $v_r, which is declined";; esac
+        else
+          case $(ledger_outcome "$v_r") in declined|declined-final|held) stg_pre "note $v_id is blocked: it requires $v_r, recorded $(ledger_outcome "$v_r") in the ledger";; esac
+        fi
+      done
+    fi
+  done 3< "$state/notes.tsv"
+}
+
+# ------------------------------------------------------------------ writes
+stg_chain_ok() { # PATH : 1 (STG_ERR) when any component is a symlink in the worktree
+  sc_cur=$STG_WT; sc_rest=$1; sc_rel=
+  while [ -n "$sc_rest" ]; do
+    case $sc_rest in
+      */*) sc_c=${sc_rest%%/*}; sc_rest=${sc_rest#*/};;
+      *) sc_c=$sc_rest; sc_rest=;;
+    esac
+    [ -n "$sc_c" ] || continue
+    sc_rel=${sc_rel:+$sc_rel/}$sc_c
+    sc_cur=$sc_cur/$sc_c
+    if [ -L "$sc_cur" ]; then STG_ERR="symlink in path $sc_rel"; return 1; fi
+  done
+  return 0
+}
+
+stg_modeok() { case $1 in 100644|100755) return 0;; esac; STG_ERR="unsupported file mode $1 for $2"; return 1; }
+
+stg_put() { # PATH SHA MODE : the blob as wt/PATH through write_path
+  stg_modeok "$3" "$1" || return 1
+  sp_t=$(ul_mktemp) || exit 1
+  git -C "$root" cat-file blob "$2" > "$sp_t" 2>/dev/null || { STG_ERR="could not read the blob for $1"; return 1; }
+  sp_o=$(write_path "$STG_WT" "$1" "$sp_t" "$3") || { STG_ERR=${sp_o#error }; return 1; }
+  printf '%s\n' "$1" >> "$ST_WR"
+  return 0
+}
+
+stg_put_file() { # PATH FILE MODE
+  stg_modeok "$3" "$1" || return 1
+  sp_o=$(write_path "$STG_WT" "$1" "$2" "$3") || { STG_ERR=${sp_o#error }; return 1; }
+  printf '%s\n' "$1" >> "$ST_WR"
+  return 0
+}
+
+stg_remove() { # PATH
+  stg_chain_ok "$1" || return 1
+  git -C "$STG_WT" rm -q -f --ignore-unmatch -- "$1" >/dev/null 2>&1 || { STG_ERR="could not remove $1"; return 1; }
+  printf '%s\n' "$1" >> "$ST_WR"
+  return 0
+}
+
+stg_backup() { # PATH : the customer's file, kept under mine/<update-id>/
+  set -- "$1" $(entry_at HEAD "$1")
+  [ "$2" != - ] || return 0
+  sb_t=$(ul_mktemp) || exit 1
+  git -C "$root" cat-file blob "$3" > "$sb_t" 2>/dev/null || { STG_ERR="could not back up $1"; return 1; }
+  sb_o=$(write_file_safe "$state/mine/$STG_UID" "$1" "$sb_t" 100644) || { STG_ERR="could not back up $1: ${sb_o#error }"; return 1; }
+  return 0
+}
+
+stg_head_mode() { # PATH FALLBACK -> 100644|100755
+  set -- $(entry_at HEAD "$1") "$2"
+  case $1 in 100644|100755) printf '%s' "$1";; *) printf '%s' "${3:-100644}";; esac
+}
+
+stg_rows() {
+  while IFS=$ul__tab read -r r_p r_c r_pr r_dt <&3; do
+    case $r_pr in apply|hold) ;; *) continue;; esac
+    if ul_path_forbidden "$r_p"; then
+      printf 'warn forbidden path %s skipped\n' "$r_p" >> "$ST_WARN"
+      continue
+    fi
+    r_d=$(dp_get "$r_p")
+    r_up=$(as_upstream_name "$r_p")
+    set -- $(entry_at "$STG_UP" "$r_up")
+    r_um=$1; r_us=$2
+    r_act=
+    if [ "$r_pr" = apply ]; then
+      case $r_d in keep-mine|hold) continue;; esac
+      stg_approved "$r_p" "$r_dt" || continue
+      case $r_c in
+        take|add) r_act=upstream;;
+        mode) r_act=mode;;
+        delete) r_act=delete;;
+        merged-clean) r_act=merged;;
+        *) continue;;
+      esac
+    else
+      case $r_d in
+        take-theirs) r_act=theirs;;
+        adapted) r_act=merged;;
+        *) continue;;
+      esac
+    fi
+    case $r_act in
+      upstream)
+        if [ "$r_dt" = upstream-owned ]; then stg_backup_changed "$r_p" || stg_abort write "$STG_ERR"; fi
+        stg_put "$r_p" "$r_us" "$r_um" || stg_abort write "$STG_ERR";;
+      theirs)
+        stg_backup "$r_p" || stg_abort write "$STG_ERR"
+        if [ "$r_us" = - ]; then stg_remove "$r_p" || stg_abort write "$STG_ERR"
+        else stg_put "$r_p" "$r_us" "$r_um" || stg_abort write "$STG_ERR"; fi;;
+      mode)
+        set -- $(entry_at HEAD "$r_p")
+        stg_put "$r_p" "$2" "$r_um" || stg_abort write "$STG_ERR";;
+      delete)
+        stg_backup_changed "$r_p" || stg_abort write "$STG_ERR"
+        stg_remove "$r_p" || stg_abort write "$STG_ERR";;
+      merged)
+        if [ "$r_pr" = hold ]; then stg_backup "$r_p" || stg_abort write "$STG_ERR"; fi
+        stg_put_file "$r_p" "$state/merged/$r_p" "$(stg_head_mode "$r_p" "${r_um#-}")" || stg_abort write "$STG_ERR";;
+    esac
+  done 3< "$state/plan.tsv"
+}
+
+# Back up the customer's copy of an upstream-owned file only when it differs from the base.
+stg_backup_changed() { # PATH
+  set -- "$1" $(entry_at HEAD "$1") $(entry_at "$(meta_val base)" "$(as_upstream_name "$1")")
+  [ "$3" != - ] || return 0
+  [ "$3" != "$5" ] || return 0
+  stg_backup "$1"
+}
+
+# ------------------------------------------------------------ ledger + record
+stg_note_outcome() { # ID -> applied|held|acknowledged|declined|declined-final
+  case $(dn_get "$1") in
+    acknowledge) printf 'acknowledged'; return 0;;
+    decline) printf 'declined'; return 0;;
+    decline-final) printf 'declined-final'; return 0;;
+  esac
+  sn_rows=0; sn_wrote=0
+  sn_f=$(ul_mktemp) || exit 1
+  awk -F'\t' -v i="$1" '$2 == i { print $1 }' "$ST_PM" | LC_ALL=C sort -u > "$sn_f"
+  while IFS= read -r sn_p <&4; do
+    stg_row "$sn_p" || continue
+    case $SR_P in
+      apply|hold)
+        sn_rows=1
+        if grep -Fxq -- "$sn_p" "$ST_WR" 2>/dev/null; then sn_wrote=1; fi;;
+    esac
+  done 4< "$sn_f"
+  if [ "$sn_rows" = 1 ] && [ "$sn_wrote" = 0 ]; then printf 'held'; else printf 'applied'; fi
+}
+
+stg_ledger_rows() { # ST_LR = id TAB outcome TAB blob
+  ST_LR=$(ul_mktemp) || exit 1
+  : > "$ST_LR"
+  while IFS=$ul__tab read -r sl_id sl_rest <&3; do
+    sl_b=$(git -C "$root" hash-object --no-filters "$state/notes/$sl_id.md" 2>/dev/null) || sl_b=-
+    printf '%s\t%s\t%s\n' "$sl_id" "$(stg_note_outcome "$sl_id")" "$sl_b" >> "$ST_LR"
+  done 3< "$state/notes.tsv"
+}
+
+stg_ledger_emit() {
+  se_t=$(ul_mktemp) || exit 1
+  git -C "$root" show "HEAD:$UL_LEDGER" > "$se_t" 2>/dev/null || : > "$se_t"
+  if [ -s "$se_t" ] && [ -n "$(tail -c 1 "$se_t")" ]; then printf '\n' >> "$se_t"; fi
+  se_d=$(date -u +%Y-%m-%d)
+  awk -F'\t' -v up="$STG_UP" -v d="$se_d" '{ printf "%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, up, d }' "$ST_LR" >> "$se_t"
+  sed_o=$(write_path "$STG_WT" "$UL_LEDGER" "$se_t" 100644) || stg_abort write "${sed_o#error }"
+}
+
+stg_record_emit() {
+  sr_t=$(ul_mktemp) || exit 1
+  {
+    printf 'update_id=%s\n' "$STG_UID"
+    printf 'tag=%s\n' "$STG_TAG"
+    printf 'parent=%s\n' "$STG_HEAD"
+    printf 'base=%s\n' "$STG_BASE"
+    printf 'upstream=%s\n' "$STG_UP"
+    printf 'channel=%s\n' "$CHANNEL"
+    printf 'date=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    LC_ALL=C sort -u "$ST_WR" | while IFS= read -r sr_p; do
+      [ -n "$sr_p" ] || continue
+      set -- $(entry_at HEAD "$sr_p")
+      sr_bm=$1; sr_bs=$2
+      sr_a=$(git -C "$STG_WT" ls-files -s -- "$sr_p" 2>/dev/null | sed -n '1p')
+      if [ -n "$sr_a" ]; then
+        sr_am=${sr_a%% *}; sr_r=${sr_a#* }; sr_as=${sr_r%% *}
+      else
+        sr_am=-; sr_as=-
+      fi
+      printf '%s\t%s\t%s\t%s\t%s\n' "$sr_p" "$sr_as" "$sr_am" "$sr_bs" "$sr_bm"
+    done
+  } > "$sr_t"
+  sr_o=$(write_path "$STG_WT" "$UL_APPLIED_DIR/$STG_UID.applied" "$sr_t" 100644) || stg_abort write "${sr_o#error }"
+}
+
+# ------------------------------------------------------------------ checks
+stg_status_snapshot() { git -C "$STG_WT" status --porcelain --untracked-files=all 2>/dev/null; }
+
+stg_run_check() { # ID -> rc in SC_RC; aborts when the check wrote anything
+  scr_b=$(stg_status_snapshot)
+  scr_rb=$(git -C "$root" for-each-ref 2>/dev/null)
+  scr_fb=$(find "$STG_WT" -path "$STG_WT/.git" -prune -o -type f -print 2>/dev/null | LC_ALL=C sort)
+  scr_out=$(cd "$STG_WT" && REPO_ROOT="$STG_WT" UPDATE_TOOLS="$state/tools" $UL_SH "$state/notes/$1.check.sh" </dev/null 2>/dev/null)
+  SC_RC=$?
+  scr_a=$(stg_status_snapshot)
+  scr_ra=$(git -C "$root" for-each-ref 2>/dev/null)
+  scr_fa=$(find "$STG_WT" -path "$STG_WT/.git" -prune -o -type f -print 2>/dev/null | LC_ALL=C sort)
+  stg_log "check $1 exit=$SC_RC last=${scr_out##*"$ul__nl"}"
+  if [ "$scr_b" != "$scr_a" ] || [ "$scr_rb" != "$scr_ra" ] || [ "$scr_fb" != "$scr_fa" ]; then
+    stg_abort checks "check $1 wrote into the worktree or changed a ref"
+  fi
+}
+
+stg_changed() { git -C "$STG_WT" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | LC_ALL=C sort; }
+
+stg_restore_head() { # PATH : back to the customer's HEAD content, or gone when HEAD lacked it
+  set -- "$1" $(entry_at HEAD "$1")
+  if [ "$2" = - ]; then
+    stg_chain_ok "$1" || return 1
+    git -C "$STG_WT" rm -q -f --ignore-unmatch -- "$1" >/dev/null 2>&1
+    return $?
+  fi
+  srh_t=$(ul_mktemp) || exit 1
+  git -C "$root" cat-file blob "$3" > "$srh_t" 2>/dev/null || { STG_ERR="could not read HEAD's $1"; return 1; }
+  srh_o=$(write_path "$STG_WT" "$1" "$srh_t" "$2") || { STG_ERR=${srh_o#error }; return 1; }
+  return 0
+}
+
+stg_note_paths() { awk -F'\t' -v i="$1" '$2 == i { print $1 }' "$ST_PM" | LC_ALL=C sort -u; }
+
+stg_holdback() {
+  ST_HELD=$(ul_mktemp) || exit 1
+  : > "$ST_HELD"
+  hb_ch=$(ul_mktemp) || exit 1
+  stg_changed > "$hb_ch"
+  hb_cand=$(ul_mktemp) || exit 1
+  : > "$hb_cand"
+  hb_ap=$(ul_mktemp) || exit 1       # applied non-safety notes
+  : > "$hb_ap"
+  while IFS=$ul__tab read -r hb_id hb_rest <&3; do
+    [ "$(dn_get "$hb_id")" = apply ] || continue
+    [ "$(nf_get "$hb_id" 3)" = true ] && continue
+    printf '%s\n' "$hb_id" >> "$hb_ap"
+    [ "$(nf_get "$hb_id" 10)" != none ] || continue
+    [ -f "$state/notes/$hb_id.check.sh" ] || continue
+    hb_np=$(ul_mktemp) || exit 1
+    stg_note_paths "$hb_id" > "$hb_np"
+    if grep -Fxqf "$hb_np" "$hb_ch" 2>/dev/null; then printf '%s\n' "$hb_id" >> "$hb_cand"; fi
+  done 3< "$state/notes.tsv"
+  while IFS= read -r hb_id <&3; do
+    stg_run_check "$hb_id"
+    if [ "$SC_RC" -ne 0 ]; then printf '%s\n' "$hb_id" >> "$ST_HELD"; fi
+  done 3< "$hb_cand"
+  [ -s "$ST_HELD" ] || return 0
+  # widen to a fixed point: a shared path, or a (transitive) requires on a held note
+  hb_grew=1
+  while [ "$hb_grew" = 1 ]; do
+    hb_grew=0
+    hb_hp=$(ul_mktemp) || exit 1
+    : > "$hb_hp"
+    while IFS= read -r hb_h <&3; do stg_note_paths "$hb_h" >> "$hb_hp"; done 3< "$ST_HELD"
+    while IFS= read -r hb_o <&3; do
+      grep -Fxq -- "$hb_o" "$ST_HELD" && continue
+      hb_op=$(ul_mktemp) || exit 1
+      stg_note_paths "$hb_o" > "$hb_op"
+      hb_add=0
+      if [ -s "$hb_op" ] && grep -Fxqf "$hb_op" "$hb_hp" 2>/dev/null; then hb_add=1; fi
+      for hb_r in $(ul_fm_list "$(ul_frontmatter "$state/notes/$hb_o.md")" requires); do
+        grep -Fxq -- "$hb_r" "$ST_HELD" && hb_add=1
+      done
+      if [ "$hb_add" = 1 ]; then printf '%s\n' "$hb_o" >> "$ST_HELD"; hb_grew=1; fi
+    done 3< "$hb_ap"
+  done
+  # what has to be restored, and what a safety note forbids restoring
+  hb_rs=$(ul_mktemp) || exit 1
+  : > "$hb_rs"
+  while IFS= read -r hb_h <&3; do
+    stg_note_paths "$hb_h" | while IFS= read -r hb_p; do
+      grep -Fxq -- "$hb_p" "$hb_ch" && printf '%s\n' "$hb_p"
+    done >> "$hb_rs"
+  done 3< "$ST_HELD"
+  LC_ALL=C sort -u "$hb_rs" -o "$hb_rs"
+  hb_sp=$(ul_mktemp) || exit 1
+  : > "$hb_sp"
+  while IFS=$ul__tab read -r hb_id hb_rest <&3; do
+    [ "$(nf_get "$hb_id" 3)" = true ] && stg_note_paths "$hb_id" >> "$hb_sp"
+  done 3< "$state/notes.tsv"
+  if [ -s "$hb_rs" ] && [ -s "$hb_sp" ]; then
+    hb_bad=$(grep -Fxf "$hb_sp" "$hb_rs" | sed -n '1p')
+    if [ -n "$hb_bad" ]; then
+      stg_abort hold-back "a held note's change to $hb_bad cannot be reverted because a safety note also touches it; holding it back would leave it live"
+    fi
+  fi
+  while IFS= read -r hb_p <&3; do
+    [ -n "$hb_p" ] || continue
+    stg_restore_head "$hb_p" || stg_abort hold-back "could not restore $hb_p to your version: $STG_ERR"
+  done 3< "$hb_rs"
+  grep -Fvxf "$hb_rs" "$ST_WR" > "$ST_WR.n" 2>/dev/null; mv -f "$ST_WR.n" "$ST_WR"
+  awk -F'\t' -v OFS='\t' 'FNR == NR { h[$1] = 1; next } ($1 in h) { $2 = "held" } { print }' "$ST_HELD" "$ST_LR" > "$ST_LR.n"
+  mv -f "$ST_LR.n" "$ST_LR"
+  stg_ledger_emit
+  stg_record_emit
+  git -C "$STG_WT" add -A >/dev/null 2>&1
+  stg_commit amend || stg_abort hold-back "could not amend the update commit after holding a note back"
+}
+
+stg_commit() { # [amend]
+  if [ "${1:-}" = amend ]; then
+    git -C "$STG_WT" -c core.hooksPath=/dev/null -c commit.gpgsign=false commit -q --amend --no-edit --no-verify >/dev/null 2>&1
+  else
+    git -C "$STG_WT" -c core.hooksPath=/dev/null -c commit.gpgsign=false commit -q --no-verify -m "LogicLoom update to $(printf '%s' "$STG_UP" | cut -c1-12)" >/dev/null 2>&1
+  fi
+}
+
+# ------------------------------------------------------------------ the gate
+stg_allowlist() { # WT -> 0 ok; else AL_BAD names the first path no note allows
+  sal_ok=$(ul_mktemp) || exit 1
+  : > "$sal_ok"
+  while IFS=$ul__tab read -r sal_id sal_rest <&3; do
+    [ "$(dn_get "$sal_id")" = apply ] || continue
+    grep -Fxq -- "$sal_id" "$ST_HELD" 2>/dev/null && continue
+    stg_note_paths "$sal_id" >> "$sal_ok"
+  done 3< "$state/notes.tsv"
+  while IFS=$ul__tab read -r sal_p sal_c sal_pr sal_dt <&3; do
+    case $sal_pr in apply|hold) ;; *) continue;; esac
+    [ -z "$(stg_cover "$sal_p")" ] || continue
+    if [ "$sal_dt" = upstream-owned ] || [ "$(dn_get _unnoted)" = apply ]; then printf '%s\n' "$sal_p" >> "$sal_ok"; fi
+  done 3< "$state/plan.tsv"
+  { printf '%s\n' "$UL_SYNC_REF" "$UL_LEDGER" "$UL_APPLIED_DIR/$STG_UID.applied"; } >> "$sal_ok"
+  AL_BAD=$(git -C "$1" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep -Fxvf "$sal_ok" | sed -n '1p')
+  [ -z "$AL_BAD" ]
+}
+
+stg_tree_listing() { # REV-OR-WT TREE
+  git -C "$1" ls-tree HEAD:"$2" 2>/dev/null | case $2 in
+    features|specs|.brain) awk -F'\t' '$2 != "README.md" && $2 != ".gitkeep"';;
+    *) cat;;
+  esac
+}
+
+stg_treegate() { # WT -> 0 ok; else TG_BAD names the tree
+  TG_BAD=
+  for stg_t in $UL_FORBIDDEN_TREES; do
+    if [ "$(stg_tree_listing "$root" "$stg_t")" != "$(stg_tree_listing "$1" "$stg_t")" ]; then TG_BAD=$stg_t; return 1; fi
+  done
+  return 0
+}
+
+stg_hooks_resolve() {
+  [ -f "$STG_WT/.claude/settings.json" ] || return 0
+  [ -s "$state/tools/json-flat.sh" ] || return 0
+  shr_f=$(ul_mktemp) || exit 1
+  $UL_SH "$state/tools/json-flat.sh" "$STG_WT/.claude/settings.json" > "$shr_f" 2>/dev/null || stg_abort hooks-resolve "settings.json could not be read to find its hooks"
+  awk -F'\t' '$1 ~ /^\/hooks\/[^\/]+\/[0-9]+\/hooks\/[0-9]+\/command$/ {
+      n = split($2, t, /[ \t]+/)
+      for (i = 1; i <= n; i++) { s = t[i]; gsub(/^["\047]|["\047]$/, "", s); if (s ~ /\.sh$/) { print s; break } }
+    }' "$shr_f" | LC_ALL=C sort -u > "$shr_f.s"
+  while IFS= read -r shr_s <&3; do
+    case $shr_s in /*|\$*|~*) continue;; esac
+    shr_w=
+    if [ ! -f "$STG_WT/$shr_s" ]; then shr_w="does not exist"
+    elif [ ! -r "$STG_WT/$shr_s" ]; then shr_w="is not readable"
+    elif ! $UL_SH -n "$STG_WT/$shr_s" >/dev/null 2>&1 && ! { command -v bash >/dev/null 2>&1 && bash -n "$STG_WT/$shr_s" >/dev/null 2>&1; }; then shr_w="does not parse"
+    fi
+    [ -n "$shr_w" ] || continue
+    if path_in_harness "$shr_s"; then
+      stg_abort hooks-resolve "hook script $shr_s $shr_w, and it is a harness script"
+    fi
+    printf 'warn hook %s %s (an adopter script; not gated)\n' "$shr_s" "$shr_w" >> "$ST_WARN"
+  done 3< "$shr_f.s"
+  rm -f "$shr_f.s"
+}
+
+stg_gate() {
+  # ---- checks
+  sg_safety=$(awk -F'\t' '$3 == "true" { print $1 }' "$state/notes.tsv")
+  if [ -n "$sg_safety" ]; then
+    sg_o=$(cd "$STG_WT" && $UL_SH "$STG_RUN/updates-checks.sh" --root "$STG_WT" --tools "$state/tools" 2>&1)
+    sg_rc=$?
+    printf '%s\n' "$sg_o" > "$state/checks-stage.log"
+    stg_log "updates-checks exit=$sg_rc"
+    printf '%s\n' "$sg_o" >> "$state/stage.log"
+    if [ -n "$(stg_status_snapshot)" ]; then stg_abort checks "the checks runner wrote into the worktree"; fi
+    sg_fail=$(printf '%s\n' "$sg_o" | sed -n 's/^FAIL //p' | tr '\n' ' ')
+    [ -z "$sg_fail" ] || stg_abort checks "a safety check failed in the worktree: $sg_fail"
+    [ "$sg_rc" -eq 0 ] || stg_abort checks "the checks runner exited $sg_rc"
+    for sg_n in $sg_safety; do
+      printf '%s\n' "$sg_o" | grep -Eq "^(PASS|SKIP) $sg_n( |\$)" || stg_abort checks "safety note $sg_n has no passing check result"
+    done
+  fi
+  # ---- invariants on every security surface in the commit
+  stg_changed | while IFS= read -r sg_p; do
+    ul_path_security_surface "$sg_p" && printf '%s\n' "$sg_p"
+  done > "$state/.surfaces"
+  while IFS= read -r sg_p <&3; do
+    [ -n "$sg_p" ] || continue
+    if [ "$(dp_get "$sg_p")" = take-theirs ] && [ "$(dp_inf "$sg_p")" = yes ]; then continue; fi
+    [ -f "$STG_WT/$sg_p" ] || stg_abort invariants "$sg_p was removed, and a security surface may not be"
+    sg_ids=
+    for sg_n in $(stg_cover "$sg_p"); do
+      if [ "$(dn_get "$sg_n")" = apply ] && ! grep -Fxq -- "$sg_n" "$ST_HELD" 2>/dev/null; then sg_ids=${sg_ids:+$sg_ids,}$sg_n; fi
+    done
+    inv_inputs "${sg_ids:--}" || stg_abort invariants "$INV_ERR"
+    sg_m=$(ul_mktemp) || exit 1
+    sg_th=$(ul_mktemp) || exit 1
+    set -- $(entry_at HEAD "$sg_p")
+    sg_ha=
+    if [ "$2" != - ]; then git -C "$root" cat-file blob "$2" > "$sg_m" 2>/dev/null; sg_ha=1; fi
+    set -- $(entry_at "$STG_UP" "$(as_upstream_name "$sg_p")")
+    sg_ua=
+    if [ "$2" != - ]; then git -C "$root" cat-file blob "$2" > "$sg_th" 2>/dev/null; sg_ua=1; fi
+    set -- --surface "$sg_p"
+    [ -n "$sg_ha" ] && set -- "$@" --mine "$sg_m"
+    [ -n "$sg_ua" ] && set -- "$@" --theirs "$sg_th"
+    set -- "$@" --candidate "$STG_WT/$sg_p" --tools "$state/tools" --relaxes "$INV_RX" --removes "$INV_RM" --may-drop-headings "$INV_MD"
+    sg_o=$($UL_SH "$here/security-invariants.sh" "$@" 2>&1)
+    sg_rc=$?
+    if [ "$sg_rc" -ne 0 ]; then
+      stg_abort invariants "$sg_p: $(printf '%s\n' "$sg_o" | tail -1)"
+    fi
+  done 3< "$state/.surfaces"
+  rm -f "$state/.surfaces"
+  # ---- settings.json valid JSON
+  if [ -f "$STG_WT/.claude/settings.json" ]; then
+    if [ ! -s "$state/tools/json-valid.sh" ]; then
+      if stg_changed | grep -Fxq .claude/settings.json; then stg_abort machinery "settings.json changed but json-valid.sh was not saved at plan time"; fi
+    else
+      $UL_SH "$state/tools/json-valid.sh" "$STG_WT/.claude/settings.json" >/dev/null 2>&1 || stg_abort json "settings.json in the update is not valid JSON"
+    fi
+  fi
+  # ---- hooks resolve
+  stg_hooks_resolve
+  # ---- protected trees, staged-path allowlist
+  stg_treegate "$STG_WT" || stg_abort tree "the protected tree $TG_BAD differs from your branch"
+  stg_allowlist "$STG_WT" || stg_abort allowlist "the update commit changes $AL_BAD, which no approved note allows"
+}
+
+# ------------------------------------------------------------------ the command
+stg_relocate() { # DECISIONS-FILE : copy the family to state/run and re-exec from there, once
+  [ "${LOOM_UPDATE_RELOCATED:-0}" != 1 ] || return 0
+  case $state in ?*/loom/update) ;; *) echo "error refusing to use an unexpected state directory"; exit 1;; esac
+  mkdir -p "$state/run" || { echo "error could not create $state/run"; exit 1; }
+  for sr_f in update-loom.sh update-loom-common.sh json-valid.sh json-flat.sh security-invariants.sh updates-checks.sh updates-lint.sh; do
+    if [ -f "$here/$sr_f" ]; then
+      cp "$here/$sr_f" "$state/run/$sr_f" || { echo "error could not copy $sr_f to $state/run"; exit 1; }
+    else
+      rm -f "$state/run/$sr_f"
+    fi
+  done
+  set --
+  [ -n "$OPT_URL" ] && set -- "$@" --upstream-url "$OPT_URL"
+  [ "$OPT_FORK" = 1 ] && set -- "$@" --i-am-pointing-at-a-fork
+  [ -n "$OPT_CHANNEL" ] && set -- "$@" --channel "$OPT_CHANNEL"
+  LOOM_UPDATE_RELOCATED=1
+  LOOM_UPDATE_ROOT=$root
+  export LOOM_UPDATE_RELOCATED LOOM_UPDATE_ROOT
+  exec $UL_SH "$state/run/update-loom.sh" "$@" --stage "$stg_dec" </dev/null
+}
+
+stg_context() { # selftests: CHANNEL, maps, ids
+  CHANNEL=$(meta_val channel)
+  channel_map_load
+  plan_maps_load
+  STG_UID=$(meta_val update_id)
+  STG_UP=$(meta_val upstream)
+}
+
+cmd_stage() { # DECISIONS-FILE
+  if [ "$#" -ne 1 ]; then echo "error --stage takes <decisions.tsv>"; exit 2; fi
+  stg_dec=$1
+  case $stg_dec in /*) ;; *) stg_dec=$(cd "$(dirname -- "$stg_dec")" 2>/dev/null && pwd)/$(basename -- "$stg_dec");; esac
+  stg_relocate
+  unset LOOM_UPDATE_RELOCATED LOOM_UPDATE_ROOT
+  STG_RUN=$state/run
+  ST_WARN=$(ul_mktemp) || exit 1
+  : > "$ST_WARN"
+  mkdir -p "$state" || { echo "error could not create $state"; exit 1; }
+  : > "$state/stage.log"
+  if ! heal_stale; then stg_pre "another update is staging (pid $LOCK_LIVE)"; fi
+  if [ -f "$state/staged" ]; then stg_pre "a staged update exists; run --finish or --abandon"; fi
+  lock_acquire || stg_pre "another update is staging"
+  # ---- refusals, nothing written to the tree
+  [ -f "$state/plan.tsv" ] && [ -f "$state/adapt.tsv" ] && [ -f "$state/meta" ] && [ -f "$state/notes.tsv" ] || stg_pre "no plan found; run --plan first"
+  resolve_channel
+  channel_map_load
+  so=$(clean_offenders)
+  if [ -n "$so" ]; then
+    if status_failed "$so"; then stg_pre "git status failed in this repository"; fi
+    stg_pre "your working tree has uncommitted changes: $(offender_paths "$so")"
+  fi
+  if in_progress; then stg_pre "a merge, rebase, cherry-pick or revert is unfinished; finish or abort it first"; fi
+  fetch_upstream || stg_pre "$FETCH_ERROR"
+  STG_HEAD=$(git -C "$root" rev-parse HEAD 2>/dev/null) || stg_pre "could not read HEAD"
+  STG_UP=$(upstream_head) || STG_UP=
+  if [ "$STG_HEAD" != "$(meta_val head)" ] || [ -z "$STG_UP" ] || [ "$STG_UP" != "$(meta_val upstream)" ]; then
+    stg_pre "the plan is stale (HEAD or upstream moved since --plan); run --plan again"
+  fi
+  stg_context
+  STG_BASE=$(meta_val base)
+  [ -r "$stg_dec" ] && [ -f "$stg_dec" ] || stg_pre "the decisions file is missing or unreadable: $stg_dec"
+  stg_parse "$stg_dec"
+  stg_pathmap
+  stg_validate
+  if awk -F'\t' '$3 == "true" { f = 1 } END { exit f ? 0 : 1 }' "$state/notes.tsv"; then
+    [ -f "$STG_RUN/updates-checks.sh" ] && [ -s "$state/tools/json-valid.sh" ] || stg_pre "a safety note is in the plan, but updates-checks.sh or json-valid.sh is missing, so it cannot be checked" machinery
+  fi
+  # ---- the transaction
+  STG_PRE_HEAD=$STG_HEAD
+  STG_PRE_STATUS=$(git -C "$root" status --porcelain 2>/dev/null)
+  stg_ts=$(date -u +%Y%m%d-%H%M%S)
+  STG_TAG=loom/pre-update-$stg_ts
+  stg_n=2
+  while git -C "$root" rev-parse -q --verify "refs/tags/$STG_TAG" >/dev/null 2>&1; do
+    STG_TAG=loom/pre-update-$stg_ts-$stg_n
+    stg_n=$((stg_n + 1))
+  done
+  git -C "$root" tag "$STG_TAG" "$STG_HEAD" >/dev/null 2>&1 || stg_pre "could not create the pre-update tag"
+  STG_WT=$state/wt
+  stg_wt_remove
+  git -C "$root" worktree add -q --detach "$STG_WT" "$STG_HEAD" >/dev/null 2>&1 || stg_abort worktree "could not create the worktree to build the update in"
+  ST_WR=$(ul_mktemp) || exit 1
+  : > "$ST_WR"
+  stg_rows
+  stg_ledger_rows
+  stg_ledger_emit
+  stg_record_emit
+  sy_t=$(ul_mktemp) || exit 1
+  printf '%s\n' "$STG_UP" > "$sy_t"
+  sy_o=$(write_path "$STG_WT" "$UL_SYNC_REF" "$sy_t" 100644) || stg_abort write "${sy_o#error }"
+  git -C "$STG_WT" add -A >/dev/null 2>&1
+  if git -C "$STG_WT" diff --cached --quiet; then stg_abort nothing "nothing to apply; you are up to date"; fi
+  if [ "${LOOM_TEST_SLEEP_BEFORE_COMMIT:-}" = 1 ]; then
+    : > "$state/.test-sleeping"
+    sleep 30
+  fi
+  stg_commit || stg_abort commit "could not commit the update in the worktree"
+  stg_holdback
+  stg_gate
+  # ---- success
+  STG_SHA=$(git -C "$STG_WT" rev-parse HEAD 2>/dev/null) || stg_abort commit "could not read the staged commit"
+  printf '%s\n' "$STG_SHA" > "$state/staged"
+  {
+    printf 'tag=%s\n' "$STG_TAG"
+    printf 'update_id=%s\n' "$STG_UID"
+    printf 'parent=%s\n' "$STG_HEAD"
+    printf 'upstream=%s\n' "$STG_UP"
+  } > "$state/stage.info"
+  printf 'result=staged\n'
+  printf 'staged=%s\n' "$STG_SHA"
+  printf 'tag=%s\n' "$STG_TAG"
+  while IFS= read -r stg_h; do [ -n "$stg_h" ] && printf 'held=%s\n' "$stg_h"; done < "$ST_HELD"
+  printf 'changed=%s\n' "$(stg_changed | awk 'END { print NR + 0 }')"
+  printf 'land=git merge --ff-only %s\n' "$STG_SHA"
+  printf 'update_id=%s\n' "$STG_UID"
+  if [ -s "$ST_WARN" ]; then cat "$ST_WARN"; fi
+  return 0
+}
+
+cmd_abandon() {
+  if ! heal_stale; then stg_pre "another update is staging (pid $LOCK_LIVE)"; fi
+  if [ ! -f "$state/staged" ]; then
+    heal_stale force || :
+    printf 'result=nothing-staged\n'
+    return 0
+  fi
+  ab_sha=$(staged_value)
+  if [ "$ab_sha" != none ] && git -C "$root" merge-base --is-ancestor "$ab_sha" HEAD 2>/dev/null; then
+    stg_pre "the staged commit already landed on your branch; run --finish or --undo"
+  fi
+  ab_tag=$(sed -n 's/^tag=//p' "$state/stage.info" 2>/dev/null | sed -n '1p')
+  stg_wt_remove
+  rm -f "$state/staged" "$state/stage.info" "$state/stage.lock"
+  printf 'result=abandoned tag=%s unchanged=yes\n' "${ab_tag:-unknown}"
+  return 0
+}
+
+cmd_selftest_tree_gate() { # WT
+  [ -d "${1:-}" ] || { echo "error --selftest-tree-gate needs a worktree"; exit 2; }
+  if stg_treegate "$1"; then printf 'tree-gate=ok\n'; else printf 'tree-gate=mismatch tree=%s\n' "$TG_BAD"; fi
+}
+
+cmd_selftest_allowlist() { # WT DECISIONS
+  [ -d "${1:-}" ] && [ -f "${2:-}" ] || { echo "error --selftest-allowlist takes WT DECISIONS"; exit 2; }
+  stg_context
+  stg_parse "$2"
+  stg_pathmap
+  ST_HELD=$(ul_mktemp) || exit 1
+  : > "$ST_HELD"
+  if stg_allowlist "$1"; then printf 'allowlist=ok\n'; else printf 'allowlist=violation path=%s\n' "$AL_BAD"; fi
+}
+
 # ------------------------------------------------------------- test-only
 cmd_selftest_channel() {
   resolve_channel
@@ -2373,9 +3192,13 @@ case $cmd in
   --plan) cmd_plan;;
   --adapt-save) cmd_adapt_save "$@";;
   --mark-unresolved) cmd_mark_unresolved "$@";;
-  --stage|--abandon|--finish|--undo)
+  --stage) cmd_stage "$@";;
+  --abandon) cmd_abandon;;
+  --finish|--undo)
     echo "error not implemented"
     exit 1;;
+  --selftest-tree-gate) cmd_selftest_tree_gate "$@";;
+  --selftest-allowlist) cmd_selftest_allowlist "$@";;
   --selftest-write-path)
     if [ "$#" -ne 4 ]; then echo "error --selftest-write-path takes WT PATH SRC MODE"; exit 2; fi
     write_path "$1" "$2" "$3" "$4" || exit 1

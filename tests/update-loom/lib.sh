@@ -180,7 +180,7 @@ ul_t_world() { # DIR
 # Runs the customer's engine under the interpreter being tested: stdout and
 # stderr into $OUT, the exit code into $RC. stdin is closed.
 ul_t_run_engine() { # ARGS...
-  OUT=$(cd "$W_CUST" && "$SH" "$ENGINE" "$@" </dev/null 2>&1)
+  OUT=$(cd "$W_CUST" && LOOM_UPDATE_SH="$SH" "$SH" "$ENGINE" "$@" </dev/null 2>&1)
   RC=$?
 }
 
@@ -254,4 +254,31 @@ ul_t_settings_variant() { # KIND OUT
     invalid) sed '$d' "$ul_tv_g" > "$2";;
     *) return 1;;
   esac
+}
+
+# ----------------------------------------------------------- stage helpers
+# The state's detached worktree (where --stage builds the update commit).
+ul_t_wt() {
+  printf '%s/wt' "$(ul_t_state)"
+}
+
+# Writes a decisions file: one line per argument (the caller puts the TABs in).
+ul_t_decisions() { # FILE LINE...
+  ul_td_f=$1; shift
+  : > "$ul_td_f" || return 1
+  for ul_td_l in "$@"; do
+    printf '%s\n' "$ul_td_l" >> "$ul_td_f" || return 1
+  done
+}
+
+# The fixture's settings.json names bash plugins/loom-governance/hooks/scripts/
+# git-safety-gate.sh, a harness script the minimal world does not carry. A real
+# customer has it, and the --stage gate (hooks-resolve) requires every harness
+# hook script to exist, so the stage cases give the customer a stub first. The
+# file is unchanged on every side of the update, so it never becomes a plan row.
+ul_t_add_gov_stub() { # CUSTOMER-REPO
+  ul_ta_d=$1/plugins/loom-governance/hooks/scripts
+  mkdir -p "$ul_ta_d" || return 1
+  printf '#!/bin/sh\nexit 0\n' > "$ul_ta_d/git-safety-gate.sh" || return 1
+  ul_t_commit "$1" "customer has the governance hook script" >/dev/null
 }
