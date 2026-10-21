@@ -16,8 +16,9 @@
 # plus the internal helpers the later subcommands call: write_path, lock_acquire /
 # lock_release / heal_stale, channel detection, the channel map reader, the trust
 # root (upstream_url) and fetch_upstream.
-# --stage and --abandon are built (see the section above cmd_stage). Not built yet (they
-# print `error not implemented`): --finish --undo.
+# --stage and --abandon are built (see the section above cmd_stage); so are --finish
+# (post-landing smoke, automatic content-verified revert) and --undo (reverse one recorded
+# update from any clone), in the section above cmd_selftest_tree_gate.
 # --plan is built (cmd_plan: classify, then the notes layer: offered notes, checks,
 # groups, two-way rows, transaction.txt). --adapt-save and --mark-unresolved are built
 # (cmd_adapt_save, cmd_mark_unresolved): the gate between the read-only adapter and the
@@ -89,8 +90,8 @@ Usage: update-loom.sh [--upstream-url URL --i-am-pointing-at-a-fork] [--channel 
   --stage <decisions.tsv>
                         build the update commit in a detached worktree (never touches your tree)
   --abandon             drop a staged update: remove the worktree, keep the tag
-  --finish              (not built yet)
-  --undo                (not built yet)
+  --finish              after you landed the staged commit: smoke the live tree, revert on failure
+  --undo [<update-id>]  reverse one recorded update (default: the newest) from any clone
   --help                this text
 ULUSAGEEOF
 }
@@ -2903,29 +2904,44 @@ stg_treegate() { # WT -> 0 ok; else TG_BAD names the tree
   return 0
 }
 
-stg_hooks_resolve() {
-  [ -f "$STG_WT/.claude/settings.json" ] || return 0
-  [ -s "$state/tools/json-flat.sh" ] || return 0
-  shr_f=$(ul_mktemp) || exit 1
-  $UL_SH "$state/tools/json-flat.sh" "$STG_WT/.claude/settings.json" > "$shr_f" 2>/dev/null || stg_abort hooks-resolve "settings.json could not be read to find its hooks"
+# Every hook script .claude/settings.json names must exist, be readable and parse. Shared
+# by the --stage gate (on the worktree) and the --finish smoke (on the live tree).
+# TREE is the tree to read, JSONFLAT upstream's json-flat.sh. Returns 0, or 1 with HK_MSG
+# set when a HARNESS script is bad; a missing adopter script is a warning appended to the
+# file HK_WARN names (nowhere when unset). Never runs a hook.
+HK_MSG=
+HK_WARN=
+hk_resolve() { # TREE JSONFLAT
+  HK_MSG=
+  [ -f "$1/.claude/settings.json" ] || return 0
+  [ -s "$2" ] || return 0
+  hk_f=$(ul_mktemp) || exit 1
+  hk_s=$(ul_mktemp) || exit 1
+  $UL_SH "$2" "$1/.claude/settings.json" > "$hk_f" 2>/dev/null || { HK_MSG="settings.json could not be read to find its hooks"; return 1; }
   awk -F'\t' '$1 ~ /^\/hooks\/[^\/]+\/[0-9]+\/hooks\/[0-9]+\/command$/ {
       n = split($2, t, /[ \t]+/)
       for (i = 1; i <= n; i++) { s = t[i]; gsub(/^["\047]|["\047]$/, "", s); if (s ~ /\.sh$/) { print s; break } }
-    }' "$shr_f" | LC_ALL=C sort -u > "$shr_f.s"
-  while IFS= read -r shr_s <&3; do
-    case $shr_s in /*|\$*|~*) continue;; esac
-    shr_w=
-    if [ ! -f "$STG_WT/$shr_s" ]; then shr_w="does not exist"
-    elif [ ! -r "$STG_WT/$shr_s" ]; then shr_w="is not readable"
-    elif ! $UL_SH -n "$STG_WT/$shr_s" >/dev/null 2>&1 && ! { command -v bash >/dev/null 2>&1 && bash -n "$STG_WT/$shr_s" >/dev/null 2>&1; }; then shr_w="does not parse"
+    }' "$hk_f" | LC_ALL=C sort -u > "$hk_s"
+  while IFS= read -r hk_p <&3; do
+    case $hk_p in /*|\$*|~*) continue;; esac
+    hk_w=
+    if [ ! -f "$1/$hk_p" ]; then hk_w="does not exist"
+    elif [ ! -r "$1/$hk_p" ]; then hk_w="is not readable"
+    elif ! $UL_SH -n "$1/$hk_p" >/dev/null 2>&1 && ! { command -v bash >/dev/null 2>&1 && bash -n "$1/$hk_p" >/dev/null 2>&1; }; then hk_w="does not parse"
     fi
-    [ -n "$shr_w" ] || continue
-    if path_in_harness "$shr_s"; then
-      stg_abort hooks-resolve "hook script $shr_s $shr_w, and it is a harness script"
+    [ -n "$hk_w" ] || continue
+    if path_in_harness "$hk_p"; then
+      HK_MSG="hook script $hk_p $hk_w, and it is a harness script"
+      return 1
     fi
-    printf 'warn hook %s %s (an adopter script; not gated)\n' "$shr_s" "$shr_w" >> "$ST_WARN"
-  done 3< "$shr_f.s"
-  rm -f "$shr_f.s"
+    if [ -n "$HK_WARN" ]; then printf 'warn hook %s %s (an adopter script; not gated)\n' "$hk_p" "$hk_w" >> "$HK_WARN"; fi
+  done 3< "$hk_s"
+  return 0
+}
+
+stg_hooks_resolve() {
+  HK_WARN=$ST_WARN
+  hk_resolve "$STG_WT" "$state/tools/json-flat.sh" || stg_abort hooks-resolve "$HK_MSG"
 }
 
 stg_gate() {
@@ -3131,6 +3147,335 @@ cmd_abandon() {
   return 0
 }
 
+# ------------------------------------------------------------ finish and undo
+# --finish is the post-landing smoke on the LIVE tree, with an automatic revert when it
+# fails. --undo reverses one recorded update from any clone. Both revert with
+# `git revert --no-edit <commit>` and then check the CONTENT of every path the update's
+# .applied record lists (plus the ledger, the record and .sdd-sync-ref, which travelled
+# inside the commit) against the commit's first parent: git's exit code is never trusted
+# alone, and a mismatch is reported, never repaired by rewinding history. Nothing here
+# pushes, resets or deletes a ref.
+
+fu_log() { printf '%s\n' "$*" >> "$state/last-smoke.log"; }
+
+fu_join() { awk 'NR > 1 { printf "," } { printf "%s", $0 } END { printf "\n" }'; }
+
+fu_rec_path() { # COMMIT -> the .applied record the commit added, nothing when none
+  git -C "$root" diff-tree --no-commit-id --name-only -r --diff-filter=A "$1" 2>/dev/null \
+    | awk -v d="$UL_APPLIED_DIR/" 'index($0, d) == 1 && substr($0, length(d) + 1) !~ /\// && $0 ~ /\.applied$/ { print; exit }'
+}
+
+fu_rec_get() { # COMMIT RECPATH KEY -> the header value
+  git -C "$root" show "$1:$2" 2>/dev/null | sed -n "s/^$3=//p" | sed -n '1p'
+}
+
+fu_rec_paths() { # COMMIT RECPATH -> the content paths the record lists
+  git -C "$root" show "$1:$2" 2>/dev/null | awk -F'\t' 'NF >= 5 { print $1 }'
+}
+
+# The paths whose blob or mode at HEAD is not what COMMIT^ had (absent there -> absent now).
+fu_mismatch() { # COMMIT RECPATH -> comma-joined, nothing when every path matches
+  fm_l=$(ul_mktemp) || exit 1
+  { fu_rec_paths "$1" "$2"; printf '%s\n' "$UL_LEDGER" "$2" "$UL_SYNC_REF"; } | LC_ALL=C sort -u > "$fm_l"
+  while IFS= read -r fm_p <&3; do
+    [ -n "$fm_p" ] || continue
+    fm_a=$(entry_at HEAD "$fm_p")
+    fm_b=$(entry_at "$1^" "$fm_p")
+    [ "$fm_a" = "$fm_b" ] || printf '%s\n' "$fm_p"
+  done 3< "$fm_l" | fu_join | sed '/^$/d'
+}
+
+# git revert --no-edit COMMIT, then verify. Sets FU_OK (yes|no), FU_MIS (the mismatched
+# or conflicting paths, `-` when git refused for another reason), FU_NEW (the revert
+# commit when one was made) and FU_ERR. A revert that stopped part way is aborted with
+# `git revert --abort`; a revert that "succeeded" over wrong content is left as a commit.
+fu_revert() { # COMMIT RECPATH
+  FU_OK=no; FU_MIS=; FU_NEW=; FU_ERR=
+  fr_out=$(git -C "$root" revert --no-edit "$1" 2>&1)
+  fr_rc=$?
+  FU_ERR=$(printf '%s\n' "$fr_out" | sed -n '1p')
+  if [ "$fr_rc" -eq 0 ]; then
+    FU_NEW=$(git -C "$root" rev-parse HEAD 2>/dev/null)
+    FU_MIS=$(fu_mismatch "$1" "$2")
+    [ -n "$FU_MIS" ] || FU_OK=yes
+    return 0
+  fi
+  fr_cf=$(git -C "$root" diff --name-only --diff-filter=U 2>/dev/null | LC_ALL=C sort -u | fu_join | sed '/^$/d')
+  if in_progress; then git -C "$root" revert --abort >/dev/null 2>&1; fi
+  FU_MIS=$fr_cf
+  [ -n "$FU_MIS" ] || FU_MIS=$(fu_mismatch "$1" "$2")
+  [ -n "$FU_MIS" ] || FU_MIS=-
+  return 0
+}
+
+fu_clear_state() { # the staged update is finished, one way or another
+  stg_wt_remove
+  rm -f "$state/staged" "$state/stage.info"
+}
+
+# ---- the smoke. Sets SM_REASON (checks|invariants|json|hooks-resolve|harness-diff) and
+# SM_DETAIL on failure. Every step is logged to last-smoke.log. Stops at the first failure.
+fin_smoke() { # COMMIT RECPATH UPSTREAM
+  SM_REASON=; SM_DETAIL=
+  fs_commit=$1; fs_up=$3
+  fs_tools=$state/tools
+  if [ ! -s "$fs_tools/json-flat.sh" ] || [ ! -s "$fs_tools/json-valid.sh" ]; then fs_tools=$root/$UL_SCRIPTS_DIR; fi
+  # 1. every note's own check, run by the live checks runner
+  fs_ck=$root/$UL_SCRIPTS_DIR/updates-checks.sh
+  if [ -f "$fs_ck" ]; then
+    fs_o=$(cd "$root" && $UL_SH "$fs_ck" --root "$root" 2>&1)
+    fs_rc=$?
+    fu_log "-- checks (exit $fs_rc)"
+    printf '%s\n' "$fs_o" >> "$state/last-smoke.log"
+    fs_f=$(printf '%s\n' "$fs_o" | sed -n 's/^FAIL //p' | tr '\n' ' ')
+    if [ -n "$fs_f" ]; then SM_REASON=checks; SM_DETAIL="failed: $fs_f"; return 1; fi
+    if [ "$fs_rc" -ne 0 ]; then SM_REASON=checks; SM_DETAIL="the checks runner exited $fs_rc"; return 1; fi
+  elif awk -F'\t' '$3 == "true" { f = 1 } END { exit f ? 0 : 1 }' "$state/notes.tsv" 2>/dev/null; then
+    fu_log "-- checks: updates-checks.sh is missing and a safety note is in the update"
+    SM_REASON=checks; SM_DETAIL="a safety note is in the update but updates-checks.sh is missing"; return 1
+  else
+    fu_log "-- checks: updates-checks.sh is missing; no safety note, skipped"
+  fi
+  # 2. the security-invariants on every security surface the commit touched
+  fs_ids=$(git -C "$root" show "$fs_commit:$UL_LEDGER" 2>/dev/null | awk -F'\t' -v up="$fs_up" '$4 == up && $2 == "applied" { print $1 }' | LC_ALL=C sort -u | fu_join | sed '/^$/d')
+  git -C "$root" diff-tree --no-commit-id --name-only -r "$fs_commit" 2>/dev/null | while IFS= read -r fs_p; do
+    ul_path_security_surface "$fs_p" && printf '%s\n' "$fs_p"
+  done > "$state/.surfaces"
+  while IFS= read -r fs_p <&3; do
+    [ -n "$fs_p" ] || continue
+    set -- $(entry_at "$fs_commit^" "$fs_p")
+    fs_hm=$1; fs_hs=$2
+    if [ ! -f "$root/$fs_p" ]; then
+      if [ "$fs_hs" = - ]; then continue; fi
+      rm -f "$state/.surfaces"
+      fu_log "-- invariants: $fs_p was removed"
+      SM_REASON=invariants; SM_DETAIL="$fs_p was removed, and a security surface may not be"; return 1
+    fi
+    set -- $(entry_at "$fs_up" "$(as_upstream_name "$fs_p")")
+    fs_ts=$2
+    if [ "$fs_ts" != - ] && [ "$(git -C "$root" hash-object -- "$root/$fs_p" 2>/dev/null)" = "$fs_ts" ]; then
+      fu_log "-- invariants: $fs_p is upstream's own file; accepted"
+      continue
+    fi
+    if ! inv_inputs "${fs_ids:--}"; then
+      rm -f "$state/.surfaces"
+      SM_REASON=invariants; SM_DETAIL=$INV_ERR; return 1
+    fi
+    fs_m=$(ul_mktemp) || exit 1
+    fs_th=$(ul_mktemp) || exit 1
+    set -- --surface "$fs_p"
+    if [ "$fs_hs" != - ]; then git -C "$root" cat-file blob "$fs_hs" > "$fs_m" 2>/dev/null; set -- "$@" --mine "$fs_m"; fi
+    if [ "$fs_ts" != - ]; then git -C "$root" cat-file blob "$fs_ts" > "$fs_th" 2>/dev/null; set -- "$@" --theirs "$fs_th"; fi
+    set -- "$@" --candidate "$root/$fs_p" --tools "$fs_tools" --relaxes "$INV_RX" --removes "$INV_RM" --may-drop-headings "$INV_MD"
+    if [ ! -f "$here/security-invariants.sh" ]; then
+      rm -f "$state/.surfaces"
+      SM_REASON=invariants; SM_DETAIL="security-invariants.sh is missing, so $fs_p cannot be checked"; return 1
+    fi
+    fs_o=$($UL_SH "$here/security-invariants.sh" "$@" 2>&1)
+    fs_rc=$?
+    fu_log "-- invariants $fs_p (exit $fs_rc)"
+    printf '%s\n' "$fs_o" >> "$state/last-smoke.log"
+    if [ "$fs_rc" -ne 0 ]; then
+      rm -f "$state/.surfaces"
+      SM_REASON=invariants; SM_DETAIL="$fs_p: $(printf '%s\n' "$fs_o" | tail -1)"; return 1
+    fi
+  done 3< "$state/.surfaces"
+  rm -f "$state/.surfaces"
+  # 3. settings.json is valid JSON
+  if [ -f "$root/.claude/settings.json" ]; then
+    if [ -s "$fs_tools/json-valid.sh" ]; then
+      if ! $UL_SH "$fs_tools/json-valid.sh" "$root/.claude/settings.json" >/dev/null 2>&1; then
+        fu_log "-- json: settings.json is not valid JSON"
+        SM_REASON=json; SM_DETAIL="settings.json is not valid JSON"; return 1
+      fi
+    elif git -C "$root" diff-tree --no-commit-id --name-only -r "$fs_commit" 2>/dev/null | grep -Fxq .claude/settings.json; then
+      fu_log "-- json: settings.json changed but json-valid.sh is missing"
+      SM_REASON=json; SM_DETAIL="settings.json changed but json-valid.sh is missing"; return 1
+    fi
+  fi
+  # 4. every hook script settings.json names resolves (the same function as the stage gate)
+  HK_WARN=$state/last-smoke.log
+  if ! hk_resolve "$root" "$fs_tools/json-flat.sh"; then
+    fu_log "-- hooks-resolve: $HK_MSG"
+    SM_REASON=hooks-resolve; SM_DETAIL=$HK_MSG; return 1
+  fi
+  # 5. no tracked file the update owns differs from the commit
+  FS_DIFF=$(fu_dirty "$fs_commit")
+  if [ -n "$FS_DIFF" ]; then
+    fu_log "-- harness-diff: tracked files differ from the update commit (a checkout-time line-ending change, or an edit made after landing):"
+    printf '%s\n' "$FS_DIFF" >> "$state/last-smoke.log"
+    SM_REASON=harness-diff; SM_DETAIL=$(printf '%s\n' "$FS_DIFF" | fu_join); return 1
+  fi
+  fu_log "-- smoke passed"
+  return 0
+}
+
+# Tracked files whose working-tree content differs from HEAD and which the update owns:
+# under a harness prefix, or touched by the update commit itself (settings.json is a merge
+# path, not a harness prefix, but the update just rewrote it). Untracked files and the
+# customer's other edits are never listed.
+fu_dirty() { # COMMIT
+  fd_ch=$(ul_mktemp) || exit 1
+  git -C "$root" diff-tree --no-commit-id --name-only -r "$1" > "$fd_ch" 2>/dev/null
+  git -C "$root" diff --name-only HEAD 2>/dev/null | while IFS= read -r fd_p; do
+    [ -n "$fd_p" ] || continue
+    if grep -Fxq -- "$fd_p" "$fd_ch" || path_in_harness "$fd_p"; then printf '%s\n' "$fd_p"; fi
+  done
+}
+
+# Resets those files to HEAD, so the revert's own tree check can proceed over a checkout
+# artifact. Logged. Touches no other path.
+fin_reset_harness() { # COMMIT
+  fr_d=$(fu_dirty "$1")
+  [ -n "$fr_d" ] || return 0
+  printf '%s\n' "$fr_d" | while IFS= read -r fr_p; do
+    [ -n "$fr_p" ] || continue
+    if git --literal-pathspecs -C "$root" checkout -- "$fr_p" >/dev/null 2>&1; then
+      fu_log "reset tracked file to the update commit: $fr_p"
+    else
+      fu_log "could not reset tracked file: $fr_p"
+    fi
+  done
+  return 0
+}
+
+cmd_finish() {
+  if [ "$#" -ne 0 ]; then echo "error --finish takes no arguments"; exit 2; fi
+  if ! heal_stale; then stg_pre "another update is staging (pid $LOCK_LIVE)"; fi
+  fi_sha=$(staged_value)
+  fi_head=$(git -C "$root" rev-parse HEAD 2>/dev/null) || { echo "error could not read HEAD"; exit 1; }
+  if [ "$fi_sha" = none ] || [ "$fi_sha" != "$fi_head" ]; then
+    if [ "$fi_sha" != none ] && git -C "$root" merge-base --is-ancestor "$fi_sha" HEAD 2>/dev/null; then
+      fu_clear_state
+      printf 'result=moved-on staged=%s head=%s\n' "$fi_sha" "$fi_head"
+      printf 'note=the staged commit is in your history but HEAD has moved past it, so the smoke was not run; --undo reverses it\n'
+      exit 1
+    fi
+    printf 'result=not-landed staged=%s head=%s\n' "$fi_sha" "$fi_head"
+    exit 1
+  fi
+  lock_acquire || stg_pre "another update is staging"
+  fi_rec=$(fu_rec_path "$fi_sha")
+  [ -n "$fi_rec" ] || stg_pre "the staged commit carries no .applied record"
+  fi_uid=$(fu_rec_get "$fi_sha" "$fi_rec" update_id)
+  fi_tag=$(fu_rec_get "$fi_sha" "$fi_rec" tag)
+  fi_up=$(fu_rec_get "$fi_sha" "$fi_rec" upstream)
+  CHANNEL=$(meta_val channel)
+  [ -n "$CHANNEL" ] || { resolve_channel; CHANNEL=$CH; }
+  channel_map_load
+  plan_maps_load
+  fu_log "=== finish $(date -u +%Y-%m-%dT%H:%M:%SZ) commit=$fi_sha tag=$fi_tag update_id=$fi_uid"
+  if fin_smoke "$fi_sha" "$fi_rec" "$fi_up"; then
+    fi_held=$(git -C "$root" show "$fi_sha:$UL_LEDGER" 2>/dev/null | awk -F'\t' -v up="$fi_up" '$4 == up && $2 == "held" { print $1 }' | LC_ALL=C sort -u | fu_join | sed '/^$/d')
+    fu_clear_state
+    printf 'result=applied commit=%s tag=%s update_id=%s held=%s\n' "$fi_sha" "$fi_tag" "$fi_uid" "${fi_held:-none}"
+    printf 'next=run /git-push when ready\n'
+    return 0
+  fi
+  # ---- the smoke failed: revert the landed commit, silently, and verify by content
+  fu_log "smoke failed: $SM_REASON: $SM_DETAIL"
+  fin_reset_harness "$fi_sha"
+  fu_revert "$fi_sha" "$fi_rec"
+  fu_log "revert: ok=$FU_OK new=$FU_NEW mismatched=${FU_MIS:--} git=$FU_ERR"
+  fu_clear_state
+  if [ "$FU_OK" = yes ]; then
+    printf 'result=reverted reason=%s tag=%s log=%s/last-smoke.log\n' "$SM_REASON" "$fi_tag" "$state"
+    printf 'detail=%s\n' "$SM_DETAIL"
+    printf 'revert=%s\n' "$FU_NEW"
+    exit 1
+  fi
+  printf 'result=reverted-failed pre_update_tag=%s mismatched=%s reason=%s head=%s log=%s/last-smoke.log\n' \
+    "$fi_tag" "$FU_MIS" "$SM_REASON" "$(git -C "$root" rev-parse HEAD 2>/dev/null)" "$state"
+  printf 'detail=%s\n' "$SM_DETAIL"
+  printf 'note=nothing was rewound; a person decides from here, and the tag above is the way back\n'
+  exit 1
+}
+
+ud_refuse() { # REASON [SUFFIX]
+  printf 'result=refused reason=%s%s\n' "$1" "${2:+ $2}"
+  exit 1
+}
+
+cmd_undo() { # [UPDATE-ID]
+  if [ "$#" -gt 1 ]; then echo "error --undo takes at most one update id"; exit 2; fi
+  ud_id=${1:-}
+  if ! heal_stale; then stg_pre "another update is staging (pid $LOCK_LIVE)"; fi
+  [ ! -f "$state/staged" ] || ud_refuse "a staged update exists; run --finish or --abandon first"
+  if in_progress; then ud_refuse "a merge, rebase, cherry-pick or revert is unfinished; finish or abort it first"; fi
+  ud_off=$(clean_offenders)
+  if [ -n "$ud_off" ]; then
+    if status_failed "$ud_off"; then ud_refuse "git status failed in this repository"; fi
+    ud_refuse "your working tree has uncommitted changes: $(offender_paths "$ud_off")"
+  fi
+  ud_list=$(ul_mktemp) || exit 1
+  git -C "$root" ls-tree --name-only "HEAD:$UL_APPLIED_DIR" 2>/dev/null | awk '/\.applied$/ { sub(/\.applied$/, ""); print }' | LC_ALL=C sort > "$ud_list"
+  if [ -z "$ud_id" ]; then
+    ud_id=$(tail -n 1 "$ud_list")
+    if [ -z "$ud_id" ]; then
+      printf 'result=nothing-to-undo\n'
+      return 0
+    fi
+  else
+    case $ud_id in *[!A-Za-z0-9._-]*|.*) ud_refuse "that is not an update id: $ud_id";; esac
+    grep -Fxq -- "$ud_id" "$ud_list" || ud_refuse "no record for update $ud_id in this branch"
+  fi
+  ud_rec=$UL_APPLIED_DIR/$ud_id.applied
+  # ---- find the one commit that added the record, and make sure it is an update commit
+  ud_adds=$(git --literal-pathspecs -C "$root" log --diff-filter=A --format=%H HEAD -- "$ud_rec" 2>/dev/null)
+  ud_n=$(printf '%s\n' "$ud_adds" | awk 'NF { n++ } END { print n + 0 }')
+  [ "$ud_n" -eq 1 ] || ud_refuse "the update commit cannot be found ($ud_n commits add $ud_rec)"
+  ud_c=$ud_adds
+  case $(git -C "$root" log -1 --format=%s "$ud_c" 2>/dev/null) in
+    "LogicLoom update to"*) ;;
+    *) ud_refuse "the commit that added $ud_rec does not look like an update commit";;
+  esac
+  ud_par=$(git -C "$root" rev-parse -q --verify "$ud_c^1" 2>/dev/null)
+  if [ -z "$ud_par" ] || [ "$ud_par" != "$(fu_rec_get "$ud_c" "$ud_rec" parent)" ]; then
+    ud_refuse "the update commit's first parent does not match the record's parent line"
+  fi
+  if [ "$(git -C "$root" rev-parse "$ud_c:$ud_rec" 2>/dev/null)" != "$(git -C "$root" rev-parse "HEAD:$ud_rec" 2>/dev/null)" ]; then
+    ud_refuse "the record at HEAD is not the one the update commit added (the record was edited since)"
+  fi
+  git -C "$root" merge-base --is-ancestor "$ud_c" HEAD 2>/dev/null || ud_refuse "the update commit is not part of this branch's history"
+  # ---- newer updates sit above it
+  ud_newer=$(awk -v id="$ud_id" '$0 > id' "$ud_list" | LC_ALL=C sort | fu_join | sed '/^$/d')
+  if [ -n "$ud_newer" ]; then
+    ud_refuse "undoing an older update beneath newer ones is refused; undo the newer ones first" "newer=$ud_newer"
+  fi
+  # ---- the forbidden set, in the record and in the commit itself
+  ud_bad=
+  for ud_p in $(fu_rec_paths "$ud_c" "$ud_rec"); do
+    if ul_path_forbidden "$ud_p"; then ud_bad=${ud_bad:+$ud_bad,}$ud_p; fi
+  done
+  for ud_p in $(git -C "$root" diff-tree --no-commit-id --name-only -r "$ud_c" 2>/dev/null); do
+    case $ud_p in "$UL_LEDGER"|"$UL_SYNC_REF"|"$UL_APPLIED_DIR"/*) continue;; esac
+    if ul_path_forbidden "$ud_p"; then ud_bad=${ud_bad:+$ud_bad,}$ud_p; fi
+  done
+  [ -z "$ud_bad" ] || ud_refuse "the update touches a path no update may touch" "paths=$ud_bad (forbidden)"
+  # ---- later changes to any recorded path. A path a later commit touched counts as
+  # overlapping unless it is, byte for byte and mode for mode, what the update left (an
+  # edit that was put back, or the undo of a newer update that touched the same file).
+  ud_ov=
+  for ud_p in $(fu_rec_paths "$ud_c" "$ud_rec"); do
+    if [ -n "$(git --literal-pathspecs -C "$root" log --format=%H -n 1 "$ud_c..HEAD" -- "$ud_p" 2>/dev/null)" ] \
+       && [ "$(entry_at HEAD "$ud_p")" != "$(entry_at "$ud_c" "$ud_p")" ]; then
+      ud_ov=${ud_ov:+$ud_ov,}$ud_p
+    fi
+  done
+  [ -z "$ud_ov" ] || ud_refuse "later changes overlap the update" "paths=$ud_ov"
+  lock_acquire || stg_pre "another update is staging"
+  ud_tag=$(fu_rec_get "$ud_c" "$ud_rec" tag)
+  fu_revert "$ud_c" "$ud_rec"
+  if [ "$FU_OK" = yes ]; then
+    printf 'result=undone commit=%s undid=%s update_id=%s\n' "$FU_NEW" "$ud_c" "$ud_id"
+    printf 'note=the ledger, the .applied record and .sdd-sync-ref were inside the update commit, so they are restored with it\n'
+    return 0
+  fi
+  printf 'result=reverted-failed mismatched=%s pre_update_tag=%s head=%s\n' "$FU_MIS" "${ud_tag:-unknown}" "$(git -C "$root" rev-parse HEAD 2>/dev/null)"
+  printf 'note=nothing was rewound; a person decides from here\n'
+  exit 1
+}
+
 cmd_selftest_tree_gate() { # WT
   [ -d "${1:-}" ] || { echo "error --selftest-tree-gate needs a worktree"; exit 2; }
   if stg_treegate "$1"; then printf 'tree-gate=ok\n'; else printf 'tree-gate=mismatch tree=%s\n' "$TG_BAD"; fi
@@ -3194,9 +3539,8 @@ case $cmd in
   --mark-unresolved) cmd_mark_unresolved "$@";;
   --stage) cmd_stage "$@";;
   --abandon) cmd_abandon;;
-  --finish|--undo)
-    echo "error not implemented"
-    exit 1;;
+  --finish) cmd_finish "$@";;
+  --undo) cmd_undo "$@";;
   --selftest-tree-gate) cmd_selftest_tree_gate "$@";;
   --selftest-allowlist) cmd_selftest_allowlist "$@";;
   --selftest-write-path)

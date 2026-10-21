@@ -282,3 +282,26 @@ ul_t_add_gov_stub() { # CUSTOMER-REPO
   printf '#!/bin/sh\nexit 0\n' > "$ul_ta_d/git-safety-gate.sh" || return 1
   ul_t_commit "$1" "customer has the governance hook script" >/dev/null
 }
+
+# ------------------------------------------------------- finish / undo helpers
+# What the skill does after the user approves the gated merge: land the staged
+# commit on the customer's branch with a fast-forward (the engine never does).
+ul_t_land() {
+  git -C "$W_CUST" merge --ff-only "$(cat "$(ul_t_state)/staged")" >/dev/null 2>&1
+}
+
+# A clone of the customer repo in a new temp dir, with no tags and none of the
+# customer's .git/loom state: what a teammate gets from `git clone`. Prints its path.
+ul_t_clone_fresh() {
+  ul_tf_d=$(ul_t_tmp) || return 1
+  git clone -q --no-tags "$W_CUST" "$ul_tf_d/clone" >/dev/null 2>&1 || return 1
+  ul_t_git_config "$ul_tf_d/clone"
+  printf '%s' "$ul_tf_d/clone"
+}
+
+# Runs the engine that is installed in DIR (another clone of the customer).
+ul_t_run_in() { # DIR ARGS...
+  ul_tr_d=$1; shift
+  OUT=$(cd "$ul_tr_d" && LOOM_UPDATE_SH="$SH" "$SH" "$ul_tr_d/plugins/loom-maintenance/scripts/update-loom.sh" "$@" </dev/null 2>&1)
+  RC=$?
+}
