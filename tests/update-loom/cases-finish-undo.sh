@@ -15,6 +15,10 @@ dash_n() { [ -x /bin/dash ] || return 0; /bin/dash -n "$1"; }
 cg() { git -C "$W_CUST" "$@"; }
 ug() { git -C "$W_UP" "$@"; }
 cc() { cg add -A >/dev/null 2>&1 && cg commit -q --allow-empty -m "$1"; }
+# --finish refuses a dirty tree, so a case that wants the LIVE disk to differ from the
+# landed commit while git still reports a clean tree hides the path from git first
+# (skip-worktree: status and diff both say clean, the disk is what the smoke reads).
+sneak() { cg update-index --skip-worktree -- "$1"; }
 nw() {
   nw_d=$(ul_t_tmp) || return 1
   ul_t_world "$nw_d" || { echo "FAIL  fixture world could not be built"; fail=1; return 1; }
@@ -179,9 +183,10 @@ pl
 ul_t_check "a re-plan keeps both" test -f "$(ST)/mine/$UID0/$SET"
 
 # ============================================ 2. smoke failure: auto-revert
-# Each case tampers with the LIVE tree after landing (uncommitted), so the staged
-# commit passed its own gate and the smoke is what catches the difference.
-reverted_ok() { # TAGSHA : the invariant set every auto-revert must leave behind
+# Each case tampers with the LIVE disk after landing but hides the tamper from git
+# (sneak), because --finish refuses a dirty tree: the staged commit passed its own gate
+# and the smoke is what catches the difference.
+reverted_ok() { # REASON : the invariant set every auto-revert must leave behind
   [ "$RC" = 1 ] && ul_t_has "$OUT" "^result=reverted reason=$1 tag=$TAG log=.*last-smoke.log\$" \
     && [ "$(subject HEAD | cut -c1-6)" = Revert ] \
     && [ "$(cg rev-parse HEAD^)" = "$S" ] \
@@ -193,6 +198,7 @@ reverted_ok() { # TAGSHA : the invariant set every auto-revert must leave behind
 }
 
 upd || ul_t_done
+sneak "$GUARD"
 rm -f "$W_CUST/$GUARD"
 fin
 ul_t_check "smoke failure (the guard script is gone): reverted, reason=checks, and every restore invariant holds" reverted_ok checks
@@ -206,45 +212,107 @@ pl
 ul_t_check "reverted: a plan afterwards offers the update again" ul_t_eq "$(kv result)" planned
 ul_t_check "reverted: the notes are offered again (ledger empty)" ul_t_has "$OUT" '^notes=5 '
 
+# ---- a dirty tree is refused BEFORE anything is acquired or run, and nothing is discarded
+dirty_refusal() { # PATH : the refusal names PATH, exit 1, the update is still staged and landed
+  [ "$RC" = 1 ] && ul_t_has "$OUT" "^result=refused reason=dirty-tree paths=.*$1" \
+    && [ "$(cg rev-parse HEAD)" = "$S" ] \
+    && [ "$(cat "$(ST)/staged")" = "$S" ] && [ -f "$(ST)/stage.info" ] && [ -d "$(WT)" ] \
+    && [ ! -e "$(ST)/stage.lock" ] && [ "$(tags)" = "$TAG" ] \
+    && [ ! -e "$(ST)/last-smoke.log" ]
+}
 upd || ul_t_done
 printf 'edited after landing\n' >> "$W_CUST/$DOC2"
+cp "$W_CUST/$DOC2" "$BD/doc2.keep"
 fin
-ul_t_check "a harness file differing from the commit: reverted, reason=harness-diff" reverted_ok harness-diff
-ul_t_check "harness-diff: the log records the reset of the tracked file" ul_t_has "$(cat "$(ST)/last-smoke.log" 2>/dev/null)" "$DOC2"
+ul_t_check "an uncommitted edit to a harness file: refused, dirty-tree, names the path, nothing run" dirty_refusal "$DOC2"
+ul_t_check "... the edit is byte-for-byte intact" cmp -s "$W_CUST/$DOC2" "$BD/doc2.keep"
+ul_t_check "... no ledger row, no revert commit: the update is still applied" ul_t_eq "$(subject HEAD | cut -c1-6)" "LogicL"
+cg checkout -q -- "$DOC2"
+fin
+ul_t_check "... after the edit is put back, --finish applies" ul_t_has "$OUT" '^result=applied '
 
 upd || ul_t_done
-sed 's/Run \/update-loom to take improvements\./Gone./' "$W_CUST/$DOC" > "$BD/doc.edit" && cp "$BD/doc.edit" "$W_CUST/$DOC"
+printf 'staged edit\n' >> "$W_CUST/$DOC2"
+cg add "$DOC2"
+cg show ":$DOC2" > "$BD/idx.keep"
 fin
-ul_t_check "a non-safety check failing in a copy is a WARN, so the reason is the tree diff, not checks" reverted_ok harness-diff
+ul_t_check "a STAGED (index-only) harness edit: refused, dirty-tree, names the path" dirty_refusal "$DOC2"
+ul_t_check "... the index entry is intact" ul_t_eq "$(cg show ":$DOC2")" "$(cat "$BD/idx.keep")"
+ul_t_check "... the edit is still staged" ul_t_has "$(cg diff --cached --name-only)" "$DOC2"
+cg reset -q -- "$DOC2" >/dev/null 2>&1
+cg checkout -q -- "$DOC2"
 
 upd || ul_t_done
-awk '/guard-dangerous-commands.sh/ { print "          { \"type\": \"command\", \"command\": \"bash .claude/hooks/nope.sh\" }," } { print }' "$W_CUST/$SET" > "$BD/nope.json"
-cp "$BD/nope.json" "$W_CUST/$SET"
+printf 'my own words\n' >> "$W_CUST/CLAUDE.md"
+cp "$W_CUST/CLAUDE.md" "$BD/claude.keep"
 fin
-ul_t_check "a hook naming a missing harness script: reverted, reason=hooks-resolve" reverted_ok hooks-resolve
+ul_t_check "an uncommitted edit to a NON-harness file: refused too, dirty-tree" dirty_refusal 'CLAUDE.md'
+ul_t_check "... the edit is byte-for-byte intact" cmp -s "$W_CUST/CLAUDE.md" "$BD/claude.keep"
 
 upd || ul_t_done
+cp "$(git -C "$W_CUST" rev-parse --absolute-git-dir)/index" "$BD/index.bak"
+printf 'not an index at all\n' > "$(git -C "$W_CUST" rev-parse --absolute-git-dir)/index"
+fin
+ul_t_check "an unreadable index (git status fails): refused, never read as a clean tree" ul_t_has "$OUT" '^result=refused reason=dirty-tree paths=git-status-failed'
+ul_t_check "... exit 1, nothing was run" ul_t_eq "$RC:$(test -e "$(ST)/last-smoke.log" && echo log)" "1:"
+cp "$BD/index.bak" "$(git -C "$W_CUST" rev-parse --absolute-git-dir)/index"
+ul_t_check "the engine no longer has a path that checks files out of the working tree" ul_t_not grep -q 'fin_reset_harness' "$ENG_SRC"
+
+# ---- harness-diff. With the dirty-tree gate in front, a tracked divergence cannot exist
+# on a clean tree at HEAD == staged, so the smoke's last step is a belt-and-braces
+# re-verification, and it is fail-closed. The cases drive it with a git that says the
+# tree differs, and with a git whose diff fails.
+upd || ul_t_done
+SH1=$(ul_t_shim_make)
+printf '%s\n' 'case " $* " in *" diff --name-only HEAD "*) printf "%s\n" ".docs/guides/FIXTURE.md"; exit 0;; esac' > "$SH1/hook.sh"
+ul_t_run_engine_shim "$SH1" --finish
+ul_t_check "a harness file that differs from the commit (reported by git): reverted, reason=harness-diff" reverted_ok harness-diff
+ul_t_check "harness-diff: the log names the file" ul_t_has "$(cat "$(ST)/last-smoke.log" 2>/dev/null)" "$DOC"
+
+upd || ul_t_done
+SH2=$(ul_t_shim_make)
+printf '%s\n' 'case " $* " in *" diff --name-only HEAD "*) echo "fatal: simulated" >&2; exit 128;; esac' > "$SH2/hook.sh"
+ul_t_run_engine_shim "$SH2" --finish
+ul_t_check "git diff failing during the smoke is a failed smoke, never a clean one (fail closed)" reverted_ok harness-diff
+ul_t_check "... the log says git failed" ul_t_has "$(cat "$(ST)/last-smoke.log" 2>/dev/null)" 'git diff failed'
+
+upd || ul_t_done
+STUB=plugins/loom-governance/hooks/scripts/git-safety-gate.sh
+sneak "$STUB"
+rm -f "$W_CUST/$STUB"
+fin
+ul_t_check "a hook naming a harness script that is gone from disk: reverted, reason=hooks-resolve" reverted_ok hooks-resolve
+
+# A relaxed deny list on the live disk: the smoke fails (invariants). The edit is to a
+# file the revert must rewrite, so git refuses to overwrite it: the result is
+# reverted-failed with the customer's disk edit intact. Nothing is discarded.
+upd || ul_t_done
+sneak "$SET"
 sed 's/, "Bash(rm -rf:\*)"//' "$W_CUST/$SET" > "$BD/normf.json"
 cp "$BD/normf.json" "$W_CUST/$SET"
 fin
-ul_t_check "a relaxed deny list in the live settings.json: reverted, reason=invariants" reverted_ok invariants
+ul_t_check "a relaxed deny list in the live settings.json: the smoke fails with reason=invariants" ul_t_has "$OUT" '^result=reverted-failed .*reason=invariants'
+ul_t_check "... git declined to overwrite the edited file: HEAD is still the landed commit" ul_t_eq "$(cg rev-parse HEAD)" "$S"
+ul_t_check "... the disk edit is intact, byte for byte" cmp -s "$W_CUST/$SET" "$BD/normf.json"
+ul_t_check "... the tag is kept and the state is cleared" ul_t_eq "$(tags):$(state_gone && echo gone)" "$TAG:gone"
 
-# ---- reverted-failed: the revert commit does not restore the content
+# ---- reverted-failed: the revert commit does not restore the content. A git that
+# reports success but leaves a tampered file in the revert commit stands for any such
+# cause (a customer filter, a hook the engine did not suppress).
 upd || ul_t_done
-mkdir -p "$W_CUST/.git/hooks"
-cat > "$W_CUST/.git/hooks/post-commit" <<'EOF'
-#!/bin/sh
-[ -f .git/ul-tamper ] || exit 0
-rm -f .git/ul-tamper
-unset GIT_INDEX_FILE
-printf 'tampered by a hook\n' >> .docs/guides/FIXTURE.md
-git add .docs/guides/FIXTURE.md
-git commit -q --amend --no-edit --no-verify
-EOF
-chmod +x "$W_CUST/.git/hooks/post-commit"
-: > "$W_CUST/.git/ul-tamper"
+SH3=$(ul_t_shim_make)
+cat > "$SH3/hook.sh" <<EOT
+case " \$* " in *" revert --no-edit "*)
+  "\$REAL" "\$@"; rc=\$?
+  printf 'tampered\\n' >> "$W_CUST/$DOC"
+  "\$REAL" -C "$W_CUST" add "$DOC"
+  "\$REAL" -C "$W_CUST" -c core.hooksPath=/dev/null commit -q --amend --no-edit --no-verify
+  exit \$rc;;
+esac
+EOT
+sneak "$GUARD"
 rm -f "$W_CUST/$GUARD"
-fin
+ul_t_run_engine_shim "$SH3" --finish
 ul_t_check "revert that reports success but leaves content wrong: reverted-failed" ul_t_has "$OUT" "^result=reverted-failed pre_update_tag=$TAG mismatched=.*$DOC"
 ul_t_check "reverted-failed: exit 1" ul_t_eq "$RC" 1
 ul_t_check "reverted-failed: HEAD is not the pre-update tag's commit (no rewind)" ul_t_not test "$(cg rev-parse HEAD)" = "$H0"
@@ -253,7 +321,101 @@ ul_t_check "reverted-failed: the working tree matches HEAD (nothing half-done)" 
 ul_t_check "reverted-failed: the tag is kept" ul_t_eq "$(tags)" "$TAG"
 ul_t_check "reverted-failed: nothing waits in .git/loom to be finished" state_gone
 ul_t_check "reverted-failed: last-smoke.log exists" test -s "$(ST)/last-smoke.log"
-rm -f "$W_CUST/.git/hooks/post-commit"
+
+# ---- the content check after a revert is fail-closed: a tree git cannot read is not a match
+upd || ul_t_done
+SH4=$(ul_t_shim_make)
+cat > "$SH4/hook.sh" <<EOT
+case " \$* " in
+  *" revert --no-edit "*) "\$REAL" "\$@"; rc=\$?; : > "$SH4/reverted"; exit \$rc;;
+  *" ls-tree "*) if [ -e "$SH4/reverted" ]; then echo "fatal: simulated" >&2; exit 128; fi;;
+esac
+EOT
+sneak "$GUARD"
+rm -f "$W_CUST/$GUARD"
+ul_t_run_engine_shim "$SH4" --finish
+ul_t_check "git unable to read the trees after the revert: reverted-failed, never reverted" ul_t_has "$OUT" '^result=reverted-failed '
+ul_t_check "... every recorded path is reported as unverified" ul_t_has "$OUT" "mismatched=.*$DOC"
+ul_t_check "... not claimed as a clean revert" ul_t_hasnt "$OUT" '^result=reverted '
+
+# ---- the customer's git hooks never run inside the engine's revert (finish or undo)
+install_hooks() {
+  mkdir -p "$W_CUST/.git/hooks"
+  cat > "$W_CUST/.git/hooks/pre-commit" <<'EOT'
+#!/bin/sh
+: > .git/ul-hook-ran
+printf 'pre-commit touched this\n' >> .docs/guides/FIXTURE.md
+git add .docs/guides/FIXTURE.md
+EOT
+  cat > "$W_CUST/.git/hooks/prepare-commit-msg" <<'EOT'
+#!/bin/sh
+: > .git/ul-hook-ran
+EOT
+  cat > "$W_CUST/.git/hooks/post-commit" <<'EOT'
+#!/bin/sh
+: > .git/ul-hook-ran
+unset GIT_INDEX_FILE
+printf 'post-commit tampered\n' >> .docs/guides/FIXTURE.md
+git add .docs/guides/FIXTURE.md
+git commit -q --amend --no-edit --no-verify
+EOT
+  chmod +x "$W_CUST/.git/hooks/pre-commit" "$W_CUST/.git/hooks/prepare-commit-msg" "$W_CUST/.git/hooks/post-commit"
+  rm -f "$W_CUST/.git/ul-hook-ran"
+}
+upd || ul_t_done
+install_hooks
+sneak "$GUARD"
+rm -f "$W_CUST/$GUARD"
+fin
+ul_t_check "customer hooks (pre-commit edits a file, post-commit amends): the automatic revert is unaffected" reverted_ok checks
+ul_t_check "... no customer hook ran at all" test ! -e "$W_CUST/.git/ul-hook-ran"
+ul_t_check "... the guide is exactly the pre-update one" ul_t_eq "$(cat "$W_CUST/$DOC")" "$(show $H0 $DOC)"
+upd || ul_t_done
+fin
+install_hooks
+und
+ul_t_check "customer hooks do not touch --undo either: undone" ul_t_has "$OUT" '^result=undone '
+ul_t_check "... no customer hook ran" test ! -e "$W_CUST/.git/ul-hook-ran"
+ul_t_check "... every recorded path equals the pre-update tree" restored "$W_CUST" "$S" "$H0" "$REC"
+rm -f "$W_CUST/.git/hooks/pre-commit" "$W_CUST/.git/hooks/prepare-commit-msg" "$W_CUST/.git/hooks/post-commit"
+
+# ---- HEAD is re-read under the lock, right before the revert
+# LOOM_TEST_PAUSE_BEFORE_REVERT=1 makes --finish touch state/.test-paused after a failed
+# smoke and wait for state/.test-go. The case moves HEAD in between: no revert may follow.
+upd || ul_t_done
+sneak "$GUARD"
+rm -f "$W_CUST/$GUARD"
+( cd "$W_CUST" && LOOM_TEST_PAUSE_BEFORE_REVERT=1 LOOM_UPDATE_SH="$SH" "$SH" "$ENGINE" --finish </dev/null >"$BD/bg.out" 2>&1 ) &
+BGP=$!
+i=0
+while [ ! -e "$(ST)/.test-paused" ] && [ "$i" -lt 100 ]; do sleep 0.2; i=$((i + 1)); done
+ul_t_check "race: --finish reached the pause after the failed smoke" test -e "$(ST)/.test-paused"
+ul_t_check "race: the lock is held by --finish while it works" test -s "$(ST)/stage.lock"
+pl
+ul_t_check "race: a --plan meanwhile is refused (the lock is live)" ul_t_has "$OUT" '^result=aborted reason=another update is staging'
+ul_t_edit "$W_CUST" "notes-of-mine.txt" "committed during the smoke" "customer commits during the smoke" >/dev/null
+HR=$(cg rev-parse HEAD)
+: > "$(ST)/.test-go"
+wait "$BGP"
+OUT=$(cat "$BD/bg.out")
+ul_t_check "race: HEAD moved during the smoke, so no revert: reverted-failed with reason=head-moved" ul_t_has "$OUT" '^result=reverted-failed .*reason=head-moved'
+ul_t_check "race: nothing was reverted (HEAD is the customer's commit)" ul_t_eq "$(cg rev-parse HEAD)" "$HR"
+ul_t_check "race: the customer's file is still there" test -f "$W_CUST/notes-of-mine.txt"
+ul_t_check "race: the lock is released and the state is cleared" state_gone
+ul_t_check "race: the tag is kept" ul_t_eq "$(tags)" "$TAG"
+und
+ul_t_check "race: --undo then reverses the update" ul_t_has "$OUT" '^result=undone '
+
+# the lock is taken BEFORE staged and HEAD are read: a live lock refuses --finish
+upd || ul_t_done
+sleep 30 &
+SP=$!
+printf '%s\n' "$SP" > "$(ST)/stage.lock"
+fin
+kill "$SP" 2>/dev/null
+ul_t_check "a live lock held by someone else: --finish is refused, nothing run" ul_t_has "$OUT" '^result=aborted reason=another update is staging'
+ul_t_check "... the update is untouched" ul_t_eq "$(cat "$(ST)/staged")" "$S"
+rm -f "$(ST)/stage.lock"
 
 # ======================================== 3. --undo from a clone with no state
 upd || ul_t_done
@@ -328,9 +490,23 @@ ul_t_check "finish after HEAD moved past the staged commit: moved-on, exit 1" ul
 ul_t_check "moved-on: exit 1" ul_t_eq "$RC" 1
 ul_t_check "moved-on: the staged state is cleared so a new --stage is possible" state_gone
 ul_t_check "moved-on: the tag is kept" ul_t_eq "$(tags)" "$TAG"
+ul_t_check "moved-on: the smoke ran report-only against the current tree and passed" ul_t_has "$OUT" '^smoke=passed$'
+ul_t_check "moved-on: the smoke wrote its log" test -s "$(ST)/last-smoke.log"
+ul_t_check "moved-on: no revert was made (HEAD is the customer's commit)" ul_t_eq "$(subject HEAD)" "customer commits before finish"
 und
 ul_t_check "moved-on: --undo then reverses the update" ul_t_has "$OUT" '^result=undone '
 ul_t_check "moved-on: the customer's own commit survives the undo" test -f "$W_CUST/notes-of-mine.txt"
+
+# moved on AND the landed settings/hooks are broken: reported, never reverted automatically
+upd || ul_t_done
+cg rm -q -f "$GUARD" >/dev/null 2>&1
+cg commit -q -m "customer deletes the guard script"
+HM=$(cg rev-parse HEAD)
+fin
+ul_t_check "moved-on with a broken landed hook: still moved-on, exit 1" ul_t_has "$OUT" "^result=moved-on staged=$S head=$HM\$"
+ul_t_check "moved-on with a broken landed hook: smoke=failed with its reason" ul_t_has "$OUT" '^smoke=failed reason=checks'
+ul_t_check "moved-on with a broken landed hook: nothing was reverted" ul_t_eq "$(cg rev-parse HEAD)" "$HM"
+ul_t_check "moved-on with a broken landed hook: the state is cleared" state_gone
 
 # the engine's own bookkeeping edited later: the revert conflicts, is aborted, and a person decides
 upd || ul_t_done

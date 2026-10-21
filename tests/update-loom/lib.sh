@@ -307,3 +307,29 @@ ul_t_run_in() { # DIR ARGS...
   OUT=$(cd "$ul_tr_d" && LOOM_UPDATE_SH="$SH" "$SH" "$ul_tr_d/plugins/loom-maintenance/scripts/update-loom.sh" "$@" </dev/null 2>&1)
   RC=$?
 }
+
+# ------------------------------------------------------------- PATH-shimmed git
+# A directory holding a `git` wrapper that sources DIR/hook.sh (when present) before
+# running the real git. hook.sh sees REAL (the real git) and "$@", and may run REAL
+# itself and `exit`. This is how a case makes ONE git subcommand misbehave for the
+# engine (fail, print something else, or leave wrong content behind) without touching
+# the repository. Prints the directory (a registered temp).
+ul_t_shim_make() {
+  ul_tm_d=$(ul_t_tmp) || return 1
+  ul_tm_real=$(command -v git) || return 1
+  {
+    printf '#!/bin/sh\n'
+    printf 'REAL=%s\n' "$ul_tm_real"
+    printf '[ -f "%s/hook.sh" ] && . "%s/hook.sh"\n' "$ul_tm_d" "$ul_tm_d"
+    printf 'exec "$REAL" "$@"\n'
+  } > "$ul_tm_d/git" || return 1
+  chmod +x "$ul_tm_d/git"
+  printf '%s' "$ul_tm_d"
+}
+
+# Runs the customer's engine with SHIMDIR first on PATH (see ul_t_shim_make).
+ul_t_run_engine_shim() { # SHIMDIR ARGS...
+  ul_tx_s=$1; shift
+  OUT=$(cd "$W_CUST" && PATH="$ul_tx_s:$PATH" LOOM_UPDATE_SH="$SH" "$SH" "$ENGINE" "$@" </dev/null 2>&1)
+  RC=$?
+}
