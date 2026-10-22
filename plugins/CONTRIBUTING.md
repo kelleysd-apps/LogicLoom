@@ -107,3 +107,21 @@ against it yet.
 
 See [`plugins/MANIFEST-SCHEMA.md`](MANIFEST-SCHEMA.md) § *The absent plugin
 registry index*.
+
+## Shipping a release
+
+1. **Add the registry rows.** A `plugin` row for every plugin removed or
+   renamed since the previous release, a `path` row for every moved path, a
+   `content` row for every shipped text a customer must change by hand — or
+   exactly **one** `none` row when nothing adopter-facing changed. Grammar
+   and the four kinds: `.docs/guides/MIGRATION_GUIDE.md`.
+2. **Write the `### Migrating from …` subsection** in the `CHANGELOG.md`
+   entry for this release, whenever any non-`none` row names it.
+3. **Run `bash tests/contract/test_release_migrations.sh`.** Its release
+   gate fails a stamped release that declares no migration rows at all; its
+   removal guard (`release-migrations.sh check-release --since auto`, also
+   run on every push by `plugin-tests.yml` and in the promote gate) fails a
+   release that drops a `plugins/<x>` or `mcp-servers/<x>` directory since
+   the previous tag without a row naming it. The guard verifies structure —
+   that a removal was declared — never that a `content` row's `proposal:` is
+   the *right* text for what changed; that judgment stays yours.

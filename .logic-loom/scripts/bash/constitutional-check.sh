@@ -695,11 +695,38 @@ if [ ${#UNREACHABLE_AGENTS[@]} -gt 0 ]; then
     record_warn "Agent file(s) in plugins/*/agents/ that will NEVER LOAD (${UNREACHABLE_AGENTS[*]}) — Claude Code reads .claude/agents/, not a plugin tree that is not an installed marketplace. Move them to .claude/agents/ (a subdirectory is fine; the scan is recursive)."
 fi
 
-# Check skills live in plugins (Plugin-First Architecture v4.0)
+# Check skills live in plugins (Plugin-First Architecture v4.0) — WITH ONE
+# SANCTIONED EXCEPTION (v7.0.0): a skill CONVERTED from a retired plugin by
+# the release-migration registry's `convert` command (release-migrations.sh,
+# .docs/guides/MIGRATION_GUIDE.md) is project-owned by design and carries a
+# `converted-from:` marker in its first 20 lines. A `.claude/skills/*/SKILL.md`
+# WITHOUT that marker is still the violation this check exists to catch — a
+# harness skill belongs in plugins/*/skills/, full stop.
 SKILL_ORG=true
+UNMARKED_PROJECT_SKILLS=()
+CONVERTED_PROJECT_SKILLS=()
 if [ -d "$REPO_ROOT/.claude/skills" ]; then
+    # Depth 1 (.claude/skills/<name>/SKILL.md) is where `convert` writes; depth 2
+    # (.claude/skills/<dept>/<name>/SKILL.md) is the pre-v4.0 monolithic layout.
+    # Both are walked so a nested legacy tree cannot slip under a check that
+    # previously fired on the bare directory.
+    for skill_md in "$REPO_ROOT"/.claude/skills/*/SKILL.md "$REPO_ROOT"/.claude/skills/*/*/SKILL.md; do
+        [ -f "$skill_md" ] || continue
+        skill_name="${skill_md#"$REPO_ROOT"/.claude/skills/}"
+        skill_name="${skill_name%/SKILL.md}"
+        if head -20 "$skill_md" 2>/dev/null | grep -q "converted-from:"; then
+            CONVERTED_PROJECT_SKILLS+=("$skill_name")
+        else
+            UNMARKED_PROJECT_SKILLS+=("$skill_name")
+        fi
+    done
+fi
+if [ ${#UNMARKED_PROJECT_SKILLS[@]} -gt 0 ]; then
     SKILL_ORG=false
-    record_warn "Legacy .claude/skills/ directory exists — skills should be in plugins/*/skills/"
+    record_warn "project-local skills without provenance: ${UNMARKED_PROJECT_SKILLS[*]}; harness skills belong in plugins/*/skills/"
+fi
+if [ ${#CONVERTED_PROJECT_SKILLS[@]} -gt 0 ]; then
+    echo -e "   ${BLUE}ℹ${NC}  Converted project-local skill(s) (marked, project-owned): ${CONVERTED_PROJECT_SKILLS[*]}"
 fi
 
 # Overall file organization check

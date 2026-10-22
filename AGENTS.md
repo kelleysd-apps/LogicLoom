@@ -4,7 +4,7 @@
 **Last Updated**: 2026-08-17
 **Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs + Plugin-First + Skill-Based Delegation
-**Total Agents**: 8 (6 plugin + 2 project-level: deep-reasoner, fast-worker)
+**Total Agents**: 11 (6 plugin + 5 project-level: deep-reasoner, fast-worker, advisor, checker, reviewer)
 **Plugins**: 8
 
 ---
@@ -108,6 +108,17 @@ partly-valid mandate keeps only its valid part. Direction documents such as
 ### Cross-Check Disposition
 
 Cross-Check Disposition — when output correctness materially matters AND the ask invites scrutiny (double-check, cross-check, red-team, peer-review, second opinion, sanity-check, 'are you sure', 'poke holes', 'prove me wrong'), default to a decorrelated second look from a DIFFERENT-PROVIDER model rather than reviewing your own output in-lineage — a same-lineage self-review shares your blind spots. HOST-GATED: On the Claude Code host, this is surfaced as /cross-check (or the cross-provider slot in /review-team / --adversary on /plan-review), which hands a bounded artifact to a non-Claude model; advisory, read-only, key-gated and fail-open. On any host where you are the ONLY model reachable, a self-review is NOT decorrelation — say so plainly, do not label it a cross-check, and proceed. It never blocks and never touches git. Skip it for trivial asks.
+
+### Escalation rungs and execution mode
+
+Escalation Disposition — size the checking to the work, not to the subject.
+Score the work on two questions, what a wrong answer costs and how widely it reaches, and run the rung that sum sets.
+Light needs no advisor; Standard adds one advisor; Heavy adds one external CLI; Max adds both and runs them concurrently.
+Effort follows cost, fan-out follows width, never the other way.
+Reviewers run once per phase on the combined diff; a package touching hooks, auth, payment, customer data or the governance floor gets its own review.
+Worker tiers: checker (check-and-report, never floor-adjacent work), builder (the default worker), deep-reasoner (architecture, hard debugging).
+Pick the lightest execution mode that fits: background task, workers, workflow, or swarm; state it in one line.
+Followed, not enforced; no hook checks the rung or the mode. Full text: .docs/policies/escalation-policy.md.
 
 ### Capability catalog (by what it does)
 
@@ -242,6 +253,9 @@ hook floor still governs them. Full reference:
 |-------|---------|-------|
 | **deep-reasoner** | Architecture decisions, hard debugging, design tradeoffs | opus (high) |
 | **fast-worker** | Boilerplate, tests, routine mechanical edits | sonnet (medium) |
+| **advisor** | Adversarial second opinion on an approach or plan; read-only | inherit (medium) |
+| **checker** | Check-and-report: lookups, test runs, summaries; never floor-adjacent work | haiku (—) |
+| **reviewer** | Phase review over a combined diff | opus (high) |
 
 **Moved from plugin scope (LOOM-0052)** — the five agents formerly listed under
 their originating plugins above; content unchanged, only the load path fixed:

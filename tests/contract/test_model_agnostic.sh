@@ -68,11 +68,35 @@ frontmatter_model() {
   ' "$1"
 }
 
+# Registry-listed (release-migration registry, v7.0.0) plugin dirs are
+# customer-owned pending-migration dirs on a sanitized/adopted tree — a
+# leftover legacy copy may still carry a pinned model id the harness has no
+# say over, so it is pruned from this scan (the release-migration scan is
+# what evaluates it). Emits `-path plugins/<name> -prune -o ... -print0`-style
+# args on stdout, one per declared legacy plugin, for splicing into `find`.
+legacy_prune_args() {
+  [ -f ".logic-loom/lib/release-migrations.sh" ] || return 0
+  [ -f ".logic-loom/config/release-migrations.conf" ] || return 0
+  # shellcheck source=/dev/null
+  source ".logic-loom/lib/release-migrations.sh"
+  loom_deprecation_rows ".logic-loom/config/release-migrations.conf" 2>/dev/null \
+    | awk -F'\t' '$1 == "plugin" { print $2 }'
+}
+
 # Gather the target files (agents + commands + skills across plugins, plus
 # .claude/agents). Tolerate any missing dir; NUL-delimited for odd paths.
+# Registry-listed plugin dirs present on disk are pruned first (see
+# legacy_prune_args above) so a customer's leftover legacy copy is not scanned.
 collect_targets() {
-  { find plugins -type f \( -path '*/agents/*.md' -o -path '*/commands/*.md' \) -print0 2>/dev/null
-    find plugins -type f -path '*/skills/*' -name 'SKILL.md'                    -print0 2>/dev/null
+  local prune_expr="" legacy_name
+  for legacy_name in $(legacy_prune_args); do
+    [ -d "plugins/$legacy_name" ] || continue
+    prune_expr="$prune_expr -path plugins/$legacy_name -prune -o"
+  done
+  { # shellcheck disable=SC2086
+    find plugins $prune_expr -type f \( -path '*/agents/*.md' -o -path '*/commands/*.md' \) -print0 2>/dev/null
+    # shellcheck disable=SC2086
+    find plugins $prune_expr -type f -path '*/skills/*' -name 'SKILL.md'                    -print0 2>/dev/null
     find .claude/agents -maxdepth 1 -type f -name '*.md'                        -print0 2>/dev/null
   } || true
 }

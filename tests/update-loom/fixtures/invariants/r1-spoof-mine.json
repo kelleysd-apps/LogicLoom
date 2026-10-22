@@ -1,0 +1,1 @@
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"bash .claude/hooks/a.sh"},{"type":"command","command":"bash scripts/hooks/guard-prod-db.sh"}]}]}}

@@ -33,6 +33,18 @@ change independently. The procedure of record is the `framework-updater` skill
    produces merge conflicts.
 4. **One source of truth for the URL.** See below — never derived from `origin`.
 
+## Release migrations
+
+Since v7.0.0, `/update-framework` also evaluates a **release-migration
+registry** against your tree at Step 3b — retired plugins you still hold,
+paths upstream moved, and text-content checks a file diff cannot express on
+its own — and offers one of REMOVE / ADOPT-REPLACEMENT / CONVERT-TO-LOCAL /
+KEEP-AS-IS / MOVE / PROPOSE per item, never an automatic change. Every run
+that has at least one standing decision briefs you on it, whether or not
+anything new is pending. In an adopted install, this is also where
+`record-update-writes.sh` runs after an update, so later releases can reach
+the files this tool wrote for you. Full contract: `.docs/guides/MIGRATION_GUIDE.md`.
+
 ## Where the upstream URL comes from
 
 Resolution precedence (in `extract-proposals.sh`):

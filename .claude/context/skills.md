@@ -152,6 +152,9 @@ worker's context isolated per Principle X.
 ### Skill Index
 
 Skills live inside their parent plugin at `plugins/<plugin>/skills/<name>/SKILL.md`.
+A project-local skill converted from a retired plugin lives instead at
+`.claude/skills/<name>/SKILL.md` and carries a `converted-from:` marker —
+project-owned, never updated upstream, and not part of this table.
 The complete installed set (32):
 
 | Skill | Plugin |

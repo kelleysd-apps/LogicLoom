@@ -9,6 +9,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -55,6 +57,9 @@ jobs:
 
       - name: Run Memory Search Tests
         run: bash tests/contract/test_memory_search.sh
+
+      - name: Run Keyword Backend Scoring Tests
+        run: bash tests/contract/test_keyword_backend_scoring.sh
 
       - name: Run Spec 006 Integration Tests
         run: bash tests/contract/test_spec006_integration.sh
@@ -172,6 +177,14 @@ jobs:
       # runtime write targets (dirs, .jsonl paths) regardless of repo state.
       - name: Run Shipped Path References Tests
         run: bash tests/contract/test_shipped_path_references.sh
+
+      # Two shipped defects this closes: /cross-check's Mode B codex invocation
+      # carried no model flag (silently ran whatever `codex exec` defaults to
+      # instead of the documented CROSS_CHECK_OPENAI_MODEL / models.conf
+      # resolution), and project-graph's skill + /graph command named an npm
+      # package, @optave/ops-codegraph-tool, that 404s on the registry.
+      - name: Run Shipped Skill Commands Tests
+        run: bash tests/contract/test_shipped_skill_commands.sh
 
       # The WRITE half. The planner suite pins that the read half writes
       # nothing; this one pins that when the tool does write it writes only what
@@ -291,6 +304,18 @@ jobs:
 
       - name: Run Plugin Manifest Schema Tests
         run: bash tests/contract/test_plugin_manifest_schema.sh
+
+      - name: Run Release Migration Tests
+        run: bash tests/contract/test_release_migrations.sh
+
+      - name: Run Update-Framework Ownership Tests
+        run: bash tests/contract/test_update_framework_ownership.sh
+
+      - name: Run Update-Framework from 6.x Tests
+        run: bash tests/contract/test_update_from_6x.sh
+
+      - name: Run Update Loom Engine Tests
+        run: sh tests/contract/test_update_loom.sh
 
       # Same contract as before (valid JSON + name/version/dependencies present),
       # lifted out of an inline heredoc so it can be run and tested locally, plus

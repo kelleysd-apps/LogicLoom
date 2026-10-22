@@ -481,6 +481,14 @@ extract_proposals() {
 
     local proposals="[" first=true id=1
     local suppressed_merge=0 suppressed_unowned=0 suppressed_excluded=0
+    # Newline-separated list of paths suppressed as "not installed here" (the
+    # ADOPT_RECEIPT_USABLE=true, M|D|R* ownership branch only) — collected as
+    # they are suppressed so the stderr summary can name them instead of only
+    # counting them. See the adopted-repo rot gap: a file first added through
+    # /update-framework is never in the receipt's wrote[], so its next upstream
+    # edit lands here every time until `record-update-writes.sh --reconcile`
+    # (or an explicit record) teaches the receipt about it.
+    local suppressed_unowned_paths=""
     while IFS=$'\t' read -r status file_path new_path; do
         [ -z "$status" ] && continue
         [ -z "$file_path" ] && continue
@@ -594,6 +602,8 @@ extract_proposals() {
                     M|D|R*)
                         if ! adopt_file_recorded "$compare_path"; then
                             suppressed_unowned=$((suppressed_unowned + 1))
+                            suppressed_unowned_paths="${suppressed_unowned_paths}${compare_path}
+"
                             id=$((id + 1))
                             continue
                         fi
@@ -670,6 +680,21 @@ extract_proposals() {
         echo "ADOPTED REPO (detected by: $detected_note) — adopted-repo proposal filtering active." >&2
         if [ "$ADOPT_RECEIPT_USABLE" = "true" ]; then
             echo "Suppressed: $suppressed_merge merge-channel (see info-adopted-merge-channel proposals), $suppressed_unowned not-installed-here (M/D/R), $suppressed_excluded payload-excluded (A)." >&2
+            if [ "$suppressed_unowned" -gt 0 ]; then
+                local shown=0 total_lines
+                total_lines=$(printf '%s' "$suppressed_unowned_paths" | grep -c . || true)
+                while IFS= read -r sup_path; do
+                    [ -z "$sup_path" ] && continue
+                    if [ "$shown" -lt 20 ]; then
+                        echo "not-installed-here: $sup_path" >&2
+                        shown=$((shown + 1))
+                    fi
+                done <<< "$suppressed_unowned_paths"
+                if [ "$total_lines" -gt 20 ]; then
+                    echo "... and $((total_lines - 20)) more" >&2
+                fi
+                echo "If any of these were added by /update-framework before v7.0.0, run: bash plugins/loom-maintenance/scripts/record-update-writes.sh --reconcile" >&2
+            fi
         else
             echo "DEGRADED FILTERING: .logicloom-adopt-receipt.json is MISSING or UNREADABLE, so precise ownership-based filtering is unavailable this run. Filtering has fallen back to a CONSERVATIVE DENY-LIST — only known-dangerous/known-not-ours paths (root CLAUDE.md, AGENTS.md, README.md, package.json; anything under .github/ or tests/; TEMPLATE_INIT.md; merge channels) are suppressed, and every other upstream change is being OFFERED even though this repo's actual ownership is unverified. This is NOT the same as 'upstream changed nothing.' Restore .logicloom-adopt-receipt.json (or commit it to this repo) to get precise, ownership-based filtering back." >&2
             echo "Suppressed: $suppressed_merge merge-channel (see info-adopted-merge-channel proposals), $suppressed_unowned deny-listed (M/D/R), $suppressed_excluded deny-listed (A)." >&2

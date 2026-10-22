@@ -197,16 +197,58 @@ floor_scan_roots() {
 
 # The anti-decorative backstop: a plugin directory carrying OUR namespace that
 # the registry table does not declare. Such a plugin would be silently unscanned.
+#
+# A customer's leftover legacy plugin (registry-listed in
+# .logic-loom/config/release-migrations.conf, e.g. a stale plugins/sdd-domain-*
+# left over pre-v7.0.0) is neither harness-owned (it is customer-owned — the
+# floor never scanned it, see the header) NOR an orphan (it is declared,
+# just not in CLAUDE.md's table) — so it is excluded from BOTH the scan and
+# the orphan report, and surfaced instead as an informational
+# "legacy plugins pending migration" line (1b, below). This is the one place
+# `.logic-loom/lib/release-migrations.sh`'s `loom_is_deprecated_plugin_dir` is
+# consulted from this suite.
 undeclared_harness_shaped() {
-  local r="$1" d name declared
+  local r="$1" d name declared reg
   declared="$(declared_harness_plugins "$r")"
+  reg="$r/.logic-loom/config/release-migrations.conf"
+  if [ -f "$r/.logic-loom/lib/release-migrations.sh" ]; then
+    # shellcheck source=/dev/null
+    source "$r/.logic-loom/lib/release-migrations.sh"
+  fi
   for d in "$r"/plugins/*/; do
     [ -d "$d" ] || continue
     name="${d%/}"; name="${name##*/}"
     case "$name" in loom-*|sdd-*) ;; *) continue ;; esac
     # here-string, not a pipe: `grep -q` exits early and pipefail would score a
     # MATCH as a pipeline failure (shell-idiom-policy §6).
-    grep -qx "$name" <<< "$declared" || printf '%s\n' "$name"
+    grep -qx "$name" <<< "$declared" && continue
+    if command -v loom_is_deprecated_plugin_dir >/dev/null 2>&1 \
+       && loom_is_deprecated_plugin_dir "$name" "$reg" 2>/dev/null; then
+      continue
+    fi
+    printf '%s\n' "$name"
+  done
+  return 0
+}
+
+# Registry-listed plugin dirs present on disk but undeclared in CLAUDE.md — the
+# customer-owned, not-scanned, pending-migration set undeclared_harness_shaped
+# above now excludes. A separate function (not folded into the printed
+# ORPHANS/undeclared set above) so the two lists never merge into one meaning.
+legacy_plugins_pending() {
+  local r="$1" d name declared reg
+  [ -f "$r/.logic-loom/lib/release-migrations.sh" ] || return 0
+  declared="$(declared_harness_plugins "$r")"
+  reg="$r/.logic-loom/config/release-migrations.conf"
+  # shellcheck source=/dev/null
+  source "$r/.logic-loom/lib/release-migrations.sh"
+  command -v loom_is_deprecated_plugin_dir >/dev/null 2>&1 || return 0
+  for d in "$r"/plugins/*/; do
+    [ -d "$d" ] || continue
+    name="${d%/}"; name="${name##*/}"
+    case "$name" in loom-*|sdd-*) ;; *) continue ;; esac
+    grep -qx "$name" <<< "$declared" && continue
+    loom_is_deprecated_plugin_dir "$name" "$reg" 2>/dev/null && printf '%s\n' "$name"
   done
   return 0
 }
@@ -249,6 +291,10 @@ assert "every declared plugin is a real directory under plugins/ (${MISSING_DIR:
 ORPHANS="$(undeclared_harness_shaped "$ROOT" | tr '\n' ' ')"
 assert "no loom-*/sdd-* plugin on disk is missing from the registry (${ORPHANS:-none})" \
        "[ -z \"\$(printf '%s' \"\$ORPHANS\" | tr -d ' ')\" ]"
+LEGACY_PENDING="$(legacy_plugins_pending "$ROOT" | tr '\n' ' ')"
+if [ -n "$(printf '%s' "$LEGACY_PENDING" | tr -d ' ')" ]; then
+  echo "     legacy plugins pending migration (customer-owned, not scanned, run /update-framework): $LEGACY_PENDING"
+fi
 # The wholesale roots must actually be in the computed set, or the scoping
 # change quietly narrowed the floor to plugins alone.
 #
@@ -342,6 +388,84 @@ mkdir -p "$SR/plugins/loom-orphan/scripts"
 printf '#!/usr/bin/env bash\ndeclare -A ORPHAN\n' > "$SR/plugins/loom-orphan/scripts/o.sh"
 assert "an UNDECLARED loom-* plugin is flagged by name (registry drift is loud)" \
        "[ \"\$(undeclared_harness_shaped \"\$SR\")\" = 'loom-orphan' ]"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A registry-listed legacy plugin (customer-owned, pending migration) must be
+# excluded from BOTH the floor scan and the orphan report — it is neither
+# harness-owned nor an orphan, just undeclared-but-known. loom-orphan (above)
+# must still be caught: a real registry alongside it proves the exemption did
+# not swallow genuine drift.
+mkdir -p "$SR/.logic-loom/config" "$SR/.logic-loom/lib"
+cp "$ROOT/.logic-loom/lib/release-migrations.sh" "$SR/.logic-loom/lib/release-migrations.sh"
+echo "plugin | sdd-legacy | removed | none | REMOVE | v1.0.0 | v2.0.0 | synthetic legacy row" \
+  > "$SR/.logic-loom/config/release-migrations.conf"
+mkdir -p "$SR/plugins/sdd-legacy/scripts"
+printf '#!/usr/bin/env bash\ndeclare -A LEGACY\n' > "$SR/plugins/sdd-legacy/scripts/x.sh"
+SR_UNDECLARED="$(undeclared_harness_shaped "$SR" | tr '\n' ' ' | sed 's/ $//')"
+assert "with a real registry present, undeclared_harness_shaped prints EXACTLY loom-orphan (sdd-legacy excluded)" \
+       "[ \"\$SR_UNDECLARED\" = 'loom-orphan' ]"
+SR_LEGACY="$(legacy_plugins_pending "$SR" | tr '\n' ' ' | sed 's/ $//')"
+assert "legacy_plugins_pending reports sdd-legacy (customer-owned, not scanned)" \
+       "[ \"\$SR_LEGACY\" = 'sdd-legacy' ]"
+# "not scanned" is a claim about the floor scan itself, not only about the
+# orphan report: re-derive the scan roots with sdd-legacy on disk and prove its
+# planted `declare -A` never reaches the scanner (loom-example's still does).
+SR_ROOTS2="$(floor_scan_roots "$SR" | tr '\n' ' ')"
+SR_HITS2=""
+for d in $SR_ROOTS2; do
+  found="$(scan_tree "$d")"
+  [ -n "$found" ] && SR_HITS2="${SR_HITS2}${found}"$'\n'
+done
+# NOTE, stated honestly: this only proves floor_scan_roots() never emits
+# plugins/sdd-legacy as a scan root at all — true whether or not the legacy-
+# exemption logic exists, since floor_scan_roots is scoped to CLAUDE.md-
+# DECLARED plugins only (see "Ownership" above), and sdd-legacy is
+# deliberately never declared there. It does NOT exercise
+# loom_is_deprecated_plugin_dir; kept only as a sanity check that the scan
+# roots themselves stay correctly scoped.
+assert "floor_scan_roots never emits plugins/sdd-legacy as a root (undeclared in CLAUDE.md, independent of the exemption)" \
+       "! grep -q 'sdd-legacy' <<< \"\$SR_HITS2\""
+assert "…while loom-example's planted 'declare -A' still IS (the exemption is not a blanket one)" \
+       "grep -q 'loom-example/scripts/ours.sh' <<< \"\$SR_HITS2\""
+
+# The REAL test of the exemption: undeclared_harness_shaped()/
+# legacy_plugins_pending() consult loom_is_deprecated_plugin_dir directly (not
+# floor_scan_roots), and BOTH functions re-source "$r/.logic-loom/lib/
+# release-migrations.sh" on every call — so `unset -f` on the current shell's
+# copy of the function is pointless, it would just get re-sourced back. The
+# only way to genuinely plant this regression is to neuter the copy of the
+# library the fixture itself points at, exactly as a real regression in
+# release-migrations.sh would. With the exemption neutered, the outcome must
+# FLIP — sdd-legacy stops being exempted and is reported as a genuine orphan
+# (which section 1b would fail the suite on), same as an undeclared
+# loom-*/sdd-* dir with NO registry row already is. This is what finding #2
+# ("show it fails when the exemption logic is removed") demands: a planted
+# regression in the exemption itself must break this suite, not just leave a
+# vacuous scan-root check green.
+cp "$SR/.logic-loom/lib/release-migrations.sh" "$TMP/release-migrations.sh.orig"
+{
+  cat "$SR/.logic-loom/lib/release-migrations.sh"
+  printf '\n# PLANTED REGRESSION (test-only): neuter the legacy-plugin exemption.\n'
+  printf 'loom_is_deprecated_plugin_dir() { return 1; }\n'
+} > "$SR/.logic-loom/lib/release-migrations.sh.neutered"
+mv "$SR/.logic-loom/lib/release-migrations.sh.neutered" "$SR/.logic-loom/lib/release-migrations.sh"
+SR_UNDECLARED_NOEXEMPT="$(undeclared_harness_shaped "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+SR_LEGACY_NOEXEMPT="$(legacy_plugins_pending "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+assert "exemption REMOVED: sdd-legacy IS now reported as an undeclared/orphan plugin (proves the exemption was load-bearing)" \
+       "grep -qw 'sdd-legacy' <<< \"\$SR_UNDECLARED_NOEXEMPT\""
+assert "exemption REMOVED: the genuinely-undeclared, non-registry loom-orphan is STILL reported either way" \
+       "grep -qw 'loom-orphan' <<< \"\$SR_UNDECLARED_NOEXEMPT\""
+assert "exemption REMOVED: legacy_plugins_pending reports nothing (it is the sole caller of that function)" \
+       "[ -z \"\$SR_LEGACY_NOEXEMPT\" ]"
+# Restore the fixture's library and confirm the original, correct outcome
+# returns — the "passes after the fix" half of the same proof.
+cp "$TMP/release-migrations.sh.orig" "$SR/.logic-loom/lib/release-migrations.sh"
+SR_UNDECLARED_RESTORED="$(undeclared_harness_shaped "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+SR_LEGACY_RESTORED="$(legacy_plugins_pending "$SR" | tr '\n' ' ' | sed 's/^ *//;s/ *$//')"
+assert "exemption RESTORED: undeclared_harness_shaped again excludes sdd-legacy (only loom-orphan reported)" \
+       "[ \"\$SR_UNDECLARED_RESTORED\" = 'loom-orphan' ]"
+assert "exemption RESTORED: legacy_plugins_pending reports sdd-legacy again" \
+       "[ \"\$SR_LEGACY_RESTORED\" = 'sdd-legacy' ]"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixtures for the /specification quality gates. Written here rather than
@@ -695,6 +819,118 @@ fi
 # Everywhere: the exclusion must not be a blanket one.
 EXCL_COUNT="$(printf '%s\n' "$SELF_EXCLUDE" | grep -c . )"
 assert "exactly one file is excluded from the scan" "[ \"\$EXCL_COUNT\" -eq 1 ]"
+
+# ─────────────────────────────────────────────────────────────────────────────
+echo ""
+echo "7. POSIX update family executes under sh"
+# The /update-loom engine family is POSIX sh, not bash: it must parse and run under
+# the system /bin/sh (dash on Debian/Ubuntu CI) as well as dash itself. This floor
+# test is bash, so it only INVOKES those shells; it never sources the family.
+UL_DIR="plugins/loom-maintenance/scripts"
+UL_FAMILY="update-loom.sh update-loom-common.sh json-valid.sh json-flat.sh security-invariants.sh updates-lint.sh updates-checks.sh"
+UL_DASH=""
+[ -x /bin/dash ] && UL_DASH=/bin/dash
+# Non-comment lines of FILE matching the extended regex PATTERN, `<line>:<text>`.
+ul_posix_hits() {
+  grep -nE -e "$2" "$1" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#' || true
+}
+# One entry per construct that breaks dash (or is not POSIX), as `label|regex`.
+ul_posix_banned() {
+  printf '%s\n' \
+    '[[ test (bash/ksh only; dash: not found)|(^|[;&|(]|[[:space:]])\[\[[[:space:]]' \
+    'local keyword (not POSIX; posh/ksh reject it)|^[[:space:]]*local[[:space:]]' \
+    "dollar-quote with an escape (dash prints it literally)|[\$]'[^']*\\\\[abefnrtv0-9x\\\\']" \
+    '${var//x/y} substitution (dash: bad substitution)|[$][{][A-Za-z_][A-Za-z_0-9]*//' \
+    '<<< here-string (dash: syntax error)|<<<' \
+    'function NAME { keyword (dash: syntax error; awk NAME(args) is not matched)|^[[:space:]]*function[[:space:]]+[A-Za-z_][A-Za-z_0-9]*[[:space:]]*[{]?[[:space:]]*$' \
+    '${arr[i]} array element (dash: bad substitution)|[$][{][A-Za-z_][A-Za-z_0-9]*\[' \
+    '== inside [ ] (dash: unexpected operator)|^[^#]*(^|[^[])\[ [^]]* == ' \
+    '&> redirect (dash backgrounds the command)|[^&]&>[^&]' \
+    'source builtin (dash: not found)|^[[:space:]]*source[[:space:]]' \
+    'name+= append (dash: not found)|^[[:space:]]*[A-Za-z_][A-Za-z_0-9]*\+='
+}
+UL_BAD_HITS=""; UL_BAD_FIRST=""; UL_BAD_SHN=""; UL_BAD_DASHN=""; UL_MISSING=""
+for f in $UL_FAMILY; do
+  p="$UL_DIR/$f"
+  if [ ! -f "$p" ]; then UL_MISSING="$UL_MISSING $f"; continue; fi
+  [ "$(head -n 1 "$p")" = '#!/bin/sh' ] || UL_BAD_FIRST="$UL_BAD_FIRST $f"
+  /bin/sh -n "$p" 2>/dev/null || UL_BAD_SHN="$UL_BAD_SHN $f"
+  if [ -n "$UL_DASH" ]; then "$UL_DASH" -n "$p" 2>/dev/null || UL_BAD_DASHN="$UL_BAD_DASHN $f"; fi
+  while IFS='|' read -r lbl rx; do
+    [ -n "$lbl" ] || continue
+    h="$(ul_posix_hits "$p" "$rx")"
+    [ -z "$h" ] || UL_BAD_HITS="$UL_BAD_HITS
+$f: $lbl:
+$h"
+  done <<EOF_BANNED
+$(ul_posix_banned)
+EOF_BANNED
+done
+assert "every update-family script exists" "[ -z \"\$UL_MISSING\" ]"
+assert "first line is exactly #!/bin/sh in all seven" "[ -z \"\$UL_BAD_FIRST\" ]"
+assert "all seven pass /bin/sh -n" "[ -z \"\$UL_BAD_SHN\" ]"
+if [ -n "$UL_DASH" ]; then
+  assert "all seven pass dash -n" "[ -z \"\$UL_BAD_DASHN\" ]"
+else
+  echo "     ⏭  SKIPPED dash -n — no /bin/dash on this host (/bin/sh -n still ran)."
+fi
+if [ -n "$UL_BAD_HITS" ]; then printf '%s\n' "$UL_BAD_HITS" | sed 's/^/     /'; fi
+assert "no non-comment bash-only construct (dash breakers) in any of the seven" "[ -z \"\$UL_BAD_HITS\" ]"
+
+# The detector has teeth: each banned construct, planted, is caught; a comment is not.
+mkdir -p "$TMP/ulplant"
+UL_PLANT_BAD=""
+while IFS='|' read -r lbl rx; do
+  [ -n "$lbl" ] || continue
+  case "$lbl" in
+    '[[ '*) body='if [[ -n x ]]; then :; fi';;
+    'local '*) body=$'f() {\n  local x\n}';;
+    'dollar-quote'*) body="x=\$'a\\tb'";;
+    '${var//'*) body='x=${NAME//a/b}';;
+    '<<<'*) body='cat <<< hi';;
+    'function '*) body=$'function f {\n  :\n}';;
+    '${arr['*) body='x=${arr[0]}';;
+    '== inside'*) body='[ "$a" == "$b" ]';;
+    '&> '*) body='ls &> /dev/null';;
+    'source '*) body='source ./lib.sh';;
+    'name+='*) body='x+=y';;
+    *) body='';;
+  esac
+  printf '#!/bin/sh\n%s\n' "$body" > "$TMP/ulplant/p.sh"
+  [ -n "$(ul_posix_hits "$TMP/ulplant/p.sh" "$rx")" ] || UL_PLANT_BAD="$UL_PLANT_BAD [$lbl]"
+done <<EOF_PLANT
+$(ul_posix_banned)
+EOF_PLANT
+assert "every banned construct, planted, is caught by the detector${UL_PLANT_BAD:+ (missed:$UL_PLANT_BAD)}" "[ -z \"\$UL_PLANT_BAD\" ]"
+printf '#!/bin/sh\n# [[ local $'"'"'x'"'"' <<< function ${a//b/c} == only a comment\n' > "$TMP/ulplant/c.sh"
+UL_PLANT_CMT=""
+while IFS='|' read -r lbl rx; do
+  [ -n "$lbl" ] || continue
+  UL_PLANT_CMT="$UL_PLANT_CMT$(ul_posix_hits "$TMP/ulplant/c.sh" "$rx")"
+done <<EOF_CMT
+$(ul_posix_banned)
+EOF_CMT
+assert "a banned construct inside a comment does NOT trip the detector" "[ -z \"\$UL_PLANT_CMT\" ]"
+
+# Smoke runs under /bin/sh (and dash): json-valid.sh exit codes, update-loom.sh --help.
+printf '{"a": [1, 2, {"b": null}]}\n' > "$TMP/ul-valid.json"
+printf '{"a": [1, 2\n' > "$TMP/ul-invalid.json"
+UL_RC_OK=0; /bin/sh "$UL_DIR/json-valid.sh" "$TMP/ul-valid.json" >/dev/null 2>&1 || UL_RC_OK=$?
+UL_RC_BAD=0; /bin/sh "$UL_DIR/json-valid.sh" "$TMP/ul-invalid.json" >/dev/null 2>&1 || UL_RC_BAD=$?
+assert "json-valid.sh under /bin/sh: a valid file exits 0" "[ \"\$UL_RC_OK\" -eq 0 ]"
+assert "json-valid.sh under /bin/sh: an invalid file exits 1" "[ \"\$UL_RC_BAD\" -eq 1 ]"
+UL_RC_H=0; UL_H_OUT="$(cd "$ROOT" && /bin/sh "$UL_DIR/update-loom.sh" --help 2>&1)" || UL_RC_H=$?
+assert "update-loom.sh --help under /bin/sh exits 0" "[ \"\$UL_RC_H\" -eq 0 ]"
+assert "update-loom.sh --help prints the usage" "printf '%s' \"\$UL_H_OUT\" | grep -q -- '--plan'"
+if [ -n "$UL_DASH" ]; then
+  UL_RC_OK=0; "$UL_DASH" "$UL_DIR/json-valid.sh" "$TMP/ul-valid.json" >/dev/null 2>&1 || UL_RC_OK=$?
+  UL_RC_BAD=0; "$UL_DASH" "$UL_DIR/json-valid.sh" "$TMP/ul-invalid.json" >/dev/null 2>&1 || UL_RC_BAD=$?
+  UL_RC_H=0; (cd "$ROOT" && "$UL_DASH" "$UL_DIR/update-loom.sh" --help >/dev/null 2>&1) || UL_RC_H=$?
+  assert "json-valid.sh under dash: valid exits 0, invalid exits 1" "[ \"\$UL_RC_OK\" -eq 0 ] && [ \"\$UL_RC_BAD\" -eq 1 ]"
+  assert "update-loom.sh --help under dash exits 0" "[ \"\$UL_RC_H\" -eq 0 ]"
+else
+  echo "     ⏭  SKIPPED dash smoke runs — no /bin/dash on this host."
+fi
 
 echo ""
 echo "════════════════════════════════"

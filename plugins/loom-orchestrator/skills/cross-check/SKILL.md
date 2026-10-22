@@ -85,13 +85,28 @@ neighbouring modules, reason about cross-file invariants), a governed Claude
 subagent shells the provider CLI in a **read-only sandbox**:
 
 ```bash
-codex exec --sandbox read-only -c approval_policy='"never"' "<adversarial prompt>"
+# Model resolution: CROSS_CHECK_OPENAI_MODEL env override, else the documented
+# default from models.conf ("Advisory cross-provider models"). Same order
+# /research uses, minus its per-run flag (/cross-check has none).
+codex exec --sandbox read-only --skip-git-repo-check \
+  -c approval_policy='"never"' \
+  -m "${CROSS_CHECK_OPENAI_MODEL:-gpt-5.5}" \
+  "<adversarial prompt>" </dev/null
 ```
 
 `--sandbox read-only` lets Codex navigate and reason over the repo but blocks all
 writes and command side effects; `-c approval_policy='"never"'` keeps it
-non-interactive. The subagent captures stdout and converts it to the findings
-schema.
+non-interactive; `-m` passes the resolved advisory model so the call uses the
+model this section documents rather than whatever `codex exec` defaults to.
+The literal fallback (`gpt-5.5`) must match the OpenAI default in
+`.logic-loom/config/models.conf` — `tests/contract/test_shipped_skill_commands.sh`
+pins the two together. `--skip-git-repo-check` and `</dev/null` are load-bearing
+for a non-interactive call: `codex exec` refuses to start outside a Git
+repository (its help text: "Allow running Codex outside a Git repository"), so
+the flag keeps the command runnable from any working directory; and without
+`</dev/null`, `codex exec` waits on stdin and the subagent call hangs instead of
+returning. Neither changes read-only-ness. The subagent captures stdout and
+converts it to the findings schema.
 
 > **Do not pass `--ask-for-approval` here.** That flag exists on the interactive
 > `codex` entry point, not on `codex exec` — verified against codex-cli 0.144.1,

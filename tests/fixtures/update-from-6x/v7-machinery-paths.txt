@@ -1,0 +1,47 @@
+# The v7.0.0 release-migration machinery, one row per shipped file, used by
+# tests/contract/test_update_from_6x.sh to assert that a 6.x customer's OLD
+# (v6.6.2) /update-framework — running its own installed extract-proposals.sh,
+# never the version in THIS tree — is actually offered every one of these
+# files when it fetches an upstream that carries this release. The test fails
+# loudly, naming the exact suppressed path(s), if any row here comes back
+# missing or with an unexpected resolution.
+#
+# Columns (tab-separated): repo-relative path <TAB> expected extract-proposals.sh
+# `resolution` value on a pristine v6.6.2 fixture that has never touched the
+# file. New files (absent from v6.6.2) resolve clean-add; files v6.6.2 already
+# shipped (and the fixture never locally modified) resolve clean-apply. Both
+# mean "safe to adopt automatically" — the customer is never asked to hand-merge
+# a conflict for either.
+#
+# Kept an explicit, reviewable list rather than re-deriving it from the
+# registry or from `git diff --stat v6.6.2..HEAD`: the point of this fixture is
+# to say, once and by hand, "these are the files a 6.x customer MUST receive for
+# v7.0.0 to actually land" — a script deriving the same list from the same
+# release's own tree could go stale in exactly the way this test exists to catch.
+#
+# WHY extract-proposals.sh IS ON THIS LIST: release-migrations.sh sources its
+# SIBLING "$SCRIPT_DIR/extract-proposals.sh" and calls detect_adopt_mode from
+# it (ADOPTED-repo detection). That function, the receipt-based ownership
+# filter, and the "--reconcile" stderr hint all landed AFTER the v6.6.2 stamp
+# (39b59d5) and shipped in no tag or npm version. A customer who accepts the
+# scan but keeps the v6.6.2 extractor gets `detect_adopt_mode: command not
+# found` on stderr and their adopted repo is silently scanned as a template
+# clone — §D of the suite runs the fixture's OWN accepted scan to catch that.
+#
+# WHY MIGRATION_GUIDE.md IS ON THIS LIST: the scan's proposal text cites it by
+# path ("see .docs/guides/MIGRATION_GUIDE.md"); .docs/guides ships in both the
+# template (not on the strip manifest) and the npm payload (include: .docs/guides).
+#
+# NOT on this list, deliberately: .claude/commands/update-framework.md — the
+# bridge stub Claude Code loads is unchanged since v6.6.2 and only says "read
+# and execute plugins/loom-maintenance/commands/update-framework.md", which IS
+# listed. An unchanged file never appears in the sync-ref..upstream diff, so a
+# row for it would always read MISSING.
+.logic-loom/config/release-migrations.conf	clean-add
+.logic-loom/lib/release-migrations.sh	clean-add
+plugins/loom-maintenance/scripts/release-migrations.sh	clean-add
+plugins/loom-maintenance/scripts/record-update-writes.sh	clean-add
+plugins/loom-maintenance/scripts/extract-proposals.sh	clean-apply
+plugins/loom-maintenance/skills/framework-updater/SKILL.md	clean-apply
+plugins/loom-maintenance/commands/update-framework.md	clean-apply
+.docs/guides/MIGRATION_GUIDE.md	clean-add

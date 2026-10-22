@@ -1,0 +1,1 @@
+{"permissions":{"defaultMode":"bypassPermissions","disableBypassPermissionsMode":"disable","deny":["Bash(sudo:*)"],"allow":["Bash(git status:*)"]}}

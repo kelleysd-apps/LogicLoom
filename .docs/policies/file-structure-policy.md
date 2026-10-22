@@ -180,8 +180,13 @@ its own runner.
 
 ### plugins/<plugin>/skills/ - Skill Definitions
 
-Skills belong to a plugin (Principle XVI). There is **no** top-level
-`.claude/skills/` directory — `constitutional-check.sh` warns if one appears.
+Skills belong to a plugin (Principle XVI). The harness itself ships none at
+the top level. A project-local `.claude/skills/<name>/` — including one
+converted from a plugin upstream stopped shipping, which carries a
+`converted-from:` marker — is project-owned and is never updated upstream.
+`constitutional-check.sh` warns only about a `.claude/skills/` entry that
+lacks that marker; a converted one is expected and raises no warning. See
+`.docs/guides/MIGRATION_GUIDE.md` for the conversion this produces.
 
 **Structure**:
 ```

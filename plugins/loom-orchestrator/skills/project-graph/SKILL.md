@@ -32,7 +32,7 @@ or a floor daemon.
   them with plain **Read/Grep** — no MCP, no running app is needed for an agent
   to use the knowledge layer. Obsidian is for the *human's* visual graph.
 - **Code half = opt-in Codegraph per product repo.** A deterministic
-  tree-sitter→SQLite MCP (`@optave/ops-codegraph-tool`) the developer runs for
+  tree-sitter→SQLite MCP (`@optave/codegraph`) the developer runs for
   *their* product workspace, registered in that workspace's `.mcp.json`. It is
   **documented, not installed/run by this skill in the default path** — the graph
   must degrade to text-only (ctags+rg) when no code MCP is present.
@@ -111,7 +111,7 @@ watcher.
 
 Answer a cross-half question by walking `graph-bridge.jsonl` with `jq`, 1-2 hops.
 First: **is a code-graph MCP registered in the product workspace `.mcp.json`?**
-(Codegraph / `@optave/ops-codegraph-tool`, e.g. under `web/.mcp.json` or
+(Codegraph / `@optave/codegraph`, e.g. under `web/.mcp.json` or
 `apps/<name>/.mcp.json`). If yes and the question is a *code* question (callers,
 callees, blast-radius over symbols), ESCALATE to that MCP for the precise answer,
 then enrich it with the bridge's `covers`/`decided-by` edges (which specs/ADRs

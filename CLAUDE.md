@@ -118,6 +118,15 @@ defense-in-depth; the known residual bypasses are documented in
 - **X Delegation & Context Isolation** — delegate specialized or parallel work to subagents/swarm for *isolation and parallelism*, not because the base model lacks capability.
 - Cross-Check Disposition — when output correctness materially matters AND the ask invites scrutiny (double-check, cross-check, red-team, peer-review, second opinion, sanity-check, 'are you sure', 'poke holes', 'prove me wrong'), default to a decorrelated second look from a DIFFERENT-PROVIDER model rather than reviewing your own output in-lineage — a same-lineage self-review shares your blind spots. HOST-GATED: On the Claude Code host, this is surfaced as /cross-check (or the cross-provider slot in /review-team / --adversary on /plan-review), which hands a bounded artifact to a non-Claude model; advisory, read-only, key-gated and fail-open. On any host where you are the ONLY model reachable, a self-review is NOT decorrelation — say so plainly, do not label it a cross-check, and proceed. It never blocks and never touches git. Skip it for trivial asks. (Neutral source: AGENTS.md Tier 1; the Claude Code preflight hook also nudges toward `/cross-check` on verification-shaped asks.)
 
+Escalation Disposition — size the checking to the work, not to the subject.
+Score the work on two questions, what a wrong answer costs and how widely it reaches, and run the rung that sum sets.
+Light needs no advisor; Standard adds one advisor; Heavy adds one external CLI; Max adds both and runs them concurrently.
+Effort follows cost, fan-out follows width, never the other way.
+Reviewers run once per phase on the combined diff; a package touching hooks, auth, payment, customer data or the governance floor gets its own review.
+Worker tiers: checker (check-and-report, never floor-adjacent work), builder (the default worker), deep-reasoner (architecture, hard debugging).
+Pick the lightest execution mode that fits: background task, workers, workflow, or swarm; state it in one line.
+Followed, not enforced; no hook checks the rung or the mode. Full text: .docs/policies/escalation-policy.md.
+
 ### Governance modes (capability-gated assist)
 
 Set via `LOOM_GOVERNANCE_MODE` or `.logic-loom/config/governance.conf`:
@@ -283,7 +292,7 @@ release driver, which is stripped from a customer's clone.)
 
 **ALWAYS read `.logic-loom/memory/constitution.md` BEFORE starting any work.**
 
-The constitution (v3.3.0) contains **16 enforceable principles**. Enforcement is
+The constitution (v3.3.0) contains **16 principles**, all enforceable. Enforcement is
 hook-side (see the **Governance** section above); the list below is a quick map.
 
 - **3 Immutable** (I-III): Library-First, Test-First, Contract-First
@@ -303,50 +312,12 @@ hook-side (see the **Governance** section above); the list below is a quick map.
 
 ### Project amendments (the fork extension point)
 
-A fork adds project-specific mandates in **`.logic-loom/memory/amendments.md`**
-(seeded from `.logic-loom/templates/amendments-template.md`) — never by editing
-`constitution.md`. Upstream never ships `amendments.md`, so a fork's mandates
-survive `/update-framework` and the constitution stays byte-identical to upstream
-instead of becoming a permanent `conflict-review` file.
-
-**Followed, not enforced — and nothing loads it. That is settled, not pending.**
-No hook, preflight, or context module reads `amendments.md`; nothing validates a
-mandate; nothing fails closed. A fork that does not read the file gets no
-mandates and gets no warning. Mandates work only because this file and
-`AGENTS.md` tell agents to read them. Read `.logic-loom/memory/amendments.md`
-when it exists and treat its mandates as binding alongside the principles.
-
-Wiring `amendments.md` into `governance-preflight.sh` was **considered and
-declined** (2026-08-24) — there is no loader coming, so do not read the absence
-as unfinished work. A loader would make mandates *look* enforced without making
-them enforced: the hook floor would still never consult a mandate, so the only
-thing gained is a stronger impression of enforcement than the mechanism can
-support. What a fork gets is a file upstream never overwrites, a mandate grammar,
-and composition rules binding on any agent that reads them. What it does not get
-is injection, validation, a warning, or any change in hook behaviour.
-
-The only normative unit is a **named mandate**: `### Mandate: <NAME>` with
-`Constrains:` / `Rule:` / `Rationale:`. There is no second surface — no in-line
-project markers in the constitution, no per-principle override blocks.
-
-Composition is a conjunction: **effective governance = constitution AND every
-mandate**. The constitutional floor stays normatively supreme; mandates are
-intended to add obligations only, and any relaxing effect is invalid. That
-invariant is **adjudicated, not structural**: the grammar has no `Overrides` /
-`Waives` field, but `Rule` is unrestricted natural language, so a mandate *can*
-weaken a principle semantically — by redefinition, by broadening what counts as
-approval, by constraining enforcement rather than behaviour, or by making
-compliance vacuous. The missing verb makes weakening conspicuous, not impossible.
-
-Adjudication defaults, all failing toward the floor: relaxing wording is **void in
-that respect**; an ambiguous mandate is read under its tightening interpretation
-(and is void if it has none); a formal "tightening" that makes a principle
-impossible to satisfy is void the same way; conflicting mandates compose to the
-stricter obligation, and genuinely contradicting ones are both void in that
-respect; validity is assessed per-effect, so a partly-valid mandate keeps only its
-valid part. `VISION.md` sets direction and never relaxes a mandate. Mandates are
-policy, not enforcement: they cannot touch a hook. Full statement including the
-precedence order: `.logic-loom/memory/constitution.md` § *Project Amendments*.
+A fork adds project mandates in `.logic-loom/memory/amendments.md` (seeded from
+`.logic-loom/templates/amendments-template.md`), never by editing
+`constitution.md`. Read it when it exists and treat its mandates as binding
+alongside the principles: additive only, followed-not-enforced, and nothing
+loads it. Doctrine, grammar and adjudication:
+`.docs/policies/project-amendments-policy.md`.
 
 ---
 
@@ -449,6 +420,11 @@ directory fails the suite, and so does any `loom-*` / `sdd-*` directory the
 table does **not** declare — so a harness plugin cannot be dropped from the scan
 by quietly dropping a row. Do not name your own plugin `loom-*` or `sdd-*`.
 
+A `loom-*`/`sdd-*` directory that upstream retired is listed in
+`.logic-loom/config/release-migrations.conf` and is reported as pending
+migration by the floor test, the manifest validator and the lifecycle suite
+rather than failing them.
+
 ### Plugin command bridge
 
 Commands are synced from plugins to `.claude/commands/` via the bridge:
@@ -464,78 +440,9 @@ Commands are synced from plugins to `.claude/commands/` via the bridge:
 
 ### Directory structure
 
-```
-VISION.md                              # Foundational product north-star (living; peer to the constitution)
-
-.logic-loom/
-  memory/
-    constitution.md                    # 16 principles (v3.3.0) — upstream core, do not fork-edit
-    amendments.md                      # OPTIONAL, fork-owned: project named mandates (additive only)
-    todos.md                           # Level-0 SSOT, ACTIVE half — cross-cutting non-feature work
-                                       # being worked / next up / waiting on an answer already asked for
-    backlog.md                         # Level-0 SSOT, DEFERRED half — same grammar, same id space,
-                                       # different question: "what should I bring up later".
-                                       # Split so today's item isn't buried between two you
-                                       # decided six weeks ago not to do. Grammar is normative
-                                       # in backlog.md; todos.md points at it (one parser, one id
-                                       # space, next id DERIVED via lint-backlog.sh --next-id)
-    constitution_update_checklist.md
-  scripts/bash/                        # Workflow automation + plugin bridge
-  templates/                           # vision-template, prd-template, plan-template, ...
-  config/
-    governance.conf                    # Governance mode (lean / strict)
-    models.conf                        # Documented role→tier convention + current flagship
-    gate-policy.conf                   # LIVE — which git/gh operations ask vs run silent
-    project.conf                       # Project identity (slug / name / id_prefix). Ships UNSTAMPED
-                                       # (`__UNSET__`) so no cloner inherits our slug
-    environments.conf                  # Environment + promotion-order DECLARATION. Ships FULLY
-                                       # COMMENTED OUT — an active default would assert a topology
-                                       # a cloner does not have. Declaration only; no deploy engine
-    memory-backend.conf                # LIVE — one key, memory_backend = repo | project.
-                                       # PROTECTED (declared via protected_paths in governance.conf)
-    brain.conf                         # Advisory thresholds for the .brain/ liveness/load signal.
-                                       # PROTECTED, same as memory-backend.conf above
-    architecture.conf, framework-upstream.conf
-  lib/                                 # Shared shell libs (policy.sh, logging.sh)
-
-plugins/                               # See registry above
-
-.claude/
-  commands/                            # Bridge-generated from plugins
-  context/                             # Modular context loaders
-  hooks/                               # Governance + LogicLoom hooks
-
-features/                              # Swarm pack: per-feature workspaces (vision/PRD/plan/sprints/retro)
-specs/                                 # SDD pack: waterfall specs
-
-.brain/                                # Project knowledge layer: raw/ (immutable captures), wiki/
-                                       # (concepts/ + decisions/, cited sources), index/ (human
-                                       # pointers), memory/ (durable memory; the default backend),
-                                       # DISTILL-LOG.md. Ships holding only README.md; created on
-                                       # first use, same treatment as artifacts/ and web/. Stripped
-                                       # at template release except the README, which is stubbed.
-                                       # Contract: `.brain/README.md`. See "Project knowledge layer"
-                                       # below for the promotion path and the three-signal table
-
-artifacts/                             # Standalone deliverables: who/what/why/where —
-                                       # vision, research, forensics, docs. NEVER a plan
-                                       # (sequencing belongs to plan.md / tasks.md).
-                                       # Create on first use; contents are project-owned
-                                       # and are stripped at template release.
-                                       # Mostly hand-authored + committed; a GENERATED
-                                       # deliverable belongs here too and is ALSO tracked
-                                       # (artifacts/backlog-dashboard.html) — licensed by
-                                       # the fail-closed freshness gate
-                                       # .logic-loom/scripts/bash/check-generated-freshness.sh.
-                                       # Its machine intermediate (.logic-loom/backlog-index.json)
-                                       # stays gitignored: track only what a human opens.
-
-web/  (or apps/<name>/)                # Product app (own package.json) — see Harness ↔ product boundary
-
-.docs/
-  architecture/loom-architecture.md    # Full architectural reference (LogicLoom shape)
-  policies/
-```
+The annotated tree lives in `.docs/architecture/loom-architecture.md` §
+*Directory structure*. It is reference material, not an instruction: consult
+it when creating files, and keep it there.
 
 The repo root (`package.json`, `tests/`, `.claude/`, `.logic-loom/`, `plugins/`)
 is **framework-owned**; product application code lives in `web/` / `apps/<name>/`.
@@ -657,46 +564,7 @@ documented convention plus one CI gate, listed here because it lives next to
 task/memory material, not because it is enforced the way the Governance
 section is.
 
-`.brain/` is where project knowledge accumulates: captures land in `raw/`
-(immutable, never deleted), `/distill` promotes them into cited `wiki/` pages
-(`concepts/` + `decisions/`), `index/` holds human-authored pointers, and
-`memory/` holds durable memory under the default backend. The boundary test for
-what belongs there: a file lives OUTSIDE `.brain/` when something RESOLVES its
-exact path (a hook parses it, a script reads it as data, a workflow pack
-requires it there); everything else — research output, review verdicts,
-reports, distilled concepts — belongs inside. Contract: `.brain/README.md`.
-
-`.brain/` **is this project's own vault** — same structure and the same
-raw/distilled discipline, scoped to one project and self-contained. It has no
-link to and no dependency on any external or personal vault; an outside store
-reads `.brain/`, never the other way round.
-
-Where memory itself is stored is a separate, related choice —
-`.logic-loom/config/memory-backend.conf` (`memory_backend = repo | project`),
-resolved by `resolve-memory-backend.sh`. **`repo` is the shipped default**:
-`.brain/memory/`, in-tree, versioned, stripped at release — lessons travel
-with the code, survive a machine change, and are readable by any tool with
-filesystem access. `project` is the previous default,
-`$HOME/.claude/projects/<slug>/memory/`: per-machine, outside the repo, never
-committed, invisible to anything that is not Claude Code. A third backend
-naming an external absolute path was **deleted**, not deprecated — it made a
-one-machine directory a product feature and inverted the direction of the
-relationship. `/retro` and both loom-memory search backends
-(`keyword-backend.sh`, `bm25-search.sh`) resolve the setting rather than
-assuming it, so retrieval follows the write target; the BM25 index directory
-is keyed to the resolved backend so a change cannot serve stale hits from the
-previous store.
-
-**The default changed, and nothing is stranded silently.** Resolution is a
-pure function of `(env, conf)` — the resolver never probes the filesystem to
-pick a default, because the `project` slug is derived from the checkout path
-and a probe would resolve differently in a worktree than in the main checkout
-of the same project. Instead, when memory resolves to `repo` while
-`$HOME/.claude/projects/<slug>/memory/` still holds files,
-`check-brain-signals.sh` reports the count and both paths in the preflight
-advisory until you move them or set `memory_backend = project`. Detection, by
-something a human reads; never a decision a script makes, and never a file the
-harness moves.
+Contract, layout and where memory lives: `.brain/README.md`.
 
 Three signals watch the routine, deliberately at different strengths — only
 the first blocks anything, because a fail-closed gate must assert something
@@ -708,30 +576,11 @@ the change in front of it caused:
 | Liveness | Did the pass run recently? | preflight advisory | never blocks |
 | Load | Is there a backlog? | preflight advisory | never blocks |
 
-The advisory thresholds (`load_max_unprocessed`, `load_max_age_days`,
-`liveness_max_age_days`, `advisory_enabled`) live in
-`.logic-loom/config/brain.conf` and are silent when there are no unprocessed
-captures and no run log — an unadopted routine makes no noise. The advisory
-reaches the model through the *existing* `UserPromptSubmit` preflight
-injection, riding the loom-memory search output `governance-preflight.sh`
-already injects as `additionalContext` — not by editing the hook itself, since
-`.claude/hooks/` sits on the governance protected-path list and the cheapest
-change to a governance surface is none. `check-brain-signals.sh` is **not** a
-hook and is not part of the governance floor.
-
 **Protected**: `memory-backend.conf` and `brain.conf` govern behaviour, so both
 are on `.logic-loom/config/governance.conf`'s `protected_paths` list. A
 subagent is DENIED writes to either; a main-agent edit prompts for approval.
 Expect the prompt when `/initialize-project` records your memory-backend
 answer — that is the guard working, not a fault to route around.
-
-**Capture is wired.** `/cross-check` writes its report to
-`.brain/raw/reviews/<id>-<slug>/` and `/research` writes its final report as a
-single self-contained capture at `.brain/raw/research/<id>-<slug>.md`, both
-carrying `status: unprocessed` frontmatter so the record gate and `/distill`
-can see them. `/research`'s working intermediates (vote JSONs, per-researcher
-drafts) stay in the gitignored `.docs/research/<id>-<slug>/` — the same rule
-`.gitignore` already states: **track only what a human opens**.
 
 ---
 
@@ -767,6 +616,9 @@ reference: `.docs/architecture/orchestrator-worker-ladder.md`.
 | **Orchestrator** | `frontier` | Fable 5 → Opus 4.8 fallback | Main session. Plans, reasons, delegates, synthesizes. Set via `/model claude-fable-5`. |
 | **deep-reasoner** | `opus` (effort `high`) | Opus 4.8 | Architecture, hard debugging. `.claude/agents/deep-reasoner.md`. |
 | **fast-worker** | `sonnet` (effort `medium`) | Sonnet 5 | Boilerplate, tests, routine edits. `.claude/agents/fast-worker.md`. |
+| **advisor** | `inherit` (effort `medium`) | session model | Adversarial second opinion; read-only. `.claude/agents/advisor.md`. |
+| **checker** | `haiku` | Haiku 4.5 | Check-and-report; never floor-adjacent work. `.claude/agents/checker.md`. |
+| **reviewer** | `opus` (effort `high`) | Opus 4.8 | Phase review of a combined diff. `.claude/agents/reviewer.md`. |
 
 - **Orchestrator = model-agnostic-but-frontier**: a *role* targeting the frontier
   tier, defaulting to Fable 5 with a one-line downgrade to Opus 4.8 when Fable is
@@ -775,12 +627,14 @@ reference: `.docs/architecture/orchestrator-worker-ladder.md`.
 - **Delegation policy**: reasoning/architecture → `deep-reasoner`; mechanical/
   boilerplate → `fast-worker`; correctness-critical + scrutiny-inviting → also run
   `/cross-check`. The orchestrator keeps the decision.
+- **Escalation rungs and execution mode**: `.docs/policies/escalation-policy.md`.
 - **In workflows**: dispatch via `agent(prompt, { agentType: 'deep-reasoner' })`
   inside `/workflow`; `agent()`'s per-call `effort` gives the dynamic
   per-dispatch effort that raw Task subagents lack (Claude Code honours only
   *static* frontmatter `effort:`).
 - **Boundary unchanged**: non-Claude models stay advisory-only (`/research`,
-  `/cross-check`) — the ladder adds no non-Claude workers. Keep the two agents as
+  `/cross-check`) — the ladder adds no non-Claude workers. Keep the five agents
+  (deep-reasoner, fast-worker, advisor, checker, reviewer) as
   **project** files (`.claude/agents/`), never plugin agents (which lose
   `hooks`/`mcpServers`/`permissionMode`). File-based agents load at session
   start — **restart to pick up edits**.
@@ -794,6 +648,15 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 - `/update-framework` — pulls upstream LogicLoom enhancements
 - `.sdd-sync-ref` — upstream pointer (filename preserved for backwards compatibility with already-cloned projects)
 - `/initialize-project` — post-PRD project customization
+
+`/update-framework` (Step 3b) evaluates `.logic-loom/config/release-migrations.conf`
+— every plugin LogicLoom ever retired, moved paths, and content checks — against
+this tree and offers remove / convert-to-local / keep / move per item; decisions
+live in the project-owned `.logic-loom/config/migration-decisions.conf` and are
+briefed on every run; adopted installs additionally record what an update wrote
+with `record-update-writes.sh` so later updates reach those files; a release must
+declare its rows or a `none` row (`release-migrations.sh check-release`, gated at
+promote and on every push); guide: `.docs/guides/MIGRATION_GUIDE.md`.
 
 ---
 
@@ -832,39 +695,8 @@ The framework's cloner-init machinery is **UNTOUCHED**:
 
 ---
 
-## What changed in v6.2 (dev-loop removed)
-
-- **Removed the dev-loop pack** (`loom-dev-loop` / `/dev-loop`): superseded by
-  Claude Code's native `/workflow`, `/loop`, and `/goal` primitives, and its
-  runtime self-extension was a governance liability. There are now **two**
-  workflow packs — swarm and SDD waterfall — over the governance core. Plugin
-  count: 8.
-
-## What changed in v6.1 (Opus 4.8 re-base + agnostic core)
-
-- **Governance is now hook-enforced** (not model-recited): `git-safety-gate.sh`
-  gates git mutations per `gate-policy.conf` (push/history-rewrite ask; cheap
-  local ops like commit/add/checkout are silent by design — see Governance
-  above); `guard-dangerous-commands.sh` wired; the
-  mandatory per-message 4-step ceremony is gone. New `LOOM_GOVERNANCE_MODE`
-  (`lean` default / `strict` for weaker models).
-- **Workflow-agnostic reframe**: governance core + interchangeable packs
-  (swarm, SDD waterfall) — no "primary" or "legacy" path.
-- **Domains collapsed**: the 7 `sdd-domain-*` plugins → governance-core
-  domain-brief registry (`get_domain_brief`).
-- **Model selection config-driven**: `.logic-loom/config/models.conf`
-  (flagship Opus 4.8); pinned version strings removed.
-- **Removed**: RL telemetry (incl. `rl_metrics` fields), the FR-707 compliance
-  ceremony, `sdd-marketplace` MCP, migration scaffolding. (The DS-STAR refinement
-  subsystem was later **removed** as well — redundant with Claude Code's native
-  `/goal`, `/workflow`, and `/loop`; see the CHANGELOG.)
-- **Renamed**: core/tooling/non-SDD packs `sdd-*` → `loom-*`; `sdd-specification`
-  keeps its prefix (it *is* the SDD workflow).
-
----
-
 **Framework**: logic-loom v6.6.2 (brand: **LogicLoom**)
 **Constitution**: v3.3.0 (16 Principles)
 **Architecture**: Governance core + interchangeable workflow packs (swarm / SDD waterfall)
 **Runtime**: Claude-Code-native; Anthropic flagship (Opus-class) models
-**Last Updated**: 2026-08-25
+**Last Updated**: 2026-09-18

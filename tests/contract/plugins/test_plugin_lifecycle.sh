@@ -2,7 +2,7 @@
 # Contract Tests: Plugin Lifecycle (T1.1.1-T1.1.4)
 set -euo pipefail
 
-PASS=0; FAIL=0; TOTAL=0
+PASS=0; FAIL=0; TOTAL=0; SKIP=0
 
 assert() {
   TOTAL=$((TOTAL + 1))
@@ -12,6 +12,37 @@ assert() {
   else
     echo "  ❌ FAIL: $desc"; FAIL=$((FAIL + 1))
   fi
+}
+skip() { SKIP=$((SKIP + 1)); echo "  ⏭️  SKIP: $1"; }
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null)"; then :; else
+  ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+fi
+cd "$ROOT"
+
+# shellcheck source=/dev/null
+source "$ROOT/tests/lib/tree-provenance.sh"
+TREE_KIND="$(loom_tree_kind "$ROOT")"
+# An inconsistent tree is a hard failure, never a skip (tree-provenance.sh
+# contract) — without this gate the provenance-aware case below would silently
+# run zero of the sdd-domain-* assertions on such a tree.
+loom_require_consistent_tree "$ROOT" || exit 1
+
+# Registry-listed plugin dirs (release-migration registry, v7.0.0) are
+# customer-owned pending-migration dirs on a sanitized/adopted tree — the
+# harness never ships one. loom_is_deprecated_plugin_dir is the one shared
+# predicate for "is this a known-legacy plugin name", sourced from the lib
+# when present (it always is on a tree that ships .logic-loom/lib/).
+if [ -f "$ROOT/.logic-loom/lib/release-migrations.sh" ]; then
+  # shellcheck source=/dev/null
+  source "$ROOT/.logic-loom/lib/release-migrations.sh"
+fi
+REG="$ROOT/.logic-loom/config/release-migrations.conf"
+is_registry_listed() {  # $1 = plugin name
+  command -v loom_is_deprecated_plugin_dir >/dev/null 2>&1 || return 1
+  [ -f "$REG" ] || return 1
+  loom_is_deprecated_plugin_dir "$1" "$REG" 2>/dev/null
 }
 
 echo "═══ Plugin Lifecycle Contract Tests ═══"
@@ -67,7 +98,23 @@ GOV_DIR="plugins/loom-governance"; [ -d "plugins/loom-governance" ] && GOV_DIR="
 for domain in frontend backend database testing security devops performance; do
   echo ""
   echo "Testing: ${domain} brief"
-  assert "sdd-domain-${domain} plugin removed" "[ ! -d plugins/sdd-domain-${domain} ]"
+  case "$TREE_KIND" in
+    maintainer)
+      assert "sdd-domain-${domain} plugin removed" "[ ! -d plugins/sdd-domain-${domain} ]"
+      ;;
+    sanitized)
+      if [ -d "plugins/sdd-domain-${domain}" ]; then
+        if is_registry_listed "sdd-domain-${domain}"; then
+          echo "  ⚠️  pending migration: plugins/sdd-domain-${domain} (run /update-framework)"
+          assert "sdd-domain-${domain} present but registry-listed (pending migration, not a failure)" "true"
+        else
+          assert "sdd-domain-${domain} plugin removed (present and NOT registry-listed)" "false"
+        fi
+      else
+        assert "sdd-domain-${domain} plugin removed" "true"
+      fi
+      ;;
+  esac
   assert "${domain} registry brief exists" "[ -f ${GOV_DIR}/domain-briefs/${domain}.md ]"
   assert "${domain} brief has Task Brief" "grep -q '## Task Brief' ${GOV_DIR}/domain-briefs/${domain}.md 2>/dev/null"
 done
@@ -112,7 +159,22 @@ done
 assert "LOOM-0052: constitutional-governance-agent stays under loom-governance (not moved)" "[ -f plugins/loom-governance/agents/constitutional-governance-agent.md ]"
 # Closes the loop: after the move, exactly one plugin agent file should exist
 # anywhere under plugins/ -- constitutional-governance-agent, and nothing else.
-PLUGIN_AGENT_COUNT=$(find plugins -path '*/agents/*.md' | wc -l | tr -d ' ')
+# Exclude registry-listed (pending-migration) plugin dirs from the count — a
+# customer's leftover legacy plugin may still carry its own agents/*.md, and
+# that is not this assertion's business (it is the release-migration scan's).
+EXCLUDED_AGENT_DIRS=""
+PLUGIN_AGENT_FILES="$(find plugins -path '*/agents/*.md' 2>/dev/null)"
+PLUGIN_AGENT_COUNT=0
+while IFS= read -r af; do
+  [ -n "$af" ] || continue
+  pname="$(printf '%s' "$af" | awk -F/ '{print $2}')"
+  if is_registry_listed "$pname"; then
+    EXCLUDED_AGENT_DIRS="${EXCLUDED_AGENT_DIRS}${pname} "
+    continue
+  fi
+  PLUGIN_AGENT_COUNT=$((PLUGIN_AGENT_COUNT + 1))
+done <<< "$PLUGIN_AGENT_FILES"
+[ -n "$EXCLUDED_AGENT_DIRS" ] && echo "  (excluded registry-listed pending-migration dirs: ${EXCLUDED_AGENT_DIRS})"
 assert "LOOM-0052: exactly 1 agent file remains under plugins/ (found ${PLUGIN_AGENT_COUNT})" "[ ${PLUGIN_AGENT_COUNT} -eq 1 ]"
 
 echo ""
@@ -152,6 +214,6 @@ done
 
 echo ""
 echo "═══════════════════════════════════════"
-echo " Results: ${PASS}/${TOTAL} passed, ${FAIL} failed"
+echo " Results: ${PASS}/${TOTAL} passed, ${FAIL} failed, ${SKIP} skipped"
 echo "═══════════════════════════════════════"
 [ $FAIL -eq 0 ] && exit 0 || exit 1

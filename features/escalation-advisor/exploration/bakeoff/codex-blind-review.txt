@@ -1,0 +1,35 @@
+Keep Y as the base, but do not ship either implementation yet. Y preserves persistent backup state and uses a much more efficient bulk tree scan; X has a disqualifying backup-deletion defect.
+
+### Defects
+
+| Impl. | Severity | File:line | Defect |
+|---|---|---|---|
+| X | high | `X/update-loom.sh:1386-1389` | `rm -rf "$state"` deletes contract-persistent `mine/<update-id>/` backups and `last-smoke.log`. This directly destroys user recovery data on every successful plan. |
+| X | high | `X/update-loom.sh:140-147, 900-902, 1425-1429` | Git read failures are interpreted as absent files, empty content, or an incomplete path universe. The three `ls-tree` failures are hidden by the successful `sort`, while `norm_hash` pipelines hide `git show` failure. This can yield delete/add/take classifications from corrupted or unreadable objects. |
+| Y | high | `Y/update-loom.sh:1270-1302` | Updater-owned paths are classified before the adopted-channel group map. With a hooks-only receipt, scripts/notes in the uninstalled `harness` group become `take/apply` instead of `adopter-owned/skip`, allowing later staging to overwrite files the receipt says are not installed. |
+| Y | high | `Y/update-loom.sh:1108-1118, 1387-1394` | Adopted renames remap HEAD but not the base side. The brief requires the rename target for both HEAD and base. If the source existed in base, Y can perform a three-way merge against the wrong base instead of producing an `add-conflict/hold`. |
+| X & Y | high for X, medium for Y | `X/update-loom.sh:1374-1387`; `Y/update-loom.sh:1433-1463` | The live-lock check is not held through state rebuilding. A stage can acquire `stage.lock` after the check. X then deletes the new lock, worktree and backups with the whole state directory; Y can delete the active stage’s plan/adaptation inputs. |
+| Y | medium | `Y/update-loom.sh:1314-1337` | “Locally changed” and “upstream changed” checks ignore modes once contents differ. Example: local changes only mode while upstream changes content; Y emits `take/apply`, silently discarding the local mode change instead of entering the both-changed path. |
+| Y | medium | `Y/update-loom.sh:1157-1161, 1198-1210, 1556-1558` | Absent sides are not written as files containing `-`, violating the binding state contract. Side-write failures are also swallowed, so `adapt.tsv` can reference missing artifacts while planning reports success. |
+| Y | medium | `Y/update-loom.sh:1168-1169, 1213-1224` | `cat-file` failures become an empty normalized hash or truncated merge input. The merge reads are unchecked, and an operational `merge-file` error is indistinguishable from a real content conflict. |
+| X & Y | medium | `X/update-loom.sh:929-932`; `Y/update-loom.sh:1407-1417` | `git check-ignore` errors are treated as “not ignored.” An index/config failure can therefore include a customer-ignored path in the plan rather than aborting. |
+| Y | medium | `Y/update-loom.sh:1143-1145, 1174-1210, 1499` | Reviewer-log, diff, side, and export-permission failures are ignored. Y can report a successful plan with empty/missing review artifacts or a writable export. |
+| X | medium | `X/update-loom.sh:1143-1152` | `write_two_way_row` only appends. When the notes layer converts an existing `keep` row, X leaves both `keep` and `two-way` rows for the same path. |
+| X | medium | `X/update-loom.sh:1006-1056, 1424-1433` | Serious scaling problem: every repository path starts many separate Git processes—per-path ignore checks, repeated blob lookups/shows, and three `ls-tree` calls. Y reads all three trees once and hashes only candidates. |
+| X | low | `X/update-loom.sh:956, 970-971` | Reviewer-log and diff failures are suppressed, producing empty artifacts instead of an unexpected-error exit. |
+| X & Y | low | `X/update-loom.sh:1375`; `Y/update-loom.sh:1434` | The contract says abort when `state/staged` exists, but both use `-f`. A directory or other non-regular staged marker is not refused. |
+
+Both engines pass `sh -n` and `/bin/dash -n`; I found no prohibited shell-language construct.
+
+### Recommendation and scores
+
+| Category | X | Y |
+|---|---:|---:|
+| Correctness | 4.5/10 | 6.0/10 |
+| Brief completeness | 7.0/10 | 8.0/10 |
+| Test quality | 6.5/10 | 8.0/10 |
+| Maintainability | 5.5/10 | 7.5/10 |
+
+Y’s tests are substantially broader, including persistence, CRLF normalization, sorting, artifacts, and more classification branches. However, they incorrectly assert that absent side files should not exist, and miss rename-base, mixed content/mode, updater-owned group filtering, command-failure, and concurrency cases. X’s tests miss persistent-state safety and exercise two-way only when no prior row exists.
+
+Only `run-X.log` existed at the supplied path; it reports 1232 passed, 0 failed. The other three exact paths did not exist, so I did not search elsewhere for replacements.

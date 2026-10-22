@@ -329,8 +329,8 @@ is the record that the question was real. Anything not marked `✅ RESOLVED` or
    semantically weakening mandate can still be written, and there is no lint
    asserting anything.
 
-8. ⚠️ **CONTESTED — pending a maintainer direction call. Do not action.**
-   *Original thread:* **Add `marketplace.json`.** None exists anywhere — the
+8. ⛔ **WITHDRAWN (2026-09-17) — the maintainer withdrew this side of the
+   contested pair.** *Original thread:* **Add `marketplace.json`.** None exists anywhere — the
    single biggest gap in the two-tier update model. One file makes the repo its
    own marketplace so packs update via native `/plugin update` while the core
    updates via `/update-framework`. Omit `loom-governance` from `plugins[]`; the
@@ -356,6 +356,14 @@ is the record that the question was real. Anything not marked `✅ RESOLVED` or
    **Next step is a decision, not an implementation.** Until the maintainer picks
    a direction, treat this thread as unsettled and cite neither position as
    agreed.
+
+   **Why withdrawn:** the maintainer picked a direction on 2026-09-17 — the code
+   had already chosen externalize (no in-repo marketplace; defer to Anthropic's
+   Claude Code Plugin Marketplace + Docker MCP Toolkit, per `CLAUDE.md`), so the
+   marketplace.json side is withdrawn. Recorded as a decision, not deleted — the
+   text above stands as the record. Tracked in `.logic-loom/memory/todos.md` as
+   LOOM-0010 (closed) and `.logic-loom/memory/backlog.md` as LOOM-0005
+   (unblocked; the narrower plugin-externalization decision remains open).
 
 9. **`/governance-health` self-check + per-surface conformance matrix.** Actually
    trigger each floor hook and report which fired, on whatever surface you're on.

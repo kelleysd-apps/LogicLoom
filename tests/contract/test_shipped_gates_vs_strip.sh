@@ -333,6 +333,7 @@ else
   # apostrophe, which a plain-English reason will sooner or later.)
   IFS='' read -r -d '' ACCOUNTED_REASONS <<'ACC' || true
 Constitutional Compliance Check :: multi-line `run: |` block behind a step-level `if:`; a best-effort advisory report (`|| true`) that cannot redden a cloner's first push, so it cannot be a shipped gate demanding a stripped path.
+Run Update Loom Engine Tests :: single-line `run: sh tests/contract/test_update_loom.sh`; ci_steps() derives only bash|python3 interpreters, so the POSIX-sh interpreter is why it is underived, not because it is unscannable. It SHIPS (tests/** and plugins/** are shipped; none of the engine files is on the strip manifest) and is meant to run on a customer tree. It was run against a tree with every plain-removal strip entry applied and came out green (1148 passed, 0 failed).
 ACC
   N_TOTAL="$(ci_run_total "$CI_WF")"
   N_STEPS="$(ci_steps "$CI_WF" | grep -c . || true)"
@@ -740,6 +741,8 @@ else
 tests/lib/tree-provenance.sh :: the classifier itself, not a gate that consumes it. Its own admission test covers the marker list; running it here would be testing the ruler with the ruler.
 tests/contract/test_shipped_gates_vs_strip.sh :: this suite. Provenance-adjacent but re-entrant — one level of recursion is enough, and a second proves nothing extra.
 .github/workflows/promote-to-main.yml :: the maintainer release driver. It only NAMES the helper in a comment, it is workflow_dispatch-only so a customer's push never runs it, and /initialize-project deletes it (section 4). Not a gate a stray customer file can redden.
+plugins/loom-maintenance/scripts/update-loom-common.sh :: a sourced LIBRARY of the update-loom engine, not a gate and not a CI step. It only NAMES tree-provenance.sh in a comment and carries its OWN copy of the five copy-mode markers (UL_COPY_MARKERS); it never sources the helper or calls loom_tree_kind. It is exercised through the accounted CI step Run Update Loom Engine Tests, and tests/update-loom/cases-common.sh asserts its marker list equals the helper's.
+tests/update-loom/cases-common.sh :: a case file driven by tests/contract/test_update_loom.sh (the accounted CI step Run Update Loom Engine Tests), not itself a CI step. It READS tests/lib/tree-provenance.sh as data to assert the marker lists match; it does not call loom_tree_kind or loom_require_consistent_tree, so a customer-authored file cannot change what it sees.
 PACC
 
     DERIVED_CONSUMERS="$(provenance_consumers "$CT")"

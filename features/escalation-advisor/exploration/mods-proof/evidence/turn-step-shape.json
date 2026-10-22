@@ -1,0 +1,18 @@
+{
+ "note": "keys only, values truncated",
+ "input": {
+  "turnId": "aac6d635-3e26-4e10-8166-74eaaef613aa",
+  "index": "number",
+  "model": "claude-haiku-4-5-20251001",
+  "messageCount": "number"
+ },
+ "result": {
+  "turnId": "aac6d635-3e26-4e10-8166-74eaaef613aa",
+  "index": "number",
+  "answer": "",
+  "toolUses": "array(0)",
+  "stopReason": null,
+  "usage": null
+ },
+ "usage": null
+}
