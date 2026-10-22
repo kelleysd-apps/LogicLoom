@@ -68,7 +68,8 @@ lock_release() { # drop stage.lock if THIS process holds it
   fi
   return 0
 }
-ul_exit() { # the EXIT trap: release a held lock, then the shared temp cleanup
+ul_exit() { # the EXIT trap: restore check-time permissions, release a held lock, then the shared temp cleanup
+  cg_unlock
   lock_release
   ul_cleanup
 }
@@ -824,6 +825,7 @@ heal_stale() { # [force]
       return 1
     fi
     rm -f "$hs_lk"
+    cg_unlock force   # a run killed mid-check (SIGKILL) may have left the backups read-only
     HEALED=yes
   fi
   if [ "$hs_force" != force ] && [ -f "$state/staged" ]; then
@@ -1418,30 +1420,73 @@ notes_collect() {
 }
 
 # ------------------------------------------------- check-script write DETECTION
-# A note's check is shell that the updater runs. This is DETECTION, not a sandbox: nothing
-# stops a check from writing. Around every check the engine takes a snapshot of (a) the
-# live repository as git sees it (HEAD plus `git status --porcelain=v1 -uall`, which lists
-# tracked and untracked changes) and (b) the updater's own state directory (an `ls -ld`
-# listing, so sizes and times, plus every path newer than a sentinel), except export/ and
-# wt/, which the callers already watch. Any difference aborts the caller with the first
-# changed path in CG_W. A check that rewrites a tracked file with identical status, or
-# touches a path outside these two places, is not seen.
-CG_LB=; CG_SB=; CG_SENT=; CG_W=
+# A note's check is shell that the updater runs. This is DETECTION plus permission
+# hardening, NOT a sandbox: a check runs as the user, so it can still chmod a path back
+# and then write to it, or write anywhere outside the places watched here -- the
+# hardening only turns an ACCIDENTAL delete or overwrite into a failure, and the
+# detection reports a deliberate one after the fact. Around every check (plan, stage and
+# finish) the engine
+#   - makes state/mine/ (the customer's backups) and last-smoke.log read-only, and
+#     restores them when the check returns, on every exit path (the EXIT trap, which INT
+#     and TERM reach; only SIGKILL leaves them read-only, and the next heal restores them);
+#   - takes a snapshot of (a) the live repository as git sees it (HEAD plus
+#     `git status --porcelain=v1 -uall`, tracked and untracked changes) plus a content
+#     fingerprint (cksum and size) of every untracked, non-ignored file, so an in-place
+#     overwrite that leaves the status line unchanged is seen, and (b) the updater's own
+#     state directory (an `ls -ld` listing, every path newer than a sentinel, and a
+#     fingerprint of every file), except export/ and wt/, which the callers already watch.
+# Any difference aborts the caller with the first changed path in CG_W. A check that
+# rewrites a tracked file with identical status, or touches a path outside these two
+# places, is not seen. A file over 32 MiB is fingerprinted by size alone.
+CG_LB=; CG_SB=; CG_SENT=; CG_W=; CG_LOCKED=0
+
+cg_fp() { # FILE LABEL : one `LABEL cksum size path` line for a regular file
+  [ -f "$1" ] && [ ! -L "$1" ] || return 0
+  cf_n=$(wc -c < "$1" 2>/dev/null | tr -d ' \t')
+  if [ "${cf_n:-0}" -gt 33554432 ] 2>/dev/null; then
+    cf_c=big
+  else
+    cf_c=$(cksum < "$1" 2>/dev/null | awk '{ print $1 "-" $2 }')
+  fi
+  printf '%s %s %s %s\n' "$2" "${cf_c:-unreadable}" "${cf_n:-?}" "$1"
+}
+
+cg_lock() { # read-only for the customer's backups and the smoke log while a check runs
+  if [ -d "$state/mine" ] && [ ! -L "$state/mine" ]; then chmod -R a-w "$state/mine" 2>/dev/null; fi
+  if [ -f "$state/last-smoke.log" ] && [ ! -L "$state/last-smoke.log" ]; then chmod a-w "$state/last-smoke.log" 2>/dev/null; fi
+  CG_LOCKED=1
+}
+
+cg_unlock() { # idempotent; also called from the EXIT trap and from heal_stale (force)
+  if [ "${CG_LOCKED:-0}" = 1 ] || [ "${1:-}" = force ]; then
+    if [ -d "$state/mine" ] && [ ! -L "$state/mine" ]; then chmod -R u+w "$state/mine" 2>/dev/null; fi
+    if [ -f "$state/last-smoke.log" ] && [ ! -L "$state/last-smoke.log" ]; then chmod u+w "$state/last-smoke.log" 2>/dev/null; fi
+    CG_LOCKED=0
+  fi
+  return 0
+}
 
 cg_live() {
   printf 'L HEAD %s\n' "$(git -C "$root" rev-parse HEAD 2>&1)"
   git -C "$root" status --porcelain=v1 -uall 2>&1 | sed 's/^/L /'
+  git -C "$root" -c core.quotepath=off ls-files -o --exclude-standard 2>/dev/null | sed -n '1,5000p' | while IFS= read -r cl_p; do
+    cg_fp "$root/$cl_p" U
+  done
 }
 
 cg_state() {
   find "$state" \( -path "$state/export" -o -path "$state/wt" \) -prune -o -exec ls -ld {} + 2>/dev/null | LC_ALL=C sort | sed 's/^/S /'
   find "$state" \( -path "$state/export" -o -path "$state/wt" \) -prune -o -newer "$CG_SENT" -print 2>/dev/null | LC_ALL=C sort | sed 's/^/N /'
+  find "$state" \( -path "$state/export" -o -path "$state/wt" \) -prune -o -type f -print 2>/dev/null | LC_ALL=C sort | sed -n '1,5000p' | while IFS= read -r cs_p; do
+    cg_fp "$cs_p" F
+  done
 }
 
 cg_begin() {
   CG_LB=$(ul_mktemp) || exit 1
   CG_SB=$(ul_mktemp) || exit 1
   CG_SENT=$(ul_mktemp) || exit 1
+  cg_lock
   cg_live > "$CG_LB"
   : > "$CG_SENT"
   cg_state > "$CG_SB"
@@ -1453,11 +1498,14 @@ cg_end() { # sets CG_W (empty when nothing changed)
   ce_b=$(ul_mktemp) || exit 1
   cg_live > "$ce_a"
   cg_state > "$ce_b"
+  cg_unlock
   ce_d=$({ LC_ALL=C diff "$CG_LB" "$ce_a"; LC_ALL=C diff "$CG_SB" "$ce_b"; } | sed -n 's/^[<>] //p' | sed -n '1p')
   [ -n "$ce_d" ] || return 0
   case $ce_d in
     'L HEAD '*) CG_W=HEAD;;
     'L '*) ce_p=${ce_d#L ???}; CG_W=$ce_p;;
+    'U '*) ce_p=$(printf '%s\n' "${ce_d#U }" | awk '{ sub(/^[^ ]+ [^ ]+ /, ""); print }'); CG_W=${ce_p#"$root"/};;
+    'F '*) ce_p=$(printf '%s\n' "${ce_d#F }" | awk '{ sub(/^[^ ]+ [^ ]+ /, ""); print }'); CG_W=loom/update${ce_p#"$state"};;
     'N '*) ce_p=${ce_d#N }; CG_W=loom/update${ce_p#"$state"};;
     'S '*) ce_p=$(printf '%s\n' "${ce_d#S }" | awk '{ for (i = 1; i <= 8; i++) sub(/^[ \t]*[^ \t]+/, ""); sub(/^[ \t]+/, ""); print }'); CG_W=loom/update${ce_p#"$state"};;
     *) CG_W=$ce_d;;
@@ -1884,9 +1932,28 @@ cmd_plan() {
   state_dir_safe || abort_plan "the update state directory (.git/loom/update) is, or sits under, a symlink; refusing to use it"
   if ! heal_stale; then abort_plan "another update is staging (pid $LOCK_LIVE)"; fi
   if [ -f "$state/staged" ]; then abort_plan "a staged update exists; run --finish or --abandon"; fi
+  if [ "${LOOM_TEST_PAUSE_BEFORE_PLAN_LOCK:-}" = 1 ]; then
+    # test-only: stop between the unlocked precondition reads and the lock, until
+    # state/.test-go exists, so a case can finish a --stage in that window
+    mkdir -p "$state"
+    : > "$state/.test-plan-paused"
+    pl_w=0
+    while [ ! -e "$state/.test-go" ] && [ "$pl_w" -lt 60 ]; do sleep 1; pl_w=$((pl_w + 1)); done
+    rm -f "$state/.test-plan-paused" "$state/.test-go"
+  fi
   # the whole plan runs under the stage lock, so a --stage cannot start while the plan
   # replaces plan.tsv, notes and merged/ (the exit trap releases it)
   lock_acquire keep || abort_plan "another update is staging"
+  # ---- every precondition read above was read WITHOUT the lock: a --stage or --finish, or
+  # the customer, may have changed things since. Read the ones that matter again now; the
+  # lock is released by the exit trap and nothing has been written yet.
+  if [ -f "$state/staged" ]; then abort_plan "a staged update exists; run --finish or --abandon"; fi
+  pl_off=$(clean_offenders)
+  if [ -n "$pl_off" ]; then
+    if status_failed "$pl_off"; then abort_plan "git status failed in this repository"; fi
+    abort_plan "your working tree has uncommitted changes: $(offender_paths "$pl_off")"
+  fi
+  if in_progress; then abort_plan "a merge, rebase, cherry-pick or revert is unfinished; finish or abort it first"; fi
 
   # ---- fetch, then the three commits
   if ! fetch_upstream; then abort_plan "$FETCH_ERROR"; fi
@@ -2471,26 +2538,52 @@ SR_C=; SR_P=; SR_D=
 
 stg_log() { printf '%s\n' "$*" >> "$state/stage.log"; }
 
-# Returns 1 when the worktree is still there afterwards (or the guard refused): callers
-# that report an outcome (--abandon) must not claim success then.
+# 0 when git still lists the staging worktree as registered. Fail closed: when git cannot
+# list worktrees at all the answer is "yes, registered" -- unknown is not clean.
+stg_wt_registered() {
+  swr_phys=
+  if [ -d "$state" ]; then
+    swr_d=$(CDPATH= cd -- "$state" 2>/dev/null && pwd -P) || swr_d=
+    [ -n "$swr_d" ] && swr_phys=$swr_d/wt
+  fi
+  swr_t=$(ul_mktemp) || return 0
+  git -C "$root" worktree list --porcelain > "$swr_t" 2>/dev/null || return 0
+  swr_n=$(awk -v a="$state/wt" -v b="$swr_phys" '$1 == "worktree" { p = substr($0, 10); if (p == a || (b != "" && p == b)) { print "1"; exit } }' "$swr_t")
+  [ -n "$swr_n" ]
+}
+
+# 0 when anything of the staging worktree is left: the folder, or git's registration of it.
+stg_wt_leftover() {
+  [ -e "$state/wt" ] && return 0
+  [ -L "$state/wt" ] && return 0
+  stg_wt_registered
+}
+
+SW_WHY=
+# Returns 1 when the worktree FOLDER or git's REGISTRATION of it survives (or the guard
+# refused), with SW_WHY saying which: callers that report an outcome (--abandon, the
+# finish clean-up) must not claim a clean result then.
 stg_wt_remove() { # remove the throwaway worktree (guarded: only <gitdir>/loom/update/wt)
-  state_dir_safe || return 1
+  SW_WHY=
+  state_dir_safe || { SW_WHY="the update state directory is, or sits under, a symlink"; return 1; }
   sw_wt=$state/wt
-  if [ -L "$sw_wt" ]; then return 1; fi
+  if [ -L "$sw_wt" ]; then SW_WHY="$sw_wt is a symlink"; return 1; fi
   git -C "$root" worktree remove --force "$sw_wt" >/dev/null 2>&1
   if [ -d "$sw_wt" ]; then
     chmod -R u+w "$sw_wt" 2>/dev/null
     rm -rf "$sw_wt"
   fi
   git -C "$root" worktree prune >/dev/null 2>&1
-  if [ -d "$sw_wt" ]; then return 1; fi
+  if [ -e "$sw_wt" ]; then SW_WHY="the staging worktree folder $sw_wt could not be removed"; return 1; fi
+  if stg_wt_registered; then SW_WHY="git still lists $sw_wt as a worktree (git worktree prune did not clear it)"; return 1; fi
   return 0
 }
 
 # Abort after the worktree exists: remove it, keep the tag, say whether the live tree moved.
 stg_abort() { # FAILED REASON
   stg_log "abort failed=$1 reason=$2"
-  stg_wt_remove
+  sa_cl=
+  stg_wt_remove || sa_cl=$SW_WHY
   rm -f "$state/staged" "$state/stage.info"
   sa_h=$(git -C "$root" rev-parse HEAD 2>/dev/null)
   sa_s=$(git -C "$root" status --porcelain 2>/dev/null)
@@ -2499,6 +2592,7 @@ stg_abort() { # FAILED REASON
   printf 'result=aborted failed=%s reason=%s log=%s/stage.log' "$1" "$2" "$state"
   if [ -n "$STG_TAG" ]; then printf ' tag=%s' "$STG_TAG"; fi
   printf ' unchanged=%s\n' "$sa_u"
+  if [ -n "$sa_cl" ]; then printf 'cleanup=incomplete reason=%s\n' "$sa_cl"; fi
   if [ -s "$ST_WARN" ]; then cat "$ST_WARN"; fi
   exit 1
 }
@@ -2872,6 +2966,15 @@ stg_run_check() { # ID -> rc in SC_RC; aborts when the check wrote anything
 
 stg_changed() { git -C "$STG_WT" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | LC_ALL=C sort; }
 
+# Like stg_changed, but into FILE and fail closed: when git cannot list the commit's paths
+# the caller must stop, because an empty list would read as "nothing to check" and let the
+# invariants, the hold-back and the allowlist pass over a commit they never looked at.
+stg_changed_to() { # FILE
+  sct_t=$(ul_mktemp) || exit 1
+  git -C "$STG_WT" diff-tree --no-commit-id --name-only -r HEAD > "$sct_t" 2>/dev/null || return 1
+  LC_ALL=C sort "$sct_t" > "$1"
+}
+
 stg_restore_head() { # PATH : back to the customer's HEAD content, or gone when HEAD lacked it
   set -- "$1" $(entry_at HEAD "$1")
   if [ "$2" = - ]; then
@@ -2891,7 +2994,7 @@ stg_holdback() {
   ST_HELD=$(ul_mktemp) || exit 1
   : > "$ST_HELD"
   hb_ch=$(ul_mktemp) || exit 1
-  stg_changed > "$hb_ch"
+  stg_changed_to "$hb_ch" || stg_abort commit "git could not list the paths the update commit changed"
   hb_cand=$(ul_mktemp) || exit 1
   : > "$hb_cand"
   hb_ap=$(ul_mktemp) || exit 1       # applied non-safety notes
@@ -2986,7 +3089,12 @@ stg_allowlist() { # WT -> 0 ok; else AL_BAD names the first path no note allows
     if [ "$sal_dt" = upstream-owned ] || [ "$(dn_get _unnoted)" = apply ]; then printf '%s\n' "$sal_p" >> "$sal_ok"; fi
   done 3< "$state/plan.tsv"
   { printf '%s\n' "$UL_SYNC_REF" "$UL_LEDGER" "$UL_APPLIED_DIR/$STG_UID.applied"; } >> "$sal_ok"
-  AL_BAD=$(git -C "$1" diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null | grep -Fxvf "$sal_ok" | sed -n '1p')
+  sal_ch=$(ul_mktemp) || exit 1
+  if ! git -C "$1" diff-tree --no-commit-id --name-only -r HEAD > "$sal_ch" 2>/dev/null; then
+    AL_BAD='(git could not list the commit)'
+    return 1
+  fi
+  AL_BAD=$(grep -Fxvf "$sal_ok" "$sal_ch" | sed -n '1p')
   [ -z "$AL_BAD" ]
 }
 
@@ -3068,9 +3176,11 @@ stg_gate() {
     done
   fi
   # ---- invariants on every security surface in the commit
-  stg_changed | while IFS= read -r sg_p; do
+  sg_ch=$(ul_mktemp) || exit 1
+  stg_changed_to "$sg_ch" || stg_abort invariants "git could not list the paths the update commit changed"
+  while IFS= read -r sg_p; do
     ul_path_security_surface "$sg_p" && printf '%s\n' "$sg_p"
-  done > "$state/.surfaces"
+  done < "$sg_ch" > "$state/.surfaces"
   while IFS= read -r sg_p <&3; do
     [ -n "$sg_p" ] || continue
     if [ "$(dp_get "$sg_p")" = take-theirs ] && [ "$(dp_inf "$sg_p")" = yes ]; then continue; fi
@@ -3102,7 +3212,7 @@ stg_gate() {
   # ---- settings.json valid JSON
   if [ -f "$STG_WT/.claude/settings.json" ]; then
     if [ ! -s "$state/tools/json-valid.sh" ]; then
-      if stg_changed | grep -Fxq .claude/settings.json; then stg_abort machinery "settings.json changed but json-valid.sh was not saved at plan time"; fi
+      if grep -Fxq .claude/settings.json "$sg_ch"; then stg_abort machinery "settings.json changed but json-valid.sh was not saved at plan time"; fi
     else
       $UL_SH "$state/tools/json-valid.sh" "$STG_WT/.claude/settings.json" >/dev/null 2>&1 || stg_abort json "settings.json in the update is not valid JSON"
     fi
@@ -3239,6 +3349,11 @@ cmd_abandon() {
   if ! heal_stale; then stg_pre "another update is staging (pid $LOCK_LIVE)"; fi
   if [ ! -f "$state/staged" ]; then
     heal_stale force || :
+    if stg_wt_leftover; then
+      # an orphan worktree (no `staged`) that the clean-up could not remove is not "nothing staged"
+      printf 'result=abandon-incomplete reason=%s\n' "a leftover staging worktree at $state/wt could not be removed (is the folder read-only, or is git unable to prune it?); fix that and run --abandon again"
+      exit 1
+    fi
     printf 'result=nothing-staged\n'
     return 0
   fi
@@ -3249,7 +3364,7 @@ cmd_abandon() {
   ab_tag=$(sed -n 's/^tag=//p' "$state/stage.info" 2>/dev/null | sed -n '1p')
   if ! stg_wt_remove; then
     # keep staged and stage.info so --abandon can be run again once the cause is gone
-    printf 'result=abandon-incomplete reason=%s\n' "the staging worktree $state/wt could not be removed (is the folder read-only, or is the update state directory a symlink?); the staged update is kept, fix that and run --abandon again"
+    printf 'result=abandon-incomplete reason=%s\n' "${SW_WHY:-the staging worktree $state/wt could not be removed} (is the folder read-only, or is the update state directory a symlink?); the staged update is kept, fix that and run --abandon again"
     exit 1
   fi
   rm -f "$state/staged" "$state/stage.info" "$state/stage.lock"
@@ -3279,8 +3394,13 @@ fu_rec_get() { # COMMIT RECPATH KEY -> the header value
   git -C "$root" show "$1:$2" 2>/dev/null | sed -n "s/^$3=//p" | sed -n '1p'
 }
 
+# Fail closed: git's status is checked BEFORE the record is parsed, because a pipe would
+# hide it and an empty list reads as "the record lists nothing" -- every verification built
+# on it would then pass. Returns 1, printing nothing, when git could not read the record.
 fu_rec_paths() { # COMMIT RECPATH -> the content paths the record lists
-  git -C "$root" show "$1:$2" 2>/dev/null | awk -F'\t' 'NF >= 5 { print $1 }'
+  frp_t=$(ul_mktemp) || return 1
+  git -C "$root" show "$1:$2" > "$frp_t" 2>/dev/null || return 1
+  awk -F'\t' 'NF >= 5 { print $1 }' "$frp_t"
 }
 
 # Like entry_at, but a git failure is reported (return 1) instead of read as "absent":
@@ -3302,7 +3422,13 @@ fu_entry() { # REV PATH -> `mode sha` or `- -`; 1 when git itself failed
 # Fail closed: a path git cannot read on either side counts as mismatched.
 fu_mismatch() { # COMMIT RECPATH -> comma-joined, nothing when every path matches
   fm_l=$(ul_mktemp) || exit 1
-  { fu_rec_paths "$1" "$2"; printf '%s\n' "$UL_LEDGER" "$2" "$UL_SYNC_REF"; } | LC_ALL=C sort -u > "$fm_l"
+  fm_rp=$(ul_mktemp) || exit 1
+  if ! fu_rec_paths "$1" "$2" > "$fm_rp"; then
+    # the record cannot be read, so the revert cannot be verified: that is a mismatch
+    printf '%s\n' "record-unreadable"
+    return 0
+  fi
+  { cat "$fm_rp"; printf '%s\n' "$UL_LEDGER" "$2" "$UL_SYNC_REF"; } | LC_ALL=C sort -u > "$fm_l"
   while IFS= read -r fm_p <&3; do
     [ -n "$fm_p" ] || continue
     if ! fm_a=$(fu_entry HEAD "$fm_p") || ! fm_b=$(fu_entry "$1^" "$fm_p"); then
@@ -3339,9 +3465,26 @@ fu_revert() { # COMMIT RECPATH
   return 0
 }
 
-fu_clear_state() { # the staged update is finished, one way or another
-  stg_wt_remove
-  rm -f "$state/staged" "$state/stage.info"
+# The staged update is finished, one way or another. The retry markers (staged, stage.info)
+# go only when the worktree clean-up really finished: otherwise they stay, FU_CLEAN says
+# why and this returns 1, so the caller keeps its primary result (the update WAS applied,
+# reverted or moved on) but adds the cleanup=incomplete line and exits non-zero.
+FU_CLEAN=
+fu_clear_state() {
+  FU_CLEAN=
+  if stg_wt_remove; then
+    rm -f "$state/staged" "$state/stage.info"
+    return 0
+  fi
+  FU_CLEAN=$SW_WHY
+  fu_log "cleanup incomplete: $FU_CLEAN; staged and stage.info are kept so --finish or --abandon can be run again"
+  return 1
+}
+
+fu_cleanup_line() { # prints the cleanup=incomplete line when fu_clear_state failed
+  if [ -n "$FU_CLEAN" ]; then
+    printf 'cleanup=incomplete reason=%s; staged and stage.info are kept, so run --finish or --abandon again once that is fixed\n' "$FU_CLEAN"
+  fi
 }
 
 # ---- the smoke. Sets SM_REASON (checks|invariants|json|hooks-resolve|harness-diff) and
@@ -3354,10 +3497,16 @@ fin_smoke() { # COMMIT RECPATH UPSTREAM
   # 1. every note's own check, run by the live checks runner
   fs_ck=$root/$UL_SCRIPTS_DIR/updates-checks.sh
   if [ -f "$fs_ck" ]; then
+    cg_begin
     fs_o=$(cd "$root" && $UL_SH "$fs_ck" --root "$root" 2>&1)
     fs_rc=$?
+    cg_end
     fu_log "-- checks (exit $fs_rc)"
     printf '%s\n' "$fs_o" >> "$state/last-smoke.log"
+    if [ -n "$CG_W" ]; then
+      fu_log "-- checks: a check wrote $CG_W (detection, not a sandbox)"
+      SM_REASON=checks; SM_DETAIL="a check wrote $CG_W (check-wrote=$CG_W)"; return 1
+    fi
     fs_f=$(printf '%s\n' "$fs_o" | sed -n 's/^FAIL //p' | tr '\n' ' ')
     if [ -n "$fs_f" ]; then SM_REASON=checks; SM_DETAIL="failed: $fs_f"; return 1; fi
     if [ "$fs_rc" -ne 0 ]; then SM_REASON=checks; SM_DETAIL="the checks runner exited $fs_rc"; return 1; fi
@@ -3369,9 +3518,14 @@ fin_smoke() { # COMMIT RECPATH UPSTREAM
   fi
   # 2. the security-invariants on every security surface the commit touched
   fs_ids=$(git -C "$root" show "$fs_commit:$UL_LEDGER" 2>/dev/null | awk -F'\t' -v up="$fs_up" '$4 == up && $2 == "applied" { print $1 }' | LC_ALL=C sort -u | fu_join | sed '/^$/d')
-  git -C "$root" diff-tree --no-commit-id --name-only -r "$fs_commit" 2>/dev/null | while IFS= read -r fs_p; do
+  fs_ch=$(ul_mktemp) || exit 1
+  if ! git -C "$root" diff-tree --no-commit-id --name-only -r "$fs_commit" > "$fs_ch" 2>/dev/null; then
+    fu_log "-- invariants: git could not list the paths the update commit changed"
+    SM_REASON=invariants; SM_DETAIL="git could not list the paths the update commit changed, so the security surfaces cannot be checked"; return 1
+  fi
+  while IFS= read -r fs_p; do
     ul_path_security_surface "$fs_p" && printf '%s\n' "$fs_p"
-  done > "$state/.surfaces"
+  done < "$fs_ch" > "$state/.surfaces"
   while IFS= read -r fs_p <&3; do
     [ -n "$fs_p" ] || continue
     set -- $(entry_at "$fs_commit^" "$fs_p")
@@ -3419,7 +3573,7 @@ fin_smoke() { # COMMIT RECPATH UPSTREAM
         fu_log "-- json: settings.json is not valid JSON"
         SM_REASON=json; SM_DETAIL="settings.json is not valid JSON"; return 1
       fi
-    elif git -C "$root" diff-tree --no-commit-id --name-only -r "$fs_commit" 2>/dev/null | grep -Fxq .claude/settings.json; then
+    elif grep -Fxq .claude/settings.json "$fs_ch"; then
       fu_log "-- json: settings.json changed but json-valid.sh is missing"
       SM_REASON=json; SM_DETAIL="settings.json changed but json-valid.sh is missing"; return 1
     fi
@@ -3535,11 +3689,14 @@ cmd_finish() {
   fi_sha=$FI_SHA
   fin_prepare "$fi_sha"
   [ -n "$fi_rec" ] || stg_pre "the staged commit carries no .applied record"
+  { [ -n "$fi_uid" ] && [ -n "$fi_up" ]; } || stg_pre "the staged commit's .applied record could not be read from git"
   fu_log "=== finish $(date -u +%Y-%m-%dT%H:%M:%SZ) commit=$fi_sha tag=$fi_tag update_id=$fi_uid"
   if fin_smoke "$fi_sha" "$fi_rec" "$fi_up"; then
     fi_held=$(git -C "$root" show "$fi_sha:$UL_LEDGER" 2>/dev/null | awk -F'\t' -v up="$fi_up" '$4 == up && $2 == "held" { print $1 }' | LC_ALL=C sort -u | fu_join | sed '/^$/d')
-    fu_clear_state
+    fu_clear_state || :
     printf 'result=applied commit=%s tag=%s update_id=%s held=%s\n' "$fi_sha" "$fi_tag" "$fi_uid" "${fi_held:-none}"
+    fu_cleanup_line
+    if [ -n "$FU_CLEAN" ]; then exit 1; fi
     printf 'next=run /git-push when ready\n'
     return 0
   fi
@@ -3553,30 +3710,36 @@ cmd_finish() {
     rm -f "$state/.test-paused" "$state/.test-go"
   fi
   # HEAD is read again right before the revert: if anything moved it during the smoke,
-  # the revert would undo the wrong thing, so none is attempted
+  # the revert would undo the wrong thing, so none is attempted. The sub-second window
+  # between this read and `git revert` below is accepted: closing it would need a lock
+  # git itself does not offer, and a revert that meets a changed tree conflicts, is
+  # aborted and is reported (reverted-failed), never forced.
   fi_now=$(git -C "$root" rev-parse HEAD 2>/dev/null)
   if [ "$fi_now" != "$fi_sha" ]; then
     fu_log "HEAD moved during the smoke ($fi_sha -> ${fi_now:-unreadable}); no revert attempted"
-    fu_clear_state
+    fu_clear_state || :
     printf 'result=reverted-failed pre_update_tag=%s mismatched=- reason=head-moved head=%s log=%s/last-smoke.log\n' \
       "$fi_tag" "${fi_now:-unknown}" "$state"
     printf 'detail=the smoke failed (%s: %s) and HEAD moved while it ran, so no revert was attempted\n' "$SM_REASON" "$SM_DETAIL"
+    fu_cleanup_line
     printf 'note=nothing was reverted; --undo reverses the update, and the tag above is the way back\n'
     exit 1
   fi
   fu_revert "$fi_sha" "$fi_rec"
   fu_log "revert: ok=$FU_OK new=$FU_NEW mismatched=${FU_MIS:--} git=$FU_ERR"
-  fu_clear_state
+  fu_clear_state || :
   if [ "$FU_OK" = yes ]; then
     printf 'result=reverted reason=%s tag=%s log=%s/last-smoke.log\n' "$SM_REASON" "$fi_tag" "$state"
     printf 'detail=%s\n' "$SM_DETAIL"
     printf 'revert=%s\n' "$FU_NEW"
+    fu_cleanup_line
     exit 1
   fi
   printf 'result=reverted-failed pre_update_tag=%s mismatched=%s reason=%s head=%s log=%s/last-smoke.log\n' \
     "$fi_tag" "$FU_MIS" "$SM_REASON" "$(git -C "$root" rev-parse HEAD 2>/dev/null)" "$state"
   printf 'detail=%s\n' "$SM_DETAIL"
   printf 'note=nothing was rewound; a person decides from here, and the tag above is the way back\n'
+  fu_cleanup_line
   exit 1
 }
 
@@ -3589,6 +3752,8 @@ fin_moved_on() {
   mo_line=
   if [ -z "$fi_rec" ]; then
     mo_line='smoke=skipped reason=no-record'
+  elif [ -z "$fi_uid" ] || [ -z "$fi_up" ]; then
+    mo_line='smoke=skipped reason=record-unreadable'
   else
     fu_log "=== finish (moved-on, report-only smoke) $(date -u +%Y-%m-%dT%H:%M:%SZ) commit=$FI_SHA head=$FI_HEAD"
     if fin_smoke "$FI_SHA" "$fi_rec" "$fi_up"; then
@@ -3598,11 +3763,12 @@ fin_moved_on() {
       fu_log "smoke failed (report-only): $SM_REASON: $SM_DETAIL"
     fi
   fi
-  fu_clear_state
+  fu_clear_state || :
   printf 'result=moved-on staged=%s head=%s\n' "$FI_SHA" "$FI_HEAD"
   printf '%s\n' "$mo_line"
   if [ "$mo_line" != 'smoke=passed' ] && [ -n "$SM_DETAIL" ]; then printf 'detail=%s\n' "$SM_DETAIL"; fi
   printf 'note=the staged commit is in your history but HEAD has moved past it, so nothing was reverted automatically; the smoke above is report-only (log: %s/last-smoke.log); --undo reverses the update\n' "$state"
+  fu_cleanup_line
   exit 1
 }
 
@@ -3661,7 +3827,7 @@ cmd_undo() { # [UPDATE-ID]
   # Paths are read a line at a time: a path with a space in it stays one path.
   ud_bad=
   ud_paths=$(ul_mktemp) || exit 1
-  fu_rec_paths "$ud_c" "$ud_rec" > "$ud_paths"
+  fu_rec_paths "$ud_c" "$ud_rec" > "$ud_paths" || ud_refuse "the update record could not be read from git"
   while IFS= read -r ud_p <&3; do
     [ -n "$ud_p" ] || continue
     if ul_path_forbidden "$ud_p"; then ud_bad=${ud_bad:+$ud_bad,}$ud_p; fi
@@ -3680,9 +3846,13 @@ cmd_undo() { # [UPDATE-ID]
   ud_ov=
   while IFS= read -r ud_p <&3; do
     [ -n "$ud_p" ] || continue
-    if [ -n "$(git --literal-pathspecs -C "$root" log --format=%H -n 1 "$ud_c..HEAD" -- "$ud_p" 2>/dev/null)" ] \
-       && [ "$(entry_at HEAD "$ud_p")" != "$(entry_at "$ud_c" "$ud_p")" ]; then
+    # fail closed: a path git cannot read on either side counts as overlapping
+    if ! ud_lg=$(git --literal-pathspecs -C "$root" log --format=%H -n 1 "$ud_c..HEAD" -- "$ud_p" 2>/dev/null); then
       ud_ov=${ud_ov:+$ud_ov,}$ud_p
+    elif [ -n "$ud_lg" ]; then
+      if ! ud_ea=$(fu_entry HEAD "$ud_p") || ! ud_eb=$(fu_entry "$ud_c" "$ud_p") || [ "$ud_ea" != "$ud_eb" ]; then
+        ud_ov=${ud_ov:+$ud_ov,}$ud_p
+      fi
     fi
   done 3< "$ud_paths"
   [ -z "$ud_ov" ] || ud_refuse "later changes overlap the update" "paths=$ud_ov"

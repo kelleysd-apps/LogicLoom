@@ -85,7 +85,7 @@ setup_probe() { # MODE
 #   lock        print the pid held in state/stage.lock as the last line, exit 1
 #   touch-app   append to the live repo's web/app.js (REPO_ROOT/../../../..)
 #   rm-log      delete the updater's own state/last-smoke.log
-#   rm-mine     delete a customer backup under state/mine
+#   rm-mine     chmod state/mine back to writable, then delete a customer backup under it
 #   commit-wt   commit in the staging worktree (only where REPO_ROOT has a .git entry)
 #   none        behave like the original check
 probe_install() {
@@ -99,7 +99,7 @@ case $mode in
   lock) printf 'lock=%s\n' "$(cat "$st/stage.lock" 2>/dev/null || echo none)"; exit 1;;
   touch-app) printf 'x\n' >> "$root/../../../../web/app.js";;
   rm-log) rm -f "$st/last-smoke.log";;
-  rm-mine) rm -rf "$st/mine";;
+  rm-mine) chmod -R u+w "$st/mine"; rm -rf "$st/mine";;   # the engine makes mine/ read-only during a check; a check that chmods back is only DETECTED
   commit-wt) if [ -e "$root/.git" ]; then git -C "$root" -c core.hooksPath=/dev/null commit -q --allow-empty -m probe; fi;;
 esac
 doc="$root/.docs/guides/FIXTURE.md"
