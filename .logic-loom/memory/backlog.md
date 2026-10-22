@@ -1137,6 +1137,15 @@ lost, and so the next person hits the reasoning instead of re-deriving it.
       Reopen trigger: a hooks module demonstrably executes on an installed
       version AND the feature appears in the public changelog.
 
+- [ ] LOOM-0075 — update-loom Phase 0 carry-over: three medium edge cases and one low from the final Codex review `status:open`
+      Filed 2026-10-21. None of these lose customer work. All in
+      `plugins/loom-maintenance/scripts/update-loom.sh`.
+      (a) Medium — a kill during `cg_lock`'s chmod can leave `state/mine` read-only: `CG_LOCKED` is set after both chmods, and recording/restoring mode errors are ignored (~1461-1497).
+      (b) Medium — a partial marker deletion can remove `staged` but leave `stage.info` while reporting both kept, so a retry fails (~3521).
+      (c) Medium — a landed `--finish` ignores `fi_rdfail`, so a tag-only git read failure can report `result=applied` with an empty tag and clear state (~3739).
+      (d) Low — the early-exit trap's `command -v cg_unlock` guard can match an unrelated executable named `cg_unlock` on PATH (~71).
+      Detail: `features/update-loom/exploration/design.md` § Build status.
+
 - [ ] LOOM-0061 — The dangerous-command guard fails OPEN with a bare `allow` that is indistinguishable from a healthy one `status:open`
       Filed 2026-09-04, verified by reading the shipped code rather than probing
       (the probe would have required moving a live governance library).

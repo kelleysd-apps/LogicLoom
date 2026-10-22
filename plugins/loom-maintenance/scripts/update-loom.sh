@@ -69,7 +69,8 @@ lock_release() { # drop stage.lock if THIS process holds it
   return 0
 }
 ul_exit() { # the EXIT trap: restore check-time permissions, release a held lock, then the shared temp cleanup
-  cg_unlock
+  # an exit before cg_unlock is defined (a usage error) has locked nothing: do not call it
+  if command -v cg_unlock >/dev/null 2>&1; then cg_unlock; fi
   lock_release
   ul_cleanup
 }
@@ -1451,17 +1452,56 @@ cg_fp() { # FILE LABEL : one `LABEL cksum size path` line for a regular file
   printf '%s %s %s %s\n' "$2" "${cf_c:-unreadable}" "${cf_n:-?}" "$1"
 }
 
+# The write bits each path had BEFORE the lock are recorded (`ls -ld`, which reads the same on
+# macOS and Linux) so the unlock puts back exactly those: a backup that was read-only stays
+# read-only. CG_MODES is a temp file of `UGO path` lines (UGO = three of w/- for user, group,
+# other). A forced unlock after a killed run has no list and falls back to adding u+w.
+CG_MODES=
+
+cg_record() { # PATH : append `UGO path` for one real file or directory (never a symlink)
+  [ ! -L "$1" ] && [ -e "$1" ] || return 0
+  cr_m=$(ls -ld -- "$1" 2>/dev/null | cut -c1-10)
+  [ -n "$cr_m" ] || return 0
+  cr_u=-; cr_g=-; cr_o=-
+  [ "$(printf '%s' "$cr_m" | cut -c3)" = w ] && cr_u=w
+  [ "$(printf '%s' "$cr_m" | cut -c6)" = w ] && cr_g=w
+  [ "$(printf '%s' "$cr_m" | cut -c9)" = w ] && cr_o=w
+  printf '%s%s%s %s\n' "$cr_u" "$cr_g" "$cr_o" "$1" >> "$CG_MODES"
+}
+
 cg_lock() { # read-only for the customer's backups and the smoke log while a check runs
-  if [ -d "$state/mine" ] && [ ! -L "$state/mine" ]; then chmod -R a-w "$state/mine" 2>/dev/null; fi
-  if [ -f "$state/last-smoke.log" ] && [ ! -L "$state/last-smoke.log" ]; then chmod a-w "$state/last-smoke.log" 2>/dev/null; fi
+  CG_MODES=$(ul_mktemp) || exit 1
+  if [ -d "$state/mine" ] && [ ! -L "$state/mine" ]; then
+    find "$state/mine" -print 2>/dev/null | while IFS= read -r cl_p; do cg_record "$cl_p"; done
+    chmod -R a-w "$state/mine" 2>/dev/null
+  fi
+  if [ -f "$state/last-smoke.log" ] && [ ! -L "$state/last-smoke.log" ]; then
+    cg_record "$state/last-smoke.log"
+    chmod a-w "$state/last-smoke.log" 2>/dev/null
+  fi
   CG_LOCKED=1
 }
 
 cg_unlock() { # idempotent; also called from the EXIT trap and from heal_stale (force)
   if [ "${CG_LOCKED:-0}" = 1 ] || [ "${1:-}" = force ]; then
-    if [ -d "$state/mine" ] && [ ! -L "$state/mine" ]; then chmod -R u+w "$state/mine" 2>/dev/null; fi
-    if [ -f "$state/last-smoke.log" ] && [ ! -L "$state/last-smoke.log" ]; then chmod u+w "$state/last-smoke.log" 2>/dev/null; fi
+    if [ -n "${CG_MODES:-}" ] && [ -s "$CG_MODES" ]; then
+      while IFS= read -r cu_l; do
+        cu_b=${cu_l%% *}; cu_p=${cu_l#* }
+        [ ! -L "$cu_p" ] && [ -e "$cu_p" ] || continue
+        cu_s=
+        for cu_i in 1 2 3; do
+          case $cu_i in 1) cu_w=u;; 2) cu_w=g;; 3) cu_w=o;; esac
+          cu_c=$(printf '%s' "$cu_b" | cut -c"$cu_i")
+          if [ "$cu_c" = w ]; then cu_s=${cu_s:+$cu_s,}$cu_w+w; else cu_s=${cu_s:+$cu_s,}$cu_w-w; fi
+        done
+        chmod "$cu_s" "$cu_p" 2>/dev/null
+      done < "$CG_MODES"
+    else
+      if [ -d "$state/mine" ] && [ ! -L "$state/mine" ]; then chmod -R u+w "$state/mine" 2>/dev/null; fi
+      if [ -f "$state/last-smoke.log" ] && [ ! -L "$state/last-smoke.log" ]; then chmod u+w "$state/last-smoke.log" 2>/dev/null; fi
+    fi
     CG_LOCKED=0
+    CG_MODES=
   fi
   return 0
 }
@@ -3385,13 +3425,18 @@ fu_log() { printf '%s\n' "$*" >> "$state/last-smoke.log"; }
 
 fu_join() { awk 'NR > 1 { printf "," } { printf "%s", $0 } END { printf "\n" }'; }
 
+# Both return 1 (printing nothing) when git itself failed, so a caller that must tell
+# "the record is absent" from "git could not read it" can: the output alone cannot.
 fu_rec_path() { # COMMIT -> the .applied record the commit added, nothing when none
-  git -C "$root" diff-tree --no-commit-id --name-only -r --diff-filter=A "$1" 2>/dev/null \
-    | awk -v d="$UL_APPLIED_DIR/" 'index($0, d) == 1 && substr($0, length(d) + 1) !~ /\// && $0 ~ /\.applied$/ { print; exit }'
+  frq_t=$(ul_mktemp) || return 1
+  git -C "$root" diff-tree --no-commit-id --name-only -r --diff-filter=A "$1" > "$frq_t" 2>/dev/null || return 1
+  awk -v d="$UL_APPLIED_DIR/" 'index($0, d) == 1 && substr($0, length(d) + 1) !~ /\// && $0 ~ /\.applied$/ { print; exit }' "$frq_t"
 }
 
 fu_rec_get() { # COMMIT RECPATH KEY -> the header value
-  git -C "$root" show "$1:$2" 2>/dev/null | sed -n "s/^$3=//p" | sed -n '1p'
+  frg_t=$(ul_mktemp) || return 1
+  git -C "$root" show "$1:$2" > "$frg_t" 2>/dev/null || return 1
+  sed -n "s/^$3=//p" "$frg_t" | sed -n '1p'
 }
 
 # Fail closed: git's status is checked BEFORE the record is parsed, because a pipe would
@@ -3473,8 +3518,11 @@ FU_CLEAN=
 fu_clear_state() {
   FU_CLEAN=
   if stg_wt_remove; then
-    rm -f "$state/staged" "$state/stage.info"
-    return 0
+    rm -f "$state/staged" "$state/stage.info" 2>/dev/null
+    if [ ! -e "$state/staged" ] && [ ! -e "$state/stage.info" ] && [ ! -L "$state/staged" ] && [ ! -L "$state/stage.info" ]; then
+      return 0
+    fi
+    SW_WHY='the staged marker could not be removed'
   fi
   FU_CLEAN=$SW_WHY
   fu_log "cleanup incomplete: $FU_CLEAN; staged and stage.info are kept so --finish or --abandon can be run again"
@@ -3651,12 +3699,13 @@ fin_look() {
 # The record and the values the smoke needs, from the staged commit. FI_REC empty when
 # the commit carries no .applied record.
 fin_prepare() { # COMMIT
-  fi_rec=$(fu_rec_path "$1")
+  fi_rdfail=0   # 1 when git itself failed reading the record (not: the record is absent)
+  fi_rec=$(fu_rec_path "$1") || fi_rdfail=1
   fi_uid=; fi_tag=; fi_up=
   if [ -n "$fi_rec" ]; then
-    fi_uid=$(fu_rec_get "$1" "$fi_rec" update_id)
-    fi_tag=$(fu_rec_get "$1" "$fi_rec" tag)
-    fi_up=$(fu_rec_get "$1" "$fi_rec" upstream)
+    fi_uid=$(fu_rec_get "$1" "$fi_rec" update_id) || fi_rdfail=1
+    fi_tag=$(fu_rec_get "$1" "$fi_rec" tag) || fi_rdfail=1
+    fi_up=$(fu_rec_get "$1" "$fi_rec" upstream) || fi_rdfail=1
   fi
   CHANNEL=$(meta_val channel)
   [ -n "$CHANNEL" ] || { resolve_channel; CHANNEL=$CH; }
@@ -3749,6 +3798,13 @@ cmd_finish() {
 fin_moved_on() {
   SM_REASON=; SM_DETAIL=
   fin_prepare "$FI_SHA"
+  if [ "$fi_rdfail" = 1 ]; then
+    # a transient git failure must not clear the retry state: keep staged and stage.info
+    fu_log "moved-on: git could not read the staged commit's record; staged and stage.info are kept"
+    printf 'result=record-read-failed staged=%s head=%s\n' "$FI_SHA" "$FI_HEAD"
+    printf 'note=git could not read the staged commit'"'"'s .applied record; staged and stage.info are kept, so run --finish again\n'
+    exit 1
+  fi
   mo_line=
   if [ -z "$fi_rec" ]; then
     mo_line='smoke=skipped reason=no-record'
@@ -3789,7 +3845,15 @@ cmd_undo() { # [UPDATE-ID]
     ud_refuse "your working tree has uncommitted changes: $(offender_paths "$ud_off")"
   fi
   ud_list=$(ul_mktemp) || exit 1
-  git -C "$root" ls-tree --name-only "HEAD:$UL_APPLIED_DIR" 2>/dev/null | awk '/\.applied$/ { sub(/\.applied$/, ""); print }' | LC_ALL=C sort > "$ud_list"
+  # a directory that is not there means no record (nothing to undo); a git failure is not that
+  ud_de=$(git --literal-pathspecs -C "$root" ls-tree HEAD -- "$UL_APPLIED_DIR" 2>/dev/null) || ud_refuse "git could not read the update record directory"
+  if [ -z "$ud_de" ]; then
+    : > "$ud_list"
+  else
+    ud_raw=$(ul_mktemp) || exit 1
+    git -C "$root" ls-tree --name-only "HEAD:$UL_APPLIED_DIR" > "$ud_raw" 2>/dev/null || ud_refuse "git could not list the update records"
+    awk '/\.applied$/ { sub(/\.applied$/, ""); print }' "$ud_raw" | LC_ALL=C sort > "$ud_list"
+  fi
   if [ -z "$ud_id" ]; then
     ud_id=$(tail -n 1 "$ud_list")
     if [ -z "$ud_id" ]; then
@@ -3833,7 +3897,8 @@ cmd_undo() { # [UPDATE-ID]
     if ul_path_forbidden "$ud_p"; then ud_bad=${ud_bad:+$ud_bad,}$ud_p; fi
   done 3< "$ud_paths"
   ud_touched=$(ul_mktemp) || exit 1
-  git -C "$root" -c core.quotepath=off diff-tree --no-commit-id --name-only -r "$ud_c" > "$ud_touched" 2>/dev/null
+  git -C "$root" -c core.quotepath=off diff-tree --no-commit-id --name-only -r "$ud_c" > "$ud_touched" 2>/dev/null \
+    || ud_refuse "git could not list the paths the update commit touched"
   while IFS= read -r ud_p <&3; do
     [ -n "$ud_p" ] || continue
     case $ud_p in "$UL_LEDGER"|"$UL_SYNC_REF"|"$UL_APPLIED_DIR"/*) continue;; esac

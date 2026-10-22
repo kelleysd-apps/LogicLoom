@@ -553,19 +553,22 @@ Recorded by the Phase 0 planner. Where these differ from the body above, **these
 
 ---
 
-## Build status — paused 2026-10-03
+## Build status — Phase 0 complete 2026-10-21
 
-Paused at the maintainer's request (token spend). Phase 0 is split into ten
-packages (`packages-phase-0.json`); four are built and reviewed:
-`p0-foundation`, `p0-lint-checks`, `p0-invariants`, `p0-engine-status-base`.
-Next package: `p0-engine-plan-classify`, then plan-notes, adapt-save,
-stage-abandon, finish-undo, e2e-floor. Not yet done for Phase 0: the phase
-gate (full suite) and the cross-provider review. Phases 1-4 not started.
-`tests/contract/test_update_loom.sh`: 1153 passing under `sh`.
-The v7 scanner is still in the tree; it is retired in Phase 2.
+All ten Phase-0 packages are built: `p0-foundation`, `p0-lint-checks`,
+`p0-invariants`, `p0-engine-status-base`, `p0-engine-plan-classify`,
+`p0-engine-plan-notes`, `p0-engine-adapt-save`, `p0-engine-stage-abandon`,
+`p0-engine-finish-undo`, `p0-e2e-floor`.
 
-Known red at the pause point (found 2026-10-04): `tests/contract/test_shipped_path_references.sh`
-fails 9/10 — `plugins/loom-maintenance/scripts/update-loom.sh:312-313` and
-`.logic-loom/config/update-loom-channels:63-64` cite two maintainer-only guides
-(`.docs/guides/dev-main-template-split.md`, `adopt-smoke-test.md`) that are
-stripped at release. Fix when the build resumes; the full suite was not run at the pause.
+Phase review ran at Heavy: one Claude advisor plus three Codex rounds, with fixes in three rounds. Headline fixes: `--finish` no longer discards uncommitted customer edits (it refuses a dirty tree); the live revert runs with hooks and signing off; every state writer holds the stage lock; git failures on success paths fail closed; recursive deletes refuse a symlinked state dir; cleanup failures are reported (`cleanup=incomplete` / `abandon-incomplete`); check scripts run with `state/mine` and `last-smoke.log` read-only, and their writes to the live repo or state dir are detected (detection plus hardening, not a sandbox).
+
+Suite: `tests/contract/test_update_loom.sh` 2310 passed, 0 failed under `sh` and `/bin/dash`; `tests/contract/test_bash32_floor.sh` 100/100. A full run takes about 25 minutes. The earlier known-red `test_shipped_path_references.sh` is green (17/17); functional adopt-exclude rows are exempted in the test.
+
+Known issues carried into Phase 1 (from the final Codex round; none lose customer work), tracked as LOOM-0075:
+- (a) Medium — a kill during `cg_lock`'s chmod can leave `state/mine` read-only: `CG_LOCKED` is set after both chmods, and recording/restoring mode errors are ignored (`update-loom.sh` ~1461-1497).
+- (b) Medium — a partial marker deletion can remove `staged` but leave `stage.info` while reporting both kept, so a retry fails (~3521).
+- (c) Medium — a landed `--finish` ignores `fi_rdfail`, so a tag-only git read failure can report `result=applied` with an empty tag and clear state (~3739).
+- (d) Low — the early-exit trap's `command -v cg_unlock` guard can match an unrelated executable named `cg_unlock` on PATH (~71).
+- Also open: improvement-note checks are unsandboxed shell (accepted design limit; mitigated as above).
+
+Next: Phase 1 (per the phase plan above). The v7 scanner is still in the tree; it is retired in Phase 2.
